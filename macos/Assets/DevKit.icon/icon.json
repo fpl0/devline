@@ -1,0 +1,66 @@
+{
+  "fill-specializations": [
+    {
+      "value": {
+        "solid": "srgb:0.955,0.950,0.935,1.000"
+      }
+    },
+    {
+      "appearance": "dark",
+      "value": {
+        "solid": "srgb:0.100,0.110,0.120,1.000"
+      }
+    }
+  ],
+  "groups": [
+    {
+      "name": "DevKit monogram",
+      "lighting": "individual",
+      "specular": false,
+      "shadow": {
+        "kind": "none",
+        "opacity": 0
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0
+      },
+      "layers": [
+        {
+          "name": "Monogram",
+          "image-name": "Monogram.png",
+          "glass": false,
+          "fill-specializations": [
+            {
+              "value": {
+                "solid": "srgb:0.100,0.110,0.120,1.000"
+              }
+            },
+            {
+              "appearance": "dark",
+              "value": {
+                "solid": "srgb:0.955,0.950,0.935,1.000"
+              }
+            },
+            {
+              "appearance": "tinted",
+              "value": {
+                "solid": "srgb:0.950,0.950,0.950,1.000"
+              }
+            }
+          ],
+          "position": {
+            "scale": 1.15,
+            "translation-in-points": [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}

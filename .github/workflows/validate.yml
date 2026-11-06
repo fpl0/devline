@@ -1,0 +1,43 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: Rust and native macOS build
+    runs-on: macos-26
+    timeout-minutes: 25
+    env:
+      CARGO_TERM_COLOR: always
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Rust components
+        run: rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+
+      - name: Check formatting
+        run: cargo +stable fmt --manifest-path core/Cargo.toml --all -- --check
+
+      - name: Test core and CLI
+        run: cargo +stable test --locked --manifest-path core/Cargo.toml
+
+      - name: Lint Rust
+        run: cargo +stable clippy --locked --manifest-path core/Cargo.toml --all-targets -- -D warnings
+
+      - name: Build the native app
+        run: |
+          cargo +stable build --release --locked --manifest-path core/Cargo.toml
+          swift build --package-path macos --build-system native -c release

@@ -1,0 +1,181 @@
+[
+  {
+    "id": "go/chi-api",
+    "name": "Chi HTTP API",
+    "stack": "go",
+    "version": "1.0.0",
+    "description": "Go 1.27 and Chi 5.2.4 HTTP API with a health endpoint and vendored source dependencies.",
+    "app_type": "api",
+    "path": "templates/go/chi-api/1.0.0",
+    "toolchain": "go",
+    "minimum_version": "1.27.3",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "go",
+      "chi"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "go/chi-api",
+    "name": "Chi HTTP API",
+    "stack": "go",
+    "version": "1.1.0",
+    "description": "Go 1.27 and Chi 5.2.4 HTTP API with health and service-name endpoints.",
+    "app_type": "api",
+    "path": "templates/go/chi-api/1.1.0",
+    "toolchain": "go",
+    "minimum_version": "1.27.3",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "go",
+      "chi"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "python/fastapi-api",
+    "name": "FastAPI HTTP API",
+    "stack": "python",
+    "version": "1.0.0",
+    "description": "CPython 3.15 and FastAPI 0.162.0 with pinned Apple Silicon wheels and local Swagger UI.",
+    "app_type": "api",
+    "path": "templates/python/fastapi-api/1.0.0",
+    "toolchain": "python3",
+    "minimum_version": "3.15.2",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "python",
+      "fastapi"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "rust/axum-api",
+    "name": "Axum HTTP API",
+    "stack": "rust",
+    "version": "1.0.0",
+    "description": "Rust and Axum 0.8.9 with Tokio and vendored Cargo dependencies.",
+    "app_type": "api",
+    "path": "templates/rust/axum-api/1.0.0",
+    "toolchain": "cargo",
+    "minimum_version": "1.99.1",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "rust",
+      "axum"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "dotnet/aspnet-api",
+    "name": "ASP.NET Core API",
+    "stack": "dotnet",
+    "version": "1.0.0",
+    "description": "ASP.NET Core with EF Core and a bundled SQLite NuGet feed.",
+    "app_type": "api",
+    "path": "templates/dotnet/aspnet-api/1.0.0",
+    "toolchain": "dotnet",
+    "minimum_version": "10.0.400",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "csharp",
+      "aspnet"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "java/spring-api",
+    "name": "Spring Boot API",
+    "stack": "java",
+    "version": "1.0.0",
+    "description": "Spring Boot 4.1.2 and JDK 26 with a bundled Maven repository.",
+    "app_type": "api",
+    "path": "templates/java/spring-api/1.0.0",
+    "toolchain": "mvn",
+    "minimum_version": "3.10.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "java",
+      "spring-boot"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "ruby/json-cli",
+    "name": "Ruby JSON CLI",
+    "stack": "ruby",
+    "version": "1.0.0",
+    "description": "A Ruby standard-library command-line starter for JSON input.",
+    "app_type": "cli",
+    "path": "templates/ruby/json-cli/1.0.0",
+    "toolchain": "ruby",
+    "minimum_version": "4.0.9",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "ruby"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "elixir/phoenix-api",
+    "name": "Phoenix HTTP API",
+    "stack": "elixir",
+    "version": "1.0.0",
+    "description": "Phoenix 1.8.16 and Bandit with vendored source, Hex and Rebar.",
+    "app_type": "api",
+    "path": "templates/elixir/phoenix-api/1.0.0",
+    "toolchain": "elixir",
+    "minimum_version": "1.20.5",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "elixir",
+      "phoenix"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "go/chi-api",
+    "name": "Chi HTTP API",
+    "stack": "go",
+    "version": "1.2.0",
+    "description": "Go 1.27 and Chi 5.2.4 task CRUD API with JSON validation, configurable listen address and vendored source dependencies.",
+    "app_type": "api",
+    "path": "templates/go/chi-api/1.2.0",
+    "toolchain": "go",
+    "minimum_version": "1.27.3",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "go",
+      "chi"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "python/fastapi-api",
+    "name": "FastAPI HTTP API",
+    "stack": "python",
+    "version": "1.1.0",
+    "description": "FastAPI 0.162.0 task CRUD API with validated models, lifecycle tests, pinned Apple Silicon wheels and local Swagger UI.",
+    "app_type": "api",
+    "path": "templates/python/fastapi-api/1.1.0",
+    "toolchain": "python3",
+    "minimum_version": "3.15.2",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "python",
+      "fastapi"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  }
+]

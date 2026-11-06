@@ -1,0 +1,4 @@
+module DevKitBridge [system] {
+    header "devkit.h"
+    export *
+}

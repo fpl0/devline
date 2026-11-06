@@ -1,0 +1,154 @@
+{
+  "catalog": {
+    "docs": 15,
+    "records": 9857,
+    "starters": 10,
+    "runtimes_available": 7,
+    "created": [
+      {
+        "template": "dotnet/aspnet-api",
+        "version": "1.0.0",
+        "test_command": "./devkit-test.sh"
+      },
+      {
+        "template": "elixir/phoenix-api",
+        "version": "1.0.0",
+        "test_command": "./devkit-test.sh"
+      },
+      {
+        "template": "go/chi-api",
+        "version": "1.2.0",
+        "test_command": "./devkit-test.sh"
+      },
+      {
+        "template": "java/spring-api",
+        "version": "1.0.0",
+        "test_command": "./devkit-test.sh"
+      },
+      {
+        "template": "python/fastapi-api",
+        "version": "1.1.0",
+        "test_command": "./devkit-test.sh"
+      },
+      {
+        "template": "ruby/json-cli",
+        "version": "1.0.0",
+        "test_command": "./devkit-test.sh"
+      },
+      {
+        "template": "rust/axum-api",
+        "version": "1.0.0",
+        "test_command": "./devkit-test.sh"
+      }
+    ]
+  },
+  "regression_tests_passed": 25,
+  "clippy_warnings_denied": "passed",
+  "all_bundled_starters_network_denied": "passed",
+  "generated_projects_system_only_path": "all seven stacks passed",
+  "go_latest_refresh_end_to_end": "passed",
+  "other_latest_recipes_end_to_end": "not exercised",
+  "cli_search_benchmark": {
+    "samples": 48,
+    "p50_ms": 19.07,
+    "p95_ms": 50.74,
+    "max_ms": 53.48,
+    "build": "0.2.0 installed release",
+    "queries": [
+      "http.Handler",
+      "Path.read_text",
+      "List.of",
+      "map/2",
+      "FastAPI",
+      "io.Reader"
+    ]
+  },
+  "benchmark_conditions": "48 CLI lookups over six symbol/API queries; full 9,857-record library; process startup included; warm filesystem caches; installed 0.2.0 on this Apple Silicon Mac",
+  "native_ui_verified": [
+    "clickable grouped docset browsing by exact version",
+    "http.Handler exact declaration landing",
+    "7 starter families with release picker",
+    "Go project creation with compact readiness",
+    "7 detected runtimes with details collapsed",
+    "Updates local status and Available filter",
+    "Go reader prose and code formatting in final installed 0.2.0",
+    "FastAPI First Steps Markdown headings, paragraphs, inline code, code blocks and lists",
+    "Markdown article body scroll and On This Page jump to Recap",
+    "FastAPI automatic pagination from 80 to all 131 articles with selection preserved",
+    "C# automatic pagination from 80 to 160 to 240 to 320 articles with current article preserved",
+    "Stable final list position after pagination, layout settling and independent reader scrolling"
+  ],
+  "distribution": "Apple Silicon macOS 14+; ad hoc signed, not notarized; runtime executables detected on host",
+  "icon_appearance": {
+    "source": "macos/Assets/DevKit.icon",
+    "native_renditions_verified": [
+      "Default",
+      "Dark",
+      "TintedDark"
+    ],
+    "rendered_sizes_px": [
+      16,
+      32,
+      64,
+      128
+    ],
+    "appearance_behavior": "native layered icon with explicit light and dark fills"
+  },
+  "product": "Devline",
+  "version": "0.2.0",
+  "updates": {
+    "live_official_source_check": "passed; no failed runtime sources",
+    "local_catalog_installs": "tested alongside retained versions",
+    "cached_failure_retention": "tested",
+    "app_channel": "https://github.com/fpl0/devline/releases/latest/download/release.json",
+    "runtime_installation": "manual official installer/version manager handoff"
+  },
+  "native_ui_created_project_test": "passed with external networking denied and system-only PATH",
+  "markdown": {
+    "rendering": "pulldown-cmark GFM HTML rendered in offline WKWebView",
+    "supported": [
+      "headings",
+      "paragraphs",
+      "code fences",
+      "tables",
+      "lists",
+      "task lists",
+      "footnotes",
+      "safe links"
+    ],
+    "existing_installations": "rendered at read time without modifying installed packs",
+    "plain_references": "Go and Chi API content retain native AppKit formatting",
+    "caveat": "links removed by original ingestion require new immutable pack snapshots to restore"
+  },
+  "pagination": {
+    "macos_15_and_later": "automatic near-end loading plus an inline manual/retry action",
+    "macos_14": "inline manual pagination; compiled deployment target, not separately exercised on macOS 14",
+    "layout": "fixed two-line browse rows and persistent footer prevent native List height recalculation jumps",
+    "page_size": 80,
+    "lookahead": 1,
+    "verified_platform": "macOS 27.2, Apple Silicon"
+  },
+  "installer": {
+    "version": "0.2.0",
+    "dmg": {
+      "file": "Devline-macos-arm64.dmg",
+      "bytes": 131239376,
+      "sha256": "e50ab6b706192dd73195ee2f6d9e4e1d946882720ff46c65d58b688ce344bd33"
+    },
+    "zip": {
+      "file": "Devline-macos-arm64.zip",
+      "bytes": 130947040,
+      "sha256": "33f8815434f1966d050b62aa09a4f2c9cfa648c68ae1eab279d308e2c29e756b"
+    },
+    "checks": [
+      "image checksum",
+      "read-only mounted contents",
+      "strict/deep ad hoc signature",
+      "arm64 executable",
+      "bundled CLI",
+      "Applications shortcut",
+      "installation README",
+      "detached after verification"
+    ]
+  }
+}

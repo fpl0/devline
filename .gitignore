@@ -1,0 +1,17 @@
+# Build and editor artifacts
+/core/target/
+/macos/.build/
+/macos/.swiftpm/
+xcuserdata/
+*.xcuserstate
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# Local bundles and library state
+/*.app
+/*.dmg
+/*.zip
+/*.sqlite3*
+/release.json
+/SHA256SUMS
