@@ -58,6 +58,22 @@ impl Fixture {
                 ]),
             ),
             (
+                "aspnet", "ASP.NET Core", "dotnet", "10",
+                json!([
+                    html_at("iis/index", "IIS", "<h1 id=\"iis\">IIS</h1>", "https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/index"),
+                    html_at("iis/advanced", "Advanced IIS", "<h2 id=\"iis-configuration\">IIS configuration</h2>", "https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/advanced"),
+                    html_at("iis/hosting-bundle", "Hosting Bundle", "<h2 id=\"install-the-net-hosting-bundle\">Install the .NET Hosting Bundle</h2>", "https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/hosting-bundle"),
+                    html_at("security/enforcing-ssl", "HTTPS", "<h2 id=\"http-strict-transport-security-hsts-protocol\">HSTS</h2><h2 id=\"Options&lt;T&gt;\">Options</h2><a name=\"legacy\"></a><pre>&lt;h2 id=\"missing\"&gt;</pre>", "https://learn.microsoft.com/en-us/aspnet/core/security/enforcing-ssl"),
+                ]),
+            ),
+            (
+                "ruby", "Ruby", "ruby", "4",
+                json!([
+                    html_at("api/Array", "Array", "<h1 id=\"array\">Array</h1>", "https://docs.ruby-lang.org/en/4.0/Array.html"),
+                    html_at("method/Array#map", "Array#map", "<h1 id=\"arraymap\">Array#map</h1>", "https://docs.ruby-lang.org/en/4.0/Array.html#method-i-map"),
+                ]),
+            ),
+            (
                 "elixir", "Elixir", "elixir", "1.20",
                 json!([
                     doc("Enum.html", "Enum", "@spec frequencies(t()) :: map()\n\nmap(enumerable, fun)\n\n@spec map(t(), (element() -> any())) :: list()\n\nTransforms every element.", &["Enum.map/2"]),
@@ -77,7 +93,7 @@ impl Fixture {
             serde_json::to_vec(&json!({"schema_version":1,"docs":packs,"templates":[]})).unwrap(),
         )
         .unwrap();
-        for pack in ["go", "chi", "python", "fastapi", "elixir"] {
+        for pack in ["go", "chi", "python", "fastapi", "aspnet", "ruby", "elixir"] {
             fixture
                 .call(json!({"command":"docs.install","id":pack}))
                 .unwrap();
@@ -129,6 +145,12 @@ fn doc(id: &str, title: &str, body: &str, aliases: &[&str]) -> Value {
 
 fn doc_at(id: &str, title: &str, body: &str, aliases: &[&str], source_url: &str) -> Value {
     json!({"id":id,"title":title,"body":body,"source_url":source_url,"aliases":aliases})
+}
+
+fn html_at(id: &str, title: &str, html: &str, source_url: &str) -> Value {
+    let mut article = doc_at(id, title, title, &[], source_url);
+    article["html"] = json!(html);
+    article
 }
 
 #[test]
@@ -199,6 +221,107 @@ fn resolves_offline_links_and_keeps_the_originating_release() {
     ] {
         assert!(fixture.call(request).unwrap().is_null());
     }
+}
+
+#[test]
+fn html_links_land_on_exact_or_verified_sections() {
+    let fixture = Fixture::new();
+    let origin = "aspnet@10/security/enforcing-ssl";
+    let resolve = |url| {
+        fixture
+            .call(json!({"command":"docs.resolve","url":url,"id":origin}))
+            .unwrap()
+    };
+    for (url, id, anchor) in [
+        ("#Options%3CT%3E", origin, "Options<T>"),
+        (
+            "#hsts",
+            origin,
+            "http-strict-transport-security-hsts-protocol",
+        ),
+        (
+            "../host-and-deploy/iis/index#install-the-net-hosting-bundle",
+            "aspnet@10/iis/hosting-bundle",
+            "install-the-net-hosting-bundle",
+        ),
+    ] {
+        assert_eq!(
+            resolve(url),
+            json!({"id":id,"anchor":anchor,"focus_text":null})
+        );
+    }
+    for url in [
+        "#missing",
+        "#%00",
+        "?view=aspnetcore-11.0#hsts",
+        "https://example.org/uninstalled#heading",
+        "../host-and-deploy/iis/index#http2-support",
+    ] {
+        assert_eq!(resolve(url), Value::Null, "{url}");
+    }
+    assert_eq!(
+        resolve("#"),
+        json!({"id":origin,"anchor":null,"focus_text":null})
+    );
+}
+
+#[test]
+fn link_repair_uses_the_origin_revision_and_preserves_exact_anchors() {
+    let fixture = Fixture::new();
+    let catalog = fixture.0.join("catalog");
+    let manifest = catalog.join("catalog.json");
+    let mut content: Value = serde_json::from_slice(&fs::read(&manifest).unwrap()).unwrap();
+    let aspnet = content["docs"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|pack| pack["id"] == "aspnet")
+        .unwrap();
+    aspnet["version"] = json!("10+devline.1");
+    fs::write(&manifest, serde_json::to_vec(&content).unwrap()).unwrap();
+    let path = catalog.join("docs/aspnet/documents.json");
+    let mut articles: Vec<Value> = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    articles.retain(|article| article["id"] != "iis/advanced");
+    let iis = articles
+        .iter_mut()
+        .find(|article| article["id"] == "iis/index")
+        .unwrap();
+    iis["html"] = json!("<h2 id=\"install-the-net-hosting-bundle\">Install here</h2>");
+    fs::write(path, serde_json::to_vec(&articles).unwrap()).unwrap();
+    fixture
+        .call(json!({"command":"docs.install","id":"aspnet"}))
+        .unwrap();
+
+    let resolve = |version, url| {
+        fixture.call(json!({
+            "command":"docs.resolve","url":url,"id":format!("aspnet@{version}/security/enforcing-ssl")
+        })).unwrap()
+    };
+    let url = "../host-and-deploy/iis/index#install-the-net-hosting-bundle";
+    assert_eq!(resolve("10", url)["id"], "aspnet@10/iis/hosting-bundle");
+    assert_eq!(
+        resolve("10+devline.1", url)["id"],
+        "aspnet@10+devline.1/iis/index"
+    );
+    let moved = "../host-and-deploy/iis/index#iis-configuration";
+    assert_eq!(resolve("10", moved)["id"], "aspnet@10/iis/advanced");
+    assert_eq!(resolve("10+devline.1", moved), Value::Null);
+}
+
+#[test]
+fn fragment_addressed_article_opens_without_a_phantom_anchor() {
+    let fixture = Fixture::new();
+    let resolved = fixture
+        .call(json!({
+            "command":"docs.resolve",
+            "id":"ruby@4/api/Array",
+            "url":"#method-i-map"
+        }))
+        .unwrap();
+    assert_eq!(
+        resolved,
+        json!({"id":"ruby@4/method/Array#map","anchor":null,"focus_text":null})
+    );
 }
 
 #[test]

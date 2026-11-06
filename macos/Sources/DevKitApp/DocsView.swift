@@ -89,11 +89,11 @@ struct DocsView: View {
         .onChange(of: reading.error) { _, error in if let error { model.error = error; reading.error = nil } }
         .onChange(of: reading.request) { _, request in if let request { restore(request) } }
         .sheet(isPresented: $showReferences) { ReferenceShelf(reading: reading, open: openReference, initialSaved: showSavedReferences) }
-        .alert("Page Not Installed", isPresented: Binding(get: { externalLink != nil }, set: { if !$0 { externalLink = nil } })) {
+        .alert("Link Unavailable Offline", isPresented: Binding(get: { externalLink != nil }, set: { if !$0 { externalLink = nil } })) {
             Button("Open in Browser") { if let url = externalLink { NSWorkspace.shared.open(url) }; externalLink = nil }
             Button("Cancel", role: .cancel) { externalLink = nil }
         } message: {
-            Text("This page is not in your installed documentation. Open \(externalLink?.host ?? "the linked page") in your browser when you have a connection.")
+            Text("This page or section is unavailable in your installed documentation. Open \(externalLink?.host ?? "the linked page") in your browser when you have a connection.")
         }
         .onChange(of: stack) { _, stack in
             if let currentPack, currentPack.stack != stack { packReference = nil }

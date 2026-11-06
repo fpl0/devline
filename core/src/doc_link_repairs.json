@@ -1,0 +1,129 @@
+{
+  "https://doc.rust-lang.org/1.99.1/book/ch19-01-unsafe-rust.html": {
+    "dereferencing-a-raw-pointer": "ch20-01-unsafe-rust.html#dereferencing-a-raw-pointer",
+    "using-extern-functions-to-call-external-code": "ch20-01-unsafe-rust.html#using-extern-functions-to-call-external-code"
+  },
+  "https://doc.rust-lang.org/1.99.1/reference/lifetime-elision.html": {
+    "static-lifetime-elision": "#const-and-static-elision"
+  },
+  "https://doc.rust-lang.org/1.99.1/std/thread/join_handle/struct.JoinHandle.html": {
+    "method.join": "../struct.JoinHandle.html#method.join"
+  },
+  "https://docs.oracle.com/en/java/javase/26/docs/api/java.base/java/lang/Thread.html": {
+    "irtual-threads": "#virtual-threads"
+  },
+  "https://docs.python.org/3.15/library/_thread.html": {
+    "start_new_thread": "#thread.start_new_thread"
+  },
+  "https://docs.ruby-lang.org/en/4.0/doc/optparse/option_params_rdoc.html": {
+    "label-Terminators": "tutorial_rdoc.html#label-Method+parse-21"
+  },
+  "https://docs.spring.io/spring-boot/4.1/maven-plugin/build-image.html": {
+    "build-image": "#page-title"
+  },
+  "https://docs.spring.io/spring-boot/4.1/reference/security/oauth2.html": {
+    "security.oauth2": "#page-title"
+  },
+  "https://docs.spring.io/spring-boot/4.1/reference/security/saml2.html": {
+    "security.saml2": "#page-title"
+  },
+  "https://docs.spring.io/spring-boot/4.1/reference/testing/testcontainers.html": {
+    "testing.testcontainers": "#page-title"
+  },
+  "https://docs.spring.io/spring-boot/4.1/reference/web/spring-security.html": {
+    "web.security": "#page-title"
+  },
+  "https://guides.rubyonrails.org/v8.1/association_basics.html": {
+    "the-has-and-belongs-to-many-association": "#has-and-belongs-to-many",
+    "the-has-many-association": "#has-many",
+    "the-has-one-association": "#has-one"
+  },
+  "https://guides.rubyonrails.org/v8.1/autoloading_and_reloading_constants.html": {
+    "autoload-paths": "#config-autoload-paths"
+  },
+  "https://guides.rubyonrails.org/v8.1/caching_with_rails.html": {
+    "cache-stores": "#other-cache-stores"
+  },
+  "https://guides.rubyonrails.org/v8.1/command_line.html": {
+    "the-app-and-helper-objects": "#the-app-object"
+  },
+  "https://guides.rubyonrails.org/v8.1/getting_started.html": {
+    "creating-a-new-rails-project": "#creating-a-new-rails-app"
+  },
+  "https://guides.rubyonrails.org/v8.1/testing.html": {
+    "the-low-down-on-fixtures": "#fixtures"
+  },
+  "https://hexdocs.pm/elixir/1.20.5/Enumerable.html": {
+    "c:count/1": "#count/1"
+  },
+  "https://hexdocs.pm/elixir/1.20.5/Module.html": {
+    "module-impl": "#module-impl-since-v1-5-0"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/fundamentals/http-requests": {
+    "header-propagation-middleware": "#use-header-propagation-middleware"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/fundamentals/localization": {
+    "resource-file-naming": "localization/provide-resources#resource-file-naming"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/fundamentals/middleware/index": {
+    "create-a-middleware-pipeline-with-iapplicationbuilder": "#create-a-middleware-pipeline-with-webapplication"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis": {
+    "asparam7": "minimal-apis/parameter-binding#asparam7"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel/endpoints": {
+    "configuration": "#configure-https-in-appsettingsjson",
+    "listenoptionsprotocols": "#configure-http-protocols-in-code"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/aspnet-core-module": {
+    "app_offlinehtm": "app-offline#app-offline-file-app_offlinehtm",
+    "aspnet-core-module-with-an-iis-shared-configuration": "iis/advanced#aspnet-core-module-with-an-iis-shared-configuration",
+    "attributes-of-the-aspnetcore-element": "iis/web-config#attributes-of-the-aspnetcore-element",
+    "configuration-with-webconfig": "iis/web-config#configuration-of-aspnet-core-module-with-webconfig",
+    "log-creation-and-redirection": "iis/logging-and-diagnostics#iis-log-creation-and-redirection",
+    "setting-environment-variables": "iis/web-config#set-environment-variables"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/index": {
+    "enable-the-iisintegration-components": "out-of-process-hosting#enable-the-iisintegration-components",
+    "http2-support": "advanced#http2-support",
+    "iis-configuration": "advanced#iis-configuration",
+    "iis-options": "out-of-process-hosting#enable-the-iisintegration-components",
+    "in-process-hosting-model": "in-process-hosting#in-process-hosting-with-iis-and-aspnet-core",
+    "install-the-net-hosting-bundle": "hosting-bundle#install-the-net-hosting-bundle",
+    "out-of-process-hosting-model": "out-of-process-hosting#out-of-process-hosting-model",
+    "sub-applications": "advanced#sub-applications"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/index": {
+    "d128": "docker/index#d128"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/performance/caching/memory": {
+    "use-setsize-size-and-sizelimit-to-limit-cache-size": "#limit-cache-size-with-setsize-size-and-sizelimit"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/performance/caching/output": {
+    "cache-storage": "#explore-cache-storage-options"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/performance/caching/response": {
+    "vary": "#vary-header"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery": {
+    "aspnet-core-antiforgery-configuration": "#configure-antiforgery-with-antiforgeryoptions"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/security/authentication/certauth": {
+    "optional-client-certificates": "#use-optional-client-certificates"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/security/enforcing-ssl": {
+    "hsts": "#http-strict-transport-security-hsts-protocol"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/security/key-vault-configuration": {
+    "secret-storage-in-the-production-environment-with-azure-key-vault": "#secret-storage-in-the-production-environment-with-key-vault"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/tutorials/razor-pages/new-field": {
+    "pmc": "#add-a-migration-for-the-rating-field"
+  },
+  "https://learn.microsoft.com/en-us/aspnet/core/tutorials/razor-pages/sql": {
+    "ssox": "#sql-server-express-localdb"
+  },
+  "https://learn.microsoft.com/en-us/dotnet/standard/datetime/system-text-json-support": {
+    "-and-": "#systembufferstextutf8parser-and-systembufferstextutf8formatter"
+  }
+}
