@@ -5,16 +5,37 @@ import WebKit
 struct DocReader: View {
     let document: Document
     let packName: String
+    var anchor: String?
+    var focus: String?
+    var restoredPosition: Double?
+    var isSaved = false
+    var save: (String?, String?) -> Void = { _, _ in }
+    var navigate: (URL) -> Void = { NSWorkspace.shared.open($0) }
+    var openPart: (String) -> Void = { _ in }
+    var reportPosition: (Double, String?) -> Void = { _, _ in }
+    @AppStorage("devline.readerScale") private var scale = 1.0
     @State private var article: ReaderArticle?
+    @State private var currentAnchor: String?
+    @State private var currentFocus: String?
     @State private var htmlSections: [ReaderSection] = []
     @State private var findVisible = false
+    @State private var outlineVisible = false
+    @State private var outlineFilter = ""
+    @State private var outlineSelection: String?
     @State private var findText = ""
     @State private var request: ReaderRequest?
     @State private var matchFound: Bool?
     @FocusState private var findFocused: Bool
+    @FocusState private var outlineFocused: Bool
 
     private var html: String? { document.html.flatMap { $0.isEmpty ? nil : $0 } }
     private var sections: [ReaderSection] { html == nil ? (article?.sections ?? []) : htmlSections }
+    private var filteredSections: [ReaderSection] {
+        sections.filter { outlineFilter.isEmpty || $0.title.localizedCaseInsensitiveContains(outlineFilter) }
+    }
+    private var initialTarget: ReaderTarget {
+        ReaderTarget(anchor: anchor, focus: focus ?? document.focusText, position: restoredPosition)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -22,126 +43,181 @@ struct DocReader: View {
             Divider()
             if findVisible { findBar; Divider() }
             if let html {
-                OfflineArticle(
-                    html: html,
-                    title: ReaderMarkup.title(document.title, fallback: "\(packName) Overview"),
-                    request: request,
-                    report: reportFind,
-                    reportSections: { htmlSections = $0 }
-                )
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                OfflineArticle(html: html, title: ReaderMarkup.title(document.title, fallback: "\(packName) Overview"),
+                               sourceURL: document.sourceUrl, scale: scale, request: request,
+                               report: reportFind, reportSections: { htmlSections = $0 },
+                               navigate: navigate, reportPosition: { fraction, anchor, userInitiated in
+                                   if userInitiated { currentAnchor = anchor; currentFocus = nil }
+                                   reportPosition(fraction, currentAnchor)
+                               })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let article {
                 GeometryReader { geometry in
-                    PlainArticle(
-                        article: article,
-                        horizontalInset: max(25, (geometry.size.width - 710) / 2),
-                        request: request,
-                        report: reportFind
-                    )
+                    PlainArticle(article: article, horizontalInset: max(25, (geometry.size.width - 710 * scale) / 2),
+                                 scale: scale, request: request, report: reportFind,
+                                 reportPosition: { reportPosition($0, currentAnchor) })
                 }
             } else {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            if document.previousId != nil || document.nextId != nil { continuationBar }
         }
-        .task(id: document.focusText) {
-            if html == nil, article == nil {
-                article = ReaderMarkup.article(document, fallback: "\(packName) Overview")
-            }
-            if let focus = document.focusText, !focus.isEmpty {
+        .task(id: initialTarget) {
+            currentAnchor = initialTarget.anchor
+            currentFocus = initialTarget.focus
+            if html == nil, article == nil { article = ReaderMarkup.article(document, fallback: "\(packName) Overview") }
+            if let position = initialTarget.position {
+                request = ReaderRequest(action: .restore(position))
+            } else if let anchor = initialTarget.anchor, !anchor.isEmpty, html != nil {
+                request = ReaderRequest(action: .jump(ReaderSection(title: "", target: .anchor(anchor), fallbackText: initialTarget.focus)))
+            } else if let focus = initialTarget.focus, !focus.isEmpty {
                 let target = html != nil || article?.contents.string.localizedCaseInsensitiveContains(focus) == true
                     ? focus : ReaderMarkup.summary(focus)
-                if !target.isEmpty {
-                    request = ReaderRequest(action: .find(text: target, backwards: false, fromStart: true))
-                }
+                if !target.isEmpty { request = ReaderRequest(action: .focus(target)) }
             }
         }
     }
 
     private var readerBar: some View {
-        HStack(spacing: 13) {
-            Label("\(packName) · \(document.version)", systemImage: "book")
+        HStack(spacing: 12) {
+            Label("\(packName) · \(displayDocVersion(document.version))", systemImage: "book")
                 .font(.callout.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
+                .help("\(packName) \(document.version) — installed offline")
             Spacer(minLength: 5)
+            Button { save(currentAnchor, currentFocus) } label: { Image(systemName: isSaved ? "bookmark.fill" : "bookmark") }
+                .buttonStyle(.borderless).keyboardShortcut("d")
+                .help(isSaved ? "Remove Saved Reference (⌘D)" : "Save Reference (⌘D)")
+                .accessibilityLabel(isSaved ? "Remove Saved Reference" : "Save Reference")
             if !sections.isEmpty {
-                Menu {
-                    ForEach(sections) { section in
-                        Button(section.title) { request = ReaderRequest(action: .jump(section)) }
-                    }
-                } label: {
-                    Label("On This Page", systemImage: "list.bullet")
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .accessibilityLabel("On This Page")
+                Button { outlineFilter = ""; outlineSelection = nil; outlineVisible.toggle() } label: { Label("Contents", systemImage: "list.bullet") }
+                    .buttonStyle(.borderless).keyboardShortcut("o", modifiers: [.command, .shift])
+                    .help("Search Page Contents (⇧⌘O)").accessibilityLabel("Search Page Contents")
+                    .popover(isPresented: $outlineVisible, arrowEdge: .bottom) { outline }
             }
-            Button {
-                findVisible = true
-                findFocused = true
-            } label: {
-                Image(systemName: "magnifyingglass")
-            }
-            .buttonStyle(.borderless)
-            .keyboardShortcut("f", modifiers: [.command, .option])
-            .help("Find in Page (⌥⌘F)")
-            .accessibilityLabel("Find in Page")
+            Button { findVisible = true; findFocused = true } label: { Image(systemName: "magnifyingglass") }
+                .buttonStyle(.borderless).keyboardShortcut("f", modifiers: [.command, .option])
+                .help("Find in Page (⌥⌘F)").accessibilityLabel("Find in Page")
+            Menu {
+                Button("Larger Text") { scale = min(1.65, scale + 0.1) }.keyboardShortcut("+")
+                Button("Smaller Text") { scale = max(0.8, scale - 0.1) }.keyboardShortcut("-")
+                Button("Actual Size") { scale = 1 }.keyboardShortcut("0")
+                Divider()
+                Button("Copy Reference Link") { copyReferenceLink() }
+                Button("Copy Official URL") { copy(document.sourceUrl) }
+            } label: { Image(systemName: "textformat.size") }
+                .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Reading Options")
             if let source = safeExternalURL(document.sourceUrl) {
-                Link(destination: source) { Label("Source", systemImage: "arrow.up.right") }
-                    .font(.callout)
-                    .help("Open official source in your browser")
-                    .accessibilityLabel("Open Official Source")
+                Link(destination: source) { Image(systemName: "arrow.up.right.square") }
+                    .help("Open Official Source in Browser").accessibilityLabel("Open Official Source")
             }
+        }.padding(.horizontal, 20).padding(.vertical, 10)
+    }
+
+    private var outline: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("On This Page").font(.headline)
+            TextField("Find a section or symbol", text: $outlineFilter)
+                .textFieldStyle(.roundedBorder).focused($outlineFocused)
+                .onSubmit { if let item = filteredSections.first(where: { $0.id == outlineSelection }) ?? filteredSections.first { jump(item) } }
+                .onKeyPress(.downArrow) { moveOutline(1); return .handled }
+                .onKeyPress(.upArrow) { moveOutline(-1); return .handled }
+                .onKeyPress(.escape) { outlineVisible = false; return .handled }
+            if filteredSections.isEmpty {
+                Text("No matching sections").foregroundStyle(.secondary).padding(.vertical, 18)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 2) {
+                            ForEach(filteredSections) { section in
+                                Button { jump(section) } label: {
+                                    Text(section.title).lineLimit(2).font(.callout)
+                                        .padding(.leading, CGFloat(max(0, section.depth - 2)) * 10)
+                                        .padding(.horizontal, 8).padding(.vertical, 7)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(outlineSelection == section.id ? Color.accentColor.opacity(0.15) : .clear,
+                                                    in: RoundedRectangle(cornerRadius: 5))
+                                        .contentShape(Rectangle())
+                                }.buttonStyle(.plain).id(section.id)
+                            }
+                        }
+                    }
+                    .onChange(of: outlineSelection) { _, selected in if let selected { proxy.scrollTo(selected) } }
+                }
+            }
+            Text("\(sections.count) sections · ↑ ↓ to select · Return to jump")
+                .font(.caption).foregroundStyle(.secondary)
+        }.padding(16).frame(width: 380, height: 430)
+            .task { outlineFocused = true }
+    }
+
+    private func moveOutline(_ offset: Int) {
+        guard !filteredSections.isEmpty else { return }
+        let index = filteredSections.firstIndex { $0.id == outlineSelection } ?? (offset > 0 ? -1 : filteredSections.count)
+        outlineSelection = filteredSections[min(max(0, index + offset), filteredSections.count - 1)].id
+    }
+
+    private func jump(_ section: ReaderSection) {
+        switch section.target {
+        case .anchor(let anchor): currentAnchor = anchor; currentFocus = nil
+        case .text: currentAnchor = nil; currentFocus = section.title
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
+        request = ReaderRequest(action: .jump(section))
+        outlineVisible = false
+    }
+
+    private var continuationBar: some View {
+        HStack {
+            Button("Previous Part") { if let id = document.previousId { openPart(id) } }
+                .disabled(document.previousId == nil)
+            Spacer()
+            if let part = document.part, let parts = document.parts {
+                Text("Part \(part) of \(parts)").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("Continue Reading") { if let id = document.nextId { openPart(id) } }
+                .disabled(document.nextId == nil)
+        }.padding(.horizontal, 20).padding(.vertical, 10).background(.bar)
     }
 
     private var findBar: some View {
         HStack(spacing: 8) {
             TextField("Find in this page", text: $findText)
-                .textFieldStyle(.roundedBorder)
-                .focused($findFocused)
+                .textFieldStyle(.roundedBorder).focused($findFocused)
                 .onSubmit { searchPage() }
                 .onChange(of: findText) { _, _ in searchPage(fromStart: true) }
                 .onKeyPress(.escape) { closeFind(); return .handled }
-            if matchFound == false {
-                Text("No matches").font(.caption).foregroundStyle(.secondary)
-            }
+            if matchFound == false { Text("No matches").font(.caption).foregroundStyle(.secondary) }
             Button { searchPage(backwards: true) } label: { Image(systemName: "chevron.up") }
-                .keyboardShortcut("g", modifiers: [.command, .shift])
-                .help("Previous Match (⇧⌘G)")
-                .accessibilityLabel("Previous Match")
-                .disabled(findText.isEmpty)
+                .keyboardShortcut("g", modifiers: [.command, .shift]).help("Previous Match (⇧⌘G)")
+                .accessibilityLabel("Previous Match").disabled(findText.isEmpty)
             Button { searchPage() } label: { Image(systemName: "chevron.down") }
-                .keyboardShortcut("g")
-                .help("Next Match (⌘G)")
-                .accessibilityLabel("Next Match")
-                .disabled(findText.isEmpty)
+                .keyboardShortcut("g").help("Next Match (⌘G)")
+                .accessibilityLabel("Next Match").disabled(findText.isEmpty)
             Button(action: closeFind) { Image(systemName: "xmark") }
-                .buttonStyle(.borderless)
-                .help("Close Find")
-                .accessibilityLabel("Close Find")
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(.bar)
-        .task { findFocused = true }
+                .buttonStyle(.borderless).help("Close Find").accessibilityLabel("Close Find")
+        }.padding(.horizontal, 20).padding(.vertical, 8).background(.bar)
+            .task { findFocused = true }
     }
 
     private func searchPage(backwards: Bool = false, fromStart: Bool = false) {
         matchFound = nil
         request = findText.isEmpty ? nil : ReaderRequest(action: .find(text: findText, backwards: backwards, fromStart: fromStart))
     }
-
     private func reportFind(_ current: ReaderRequest, found: Bool) {
         if request == current && findVisible { matchFound = found }
     }
-
-    private func closeFind() {
-        findVisible = false
-        findText = ""
-        request = nil
-        matchFound = nil
+    private func closeFind() { findVisible = false; findText = ""; request = nil; matchFound = nil }
+    private func copy(_ text: String) { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string) }
+    private func copyReferenceLink() {
+        var components = URLComponents()
+        components.scheme = "devline"
+        components.host = "docs"
+        components.queryItems = [URLQueryItem(name: "id", value: document.id)]
+        if let anchor = currentAnchor { components.queryItems?.append(URLQueryItem(name: "anchor", value: anchor)) }
+        if let focus = currentFocus { components.queryItems?.append(URLQueryItem(name: "focus", value: focus)) }
+        if let address = components.string { copy(address) }
     }
+    private struct ReaderTarget: Equatable { let anchor, focus: String?; let position: Double? }
 }
 
 private struct ReaderArticle {
@@ -157,6 +233,8 @@ private struct ReaderSection: Equatable, Identifiable {
 
     let title: String
     let target: Target
+    var depth = 2
+    var fallbackText: String?
     var id: String {
         switch target {
         case .text(let range): "text-\(range.location)"
@@ -168,7 +246,9 @@ private struct ReaderSection: Equatable, Identifiable {
 private struct ReaderRequest: Equatable {
     enum Action: Equatable {
         case find(text: String, backwards: Bool, fromStart: Bool)
+        case focus(String)
         case jump(ReaderSection)
+        case restore(Double)
     }
 
     let id = UUID()
@@ -459,8 +539,10 @@ enum ReaderMarkup {
 private struct PlainArticle: NSViewRepresentable {
     let article: ReaderArticle
     let horizontalInset: CGFloat
+    let scale: Double
     let request: ReaderRequest?
     let report: (ReaderRequest, Bool) -> Void
+    let reportPosition: (Double) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -473,12 +555,18 @@ private struct PlainArticle: NSViewRepresentable {
         textView.isSelectable = true
         textView.textContainerInset = NSSize(width: horizontalInset, height: 20)
         textView.setAccessibilityLabel("Document contents")
-        textView.textStorage?.setAttributedString(article.contents)
+        textView.textStorage?.setAttributedString(scaledContents())
+        context.coordinator.attach(scrollView, report: reportPosition)
         return scrollView
     }
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
+        context.coordinator.reportPosition = reportPosition
+        if context.coordinator.scale != scale {
+            context.coordinator.scale = scale
+            textView.textStorage?.setAttributedString(scaledContents())
+        }
         if textView.textContainerInset.width != horizontalInset {
             textView.textContainerInset = NSSize(width: horizontalInset, height: 20)
         }
@@ -501,6 +589,12 @@ private struct PlainArticle: NSViewRepresentable {
     private func apply(_ request: ReaderRequest, last: ReaderRequest?, to textView: NSTextView,
                        in scrollView: NSScrollView) {
         switch request.action {
+        case .focus(let text):
+            apply(ReaderRequest(action: .find(text: text, backwards: false, fromStart: true)), last: last, to: textView, in: scrollView)
+        case .restore(let fraction):
+            let height = max(0, textView.frame.height - scrollView.contentView.bounds.height)
+            scrollView.contentView.scroll(to: NSPoint(x: 0, y: height * min(1, max(0, fraction))))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
         case .jump(let section):
             guard case .text(let range) = section.target else { return }
             textView.setSelectedRange(NSRange(location: range.location, length: 0))
@@ -542,8 +636,32 @@ private struct PlainArticle: NSViewRepresentable {
         scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
+    private func scaledContents() -> NSAttributedString {
+        let contents = NSMutableAttributedString(attributedString: article.contents)
+        contents.enumerateAttribute(.font, in: NSRange(location: 0, length: contents.length)) { value, range, _ in
+            if let font = value as? NSFont {
+                contents.addAttribute(.font, value: NSFontManager.shared.convert(font, toSize: font.pointSize * scale), range: range)
+            }
+        }
+        return contents
+    }
+
     final class Coordinator {
         var last: ReaderRequest?
+        var scale = 1.0
+        var reportPosition: ((Double) -> Void)?
+        private var observer: NSObjectProtocol?
+        func attach(_ view: NSScrollView, report: @escaping (Double) -> Void) {
+            reportPosition = report
+            view.contentView.postsBoundsChangedNotifications = true
+            observer = NotificationCenter.default.addObserver(forName: NSView.boundsDidChangeNotification,
+                                                               object: view.contentView, queue: .main) { [weak self, weak view] _ in
+                guard let view, let content = view.documentView else { return }
+                let maximum = max(0, content.frame.height - view.contentView.bounds.height)
+                self?.reportPosition?(maximum > 0 ? view.contentView.bounds.minY / maximum : 0)
+            }
+        }
+        deinit { if let observer { NotificationCenter.default.removeObserver(observer) } }
     }
 }
 
@@ -557,17 +675,22 @@ private func safeExternalURL(_ value: String) -> URL? {
 private struct OfflineArticle: NSViewRepresentable {
     let html: String
     let title: String
+    let sourceURL: String
+    let scale: Double
     let request: ReaderRequest?
     let report: (ReaderRequest, Bool) -> Void
     let reportSections: ([ReaderSection]) -> Void
+    let navigate: (URL) -> Void
+    let reportPosition: (Double, String?, Bool) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeNSView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        config.defaultWebpagePreferences.allowsContentJavaScript = false
-        config.websiteDataStore = .nonPersistent()
-        let view = WKWebView(frame: .zero, configuration: config)
+        let configuration = WKWebViewConfiguration()
+        configuration.defaultWebpagePreferences.allowsContentJavaScript = false
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.userContentController.add(context.coordinator, contentWorld: Coordinator.readerWorld, name: "readerAction")
+        let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator
         view.setAccessibilityLabel("Document contents")
         return view
@@ -578,81 +701,83 @@ private struct OfflineArticle: NSViewRepresentable {
         coordinator.request = request
         coordinator.report = report
         coordinator.reportSections = reportSections
+        coordinator.navigate = navigate
+        coordinator.reportPosition = reportPosition
+        coordinator.sourceURL = sourceURL
+        if view.pageZoom != scale { view.pageZoom = scale }
         if coordinator.lastHTML != html || coordinator.lastTitle != title {
             coordinator.load(page, html: html, title: title, in: view)
-        } else {
-            coordinator.applyRequest(in: view)
-        }
+        } else { coordinator.applyRequest(in: view) }
+    }
+
+    static func dismantleNSView(_ view: WKWebView, coordinator: Coordinator) {
+        view.configuration.userContentController.removeScriptMessageHandler(forName: "readerAction", contentWorld: Coordinator.readerWorld)
+        view.navigationDelegate = nil
     }
 
     private var page: String {
-        let hasTitle = html.range(of: #"(?i)\A\s*<h1\b"#, options: .regularExpression) != nil
+        let hasTitle = html.range(of: #"(?i)<h1\b"#, options: .regularExpression) != nil
         let escapedTitle = title.replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;")
         let heading = hasTitle ? "" : "<h1 class=\"reader-title\">\(escapedTitle)</h1>"
         return """
-            <!doctype html>
-            <html lang="en">
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
-            <style>
-            :root {
-                color-scheme: light dark;
-                --line: color-mix(in srgb, CanvasText 19%, Canvas);
-                --soft: color-mix(in srgb, CanvasText 7%, Canvas);
-            }
-            * { box-sizing: border-box; }
-            body { margin: 0; background: Canvas; color: CanvasText; font: 14px/1.62 -apple-system, system-ui, sans-serif; }
-            main { max-inline-size: 760px; margin-inline: auto; padding: 24px 26px 38px; overflow-wrap: anywhere; }
-            h1, h2, h3, h4, h5, h6 { margin: 24px 0 9px; line-height: 1.26; scroll-margin-block-start: 20px; }
-            h1 { font-size: 29px; font-weight: 650; }
-            h2 { font-size: 21px; font-weight: 650; }
-            h3 { font-size: 17px; font-weight: 650; }
-            h4, h5, h6 { font-size: 15px; font-weight: 650; }
-            main > :first-child { margin-block-start: 0; }
-            p, ul, ol, dl, blockquote, pre, .table-scroll { margin: 0 0 13px; }
-            ul, ol { padding-inline-start: 1.6em; }
-            li + li { margin-block-start: 4px; }
-            li > p { margin-block-end: 5px; }
-            li > ul, li > ol { margin-block: 4px 0; }
-            dd { margin-inline-start: 1.4em; }
-            blockquote { padding-inline-start: 13px; border-inline-start: 2px solid var(--line); }
-            code, kbd { font: 0.91em ui-monospace, Menlo, monospace; background: var(--soft); padding: 1px 4px; border-radius: 4px; white-space: break-spaces; }
-            pre, .table-scroll { max-inline-size: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
-            pre { background: var(--soft); border-radius: 7px; padding: 12px 14px; font: 12.5px/1.54 ui-monospace, Menlo, monospace; tab-size: 4; white-space: pre; overflow-wrap: normal; }
-            pre code { font: inherit; background: none; padding: 0; white-space: inherit; }
-            table { min-inline-size: 100%; border-collapse: collapse; font-size: 13px; }
-            th, td { padding: 7px 10px; text-align: start; vertical-align: top; border-block-end: 1px solid var(--line); }
-            th { background: var(--soft); font-weight: 650; }
-            td code, th code { white-space: nowrap; }
-            hr { border: 0; border-block-start: 1px solid var(--line); margin-block: 20px; }
-            img { max-inline-size: 100%; height: auto; }
-            a { color: LinkText; text-underline-offset: 2px; }
-            :focus-visible { outline: 2px solid -webkit-focus-ring-color; outline-offset: 2px; }
-            </style>
-            <body><main id="devline-reader">\(heading)\(html)</main></body>
-            </html>
-            """
+        <!doctype html><html lang="en"><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+        <style>
+        :root { color-scheme: light dark; --line: color-mix(in srgb, CanvasText 18%, Canvas); --soft: color-mix(in srgb, CanvasText 6%, Canvas); }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: Canvas; color: CanvasText; font: 14px/1.65 -apple-system, system-ui, sans-serif; }
+        main { max-inline-size: 800px; margin-inline: auto; padding: 24px 28px 48px; overflow-wrap: anywhere; }
+        h1, h2, h3, h4, h5, h6, dt, section[id] { scroll-margin-block-start: 24px; }
+        h1,h2,h3,h4,h5,h6 { margin: 28px 0 11px; line-height: 1.3; }
+        h1 { font-size: 28px; font-weight: 650; } h2 { font-size: 21px; font-weight: 650; border-block-start: 1px solid var(--line); padding-block-start: 20px; }
+        h3 { font-size: 17px; font-weight: 650; } h4,h5,h6 { font-size: 15px; font-weight: 650; }
+        main > :first-child { margin-block-start: 0; }
+        p,ul,ol,dl,blockquote,pre,.table-scroll,.code-region { margin: 0 0 15px; }
+        ul,ol { padding-inline-start: 1.6em; } li + li { margin-block-start: 5px; } li > p { margin-block-end: 5px; }
+        li > ul,li > ol { margin-block: 5px 0; }
+        dt { font-weight: 600; margin-block: 18px 8px; } dt[id] { font: 600 13px/1.6 ui-monospace, Menlo, monospace; background: var(--soft); padding: 10px 12px; border-radius: 5px; }
+        dd { margin-inline: 0; padding-inline-start: 14px; } dl.field-list { display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; }
+        blockquote,.admonition,.note,.warning,.tip,.important,.caution { padding: 10px 14px; border-inline-start: 3px solid var(--line); background: var(--soft); border-radius: 3px; margin-block: 16px; }
+        .admonition-title { font-weight: 650; } .warning,.caution { border-color: #b57913; }
+        code,kbd,samp { font: 0.91em ui-monospace, Menlo, monospace; background: var(--soft); padding: 1px 4px; border-radius: 4px; white-space: break-spaces; }
+        pre,.table-scroll { max-inline-size: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+        pre { background: var(--soft); border: 1px solid var(--line); border-radius: 7px; padding: 35px 14px 14px; font: 12.5px/1.58 ui-monospace, Menlo, monospace; tab-size: 4; white-space: pre; overflow-wrap: normal; }
+        pre code { font: inherit; background: none; padding: 0; white-space: inherit; }
+        .code-region { position: relative; } .code-region pre { margin: 0; }
+        .code-copy { position: absolute; inset-block-start: 7px; inset-inline-end: 9px; border: 0; border-radius: 4px; padding: 3px 7px; font: 11px -apple-system, system-ui; background: Canvas; color: CanvasText; cursor: pointer; }
+        .code-copy:hover { background: var(--line); }
+        table { min-inline-size: 100%; border-collapse: collapse; font-size: 13px; }
+        th,td { padding: 8px 11px; text-align: start; vertical-align: top; border-block-end: 1px solid var(--line); }
+        th { background: var(--soft); font-weight: 650; } td code,th code { white-space: nowrap; }
+        hr { border: 0; border-block-start: 1px solid var(--line); margin-block: 24px; }
+        img { max-inline-size: 100%; height: auto; } figure { margin-inline: 0; } figcaption { font-size: 12px; opacity: .8; }
+        a { color: LinkText; text-underline-offset: 2px; } a:hover { text-decoration-thickness: 2px; }
+        summary { cursor: pointer; font-weight: 600; padding-block: 7px; } details > :not(summary) { margin-inline-start: 12px; }
+        .reference-target { box-shadow: inset 3px 0 0 AccentColor; padding-inline-start: 12px; border-radius: 3px; }
+        :focus-visible { outline: 2px solid -webkit-focus-ring-color; outline-offset: 2px; }
+        .kw,.keyword,.k { color: light-dark(#7b2b91, #d69de5); } .s,.string,.str { color: light-dark(#976019, #e6bd85); }
+        </style><body><main id="devline-reader">\(heading)\(html)</main></body></html>
+        """
     }
 
-    final class Coordinator: NSObject, WKNavigationDelegate {
-        private static let readerWorld = WKContentWorld.world(name: "DevlineArticle")
+    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+        static let readerWorld = WKContentWorld.world(name: "DevlineArticle")
         private(set) var lastHTML: String?
         private(set) var lastTitle: String?
+        var sourceURL = ""
         var request: ReaderRequest?
         var report: ((ReaderRequest, Bool) -> Void)?
         var reportSections: (([ReaderSection]) -> Void)?
+        var navigate: ((URL) -> Void)?
+        var reportPosition: ((Double, String?, Bool) -> Void)?
         private var navigation: WKNavigation?
         private var ready = false
         private var lastRequest: ReaderRequest?
 
         func load(_ page: String, html: String, title: String, in webView: WKWebView) {
-            lastHTML = html
-            lastTitle = title
-            ready = false
-            lastRequest = nil
+            lastHTML = html; lastTitle = title; ready = false; lastRequest = nil
             navigation = webView.loadHTMLString(page, baseURL: nil)
         }
 
@@ -661,42 +786,84 @@ private struct OfflineArticle: NSViewRepresentable {
             webView.callAsyncJavaScript("""
                 const article = document.getElementById('devline-reader');
                 if (!article) return [];
+                const send = value => window.webkit.messageHandlers.readerAction.postMessage(value);
                 for (const table of article.querySelectorAll('table')) {
                     const region = document.createElement('div');
-                    region.className = 'table-scroll';
-                    region.tabIndex = 0;
-                    region.setAttribute('role', 'region');
-                    region.setAttribute('aria-label', 'Table');
-                    table.before(region);
-                    region.append(table);
+                    region.className = 'table-scroll'; region.tabIndex = 0;
+                    region.setAttribute('role', 'region'); region.setAttribute('aria-label', 'Table');
+                    table.before(region); region.append(table);
                 }
                 for (const block of article.querySelectorAll('pre')) {
-                    block.tabIndex = 0;
-                    block.setAttribute('aria-label', 'Code block');
+                    block.tabIndex = 0; block.setAttribute('aria-label', 'Code block');
+                    const region = document.createElement('div'); region.className = 'code-region';
+                    block.before(region); region.append(block);
+                    const button = document.createElement('button'); button.className = 'code-copy';
+                    button.type = 'button'; button.textContent = 'Copy'; button.setAttribute('aria-label', 'Copy code');
+                    button.addEventListener('click', () => {
+                        send({action: 'copy', text: block.textContent});
+                        button.textContent = 'Copied';
+                        setTimeout(() => { button.textContent = 'Copy'; }, 1400);
+                    });
+                    region.append(button);
                 }
                 const sections = [];
-                for (const heading of article.querySelectorAll('h1, h2, h3, h4, h5, h6')) {
-                    const title = heading.textContent.trim();
+                const seen = new Set();
+                for (const heading of article.querySelectorAll('h1,h2,h3,h4,h5,h6,dt[id]')) {
+                    const title = heading.textContent.replace(/[¶#]$/g, '').trim().replace(/\\s+/g, ' ');
                     if (!title || heading.classList.contains('reader-title')) continue;
-                    if (!heading.id) {
-                        let suffix = sections.length;
-                        while (document.getElementById('devline-heading-' + suffix)) suffix++;
-                        heading.id = 'devline-heading-' + suffix;
-                    }
-                    sections.push({ id: heading.id, title });
-                    if (sections.length === 100) break;
+                    let id = heading.id || heading.closest('section[id]')?.id;
+                    if (!id) { id = 'devline-heading-' + sections.length; heading.id = id; }
+                    if (seen.has(id)) { id = 'devline-heading-' + sections.length; heading.id = id; }
+                    seen.add(id);
+                    sections.push({id, title, depth: heading.tagName === 'DT' ? 4 : Number(heading.tagName.slice(1))});
                 }
+                const positions = sections.map(section => document.getElementById(section.id)).filter(Boolean);
+                window.devlineUserScroll = false;
+                for (const type of ['wheel', 'touchstart', 'pointerdown']) document.addEventListener(type, () => { window.devlineUserScroll = true; }, {passive: true});
+                document.addEventListener('keydown', event => {
+                    if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(event.key)) window.devlineUserScroll = true;
+                });
+                let pending = false;
+                document.addEventListener('scroll', () => {
+                    if (pending) return;
+                    pending = true;
+                    setTimeout(() => {
+                        pending = false;
+                        const max = document.documentElement.scrollHeight - window.innerHeight;
+                        const visible = positions.filter(node => node.getClientRects().length);
+                        let low = 0, high = visible.length - 1, active = null;
+                        while (low <= high) {
+                            const middle = Math.floor((low + high) / 2);
+                            if (visible[middle].getBoundingClientRect().top <= 70) { active = visible[middle].id; low = middle + 1; }
+                            else high = middle - 1;
+                        }
+                        send({action: 'position', fraction: max > 0 ? window.scrollY / max : 0, anchor: active, userInitiated: window.devlineUserScroll});
+                    }, 120);
+                }, {passive: true});
                 return sections;
                 """, in: nil, in: Self.readerWorld) { [weak self, weak webView] result in
                     guard let self, let webView, navigation === self.navigation else { return }
-                    let entries = (try? result.get()) as? [[String: String]] ?? []
+                    let entries = (try? result.get()) as? [[String: Any]] ?? []
                     self.reportSections?(entries.compactMap { entry in
-                        guard let id = entry["id"], let title = entry["title"] else { return nil }
-                        return ReaderSection(title: title, target: .anchor(id))
+                        guard let id = entry["id"] as? String, let title = entry["title"] as? String else { return nil }
+                        return ReaderSection(title: title, target: .anchor(id), depth: entry["depth"] as? Int ?? 2)
                     })
                     self.ready = true
                     self.applyRequest(in: webView)
                 }
+        }
+
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.name == "readerAction", message.frameInfo.isMainFrame,
+                  let value = message.body as? [String: Any], let action = value["action"] as? String else { return }
+            switch action {
+            case "copy":
+                guard let text = value["text"] as? String, text.utf8.count <= 2_000_000 else { return }
+                NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+            case "position":
+                if let fraction = value["fraction"] as? Double, fraction.isFinite { reportPosition?(min(1, max(0, fraction)), value["anchor"] as? String, value["userInitiated"] as? Bool ?? false) }
+            default: break
+            }
         }
 
         func applyRequest(in webView: WKWebView) {
@@ -706,39 +873,59 @@ private struct OfflineArticle: NSViewRepresentable {
                 webView.evaluateJavaScript("window.getSelection()?.removeAllRanges()", in: nil, in: Self.readerWorld)
                 return
             }
+            webView.evaluateJavaScript("window.devlineUserScroll = false", in: nil, in: Self.readerWorld)
             switch request.action {
+            case .focus(let text):
+                webView.callAsyncJavaScript("""
+                    const normalize = value => value.replace(/\\s+/g, '').toLowerCase();
+                    const needle = normalize(text);
+                    const target = [...document.querySelectorAll('#devline-reader h1,#devline-reader h2,#devline-reader h3,#devline-reader h4,#devline-reader dt[id],#devline-reader pre')]
+                        .find(node => normalize(node.textContent).includes(needle));
+                    if (!target || !needle) return false;
+                    for (let node = target.parentElement; node; node = node.parentElement) if (node.tagName === 'DETAILS') node.open = true;
+                    target.classList.add('reference-target');
+                    target.scrollIntoView({block: 'start'});
+                    return true;
+                    """, arguments: ["text": text], in: nil, in: Self.readerWorld) { [weak self, weak webView] result in
+                    guard let self, let webView, self.lastRequest == request else { return }
+                    if (try? result.get()) as? Bool == true { self.report?(request, true) }
+                    else { self.find(text, backwards: false, request: request, in: webView) }
+                }
+            case .restore(let position):
+                webView.callAsyncJavaScript("window.scrollTo(0, Math.max(0, document.documentElement.scrollHeight - window.innerHeight) * fraction)",
+                                            arguments: ["fraction": min(1, max(0, position))], in: nil, in: Self.readerWorld)
             case .jump(let section):
                 guard case .anchor(let id) = section.target else { return }
-                webView.callAsyncJavaScript(
-                    "document.getElementById(anchor)?.scrollIntoView({block: 'start'});",
-                    arguments: ["anchor": id],
-                    in: nil, in: Self.readerWorld
-                )
+                webView.callAsyncJavaScript("""
+                    const target = document.getElementById(anchor) || [...document.getElementsByName(anchor)][0];
+                    if (target) {
+                        for (let node = target.parentElement; node; node = node.parentElement) if (node.tagName === 'DETAILS') node.open = true;
+                        target.scrollIntoView({block: 'start'});
+                    }
+                    return !!target;
+                    """, arguments: ["anchor": id], in: nil, in: Self.readerWorld) { [weak self, weak webView] result in
+                    guard let self, let webView, self.lastRequest == request,
+                          (try? result.get()) as? Bool != true, let text = section.fallbackText, !text.isEmpty else { return }
+                    self.find(text, backwards: false, request: request, in: webView)
+                }
             case .find(let text, let backwards, let fromStart):
                 if fromStart {
                     webView.callAsyncJavaScript("""
                         const article = document.getElementById('devline-reader');
                         const selection = window.getSelection();
                         if (!article || !selection) return;
-                        const range = document.createRange();
-                        range.selectNodeContents(article);
-                        range.collapse(true);
-                        selection.removeAllRanges();
-                        selection.addRange(range);
+                        const range = document.createRange(); range.selectNodeContents(article); range.collapse(true);
+                        selection.removeAllRanges(); selection.addRange(range);
                         """, in: nil, in: Self.readerWorld) { [weak self, weak webView] _ in
                             guard let self, let webView, self.lastRequest == request else { return }
                             self.find(text, backwards: backwards, request: request, in: webView)
                         }
-                } else {
-                    find(text, backwards: backwards, request: request, in: webView)
-                }
+                } else { find(text, backwards: backwards, request: request, in: webView) }
             }
         }
 
         private func find(_ text: String, backwards: Bool, request: ReaderRequest, in webView: WKWebView) {
-            let configuration = WKFindConfiguration()
-            configuration.wraps = true
-            configuration.backwards = backwards
+            let configuration = WKFindConfiguration(); configuration.wraps = true; configuration.backwards = backwards
             webView.find(text, configuration: configuration) { [weak self] result in
                 guard self?.lastRequest == request else { return }
                 self?.report?(request, result.matchFound)
@@ -749,14 +936,16 @@ private struct OfflineArticle: NSViewRepresentable {
                      decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = action.request.url else { decisionHandler(.cancel); return }
             let address = url.absoluteString
-            if address == "about:blank" || address.hasPrefix("about:blank#") {
-                decisionHandler(.allow)
-            } else {
-                if action.navigationType == .linkActivated, let external = safeExternalURL(address) {
-                    NSWorkspace.shared.open(external)
-                }
-                decisionHandler(.cancel)
+            if address == "about:blank", action.navigationType != .linkActivated {
+                decisionHandler(.allow); return
             }
+            decisionHandler(.cancel)
+            guard action.navigationType == .linkActivated else { return }
+            if address.hasPrefix("about:blank#"), let fragment = url.fragment {
+                var components = URLComponents(string: sourceURL)
+                components?.fragment = fragment.removingPercentEncoding ?? fragment
+                if let resolved = components?.url { navigate?(resolved) }
+            } else if let safe = safeExternalURL(address) { navigate?(safe) }
         }
     }
 }

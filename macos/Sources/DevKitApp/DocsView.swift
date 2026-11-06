@@ -1,8 +1,10 @@
+import AppKit
 import SwiftUI
 
 struct DocsView: View {
     @Environment(\.defaultMinListRowHeight) private var standardRowHeight
     @ObservedObject var model: WorkspaceModel
+    @ObservedObject var reading: ReadingSession
     @Binding var query: String
     @Binding var stack: String?
     @Binding var directDocumentID: String?
@@ -11,11 +13,24 @@ struct DocsView: View {
     let focusRequest: Int
     let openLibrary: () -> Void
 
+    @State private var showReferences = false
+    @State private var showSavedReferences = true
+    @State private var externalLink: URL?
+    @State private var navigationToken = UUID()
+    @State private var navigationAnchor: String?
+    @State private var navigationFocus: String?
+    @State private var currentReaderAnchor: String?
+    @State private var navigationPosition: Double?
+    @State private var navigationQuery = ""
+    @State private var restoringHistory = false
+    @State private var automaticSelection = false
+    @State private var browseCategory: String?
     @State private var packReference: String?
     @State private var hits: [SearchHit] = []
     @State private var selectedID: String?
     @State private var committedSearch: SearchKey?
     @State private var reveal: ListReveal?
+    @State private var pendingBrowseReveal: BrowseReveal?
     @State private var document: Document?
     @State private var documentError: String?
     @State private var searchError: String?
@@ -40,12 +55,20 @@ struct DocsView: View {
     private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isBrowsingPack: Bool { currentPack != nil && trimmedQuery.isEmpty }
     private var searchKey: SearchKey {
-        SearchKey(query: trimmedQuery, stack: stack, pack: packReference, revision: model.libraryRevision)
+        SearchKey(query: trimmedQuery, stack: stack, pack: packReference, category: trimmedQuery.isEmpty ? browseCategory : nil, revision: model.libraryRevision)
     }
     private var loadingMore: Bool { pageRequest != nil }
     private var readingID: String? { directDocumentID ?? selectedID }
     private var readKey: ReadKey {
-        ReadKey(id: readingID, query: directDocumentID == nil ? committedSearch?.query ?? "" : "")
+        let symbol = hits.first(where: { $0.id == selectedID })?.symbol
+        return ReadKey(id: readingID, query: directDocumentID == nil ? symbol ?? committedSearch?.query ?? "" : navigationQuery,
+                       token: navigationToken)
+    }
+    private var browseRevealKey: BrowseRevealKey? {
+        let scope = searchKey
+        guard let target = pendingBrowseReveal, target.token == navigationToken,
+              target.scope == scope, isBrowsingPack, !searching, committedSearch == scope else { return nil }
+        return BrowseRevealKey(target: target, loaded: hits.count)
     }
 
     var body: some View {
@@ -58,7 +81,20 @@ struct DocsView: View {
         .task(id: focusRequest) { searchFocused = true }
         .task(id: searchKey) { await search(searchKey) }
         .task(id: readKey) { await loadDocument(readKey) }
-        .onChange(of: query) { _, _ in directDocumentID = nil }
+        .task(id: browseRevealKey) { if let key = browseRevealKey { await revealBrowseHistory(key) } }
+        .onChange(of: searchKey) { _, scope in
+            if let target = pendingBrowseReveal, target.scope != scope { pendingBrowseReveal = nil }
+        }
+        .task { if let request = reading.request { restore(request) }; await reading.refresh() }
+        .onChange(of: reading.error) { _, error in if let error { model.error = error; reading.error = nil } }
+        .onChange(of: reading.request) { _, request in if let request { restore(request) } }
+        .sheet(isPresented: $showReferences) { ReferenceShelf(reading: reading, open: openReference, initialSaved: showSavedReferences) }
+        .alert("Page Not Installed", isPresented: Binding(get: { externalLink != nil }, set: { if !$0 { externalLink = nil } })) {
+            Button("Open in Browser") { if let url = externalLink { NSWorkspace.shared.open(url) }; externalLink = nil }
+            Button("Cancel", role: .cancel) { externalLink = nil }
+        } message: {
+            Text("This page is not in your installed documentation. Open \(externalLink?.host ?? "the linked page") in your browser when you have a connection.")
+        }
         .onChange(of: stack) { _, stack in
             if let currentPack, currentPack.stack != stack { packReference = nil }
         }
@@ -69,9 +105,9 @@ struct DocsView: View {
     }
 
     @ViewBuilder private var content: some View {
-        if directDocumentID != nil {
+        if directDocumentID != nil && hits.isEmpty {
             reader
-        } else if model.catalog == nil {
+        } else if directDocumentID == nil && model.catalog == nil {
             ContentUnavailableView {
                 Label("Local Library", systemImage: "tray")
             } description: {
@@ -79,7 +115,7 @@ struct DocsView: View {
             } actions: {
                 Button("Reload Catalog") { Task { await model.refresh() } }
             }
-        } else if packs.isEmpty {
+        } else if directDocumentID == nil && packs.isEmpty {
             ContentUnavailableView {
                 Label("Install Documentation", systemImage: "book.closed")
             } description: {
@@ -87,9 +123,9 @@ struct DocsView: View {
             } actions: {
                 Button("Open Library", action: openLibrary).buttonStyle(.borderedProminent)
             }
-        } else if trimmedQuery.isEmpty && currentPack == nil {
+        } else if directDocumentID == nil && trimmedQuery.isEmpty && currentPack == nil {
             libraryOverview
-        } else if let searchError {
+        } else if directDocumentID == nil, let searchError {
             ContentUnavailableView {
                 Label("Documentation Unavailable", systemImage: "exclamationmark.circle")
             } description: {
@@ -106,11 +142,23 @@ struct DocsView: View {
         }
     }
 
+    private var categoryTitle: String {
+        switch browseCategory {
+        case "guide": "Guides"
+        case "api": "APIs"
+        case "reference": "Reference"
+        case "compatibility": "Compatibility Notes"
+        default: "All Articles"
+        }
+    }
+
     private var noResults: some View {
         ContentUnavailableView {
             Label(isBrowsingPack ? "No Articles" : "No Results", systemImage: "magnifyingglass")
         } description: {
-            if isBrowsingPack {
+            if isBrowsingPack, browseCategory != nil {
+                Text("This release has no articles in \(categoryTitle).")
+            } else if isBrowsingPack {
                 Text("This release has no indexed articles.")
             } else if let currentPack {
                 Text("No matches for “\(trimmedQuery)” in \(currentPack.name).")
@@ -118,6 +166,9 @@ struct DocsView: View {
                 Text("No matches for “\(trimmedQuery)” in the current scope.")
             }
         } actions: {
+            if isBrowsingPack, browseCategory != nil {
+                Button("All Articles") { browseCategory = nil }
+            }
             if packReference != nil || stack != nil {
                 Button("Search All Docsets") { clearScope() }.buttonStyle(.borderedProminent)
             }
@@ -160,32 +211,34 @@ struct DocsView: View {
 
     private var searchBar: some View {
         HStack(spacing: 10) {
-            if directDocumentID != nil || currentPack != nil {
-                Button {
-                    if directDocumentID != nil { directDocumentID = nil }
-                    else { clearScope() }
-                    searchFocused = true
-                } label: {
-                    Image(systemName: "chevron.left").frame(width: 17)
-                }
-                .help(currentPack == nil ? "Back to Search" : "Back to All Docsets")
-                .accessibilityLabel(currentPack == nil ? "Back to Search" : "Back to All Docsets")
-            }
+            HStack(spacing: 3) {
+                Button { reading.move(-1) } label: { Image(systemName: "chevron.left").frame(width: 16) }
+                    .disabled(!reading.history.canGoBack).keyboardShortcut("[")
+                    .help("Back (⌘[)").accessibilityLabel("Back")
+                Button { reading.move(1) } label: { Image(systemName: "chevron.right").frame(width: 16) }
+                    .disabled(!reading.history.canGoForward).keyboardShortcut("]")
+                    .help("Forward (⌘])").accessibilityLabel("Forward")
+                Button(action: resetToBrowse) { Image(systemName: "books.vertical").frame(width: 16) }
+                    .help("Browse Documentation").accessibilityLabel("Browse Documentation")
+            }.buttonStyle(.borderless)
+            Button { showSavedReferences = true; showReferences = true } label: { Image(systemName: "bookmark").frame(width: 16) }
+                .buttonStyle(.borderless).keyboardShortcut("b", modifiers: [.command, .shift])
+                .help("Saved and Recent References (⇧⌘B)").accessibilityLabel("Saved and Recent References")
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField(currentPack.map { "Search \($0.name)" } ?? "Search symbols, APIs, or articles", text: $query)
+                TextField(currentPack.map { "Search \($0.name)" } ?? "Search docs — try py:Path.read_text", text: Binding(
+                    get: { query }, set: { query = $0; directDocumentID = nil; resetReaderTarget() }
+                ))
                     .textFieldStyle(.plain)
                     .focused($searchFocused)
-                    .onSubmit {
-                        if selectedID == nil, let first = hits.first {
-                            selectAndReveal(first.id)
-                        }
-                    }
+                    .onSubmit(commitSearchSelection)
                     .onKeyPress(.downArrow) { moveSelection(by: 1) }
                     .onKeyPress(.upArrow) { moveSelection(by: -1) }
                 if !query.isEmpty {
                     Button {
                         query = ""
+                        directDocumentID = nil
+                        resetReaderTarget()
                         searchFocused = true
                     } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
@@ -231,7 +284,7 @@ struct DocsView: View {
             }
         } label: {
             if let currentPack {
-                Label("\(currentPack.name) · \(currentPack.version)", systemImage: "book")
+                Label("\(currentPack.name) · \(currentPack.version.components(separatedBy: "+")[0])", systemImage: "book")
                     .lineLimit(1)
             } else {
                 Text(stack.map(displayStack) ?? "All Docsets").lineLimit(1)
@@ -258,6 +311,16 @@ struct DocsView: View {
                         .controlSize(.small)
                 }
 
+                if !reading.library.saved.isEmpty || !reading.library.recent.isEmpty {
+                    referenceOverview
+                }
+                HStack(spacing: 8) {
+                    Text("Quick lookup").font(.caption).foregroundStyle(.secondary)
+                    ForEach(["py:Path.read_text", "go:http.Handler", "rust:Vec::push"], id: \.self) { example in
+                        Button(example) { clearScope(); query = example; searchFocused = true }
+                            .buttonStyle(.link).font(.caption.monospaced())
+                    }
+                }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 335), spacing: 26, alignment: .topLeading)],
                           alignment: .leading, spacing: 22) {
                     ForEach(visibleStacks, id: \.self) { name in
@@ -281,8 +344,39 @@ struct DocsView: View {
         }
     }
 
+    private var referenceOverview: some View {
+        HStack(alignment: .top, spacing: 32) {
+            referenceColumn("Saved", icon: "bookmark", entries: Array(reading.library.saved.prefix(4)))
+            referenceColumn("Recently Opened", icon: "clock", entries: Array(reading.library.recent.prefix(4)))
+        }
+    }
+
+    private func referenceColumn(_ title: String, icon: String, entries: [ReadingReference]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label(title, systemImage: icon).font(.callout.weight(.semibold))
+                Spacer()
+                Button("View All") { showSavedReferences = icon == "bookmark"; showReferences = true }.font(.caption).buttonStyle(.link)
+            }
+            if entries.isEmpty {
+                Text("Keep useful pages here with ⌘D.").font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(entries) { reference in
+                Button { openReference(reference) } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(ReaderMarkup.title(reference.title, fallback: reference.packId)).lineLimit(1)
+                        Text("\(reference.packId) · \(displayDocVersion(reference.version))")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                }.buttonStyle(.plain).disabled(!reference.installed).padding(.vertical, 3)
+            }
+        }.frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
     private func groupPacks(_ name: String) -> [DocPack] {
-        packs.filter { $0.stack == name }
+        Dictionary(grouping: packs.filter { $0.stack == name }, by: \.id).values
+            .compactMap { versions in versions.max { $0.version.compare($1.version, options: .numeric) == .orderedAscending } }
+            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     private var searchResults: some View {
@@ -290,7 +384,16 @@ struct DocsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     if isBrowsingPack {
-                        Text("Articles").font(.caption.weight(.semibold))
+                        Menu {
+                            Button("All Articles") { browseCategory = nil }
+                            Divider()
+                            Button("Guides") { browseCategory = "guide" }
+                            Button("APIs") { browseCategory = "api" }
+                            Button("Reference") { browseCategory = "reference" }
+                            Button("Compatibility Notes") { browseCategory = "compatibility" }
+                        } label: {
+                            Text(categoryTitle).font(.caption.weight(.semibold))
+                        }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Article Category")
                         Spacer()
                         Text("\(hits.count) loaded").font(.caption.monospacedDigit())
                     } else {
@@ -333,18 +436,25 @@ struct DocsView: View {
     }
 
     private var articleListContent: some View {
-        List(selection: $selectedID) {
+        List(selection: Binding(get: { selectedID }, set: { value in
+            guard value != selectedID else { return }
+            if value != nil { directDocumentID = nil; resetReaderTarget(); automaticSelection = false }
+            selectedID = value
+        })) {
             ForEach(hits) { hit in
                 let name = packName(hit.packId, stack: hit.stack)
                 let title = ReaderMarkup.title(hit.title, fallback: "\(name) Overview")
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(title).font(.body.weight(.medium))
+                    Text(!isBrowsingPack ? hit.symbol ?? title : title).font(.body.weight(.medium))
                         .lineLimit(2, reservesSpace: isBrowsingPack)
-                    if let match = hit.matchText, !match.isEmpty, title.caseInsensitiveCompare(match) != .orderedSame {
+                    if !isBrowsingPack, hit.symbol != nil {
+                        Text(title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    }
+                    if let match = hit.matchText, !match.isEmpty, hit.symbol == nil, title.caseInsensitiveCompare(match) != .orderedSame {
                         Text(ReaderMarkup.summary(match)).font(.caption.monospaced()).lineLimit(1)
                     }
                     if !isBrowsingPack {
-                        Text("\(name) · \(hit.version)")
+                        Text("\(name) · \(displayDocVersion(hit.version))")
                             .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         if hit.matchText == nil && !hit.snippet.isEmpty {
                             Text(ReaderMarkup.summary(hit.snippet))
@@ -396,7 +506,22 @@ struct DocsView: View {
 
     @ViewBuilder private var reader: some View {
         if let document, document.id == readingID {
-            DocReader(document: document, packName: packName(document.packId, stack: document.stack))
+            DocReader(document: document, packName: packName(document.packId, stack: document.stack),
+                      anchor: navigationAnchor, focus: navigationFocus, restoredPosition: navigationPosition,
+                      isSaved: reading.isSaved(document.id),
+                      save: { anchor, focus in
+                          var location = currentLocation(document)
+                          location.anchor = anchor
+                          location.focusText = focus
+                          Task { await reading.toggleSaved(location) }
+                      },
+                      navigate: { url in Task { await follow(url, from: document) } },
+                      openPart: { id in reading.open(ReferenceLocation(id: id, query: query, stack: stack, pack: packReference, category: browseCategory)) },
+                      reportPosition: { [token = navigationToken] fraction, anchor in
+                          guard token == navigationToken else { return }
+                          currentReaderAnchor = anchor
+                          reading.updatePosition(id: document.id, fraction: fraction)
+                      })
                 .id(document.id)
         } else if let documentError {
             ContentUnavailableView("Document Unavailable", systemImage: "exclamationmark.circle", description: Text(documentError))
@@ -413,6 +538,8 @@ struct DocsView: View {
 
     private func choosePack(_ pack: DocPack, clearSearch: Bool) {
         directDocumentID = nil
+        resetReaderTarget()
+        browseCategory = nil
         if clearSearch { query = "" }
         stack = pack.stack
         packReference = pack.reference
@@ -421,6 +548,7 @@ struct DocsView: View {
     private func setStack(_ value: String?) {
         directDocumentID = nil
         packReference = nil
+        browseCategory = nil
         stack = value
     }
 
@@ -432,12 +560,28 @@ struct DocsView: View {
     }
 
     private func selectAndReveal(_ id: String) {
+        directDocumentID = nil
+        resetReaderTarget()
         selectedID = id
         reveal = ListReveal(articleID: id)
     }
 
+    private func commitSearchSelection() {
+        guard committedSearch == searchKey else { return }
+        let selection = hits.first { $0.id == selectedID } ?? hits.first
+        guard let selection else { return }
+        automaticSelection = false
+        if let document, document.id == selection.id {
+            let location = currentLocation(document)
+            Task { await reading.didOpen(location, restoring: false, searchPreview: false) }
+        } else if selectedID != selection.id || directDocumentID != nil {
+            selectAndReveal(selection.id)
+        }
+    }
+
     private func moveSelection(by offset: Int) -> KeyPress.Result {
         guard committedSearch == searchKey, !hits.isEmpty else { return .ignored }
+        automaticSelection = false
         let index = hits.firstIndex { $0.id == selectedID } ?? -1
         if index + offset >= hits.count, isBrowsingPack, moreArticles {
             Task { await loadMoreArticles(advanceSelection: true) }
@@ -466,19 +610,26 @@ struct DocsView: View {
         searching = true
         do {
             if !key.query.isEmpty { try await Task.sleep(for: .milliseconds(30)) }
+            let inheritedScope = pack == nil && key.stack != nil && key.stack == projectContext?.stack
             let results: [SearchHit] = try await Core.request(
                 CoreRequest("docs.search", version: pack?.version, query: key.query,
-                            stack: pack?.stack ?? key.stack, packId: pack?.id,
-                            limit: key.query.isEmpty ? browseLimit + 1 : 30)
+                            stack: inheritedScope ? nil : pack?.stack ?? key.stack, packId: pack?.id,
+                            limit: key.query.isEmpty ? browseLimit + 1 : 30,
+                            category: key.category, projectStack: inheritedScope ? key.stack : nil)
             )
             try Task.checkCancellation()
             guard key == searchKey else { return }
             hits = key.query.isEmpty ? Array(results.prefix(browseLimit)) : results
             moreArticles = key.query.isEmpty && results.count > browseLimit
             committedSearch = key
-            if !hits.contains(where: { $0.id == selectedID }) {
+            if directDocumentID == nil { automaticSelection = true }
+            if directDocumentID == nil, !hits.contains(where: { $0.id == selectedID }) {
                 if let first = hits.first { selectAndReveal(first.id) }
                 else { selectedID = nil }
+            }
+            if pendingBrowseReveal == nil, let id = directDocumentID, hits.contains(where: { $0.id == id }) {
+                selectedID = id
+                reveal = ListReveal(articleID: id)
             }
             searching = false
         } catch is CancellationError {
@@ -507,7 +658,7 @@ struct DocsView: View {
         do {
             let next: [SearchHit] = try await Core.request(
                 CoreRequest("docs.search", version: pack.version, query: "", stack: pack.stack,
-                            packId: pack.id, limit: browseLimit + 1, offset: offset)
+                            packId: pack.id, limit: browseLimit + 1, offset: offset, category: key.category)
             )
             guard pageRequest == request, key == searchKey, hits.count == offset else { return }
             hits.append(contentsOf: next.prefix(browseLimit))
@@ -522,18 +673,101 @@ struct DocsView: View {
         }
     }
 
+    private func revealBrowseHistory(_ key: BrowseRevealKey) async {
+        guard key == browseRevealKey, !Task.isCancelled else { return }
+        if hits.contains(where: { $0.id == key.target.id }) {
+            selectedID = key.target.id
+            reveal = ListReveal(articleID: key.target.id)
+            pendingBrowseReveal = nil
+        } else if moreArticles, hits.count <= key.target.index {
+            await loadMoreArticles()
+        } else {
+            pendingBrowseReveal = nil
+        }
+    }
+
     private func loadDocument(_ key: ReadKey) async {
-        document = nil
+        guard directDocumentID != nil || committedSearch == searchKey else { return }
         documentError = nil
+        if document?.id != key.id { document = nil }
         guard let id = key.id else { return }
         do {
             let value: Document = try await Core.request(CoreRequest("docs.show", id: id, query: key.query))
             try Task.checkCancellation()
+            guard key == readKey else { return }
             document = value
+            let restoring = restoringHistory
+            restoringHistory = false
+            await reading.didOpen(currentLocation(value), restoring: restoring, searchPreview: automaticSelection)
         } catch is CancellationError {
         } catch {
+            guard key == readKey else { return }
             documentError = error.localizedDescription
         }
+    }
+
+    private func resetReaderTarget() {
+        navigationAnchor = nil
+        currentReaderAnchor = nil
+        navigationFocus = nil
+        navigationPosition = nil
+        navigationQuery = ""
+        restoringHistory = false
+        pendingBrowseReveal = nil
+        navigationToken = UUID()
+    }
+
+    private func currentLocation(_ value: Document) -> ReferenceLocation {
+        ReferenceLocation(id: value.id, query: query, stack: stack, pack: packReference, category: browseCategory,
+                          anchor: currentReaderAnchor ?? navigationAnchor,
+                          focusText: currentReaderAnchor == nil ? navigationFocus ?? value.focusText : nil,
+                          browseIndex: isBrowsingPack ? hits.firstIndex { $0.id == value.id } : nil)
+    }
+
+    private func restore(_ request: ReferenceRequest) {
+        let location = request.location
+        query = location.query
+        stack = location.stack
+        packReference = location.pack
+        browseCategory = location.category
+        selectedID = location.id
+        directDocumentID = location.id
+        navigationQuery = location.query
+        navigationAnchor = location.anchor
+        currentReaderAnchor = location.anchor
+        navigationFocus = location.focusText
+        navigationPosition = location.position
+        navigationToken = request.token
+        restoringHistory = request.restoring
+        automaticSelection = false
+        if request.restoring, location.pack != nil, trimmedQuery.isEmpty, let index = location.browseIndex {
+            let scope = SearchKey(query: "", stack: location.stack, pack: location.pack,
+                                  category: location.category, revision: model.libraryRevision)
+            pendingBrowseReveal = BrowseReveal(id: location.id, index: index, token: request.token, scope: scope)
+        } else {
+            pendingBrowseReveal = nil
+        }
+        if reading.request?.token == request.token { reading.request = nil }
+    }
+
+    private func openReference(_ reference: ReadingReference) {
+        reading.open(ReferenceLocation(id: reference.id, stack: reference.stack,
+                                       pack: "\(reference.packId)@\(reference.version)",
+                                       anchor: reference.anchor, focusText: reference.focusText))
+    }
+
+    private func follow(_ url: URL, from document: Document) async {
+        let origin = readKey
+        do {
+            let resolved: ResolvedReference? = try await Core.request(CoreRequest("docs.resolve", id: document.id,
+                                                                                version: document.version,
+                                                                                packId: document.packId, url: url.absoluteString))
+            guard origin == readKey else { return }
+            if let resolved {
+                reading.open(ReferenceLocation(id: resolved.id, query: query, stack: stack, pack: packReference, category: browseCategory,
+                                               anchor: resolved.anchor, focusText: resolved.focusText))
+            } else { externalLink = url }
+        } catch { if origin == readKey { model.error = error.localizedDescription } }
     }
 
     private struct ListReveal: Equatable {
@@ -541,15 +775,29 @@ struct DocsView: View {
         private let generation = UUID()
     }
 
+    private struct BrowseReveal: Equatable {
+        let id: String
+        let index: Int
+        let token: UUID
+        let scope: SearchKey
+    }
+
+    private struct BrowseRevealKey: Equatable {
+        let target: BrowseReveal
+        let loaded: Int
+    }
+
     private struct SearchKey: Equatable {
         let query: String
         let stack, pack: String?
+        let category: String?
         let revision: Int
     }
 
     private struct ReadKey: Equatable {
         let id: String?
         let query: String
+        let token: UUID
     }
 }
 
@@ -564,7 +812,7 @@ private struct DocsetRow: View {
                 Image(systemName: "book.closed").foregroundStyle(.secondary)
                 Text(pack.name).font(.callout.weight(.medium)).lineLimit(1)
                 Spacer(minLength: 6)
-                Text(pack.version).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Text(pack.version.components(separatedBy: "+")[0]).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
             }
             .padding(.horizontal, 7)

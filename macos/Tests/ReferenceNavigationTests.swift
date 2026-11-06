@@ -1,0 +1,42 @@
+import Foundation
+
+@main struct ReferenceNavigationTests {
+    static func main() {
+        var history = ReferenceHistory()
+        let first = ReferenceLocation(id: "python@3/a", query: "Path", stack: "python")
+        history.record(first, searchPreview: false)
+        history.updatePosition(id: first.id, fraction: 0.6)
+        history.record(ReferenceLocation(id: "python@3/b", query: "Path", stack: "python", anchor: "method"), searchPreview: false)
+        precondition(history.canGoBack && !history.canGoForward)
+        precondition(history.move(-1)?.position == 0.6)
+        precondition(history.move(1)?.anchor == "method")
+        _ = history.move(-1)
+        history.record(ReferenceLocation(id: "go@1/c"), searchPreview: false)
+        precondition(history.entries.count == 2 && !history.canGoForward)
+        history.updatePosition(id: "stale", fraction: 0.2)
+        precondition(history.current?.position == nil)
+        history.updatePosition(id: "go@1/c", fraction: .infinity)
+        precondition(history.current?.position == nil)
+        var search = ReferenceHistory()
+        let start = Date(timeIntervalSince1970: 100)
+        search.record(first, searchPreview: true, now: start)
+        search.record(ReferenceLocation(id: "python@3/d", query: "Path.read", stack: "python"), searchPreview: true, now: start.addingTimeInterval(0.3))
+        precondition(search.entries.count == 1)
+        search.record(ReferenceLocation(id: "go@1/e", query: "ReadFile", stack: "go"), searchPreview: true, now: start.addingTimeInterval(0.6))
+        precondition(search.entries.count == 2)
+        var confirmedSearch = ReferenceHistory()
+        confirmedSearch.record(first, searchPreview: true, now: start)
+        confirmedSearch.updatePosition(id: first.id, fraction: 0.4)
+        confirmedSearch.record(first, searchPreview: false, now: start.addingTimeInterval(0.2))
+        confirmedSearch.record(ReferenceLocation(id: "python@3/d", query: "Path.read", stack: "python"), searchPreview: true, now: start.addingTimeInterval(0.4))
+        precondition(confirmedSearch.entries.count == 2 && confirmedSearch.move(-1)?.position == 0.4)
+        var browsing = ReferenceHistory()
+        let later = ReferenceLocation(id: "python@3/collections", stack: "python", pack: "python@3", category: "api", browseIndex: 160)
+        browsing.record(later, searchPreview: false)
+        browsing.record(first, searchPreview: false)
+        precondition(browsing.move(-1)?.browseIndex == 160)
+        for n in 0..<120 { search.record(ReferenceLocation(id: "record-\(n)"), searchPreview: false) }
+        precondition(search.entries.count == 100 && search.current?.id == "record-119")
+        print("Reference navigation: selection, context, position, branching, stale updates, search coalescing and bounds passed")
+    }
+}

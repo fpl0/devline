@@ -29,8 +29,8 @@ impl Fixture {
             (
                 "go", "Go", "go", "1.27",
                 json!([
-                    doc("std/net/http", "net/http", "The package contains HTTP examples. See http.Handler for details.", &["http.Handler"]),
-                    doc("std/net/http::part-2", "net/http (part 2)", "Reading requests\n\nfunc (c *CrossOriginProtection) Handler(h Handler) Handler\n\ntype Handler interface {\n    ServeHTTP(ResponseWriter, *Request)\n}", &[]),
+                    doc_at("std/net/http", "net/http", "The package contains HTTP examples. See http.Handler for details.", &["http.Handler"], "https://example.org/net/http"),
+                    doc_at("std/net/http::part-2", "net/http (part 2)", "Reading requests\n\nfunc (c *CrossOriginProtection) Handler(h Handler) Handler\n\ntype Handler interface {\n    ServeHTTP(ResponseWriter, *Request)\n}", &[], "https://example.org/net/http"),
                     doc("other", "Other APIs", "Miscellaneous Go API notes.", &[]),
                 ]),
             ),
@@ -45,7 +45,7 @@ impl Fixture {
             (
                 "python", "Python", "python", "3.15",
                 json!([
-                    doc("library/pathlib.html", "pathlib", "Use pathlib.Path.read_text to load a file.\n\n class pathlib.Path(*pathsegments)\n\n Path.read_text(encoding=None, errors=None, newline=None)\n\n Return the decoded contents.", &["pathlib.Path", "pathlib.Path.read_text"]),
+                    doc_at("library/pathlib.html", "pathlib", "Use pathlib.Path.read_text to load a file.\n\n class pathlib.Path(*pathsegments)\n\n Path.read_text(encoding=None, errors=None, newline=None)\n\n Return the decoded contents.", &["pathlib.Path", "pathlib.Path.read_text"], "https://example.org/library/pathlib.html"),
                 ]),
             ),
             (
@@ -124,7 +124,209 @@ impl Drop for Fixture {
 }
 
 fn doc(id: &str, title: &str, body: &str, aliases: &[&str]) -> Value {
-    json!({"id":id,"title":title,"body":body,"source_url":"https://example.org","aliases":aliases})
+    doc_at(id, title, body, aliases, "https://example.org")
+}
+
+fn doc_at(id: &str, title: &str, body: &str, aliases: &[&str], source_url: &str) -> Value {
+    json!({"id":id,"title":title,"body":body,"source_url":source_url,"aliases":aliases})
+}
+
+#[test]
+fn indexed_suffixes_and_callable_syntax_work_after_legacy_backfill() {
+    let fixture = Fixture::new();
+    let db = rusqlite::Connection::open(fixture.0.join("library/library.sqlite3")).unwrap();
+    db.execute_batch("DELETE FROM doc_symbol_keys; DELETE FROM doc_symbol_packs;")
+        .unwrap();
+    drop(db);
+    let cases = [
+        "Path.read_text",
+        "pathlib.Path.read_text()",
+        "py:Path.read_text",
+        "go,python@3.15:Path.read_text",
+    ];
+    for query in cases {
+        let results = fixture
+            .call(json!({"command":"docs.search","query":query,"limit":3}))
+            .unwrap();
+        let first = &results[0];
+        assert_eq!(first["id"], "python@3.15/library/pathlib.html", "{query}");
+        assert_eq!(first["symbol"], "pathlib.Path.read_text", "{query}");
+        assert_eq!(first["match_kind"], "symbol");
+        assert_eq!(
+            first["match_text"],
+            "Path.read_text(encoding=None, errors=None, newline=None)"
+        );
+    }
+    let direct = fixture
+        .call(
+            json!({"command":"docs.show","id":"py:pathlib.Path.read_text()","project_stack":"go"}),
+        )
+        .unwrap();
+    assert_eq!(direct["id"], "python@3.15/library/pathlib.html");
+    let excluded = fixture
+        .call(json!({"command":"docs.search","query":"py:Path.read_text","stack":"go"}))
+        .unwrap();
+    assert_eq!(excluded, json!([]));
+}
+
+#[test]
+fn resolves_offline_links_and_keeps_the_originating_release() {
+    let fixture = Fixture::new();
+    let target = fixture.call(json!({"command":"docs.resolve","url":"https://example.org/net/http/#Handler","id":"go@1.27/std/net/http"})).unwrap();
+    assert_eq!(target["id"], "go@1.27/std/net/http::part-2");
+    assert_eq!(target["anchor"], "Handler");
+    assert_eq!(target["focus_text"], "type Handler interface {");
+    let next = fixture
+        .call(json!({"command":"docs.show","id":"go@1.27/std/net/http"}))
+        .unwrap();
+    assert_eq!(next["next_id"], target["id"]);
+    assert_eq!(next["part"], 1);
+    assert_eq!(next["parts"], 2);
+    let previous = fixture
+        .call(json!({"command":"docs.show","id":target["id"]}))
+        .unwrap();
+    assert_eq!(previous["previous_id"], "go@1.27/std/net/http");
+    let cross = fixture.call(json!({"command":"docs.resolve","url":"../library/pathlib.html#pathlib.Path.read_text","id":"go@1.27/std/net/http"})).unwrap();
+    assert_eq!(cross["id"], "python@3.15/library/pathlib.html");
+    assert_eq!(
+        cross["focus_text"],
+        "Path.read_text(encoding=None, errors=None, newline=None)"
+    );
+    for request in [
+        json!({"command":"docs.resolve","url":"https://example.org/net/http#Handler","pack_id":"go","version":"1.30"}),
+        json!({"command":"docs.resolve","url":"https://example.org/net/http?version=1.30#Handler"}),
+        json!({"command":"docs.resolve","url":"file:///etc/passwd"}),
+    ] {
+        assert!(fixture.call(request).unwrap().is_null());
+    }
+}
+
+#[test]
+fn revision_heads_are_default_but_retained_versions_stay_addressable() {
+    let fixture = Fixture::new();
+    let catalog = fixture.0.join("catalog/catalog.json");
+    let mut content: Value = serde_json::from_slice(&fs::read(&catalog).unwrap()).unwrap();
+    let python = content["docs"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|doc| doc["id"] == "python")
+        .unwrap();
+    python["version"] = json!("3.15+devline.1");
+    fs::write(&catalog, serde_json::to_vec(&content).unwrap()).unwrap();
+    let pending = fixture.call(json!({"command":"updates.status"})).unwrap();
+    let update = pending["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|item| item["id"] == "docs:python")
+        .unwrap();
+    assert_eq!(update["reference"], "python@3.15+devline.1");
+    fixture
+        .call(json!({"command":"docs.install","id":"python"}))
+        .unwrap();
+    let default = fixture
+        .call(json!({"command":"docs.search","query":"py:Path.read_text"}))
+        .unwrap();
+    assert_eq!(default[0]["version"], "3.15+devline.1");
+    assert!(default
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|hit| hit["version"] == "3.15+devline.1"));
+    let pinned = fixture
+        .call(json!({"command":"docs.search","query":"python@3.15:Path.read_text"}))
+        .unwrap();
+    assert_eq!(pinned[0]["version"], "3.15");
+    let catalog = fixture.call(json!({"command":"catalog"})).unwrap();
+    assert_eq!(
+        catalog["docs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|doc| doc["id"] == "python" && doc["installed"] == true)
+            .count(),
+        2
+    );
+    let url = "https://example.org/library/pathlib.html#pathlib.Path.read_text";
+    let from_old = fixture
+        .call(json!({"command":"docs.resolve","url":url,"id":"python@3.15/library/pathlib.html"}))
+        .unwrap();
+    assert_eq!(from_old["id"], "python@3.15/library/pathlib.html");
+    let unpinned = fixture
+        .call(json!({"command":"docs.resolve","url":url}))
+        .unwrap();
+    assert_eq!(unpinned["id"], "python@3.15+devline.1/library/pathlib.html");
+}
+
+#[test]
+fn sharded_pack_import_is_atomic_and_immutable() {
+    let fixture = Fixture::new();
+    let catalog = fixture.0.join("catalog/catalog.json");
+    let mut content: Value = serde_json::from_slice(&fs::read(&catalog).unwrap()).unwrap();
+    let python = content["docs"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|doc| doc["id"] == "python")
+        .unwrap();
+    python["version"] = json!("3.15+devline.1");
+    python["shards"] = json!(2);
+    fs::write(&catalog, serde_json::to_vec(&content).unwrap()).unwrap();
+    let request = json!({"command":"docs.install","id":"python","version":"3.15+devline.1"});
+    assert!(fixture.call(request.clone()).is_err());
+    let search = json!({"command":"docs.search","query":"python@3.15+devline.1:Path.read_text"});
+    assert_eq!(fixture.call(search.clone()).unwrap(), json!([]));
+    let shard = fixture.0.join("catalog/docs/python/documents-2.json");
+    fs::write(&shard, "[]").unwrap();
+    assert!(fixture.call(request.clone()).is_err());
+    assert_eq!(fixture.call(search.clone()).unwrap(), json!([]));
+    let second = json!([doc(
+        "library/strings.html",
+        "Strings",
+        "The string guide.",
+        &["StrGuide"]
+    )]);
+    fs::write(&shard, serde_json::to_vec(&second).unwrap()).unwrap();
+    assert_eq!(fixture.call(request.clone()).unwrap()["count"], 2);
+    assert_eq!(fixture.call(request.clone()).unwrap()["count"], 2);
+    assert_eq!(
+        fixture.call(search).unwrap()[0]["version"],
+        "3.15+devline.1"
+    );
+    fs::write(&shard, serde_json::to_vec_pretty(&second).unwrap()).unwrap();
+    assert!(fixture.call(request).is_err());
+}
+
+#[test]
+fn category_filters_apply_to_browse_search_and_legacy_rows() {
+    let fixture = Fixture::new();
+    let db = rusqlite::Connection::open(fixture.0.join("library/library.sqlite3")).unwrap();
+    db.execute_batch("DROP INDEX documents_category; ALTER TABLE documents DROP COLUMN category;")
+        .unwrap();
+    drop(db);
+    let all = fixture
+        .call(json!({"command":"docs.search","pack_id":"go","query":""}))
+        .unwrap();
+    assert_eq!(all.as_array().unwrap().len(), 2);
+    let api = fixture
+        .call(json!({"command":"docs.search","pack_id":"go","query":"","category":"api"}))
+        .unwrap();
+    assert_eq!(api.as_array().unwrap().len(), 1);
+    assert_eq!(api[0]["id"], "go@1.27/std/net/http");
+    assert_eq!(api[0]["category"], "api");
+    let declaration = fixture
+        .call(json!({"command":"docs.search","query":"http.Handler","category":"api"}))
+        .unwrap();
+    assert_eq!(declaration[0]["id"], "go@1.27/std/net/http::part-2");
+    let excluded = fixture.call(json!({"command":"docs.search","pack_id":"go","query":"http.Handler","category":"guide"})).unwrap();
+    assert_eq!(excluded, json!([]));
+    let reference = fixture.call(json!({"command":"docs.search","pack_id":"go","query":"miscellaneous","category":"reference"})).unwrap();
+    assert_eq!(reference[0]["id"], "go@1.27/other");
+    assert_eq!(reference[0]["category"], "reference");
+    assert!(fixture
+        .call(json!({"command":"docs.search","query":"","category":"unknown"}))
+        .is_err());
 }
 
 #[test]

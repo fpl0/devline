@@ -1,13 +1,15 @@
 use anyhow::{bail, Context, Result};
-use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
+use clap::{Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeSet,
     io::{self, IsTerminal, Write},
     path::PathBuf,
-    process::{Command, Stdio},
+    process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+mod terminal;
 
 #[derive(Parser)]
 #[command(
@@ -15,7 +17,7 @@ use std::{
     version,
     about = "Your offline developer library",
     long_about = "Search official docs and create projects from installed starters. The CLI shares its local library with Devline.app and works with the app closed.",
-    after_long_help = "Examples:\n  devline library                             Browse bundled docs and starters\n  devline runtimes                            Check toolchains on this Mac\n  devline docs install go                     Add the Go reference to your library\n  devline docs search 'http.Handler' --pick    Search and read in the terminal\n  devline prepare go/chi-api                   Install the starter and matching docs\n  devline new go/chi-api ./status-api          Create a project offline\n  devline updates                             Read saved update status\n  devline updates check                       Check upstream sources online\n\nRun 'devline completions --help' for shell setup. The previous 'devkit' command remains a compatibility alias."
+    after_long_help = "Examples:\n  devline library                               Browse bundled docs and starters\n  devline runtimes                              Check toolchains on this Mac\n  devline docs install go                       Add the Go reference to your library\n  devline docs search 'go:http.Handler' --pick  Search and read in the terminal\n  devline docs save 'go:http.Handler'           Save a reference across app and CLI\n  devline prepare go/chi-api                     Install the starter and matching docs\n  devline new go/chi-api ./status-api            Create a project offline\n  devline updates                               Read saved update status\n  devline updates check                         Check upstream sources online\n\nRun 'devline completions --help' for shell setup. The previous 'devkit' command remains a compatibility alias."
 )]
 struct Cli {
     #[arg(
@@ -41,7 +43,7 @@ struct Cli {
 enum Commands {
     #[command(
         about = "Search and read installed documentation",
-        after_long_help = "Run 'devline docs' for interactive search. With a single detected stack in the current project, search defaults to that stack. Use --stack all to search the full installed library."
+        after_long_help = "Run 'devline docs' for interactive search. Prefix a query with a docset, as in 'go:http.Handler', or use --docset. With a single detected stack in the current project, search defaults to that stack. Use --stack all to search the full installed library."
     )]
     Docs {
         #[command(subcommand)]
@@ -93,36 +95,76 @@ enum Commands {
     )]
     Completions { shell: clap_complete::Shell },
 }
+#[derive(Args, Default)]
+struct Scope {
+    #[arg(long)]
+    /// Search a stack such as go or dotnet, or use all.
+    stack: Option<String>,
+    #[arg(long)]
+    /// Match an exact documentation release.
+    version: Option<String>,
+    #[arg(long, value_name = "PACK[@VERSION]")]
+    /// Search a docset such as fastapi, optionally pinned to a release.
+    docset: Option<String>,
+}
+
 #[derive(Subcommand)]
 enum Docs {
     #[command(about = "Find symbols and articles in installed packs")]
     Search {
         query: String,
-        #[arg(long)]
-        /// Limit results to a stack such as go or dotnet, or use all.
-        stack: Option<String>,
-        #[arg(long)]
-        /// Match an exact documentation release.
-        version: Option<String>,
+        #[command(flatten)]
+        scope: Scope,
         #[arg(long, default_value_t = 20)]
         limit: u32,
         #[arg(long)]
         /// Choose a result and read it in the terminal.
         pick: bool,
+        #[arg(long, conflicts_with = "pick")]
+        /// Print one exact article ID per line, suitable for fzf.
+        ids: bool,
     },
-    #[command(about = "Read an article by symbol or exact result ID")]
+    #[command(
+        about = "Read an article by symbol or exact result ID",
+        after_long_help = "Examples:\n  devline docs show 'go:http.Handler'\n  devline docs show 'go:http.Handler' --open\n  devline docs show 'go:http.Handler' --link\n\nRedirect output or use --no-pager for the raw article. Set DEVLINE_PAGER or PAGER to choose an interactive pager."
+    )]
     Show {
         id: String,
+        #[command(flatten)]
+        scope: Scope,
         #[arg(long)]
-        stack: Option<String>,
-        #[arg(long)]
-        version: Option<String>,
-        #[arg(long)]
-        /// Print the article directly to stdout.
+        /// Print the raw article directly to stdout.
         no_pager: bool,
         #[arg(long)]
         /// Open the article in Devline.app.
         open: bool,
+        #[arg(long, conflicts_with_all = ["open", "no_pager"])]
+        /// Print the local Devline link without opening the app.
+        link: bool,
+    },
+    #[command(about = "List saved references shared with Devline.app")]
+    Saved {
+        #[arg(long)]
+        /// Choose and reopen a saved reference in the terminal.
+        pick: bool,
+    },
+    #[command(about = "List recently opened references")]
+    Recent {
+        #[arg(long)]
+        /// Choose and reopen a recent reference in the terminal.
+        pick: bool,
+    },
+    #[command(about = "Save an article or symbol for offline reading")]
+    Save {
+        id: String,
+        #[command(flatten)]
+        scope: Scope,
+    },
+    #[command(about = "Remove a saved reference without removing its documentation")]
+    Unsave {
+        id: String,
+        #[command(flatten)]
+        scope: Scope,
     },
     #[command(about = "Add a documentation pack from the bundled catalog")]
     Install {
@@ -187,6 +229,8 @@ enum Updates {
 enum CompletionKind {
     AvailableDocs,
     InstalledDocs,
+    InstalledDocsets,
+    Stacks,
     AvailableStarters,
     InstalledStarters,
 }
@@ -216,31 +260,51 @@ fn request(cli: &Cli, mut request: Value) -> Result<Value> {
     if let Some(catalog) = &cli.catalog {
         request["catalog"] = json!(catalog);
     }
-    let all_stacks = request["stack"].as_str() == Some("all");
-    if all_stacks {
-        request["stack"] = Value::Null;
-    } else if matches!(
-        request["command"].as_str(),
-        Some("docs.search" | "docs.show")
-    ) && request["stack"].is_null()
-    {
-        let exact_result = request["command"] == "docs.show"
-            && request["id"]
-                .as_str()
-                .is_some_and(|id| id.contains('@') && id.contains('/'));
-        if !exact_result {
+    devkit_core::execute(&request)
+}
+
+fn exact_id(id: &str) -> bool {
+    id.split_once('/')
+        .is_some_and(|(release, _)| release.contains('@'))
+}
+
+impl Scope {
+    fn apply(&self, request: &mut Value) -> Result<()> {
+        let mut version = self.version.as_deref();
+        if let Some(docset) = &self.docset {
+            let (pack, pin) = docset
+                .split_once('@')
+                .map_or((docset.as_str(), None), |(pack, pin)| (pack, Some(pin)));
+            if pack.is_empty() || pin.is_some_and(str::is_empty) {
+                bail!("Use --docset PACK or --docset PACK@VERSION.");
+            }
+            if pin.is_some() && version.is_some() && pin != version {
+                bail!("--docset and --version specify different releases.");
+            }
+            version = pin.or(version);
+            request["pack_id"] = json!(pack);
+        }
+        request["version"] = json!(version);
+        if let Some(stack) = &self.stack {
+            if stack != "all" {
+                request["stack"] = json!(stack);
+            }
+        } else if self.docset.is_none()
+            && version.is_none()
+            && !request["id"].as_str().is_some_and(exact_id)
+        {
             if let Ok(cwd) = std::env::current_dir() {
-                request["stack"] = devkit_core::project_context(&cwd)["stack"].clone();
+                request["project_stack"] = devkit_core::project_context(&cwd)["stack"].clone();
             }
         }
+        Ok(())
     }
-    devkit_core::execute(&request)
 }
 
 fn completion_values(cli: &Cli, kind: CompletionKind) -> Result<()> {
     let (docs, installed) = match kind {
-        CompletionKind::AvailableDocs => (true, false),
-        CompletionKind::InstalledDocs => (true, true),
+        CompletionKind::AvailableDocs | CompletionKind::Stacks => (true, false),
+        CompletionKind::InstalledDocs | CompletionKind::InstalledDocsets => (true, true),
         CompletionKind::AvailableStarters => (false, false),
         CompletionKind::InstalledStarters => (false, true),
     };
@@ -250,6 +314,10 @@ fn completion_values(cli: &Cli, kind: CompletionKind) -> Result<()> {
         request(cli, json!({"command":"templates.list"}))?
     };
     let mut choices = BTreeSet::new();
+    let stacks = matches!(kind, CompletionKind::Stacks);
+    if stacks {
+        choices.insert("all".to_owned());
+    }
     for item in data
         .as_array()
         .context("Unexpected completion candidates")?
@@ -257,7 +325,7 @@ fn completion_values(cli: &Cli, kind: CompletionKind) -> Result<()> {
         if installed && item["installed"] != true {
             continue;
         }
-        let id = s(item, "id");
+        let id = s(item, if stacks { "stack" } else { "id" });
         if id.is_empty()
             || !id
                 .bytes()
@@ -267,7 +335,11 @@ fn completion_values(cli: &Cli, kind: CompletionKind) -> Result<()> {
         }
         choices.insert(id.to_owned());
         let version = s(item, "version");
-        if !docs && !version.is_empty() && version.bytes().all(|b| b.is_ascii_digit() || b == b'.')
+        if (!docs || matches!(kind, CompletionKind::InstalledDocsets))
+            && !version.is_empty()
+            && version
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b".-+".contains(&b))
         {
             choices.insert(format!("{id}@{version}"));
         }
@@ -282,6 +354,14 @@ fn completion_argument(command: clap::Command, marker: &'static str) -> clap::Co
     command.mut_arg("id", |argument| argument.value_parser([marker]))
 }
 
+fn completion_scope(command: clap::Command) -> clap::Command {
+    command
+        .mut_arg("docset", |argument| {
+            argument.value_parser(["__installed_docsets"])
+        })
+        .mut_arg("stack", |argument| argument.value_parser(["__stacks"]))
+}
+
 fn print_completions(shell: clap_complete::Shell) -> Result<()> {
     let mut command = Cli::command();
     if shell != clap_complete::Shell::Zsh {
@@ -293,6 +373,10 @@ fn print_completions(shell: clap_complete::Shell) -> Result<()> {
     command = command
         .mut_subcommand("docs", |command| {
             command
+                .mut_subcommand("search", completion_scope)
+                .mut_subcommand("show", completion_scope)
+                .mut_subcommand("save", completion_scope)
+                .mut_subcommand("unsave", completion_scope)
                 .mut_subcommand("install", |cmd| {
                     completion_argument(cmd, "__available_docs")
                 })
@@ -321,6 +405,11 @@ fn print_completions(shell: clap_complete::Shell) -> Result<()> {
     let script = String::from_utf8(generated)?
         .replace("(__available_docs)", "_devline_local_ids available-docs")
         .replace("(__installed_docs)", "_devline_local_ids installed-docs")
+        .replace(
+            "(__installed_docsets)",
+            "_devline_local_ids installed-docsets",
+        )
+        .replace("(__stacks)", "_devline_local_ids stacks")
         .replace(
             "(__available_starters)",
             "_devline_local_ids available-starters",
@@ -567,102 +656,218 @@ fn readiness(value: &Value) {
         }
     }
 }
-fn page(text: &str, disable: bool) -> Result<()> {
-    if !disable && io::stdout().is_terminal() && std::env::var("TERM").unwrap_or_default() != "dumb"
-    {
-        let mut child = Command::new("/usr/bin/less")
-            .arg("-FRX")
-            .stdin(Stdio::piped())
-            .spawn()
-            .context("Could not open pager; use --no-pager")?;
-        if let Some(mut stdin) = child.stdin.take() {
-            let _ = stdin.write_all(text.as_bytes());
+fn resolve_article(cli: &Cli, input: &str, scope: &Scope, terminal_format: bool) -> Result<Value> {
+    let mut query = json!({"command":"docs.show","id":input});
+    scope.apply(&mut query)?;
+    if terminal_format {
+        query["terminal_format"] = json!(true);
+    }
+    request(cli, query)
+}
+
+fn reading_action(cli: &Cli, command: &str, article: &Value) -> Result<Value> {
+    request(
+        cli,
+        json!({
+            "command":command,
+            "id":article["id"],
+            "anchor":article["anchor"],
+            "focus_text":article["focus_text"],
+        }),
+    )
+}
+
+fn read_article(cli: &Cli, article: &Value, no_pager: bool) -> Result<()> {
+    if io::stdout().is_terminal() {
+        if let Err(error) = reading_action(cli, "reading.visit", article) {
+            progress(cli, format_args!("Could not record this visit: {error}"));
         }
-        child.wait()?;
-    } else {
-        println!("{text}");
+    }
+    terminal::read(article, no_pager)
+}
+
+fn reference_link(article: &Value) -> String {
+    use std::fmt::Write as _;
+    let mut url = String::from("devline://docs?");
+    for (name, key) in [("id", "id"), ("anchor", "anchor"), ("focus", "focus_text")] {
+        let Some(value) = article[key].as_str().filter(|value| !value.is_empty()) else {
+            continue;
+        };
+        if !url.ends_with('?') {
+            url.push('&');
+        }
+        url.push_str(name);
+        url.push('=');
+        for byte in value.bytes() {
+            if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) {
+                url.push(byte as char);
+            } else {
+                let _ = write!(url, "%{byte:02X}");
+            }
+        }
+    }
+    url
+}
+
+fn render_reading_list(data: &Value, saved: bool, pick: bool) -> Result<()> {
+    let items = data.as_array().context("Unexpected reading list")?;
+    if items.is_empty() {
+        println!(
+            "{}",
+            if saved {
+                "No saved references. Save a symbol or exact article ID with devline docs save."
+            } else {
+                "No recent references. Open an article in Devline or with devline docs show."
+            }
+        );
+        return Ok(());
+    }
+    for (index, item) in items.iter().enumerate() {
+        if pick {
+            print!("{:>2}. ", index + 1);
+        }
+        let unavailable = if item["installed"] == false {
+            " · Pack removed"
+        } else {
+            ""
+        };
+        println!(
+            "{}  [{}@{}{unavailable}]\n  {}",
+            terminal::safe_text(s(item, "title")),
+            s(item, "pack_id"),
+            s(item, "version"),
+            s(item, "id")
+        );
+        if let Some(focus) = item["focus_text"].as_str() {
+            println!("  {}", terminal::safe_text(focus).trim());
+        }
     }
     Ok(())
 }
-fn read_article(result: &Value, no_pager: bool) -> Result<()> {
-    page(
-        &format!(
-            "{}\n{} · {}\n{}\n\n{}",
-            s(result, "title"),
-            s(result, "pack_id"),
-            s(result, "version"),
-            s(result, "source_url"),
-            s(result, "body")
-        ),
-        no_pager,
-    )
+
+fn require_interactive_picker(cli: &Cli) -> Result<()> {
+    if cli.json {
+        bail!("Choose --pick for interactive reading or --json for structured results.");
+    }
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() || !io::stderr().is_terminal() {
+        bail!("--pick needs an interactive terminal.");
+    }
+    Ok(())
 }
+
+fn pick_article(cli: &Cli, items: &[Value], query: Option<&str>) -> Result<()> {
+    if items.is_empty() {
+        return Ok(());
+    }
+    while let Some(choice) = answer("Open result number (Return to exit):")? {
+        let item = choice
+            .parse::<usize>()
+            .ok()
+            .and_then(|index| index.checked_sub(1))
+            .and_then(|index| items.get(index));
+        let Some(item) = item else {
+            eprintln!("Enter a number from 1 to {}.", items.len());
+            continue;
+        };
+        if item["installed"] == false {
+            eprintln!(
+                "Install {}@{} to reopen this reference.",
+                s(item, "pack_id"),
+                s(item, "version")
+            );
+            continue;
+        }
+        let focus = item["focus_text"].as_str().or(item["match_text"].as_str());
+        let mut article = request(
+            cli,
+            json!({
+                "command":"docs.show", "id":s(item,"id"), "query":query, "focus_text":focus,
+                "terminal_format":terminal::interactive(false)
+            }),
+        )?;
+        if article["focus_text"].is_null() {
+            article["focus_text"] = json!(focus);
+        }
+        if article["anchor"].is_null() {
+            article["anchor"] = item["anchor"].clone();
+        }
+        return read_article(cli, &article, false);
+    }
+    Ok(())
+}
+
 fn search_docs(
     cli: &Cli,
     query: &str,
-    stack: Option<&str>,
-    version: Option<&str>,
+    scope: &Scope,
     limit: u32,
     pick: bool,
+    ids: bool,
 ) -> Result<i32> {
-    if pick && cli.json {
-        bail!("Choose --pick for interactive reading or --json for structured results.");
+    if pick {
+        require_interactive_picker(cli)?;
     }
-    if pick
-        && (!io::stdin().is_terminal()
-            || !io::stdout().is_terminal()
-            || !io::stderr().is_terminal())
-    {
-        bail!(
-            "--pick needs an interactive terminal. Use devline docs search for pipeable results."
-        );
+    if ids && cli.json {
+        bail!("Choose --ids for exact article IDs or --json for structured results.");
     }
-    let data = request(
-        cli,
-        json!({"command":"docs.search","query":query,"stack":stack,"version":version,"limit":limit}),
-    )?;
+    let mut search = json!({"command":"docs.search","query":query,"limit":limit});
+    scope.apply(&mut search)?;
+    let inferred = search["project_stack"]
+        .as_str()
+        .filter(|_| {
+            query
+                .split_once(':')
+                .is_none_or(|(_, suffix)| suffix.starts_with(':'))
+        })
+        .map(str::to_owned);
+    let data = request(cli, search)?;
     let items = data.as_array().context("Unexpected search results")?;
     if cli.json {
         println!("{}", json!({"schema_version":1,"data":data}));
+    } else if ids {
+        for item in items {
+            println!("{}", s(item, "id"));
+        }
     } else if items.is_empty() {
-        println!("No installed documentation matched {query:?}.");
-        if stack != Some("all") || version.is_some() {
-            println!("Try a broader term or search all installed releases with --stack all and omit --version.");
+        if let Some(stack) = &inferred {
+            println!(
+                "No installed documentation matched {query:?} in the detected {stack} project."
+            );
+            println!("Add --stack all to search every installed docset.");
+        } else {
+            println!("No installed documentation matched {query:?}.");
+            println!("Try a broader term, or remove the docset and version filters.");
         }
         println!(
             "Run devline docs list to see available packs and devline docs install <id> to add one."
         );
     } else {
+        if let Some(stack) = &inferred {
+            progress(
+                cli,
+                format_args!(
+                    "Project scope is {stack}. Use --stack all to search all installed docsets."
+                ),
+            );
+        }
         for (index, item) in items.iter().enumerate() {
             if pick {
                 print!("{:>2}. ", index + 1);
             }
+            let title = terminal::safe_text(s(item, "title"));
+            if let Some(symbol) = item["symbol"].as_str().filter(|symbol| *symbol != title) {
+                print!("{} · ", terminal::safe_text(symbol));
+            }
             println!(
-                "{}  [{} · {}]\n  {}\n  {}\n",
-                s(item, "title"),
-                s(item, "stack"),
+                "{title}  [{}@{}]\n  {}\n  {}\n",
+                s(item, "pack_id"),
                 s(item, "version"),
                 s(item, "id"),
-                s(item, "snippet").replace('\n', " ")
+                terminal::safe_text(s(item, "snippet")).replace('\n', " ")
             );
         }
         if pick {
-            while let Some(choice) = answer("Open result number (Return to exit):")? {
-                if let Some(item) = choice
-                    .parse::<usize>()
-                    .ok()
-                    .and_then(|index| index.checked_sub(1))
-                    .and_then(|index| items.get(index))
-                {
-                    let article = request(
-                        cli,
-                        json!({"command":"docs.show","id":s(item,"id"),"stack":s(item,"stack"),"version":s(item,"version")}),
-                    )?;
-                    read_article(&article, false)?;
-                    break;
-                }
-                eprintln!("Enter a number from 1 to {}.", items.len());
-            }
+            pick_article(cli, items, Some(query))?;
         } else if io::stdout().is_terminal() {
             println!("Read a result with devline docs show '<result-id>', or rerun with --pick.");
         }
@@ -721,54 +926,81 @@ fn run(cli: &Cli) -> Result<i32> {
         Some(Commands::Docs { command }) => match command {
             None => {
                 let query = ask("Search installed docs:")?;
-                return search_docs(cli, &query, None, None, 20, !cli.json);
+                return search_docs(cli, &query, &Scope::default(), 20, !cli.json, false);
             }
             Some(Docs::Search {
                 query,
-                stack,
-                version,
+                scope,
                 limit,
                 pick,
+                ids,
             }) => {
-                return search_docs(
-                    cli,
-                    query,
-                    stack.as_deref(),
-                    version.as_deref(),
-                    *limit,
-                    *pick,
-                )
+                return search_docs(cli, query, scope, *limit, *pick, *ids);
             }
             Some(Docs::Show {
                 id,
-                stack,
-                version,
+                scope,
                 no_pager,
                 open,
+                link,
             }) => {
-                let result = request(
-                    cli,
-                    json!({"command":"docs.show","id":id,"stack":stack,"version":version}),
-                )?;
+                if cli.json && *link {
+                    bail!("Choose --link for the local URL or --json for the article.");
+                }
+                let terminal_format =
+                    !cli.json && !open && !link && terminal::interactive(*no_pager);
+                let result = resolve_article(cli, id, scope, terminal_format)?;
                 if cli.json {
                     println!("{}", json!({"schema_version":1,"data":result}));
                 } else if *open {
-                    let encoded = s(&result, "id")
-                        .bytes()
-                        .map(|b| format!("%{b:02X}"))
-                        .collect::<String>();
                     let status = Command::new("/usr/bin/open")
-                        .arg(format!("devkit://docs?id={encoded}"))
+                        .arg(reference_link(&result))
                         .status()
                         .context("Could not open Devline")?;
                     if !status.success() {
                         bail!("Open Devline.app once to register documentation links");
                     }
-                    println!("{}", s(&result, "title"));
+                    println!("{}", terminal::safe_text(s(&result, "title")));
+                } else if *link {
+                    println!("{}", reference_link(&result));
                 } else {
-                    read_article(&result, *no_pager)?;
+                    read_article(cli, &result, *no_pager)?;
                 }
                 return Ok(0);
+            }
+            Some(Docs::Saved { pick } | Docs::Recent { pick }) => {
+                if *pick {
+                    require_interactive_picker(cli)?;
+                }
+                let saved = matches!(command, Some(Docs::Saved { .. }));
+                let key = if saved { "saved" } else { "recent" };
+                let mut result = request(cli, json!({"command":"reading.list"}))?;
+                if *pick {
+                    render_reading_list(&result[key], saved, true)?;
+                    pick_article(
+                        cli,
+                        result[key].as_array().context("Unexpected reading list")?,
+                        None,
+                    )?;
+                    return Ok(0);
+                }
+                (key, result[key].take())
+            }
+            Some(Docs::Save { id, scope }) => {
+                let article = resolve_article(cli, id, scope, false)?;
+                (
+                    "saved-article",
+                    reading_action(cli, "reading.save", &article)?,
+                )
+            }
+            Some(Docs::Unsave { id, scope }) => {
+                let id = if exact_id(id) {
+                    id.clone()
+                } else {
+                    s(&resolve_article(cli, id, scope, false)?, "id").to_owned()
+                };
+                let result = request(cli, json!({"command":"reading.remove","id":id}))?;
+                ("unsaved-article", result)
             }
             Some(Docs::Install { id, version }) => {
                 progress(cli, format_args!("Installing documentation for {id}…"));
@@ -909,6 +1141,12 @@ fn run(cli: &Cli) -> Result<i32> {
                 &data,
                 "No matching docs packs. Run devline docs list to see the full catalog.",
             ),
+            "saved" => render_reading_list(&data, true, false)?,
+            "recent" => render_reading_list(&data, false, false)?,
+            "saved-article" => {
+                println!("Saved reference. Find it in Devline or with devline docs saved.")
+            }
+            "unsaved-article" => println!("Saved reference removed."),
             "template-list" => render_packages(
                 &data,
                 "No matching starter releases. Run devline templates list to browse all releases.",

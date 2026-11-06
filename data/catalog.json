@@ -5,171 +5,168 @@
       "id": "python",
       "name": "Python",
       "stack": "python",
-      "version": "3.15.2",
+      "version": "3.15.2+devline.2",
       "description": "Official language reference, tutorial and standard library manual.",
       "source_url": "https://docs.python.org/3.15/",
       "license": "PSF-2.0; examples also 0BSD",
-      "path": "docs/python/3.15.2"
+      "path": "docs/python/3.15.2+devline.2",
+      "markdown": []
     },
     {
       "id": "fastapi",
       "name": "FastAPI",
       "stack": "python",
-      "version": "0.162.0",
+      "version": "0.162.0+devline.1",
       "description": "Official FastAPI tutorial, advanced user guide and deployment guides.",
       "source_url": "https://fastapi.tiangolo.com/",
-      "license": "MIT",
-      "path": "docs/fastapi/0.162.0",
-      "markdown": [
-        "*"
-      ]
+      "license": "MIT; Starlette BSD-3-Clause",
+      "path": "docs/fastapi/0.162.0+devline.1",
+      "markdown": []
     },
     {
       "id": "csharp",
       "name": "C# and .NET",
       "stack": "dotnet",
-      "version": "2026.11.06",
+      "version": "2026.11.06+devline.4",
       "description": "Microsoft Learn C# language, runtime, tooling and .NET fundamentals snapshot.",
       "source_url": "https://learn.microsoft.com/en-us/dotnet/",
       "license": "CC-BY-4.0; accompanying code MIT",
-      "path": "docs/csharp/2026.11.06",
-      "markdown": [
-        "*"
-      ]
+      "path": "docs/csharp/2026.11.06+devline.4",
+      "markdown": [],
+      "shards": 2
     },
     {
       "id": "aspnet",
       "name": "ASP.NET Core",
       "stack": "dotnet",
-      "version": "2026.11.06",
+      "version": "2026.11.06+devline.3",
       "description": "Microsoft Learn ASP.NET Core fundamentals, Web APIs and tutorials snapshot.",
       "source_url": "https://learn.microsoft.com/en-us/aspnet/core/",
       "license": "CC-BY-4.0; accompanying code MIT",
-      "path": "docs/aspnet/2026.11.06",
-      "markdown": [
-        "*"
-      ]
+      "path": "docs/aspnet/2026.11.06+devline.3",
+      "markdown": []
     },
     {
       "id": "go",
       "name": "Go",
       "stack": "go",
-      "version": "1.27.3",
+      "version": "1.27.3+devline.2",
       "description": "Official language specification and common standard-library APIs.",
       "source_url": "https://go.dev/",
       "license": "BSD-3-Clause",
-      "path": "docs/go/1.27.3"
+      "path": "docs/go/1.27.3+devline.2",
+      "markdown": []
     },
     {
       "id": "chi",
       "name": "Chi",
       "stack": "go",
-      "version": "5.2.4",
+      "version": "5.2.4+devline.1",
       "description": "Official Chi router, middleware and example documentation.",
       "source_url": "https://pkg.go.dev/github.com/go-chi/chi/v5@v5.2.4",
       "license": "MIT",
-      "path": "docs/chi/5.2.4",
-      "markdown": [
-        "README.md"
-      ]
+      "path": "docs/chi/5.2.4+devline.1",
+      "markdown": []
     },
     {
       "id": "java",
       "name": "Java SE",
       "stack": "java",
-      "version": "26.0.2.1",
+      "version": "26.0.2.1+devline.1",
       "description": "Official OpenJDK API reference generated from curated JDK 26 library sources.",
       "source_url": "https://docs.oracle.com/en/java/javase/26/docs/api/",
       "license": "GPL-2.0 with Classpath Exception",
-      "path": "docs/java/26.0.2.1"
+      "path": "docs/java/26.0.2.1+devline.1",
+      "markdown": []
     },
     {
       "id": "spring-boot",
       "name": "Spring Boot",
       "stack": "java",
-      "version": "4.1.2",
+      "version": "4.1.2+devline.1",
       "description": "Official Spring Boot reference, how-to guides and tutorials.",
       "source_url": "https://docs.spring.io/spring-boot/4.1/",
       "license": "Apache-2.0",
-      "path": "docs/spring-boot/4.1.2"
+      "path": "docs/spring-boot/4.1.2+devline.1",
+      "markdown": []
     },
     {
       "id": "ruby",
       "name": "Ruby",
       "stack": "ruby",
-      "version": "4.0.9",
+      "version": "4.0.9+devline.2",
       "description": "Official Ruby language guides and core/standard-library reference from RDoc.",
       "source_url": "https://docs.ruby-lang.org/en/4.0/",
       "license": "Ruby License or BSD-2-Clause",
-      "path": "docs/ruby/4.0.9",
-      "markdown": [
-        "api/*",
-        "method/*",
-        "*.md"
-      ]
+      "path": "docs/ruby/4.0.9+devline.2",
+      "markdown": []
     },
     {
       "id": "rails",
       "name": "Ruby on Rails",
       "stack": "ruby",
-      "version": "8.1.3",
+      "version": "8.1.3+devline.2",
       "description": "Official Rails guides for routing, controllers, views, models, jobs and deployment.",
       "source_url": "https://guides.rubyonrails.org/v8.1/",
       "license": "CC-BY-SA-4.0",
-      "path": "docs/rails/8.1.3",
-      "markdown": [
-        "*"
-      ]
+      "path": "docs/rails/8.1.3+devline.2",
+      "markdown": []
     },
     {
       "id": "rust",
       "name": "Rust",
       "stack": "rust",
-      "version": "1.99.1",
+      "version": "1.99.1+devline.1",
       "description": "The Rust Book, Reference, Cargo Book, and selected standard-library APIs.",
       "source_url": "https://doc.rust-lang.org/1.99.1/",
       "license": "MIT OR Apache-2.0",
-      "path": "docs/rust/1.99.1"
+      "path": "docs/rust/1.99.1+devline.1",
+      "markdown": [],
+      "shards": 2
     },
     {
       "id": "axum",
       "name": "Axum",
       "stack": "rust",
-      "version": "0.8.9",
+      "version": "0.8.9+devline.1",
       "description": "Official Rustdoc for Axum routing, extractors, responses and middleware.",
       "source_url": "https://docs.rs/axum/0.8.9/",
       "license": "MIT",
-      "path": "docs/axum/0.8.9"
+      "path": "docs/axum/0.8.9+devline.1",
+      "markdown": []
     },
     {
       "id": "elixir",
       "name": "Elixir",
       "stack": "elixir",
-      "version": "1.20.5",
+      "version": "1.20.5+devline.1",
       "description": "Official language guides and core/standard library documentation.",
       "source_url": "https://hexdocs.pm/elixir/1.20.5/",
       "license": "Apache-2.0",
-      "path": "docs/elixir/1.20.5"
+      "path": "docs/elixir/1.20.5+devline.1",
+      "markdown": []
     },
     {
       "id": "phoenix",
       "name": "Phoenix",
       "stack": "elixir",
-      "version": "1.8.16",
+      "version": "1.8.16+devline.1",
       "description": "Official Phoenix guides and API documentation.",
       "source_url": "https://hexdocs.pm/phoenix/1.8.16/",
       "license": "MIT",
-      "path": "docs/phoenix/1.8.16"
+      "path": "docs/phoenix/1.8.16+devline.1",
+      "markdown": []
     },
     {
       "id": "ecto",
       "name": "Ecto",
       "stack": "elixir",
-      "version": "3.14.3",
+      "version": "3.14.3+devline.1",
       "description": "Official Ecto database library guides and API documentation.",
       "source_url": "https://hexdocs.pm/ecto/3.14.3/",
       "license": "Apache-2.0",
-      "path": "docs/ecto/3.14.3"
+      "path": "docs/ecto/3.14.3+devline.1",
+      "markdown": []
     }
   ],
   "templates": [

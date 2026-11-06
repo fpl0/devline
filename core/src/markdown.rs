@@ -30,7 +30,7 @@ fn options() -> Options {
         | Options::ENABLE_GFM
 }
 
-fn web_url(url: &Iri<&str>) -> bool {
+pub(super) fn web_url(url: &Iri<&str>) -> bool {
     let scheme = url.scheme().as_str();
     (scheme.eq_ignore_ascii_case("https") || scheme.eq_ignore_ascii_case("http"))
         && url

@@ -328,6 +328,23 @@ fn newer(candidate: &str, current: &str) -> bool {
     }
 }
 
+pub(super) fn doc_release(version: &str) -> (&str, u64) {
+    version
+        .split_once("+devline.")
+        .and_then(|(upstream, revision)| Some((upstream, revision.parse().ok()?)))
+        .unwrap_or((version, 0))
+}
+
+pub(super) fn compare_doc_releases(a: &str, b: &str) -> std::cmp::Ordering {
+    let (a_base, a_revision) = doc_release(a);
+    let (b_base, b_revision) = doc_release(b);
+    match (stable_version(a_base), stable_version(b_base)) {
+        (Some(a), Some(b)) => a.cmp(&b).then(a_revision.cmp(&b_revision)),
+        _ => a_base.cmp(b_base).then(a_revision.cmp(&b_revision)),
+    }
+    .then(a.cmp(b))
+}
+
 fn latest<'a>(versions: impl Iterator<Item = &'a str>) -> Option<&'a str> {
     versions
         .filter_map(|version| Some((stable_version(version)?, version)))
@@ -605,11 +622,18 @@ fn docs_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
     }
     let mut updates = Vec::new();
     for (id, versions) in installed {
-        let releases: Vec<_> = ctx.catalog.docs.iter().filter(|p| p.id == id).collect();
-        let head = latest(releases.iter().map(|p| p.version.as_str()))
-            .and_then(|version| releases.into_iter().find(|p| p.version == version));
+        let head = ctx
+            .catalog
+            .docs
+            .iter()
+            .filter(|p| p.id == id)
+            .max_by(|a, b| compare_doc_releases(&a.version, &b.version));
         let mut item = UpdateItem::new("docs", &id, head.map_or(id.as_str(), |p| p.name.as_str()));
-        let current = latest(versions.iter().map(String::as_str)).unwrap_or(&versions[0]);
+        let current = versions
+            .iter()
+            .max_by(|a, b| compare_doc_releases(a, b))
+            .unwrap();
+        let (upstream_version, _) = doc_release(current);
         item.current_version = Some(current.to_owned());
         item.detail = format!("Installed versions: {}.", versions.join(", "));
         let Some(head) = head else {
@@ -620,7 +644,7 @@ fn docs_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
             updates.push(item);
             continue;
         };
-        if newer(&head.version, current) {
+        if compare_doc_releases(&head.version, current).is_gt() {
             item.state = "available";
             item.available_version = Some(head.version.clone());
             item.action = Some("install_docs");
@@ -644,7 +668,7 @@ fn docs_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
                         );
                         if let Some(version) = &observation.version {
                             item.available_version =
-                                newer(version, current).then(|| version.to_owned());
+                                newer(version, upstream_version).then(|| version.to_owned());
                             append_detail(
                                 &mut item,
                                 &format!("Last successful upstream result: {version}."),
@@ -656,7 +680,7 @@ fn docs_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
                         if let Some(upstream) = observation
                             .version
                             .as_deref()
-                            .filter(|version| newer(version, current))
+                            .filter(|version| newer(version, upstream_version))
                         {
                             item.state = "available";
                             item.available_version = Some(upstream.to_owned());

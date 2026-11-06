@@ -31,10 +31,12 @@ enum Workspace: String, CaseIterable, Identifiable {
 @main
 struct DevKitMacApp: App {
     @StateObject private var model = WorkspaceModel()
+    @AppStorage("devline.appearance") private var appearance = "system"
 
     var body: some Scene {
         Window("Devline", id: "workspace") {
             WorkspaceView(model: model)
+                .preferredColorScheme(appearance == "system" ? nil : appearance == "light" ? .light : .dark)
         }
         .defaultSize(width: 1120, height: 720)
         .windowResizability(.contentMinSize)
@@ -58,6 +60,7 @@ struct DevKitMacApp: App {
 
         Settings {
             SettingsView(model: model)
+                .preferredColorScheme(appearance == "system" ? nil : appearance == "light" ? .light : .dark)
         }
     }
 
@@ -114,6 +117,7 @@ final class WorkspaceModel: ObservableObject {
 private struct WorkspaceView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var model: WorkspaceModel
+    @StateObject private var reading = ReadingSession()
     @State private var workspace: Workspace? = .docs
     @State private var query = ""
     @State private var docStack: String?
@@ -140,7 +144,7 @@ private struct WorkspaceView: View {
                 if let catalog = model.catalog {
                     VStack(alignment: .leading, spacing: 5) {
                         Divider()
-                        Label("\(catalog.docs.filter(\.installed).count) doc packs installed", systemImage: "internaldrive")
+                        Label("\(Set(catalog.docs.filter(\.installed).map(\.id)).count) docsets · \(catalog.docs.filter(\.installed).count) versions", systemImage: "internaldrive")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 15)
@@ -155,6 +159,7 @@ private struct WorkspaceView: View {
                 case .docs:
                     DocsView(
                         model: model,
+                        reading: reading,
                         query: $query,
                         stack: $docStack,
                         directDocumentID: $directDocumentID,
@@ -215,7 +220,10 @@ private struct WorkspaceView: View {
         }
         .frame(minWidth: 840, minHeight: 530)
         .task(id: scenePhase) {
-            if scenePhase == .active { await model.refresh() }
+            if scenePhase == .active {
+                await model.refresh()
+                await reading.refresh()
+            }
         }
         .sheet(item: $newStarter) { starter in
             NewProjectView(starter: starter) { path in
@@ -251,6 +259,11 @@ private struct WorkspaceView: View {
                   let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                   let id = components.queryItems?.first(where: { $0.name == "id" })?.value,
                   !id.isEmpty else { return }
+            reading.open(ReferenceLocation(
+                id: id,
+                anchor: components.queryItems?.first(where: { $0.name == "anchor" })?.value,
+                focusText: components.queryItems?.first(where: { $0.name == "focus" })?.value
+            ))
             directDocumentID = id
             workspace = .docs
         }
@@ -338,12 +351,22 @@ struct StatusBar: View {
 
 private struct SettingsView: View {
     @ObservedObject var model: WorkspaceModel
+    @AppStorage("devline.appearance") private var appearance = "system"
     @State private var cliLocation: String?
     @State private var cliError: String?
     @State private var pathCopied = false
 
     var body: some View {
         Form {
+            Section("Appearance") {
+                Picker("Appearance", selection: $appearance) {
+                    Text("System").tag("system")
+                    Text("Light").tag("light")
+                    Text("Dark").tag("dark")
+                }.pickerStyle(.segmented)
+                Text("Text size is available in the reader’s Reading Options menu.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Local Library") {
                 if let home = model.catalog?.home {
                     LabeledContent("Folder", value: home)
@@ -374,13 +397,17 @@ private struct SettingsView: View {
             Section("Keyboard Shortcuts") {
                 LabeledContent("Find in Docs", value: "⌘F")
                 LabeledContent("Find in Page", value: "⌥⌘F")
+                LabeledContent("Page Contents", value: "⇧⌘O")
+                LabeledContent("Save Reference", value: "⌘D")
+                LabeledContent("Saved and Recent", value: "⇧⌘B")
+                LabeledContent("Back / Forward", value: "⌘[ / ⌘]")
                 LabeledContent("New Project", value: "⌘N")
                 LabeledContent("Open Project Folder", value: "⌘O")
                 LabeledContent("Open Library", value: "⇧⌘L")
             }
         }
         .formStyle(.grouped)
-        .frame(width: 550, height: 420)
+        .frame(width: 550, height: 560)
     }
 
     private func installCLI() {

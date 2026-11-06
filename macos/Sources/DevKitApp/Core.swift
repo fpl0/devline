@@ -30,12 +30,17 @@ struct Starter: Decodable, Hashable, Sendable {
 struct SearchHit: Decodable, Identifiable, Sendable {
     let id, packId, title, stack, version, sourceUrl, snippet: String
     let matchText: String?
+    let symbol: String?
+    let matchKind: String?
+    let category: String?
 }
 
 struct Document: Decodable, Identifiable, Sendable {
     let id, packId, title, stack, version, sourceUrl, body: String
     let html: String?
     let focusText: String?
+    let previousId, nextId: String?
+    let part, parts: Int?
 }
 
 struct Readiness: Decodable, Sendable {
@@ -82,11 +87,16 @@ struct CoreRequest: Encodable, Sendable {
     var path: String?
     var url: String?
     var dryRun: Bool?
+    var anchor: String?
+    var focusText: String?
+    var category: String?
+    var projectStack: String?
 
     init(
         _ command: String, id: String? = nil, version: String? = nil,
         query: String? = nil, stack: String? = nil, packId: String? = nil, limit: Int? = nil, offset: Int? = nil,
-        destination: String? = nil, path: String? = nil, dryRun: Bool? = nil, url: String? = nil
+        destination: String? = nil, path: String? = nil, dryRun: Bool? = nil, url: String? = nil,
+        anchor: String? = nil, focusText: String? = nil, category: String? = nil, projectStack: String? = nil
     ) {
         self.command = command
         self.catalog = Self.catalogPath
@@ -100,6 +110,10 @@ struct CoreRequest: Encodable, Sendable {
         self.destination = destination
         self.path = path
         self.url = url
+        self.anchor = anchor
+        self.focusText = focusText
+        self.category = category
+        self.projectStack = projectStack
         self.dryRun = dryRun
     }
 
@@ -122,6 +136,13 @@ private struct Envelope<Result: Decodable>: Decodable {
     let ok: Bool
     let data: Result?
     let error: String?
+    private enum CodingKeys: String, CodingKey { case ok, data, error }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        ok = try values.decode(Bool.self, forKey: .ok)
+        error = try values.decodeIfPresent(String.self, forKey: .error)
+        data = ok ? try values.decode(Result.self, forKey: .data) : nil
+    }
 }
 
 struct CoreError: LocalizedError, Sendable {

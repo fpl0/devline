@@ -108,6 +108,21 @@ struct UpdatesView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if !documentationUpdates.isEmpty {
+                HStack(spacing: 12) {
+                    Label("\(documentationUpdates.count) documentation updates ready offline", systemImage: "internaldrive")
+                        .font(.callout).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Install Documentation Updates") {
+                        let requests = documentationUpdates
+                        Task {
+                            _ = await model.mutate(requests, label: "Updating documentation",
+                                                   completion: "Installed \(requests.count) documentation updates. Previous versions remain available.")
+                            await loadStatus()
+                        }
+                    }.disabled(checking || loading || model.operation != nil)
+                }.padding(.horizontal, 18).padding(.bottom, 14)
+            }
             Divider()
             if let snapshot {
                 if let loadError {
@@ -162,6 +177,10 @@ struct UpdatesView: View {
         } message: { item in
             Text("Devline will fetch current dependencies for \(item.name) and verify the new release offline. Existing releases stay available.")
         }
+    }
+
+    private var documentationUpdates: [CoreRequest] {
+        snapshot?.items.filter { $0.state == .available }.compactMap(\.docInstallRequest) ?? []
     }
 
     private var header: some View {

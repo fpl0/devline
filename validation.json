@@ -1,154 +1,296 @@
 {
+  "product": "Devline",
+  "version": "0.3.0",
+  "status": "verified locally",
+  "platform": {
+    "architecture": "arm64",
+    "macos_tested": "27.2",
+    "minimum_macos": "14.0"
+  },
   "catalog": {
     "docs": 15,
-    "records": 9857,
+    "records": 10358,
     "starters": 10,
-    "runtimes_available": 7,
-    "created": [
+    "rendered_html_records": 10358,
+    "embedded_safe_images": 876,
+    "embedded_image_types": {
+      "png": 807,
+      "svg": 7,
+      "gif": 36,
+      "jpeg": 26
+    }
+  },
+  "automated_checks": {
+    "rust_tests_passed": 32,
+    "rust_format": "passed",
+    "clippy_warnings_denied": "passed",
+    "ingestion_tests_passed": 11,
+    "swift_reference_navigation": "passed"
+  },
+  "offline_current_catalog_smoke": {
+    "status": "passed",
+    "library": "fresh isolated library",
+    "external_network": "denied",
+    "binary": "bundled 0.3.0 candidate CLI with current source catalog explicitly selected",
+    "packs_installed": 15,
+    "records_imported": 10358,
+    "symbol_probes": [
+      "go:http.Handler",
+      "py:pathlib.Path.read_text"
+    ],
+    "save_and_unsave": "passed"
+  },
+  "corpus_audit": {
+    "unsafe_tags_attributes_or_automatic_resource_urls": 0,
+    "local_link_occurrences": 774197,
+    "stale_same_page_anchors": 10,
+    "cross_page_fragment_misses": 98,
+    "query_bearing_targets_routed_upstream": 48,
+    "openjdk_corresponding_sources_verified": 1433
+  },
+  "current_catalog_evidence": {
+    "fresh_import_seconds": 7.484,
+    "revisions_retained": {
+      "csharp": [
+        "2026.11.06+devline.4",
+        "2026.11.06+devline.2",
+        "2026.11.06+devline.1",
+        "2026.11.06"
+      ],
+      "aspnet": [
+        "2026.11.06+devline.3",
+        "2026.11.06+devline.2",
+        "2026.11.06+devline.1",
+        "2026.11.06"
+      ],
+      "python": [
+        "3.15.2+devline.2",
+        "3.15.2+devline.1",
+        "3.15.2"
+      ],
+      "rails": [
+        "8.1.3+devline.2",
+        "8.1.3+devline.1",
+        "8.1.3"
+      ],
+      "ruby": [
+        "4.0.9+devline.2",
+        "4.0.9+devline.1",
+        "4.0.9"
+      ],
+      "go": [
+        "1.27.3+devline.2",
+        "1.27.3+devline.1",
+        "1.27.3"
+      ]
+    },
+    "source_example_probes": [
       {
-        "template": "dotnet/aspnet-api",
-        "version": "1.0.0",
-        "test_command": "./devkit-test.sh"
+        "pack": "rails",
+        "version": "8.1.3+devline.2",
+        "id": "active_record_validations.md",
+        "source_url": "https://guides.rubyonrails.org/v8.1/active_record_validations.html",
+        "code_blocks": 104
       },
       {
-        "template": "elixir/phoenix-api",
-        "version": "1.0.0",
-        "test_command": "./devkit-test.sh"
+        "pack": "go",
+        "version": "1.27.3+devline.2",
+        "id": "doc/go_spec.html",
+        "source_url": "https://go.dev/ref/spec",
+        "code_blocks": 328
       },
       {
-        "template": "go/chi-api",
-        "version": "1.2.0",
-        "test_command": "./devkit-test.sh"
+        "pack": "csharp",
+        "version": "2026.11.06+devline.4",
+        "id": "fundamentals/syslib-diagnostics/syslib0057.md",
+        "source_url": "https://learn.microsoft.com/en-us/dotnet/fundamentals/syslib-diagnostics/syslib0057",
+        "code_blocks": 2
       },
       {
-        "template": "java/spring-api",
-        "version": "1.0.0",
-        "test_command": "./devkit-test.sh"
+        "pack": "aspnet",
+        "version": "2026.11.06+devline.3",
+        "id": "fundamentals/aot/request-delegate-generator/diagnostics/rdg005.md",
+        "source_url": "https://learn.microsoft.com/en-us/aspnet/core/fundamentals/aot/request-delegate-generator/diagnostics/rdg005",
+        "code_blocks": 2
       },
       {
-        "template": "python/fastapi-api",
-        "version": "1.1.0",
-        "test_command": "./devkit-test.sh"
+        "pack": "python",
+        "version": "3.15.2+devline.2",
+        "id": "howto/descriptor.html",
+        "source_url": "https://docs.python.org/3.15/howto/descriptor.html",
+        "code_blocks": 54
+      }
+    ],
+    "offline_anchors": [
+      {
+        "anchor": "validates-associated",
+        "focus_text": null,
+        "id": "rails@8.1.3+devline.2/active_record_validations.md"
       },
       {
-        "template": "ruby/json-cli",
-        "version": "1.0.0",
-        "test_command": "./devkit-test.sh"
+        "anchor": "MethodName",
+        "focus_text": null,
+        "id": "go@1.27.3+devline.2/doc/go_spec.html"
       },
       {
-        "template": "rust/axum-api",
-        "version": "1.0.0",
-        "test_command": "./devkit-test.sh"
+        "anchor": "ConstSpec",
+        "focus_text": null,
+        "id": "go@1.27.3+devline.2/doc/go_spec.html"
       }
     ]
   },
-  "regression_tests_passed": 25,
-  "clippy_warnings_denied": "passed",
-  "all_bundled_starters_network_denied": "passed",
-  "generated_projects_system_only_path": "all seven stacks passed",
-  "go_latest_refresh_end_to_end": "passed",
-  "other_latest_recipes_end_to_end": "not exercised",
-  "cli_search_benchmark": {
-    "samples": 48,
-    "p50_ms": 19.07,
-    "p95_ms": 50.74,
-    "max_ms": 53.48,
-    "build": "0.2.0 installed release",
+  "cli_verified": [
+    "anchored Go symbol lookup",
+    "anchored search selection",
+    "saved and recent terminal reopening",
+    "formatted FastAPI in a pseudo-terminal",
+    "raw redirected article matches --no-pager",
+    "no-match --ids emits no output and exits 4",
+    "zsh docset and stack completion script parses",
+    "versioned local link carries a focus value"
+  ],
+  "search_benchmark": {
+    "conditions": "48 interleaved warm-cache CLI queries with process startup and JSON output",
     "queries": [
-      "http.Handler",
-      "Path.read_text",
-      "List.of",
-      "map/2",
+      "Enum.map/2",
       "FastAPI",
+      "List.of",
+      "Path.read_text",
+      "http.Handler",
       "io.Reader"
+    ],
+    "runs": {
+      "0.2.0 original": {
+        "n": 48,
+        "p50_ms": 13.6,
+        "p95_ms": 34.64,
+        "max_ms": 35.07
+      },
+      "0.3.0 fresh": {
+        "n": 48,
+        "p50_ms": 9.69,
+        "p95_ms": 12.76,
+        "max_ms": 13.62
+      },
+      "0.3.0 retained": {
+        "n": 48,
+        "p50_ms": 9.65,
+        "p95_ms": 14.12,
+        "max_ms": 14.92
+      }
+    }
+  },
+  "native_ui": {
+    "status": "installed 0.3.0 reader and navigation retest passed",
+    "checks": {
+      "python_api_reader": {
+        "status": "passed",
+        "first_result": "pathlib.Path.read_text",
+        "query": "py:Path.read_text()",
+        "final_landing_retest": "passed; signature visible at top with semantic focus marker"
+      },
+      "contents_jump_and_copy": {
+        "status": "passed",
+        "contents_target": "pathlib.Path.read_bytes",
+        "copied_example": "complete FastAPI First Steps Python example",
+        "contents_sections": 103
+      },
+      "offline_links_and_history": {
+        "status": "passed",
+        "linked_article": "os.path in the same Python revision",
+        "forward": "passed in final installed build",
+        "back_restored_fraction_candidate": 0.6269304
+      },
+      "offline_missing_link_prompt": {
+        "status": "passed",
+        "link": "VS Code extension page",
+        "actions": [
+          "Open in Browser",
+          "Cancel"
+        ]
+      },
+      "markdown_net_examples_and_images": {
+        "status": "passed for guide formatting, copy, and embedded diagram",
+        "fastapi_first_steps": "formatted code and Tip callout in light mode",
+        "dotnet_example": "ingestion and core source-example probes passed; native .NET example not separately exercised",
+        "native_embedded_image": "Python inheritance diagram verified in final installed build"
+      },
+      "category_and_pagination": {
+        "status": "passed",
+        "csharp_rows_loaded": [
+          80,
+          160
+        ],
+        "csharp_guides": 104,
+        "restored_selected_article": "A tour of C#",
+        "restored_rows": 160,
+        "restored_fraction": 0.1601562,
+        "tested_build": "0.3.0 installed candidate"
+      },
+      "shared_references_and_deep_link": {
+        "status": "partial",
+        "desktop_save_visible_to_cli": "pathlib.Path.read_bytes",
+        "native_saved_shelf": "passed",
+        "terminal_to_desktop_link": "CLI URL contract verified; native handoff not manually exercised",
+        "desktop_refresh_after_cli_save": "not manually exercised"
+      },
+      "cli_install": {
+        "status": "passed",
+        "command_path": "~/.local/bin/devline",
+        "version": "0.3.0",
+        "login_shell_path": "existing entry"
+      },
+      "template_runtime_smoke": {
+        "status": "passed",
+        "views": [
+          "Templates",
+          "Runtimes"
+        ]
+      }
+    },
+    "screenshots": [
+      "press/reference-python-dark.png",
+      "press/reference-contents-dark.png",
+      "press/reference-fastapi-light.png",
+      "press/reference-images-light.png"
     ]
   },
-  "benchmark_conditions": "48 CLI lookups over six symbol/API queries; full 9,857-record library; process startup included; warm filesystem caches; installed 0.2.0 on this Apple Silicon Mac",
-  "native_ui_verified": [
-    "clickable grouped docset browsing by exact version",
-    "http.Handler exact declaration landing",
-    "7 starter families with release picker",
-    "Go project creation with compact readiness",
-    "7 detected runtimes with details collapsed",
-    "Updates local status and Available filter",
-    "Go reader prose and code formatting in final installed 0.2.0",
-    "FastAPI First Steps Markdown headings, paragraphs, inline code, code blocks and lists",
-    "Markdown article body scroll and On This Page jump to Recap",
-    "FastAPI automatic pagination from 80 to all 131 articles with selection preserved",
-    "C# automatic pagination from 80 to 160 to 240 to 320 articles with current article preserved",
-    "Stable final list position after pagination, layout settling and independent reader scrolling"
-  ],
-  "distribution": "Apple Silicon macOS 14+; ad hoc signed, not notarized; runtime executables detected on host",
-  "icon_appearance": {
-    "source": "macos/Assets/DevKit.icon",
-    "native_renditions_verified": [
-      "Default",
-      "Dark",
-      "TintedDark"
-    ],
-    "rendered_sizes_px": [
-      16,
-      32,
-      64,
-      128
-    ],
-    "appearance_behavior": "native layered icon with explicit light and dark fills"
-  },
-  "product": "Devline",
-  "version": "0.2.0",
-  "updates": {
-    "live_official_source_check": "passed; no failed runtime sources",
-    "local_catalog_installs": "tested alongside retained versions",
-    "cached_failure_retention": "tested",
-    "app_channel": "https://github.com/fpl0/devline/releases/latest/download/release.json",
-    "runtime_installation": "manual official installer/version manager handoff"
-  },
-  "native_ui_created_project_test": "passed with external networking denied and system-only PATH",
-  "markdown": {
-    "rendering": "pulldown-cmark GFM HTML rendered in offline WKWebView",
-    "supported": [
-      "headings",
-      "paragraphs",
-      "code fences",
-      "tables",
-      "lists",
-      "task lists",
-      "footnotes",
-      "safe links"
-    ],
-    "existing_installations": "rendered at read time without modifying installed packs",
-    "plain_references": "Go and Chi API content retain native AppKit formatting",
-    "caveat": "links removed by original ingestion require new immutable pack snapshots to restore"
-  },
-  "pagination": {
-    "macos_15_and_later": "automatic near-end loading plus an inline manual/retry action",
-    "macos_14": "inline manual pagination; compiled deployment target, not separately exercised on macOS 14",
-    "layout": "fixed two-line browse rows and persistent footer prevent native List height recalculation jumps",
-    "page_size": 80,
-    "lookahead": 1,
-    "verified_platform": "macOS 27.2, Apple Silicon"
-  },
   "installer": {
-    "version": "0.2.0",
+    "status": "verified locally",
+    "signing": "ad hoc",
+    "notarized": false,
     "dmg": {
       "file": "Devline-macos-arm64.dmg",
-      "bytes": 131239376,
-      "sha256": "e50ab6b706192dd73195ee2f6d9e4e1d946882720ff46c65d58b688ce344bd33"
+      "bytes": 209081914,
+      "sha256": "6c2e7e6ec131fc83aeabeac68d33b08d8040cbe0372e1004117cac2da52321e2"
     },
     "zip": {
       "file": "Devline-macos-arm64.zip",
-      "bytes": 130947040,
-      "sha256": "33f8815434f1966d050b62aa09a4f2c9cfa648c68ae1eab279d308e2c29e756b"
+      "bytes": 208722379,
+      "sha256": "5243a5e41188b380bef1a2effbcc81237582394c84f1cbaa2b20527994ed4127"
     },
     "checks": [
-      "image checksum",
-      "read-only mounted contents",
-      "strict/deep ad hoc signature",
+      "DMG read-only mount and detach",
+      "strict/deep app signature",
       "arm64 executable",
-      "bundled CLI",
-      "Applications shortcut",
-      "installation README",
-      "detached after verification"
-    ]
+      "Applications shortcut and installation guide",
+      "ZIP contains final C# snapshot and Java corresponding source archive",
+      "ZIP and DMG sizes and SHA-256 hashes verified"
+    ],
+    "release_url": "https://github.com/fpl0/devline/releases/tag/v0.3.0"
+  },
+  "previous_release": {
+    "version": "0.2.0",
+    "template_tests_network_denied": "all seven stacks passed",
+    "generated_projects_system_only_path": "all seven stacks passed",
+    "go_latest_refresh_end_to_end": "passed",
+    "native_checks": [
+      "starter release picker",
+      "Go project creation",
+      "runtime detail",
+      "Updates Available filter",
+      "automatic article pagination with retained selection"
+    ],
+    "macos_14_manual_pagination": "compiled deployment target, not separately exercised on macOS 14"
   }
 }
