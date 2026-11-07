@@ -5,6 +5,7 @@ struct LibraryView: View {
     @State private var selections: Set<Choice> = []
     @State private var removePack: DocPack?
     @State private var infoPack: DocPack?
+    @State private var showingReleases = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,6 +44,7 @@ struct LibraryView: View {
         .sheet(isPresented: Binding(get: { infoPack != nil }, set: { if !$0 { infoPack = nil } })) {
             if let infoPack { DocsetInfoView(pack: infoPack) }
         }
+        .sheet(isPresented: $showingReleases) { DocDistributionView(model: model) }
         .confirmationDialog("Remove this doc pack?", isPresented: Binding(
             get: { removePack != nil }, set: { if !$0 { removePack = nil } }
         ), titleVisibility: .visible, presenting: removePack) { pack in
@@ -65,6 +67,8 @@ struct LibraryView: View {
                     .font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
+            Button("Manage Releases…") { showingReleases = true }
+                .help("Browse downloadable docsets, release notes, and installed versions")
             Button {
                 Task { await model.refresh() }
             } label: {

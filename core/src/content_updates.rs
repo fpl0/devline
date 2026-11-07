@@ -433,8 +433,11 @@ pub(crate) fn apply(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -
     // or terminated process must not hide an installed-but-unverified release.
     save_pending(ctx, &remaining)?;
     let offline = request["offline"] == true;
+    // An explicit install of confirmed offers reports only preparation
+    // outcomes. Freshness and publisher failures remain in the snapshot.
+    let include_source_issues = selected.is_none() && request["confirmed_only"] != true;
     let mut steps: Vec<Value> = rows(&before, "sources").iter()
-        .filter(|source| selected.is_none() && source["state"] != "current")
+        .filter(|source| include_source_issues && source["state"] != "current")
         .map(|source| json!({"id":format!("source:{}",text(source,"id")),"name":source["name"],
             "action":"check_source","state":"blocked","detail":format!("{} Run updates check to refresh this source.",text(source,"detail"))}))
         .collect();

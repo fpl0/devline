@@ -176,6 +176,7 @@ struct CoreRequest: Encodable, Sendable {
     var trustImages: Bool?
     var manifestSha256: String?
     var keepLatest: Bool?
+    var confirmedOnly: Bool?
 
     init(
         _ command: String, id: String? = nil, version: String? = nil,
@@ -183,7 +184,7 @@ struct CoreRequest: Encodable, Sendable {
         destination: String? = nil, path: String? = nil, dryRun: Bool? = nil, url: String? = nil,
         anchor: String? = nil, focusText: String? = nil, category: String? = nil, projectStack: String? = nil,
         projectPath: String? = nil, kind: String? = nil, docs: [String]? = nil, starters: [String]? = nil, trustStarters: Bool? = nil,
-        jobId: String? = nil, images: [String]? = nil, services: [String]? = nil, clients: [String]? = nil, tail: Int? = nil, ports: [String: Int]? = nil, offline: Bool? = nil, trustImages: Bool? = nil, manifestSha256: String? = nil, keepLatest: Bool? = nil
+        jobId: String? = nil, images: [String]? = nil, services: [String]? = nil, clients: [String]? = nil, tail: Int? = nil, ports: [String: Int]? = nil, offline: Bool? = nil, trustImages: Bool? = nil, manifestSha256: String? = nil, keepLatest: Bool? = nil, confirmedOnly: Bool? = nil
     ) {
         self.command = command
         self.catalog = Self.catalogPath
@@ -217,6 +218,7 @@ struct CoreRequest: Encodable, Sendable {
         self.trustImages = trustImages
         self.manifestSha256 = manifestSha256
         self.keepLatest = keepLatest
+        self.confirmedOnly = confirmedOnly
     }
 
     private static var catalogPath: String {

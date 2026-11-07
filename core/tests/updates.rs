@@ -319,6 +319,28 @@ fn bulk_offline_update_installs_bundled_docs_without_claiming_unchecked_sources_
 }
 
 #[test]
+fn confirmed_bulk_update_reports_install_outcomes_separately_from_source_freshness() {
+    let fixture = Fixture::new();
+    fixture
+        .call(json!({"command":"docs.install","id":"go","version":"1.27.2"}))
+        .unwrap();
+    let result = fixture
+        .call(json!({"command":"updates.apply","offline":true,"confirmed_only":true}))
+        .unwrap();
+    assert_eq!(result["complete"], true);
+    assert_eq!(result["updated"], 1);
+    assert_eq!(result["failed"], 0);
+    assert_eq!(result["steps"][0]["id"], "docs:go");
+    assert_eq!(result["steps"][0]["state"], "succeeded");
+    assert_eq!(result["snapshot"]["all_checked"], false);
+    assert!(result["snapshot"]["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|source| source["state"] == "unchecked"));
+}
+
+#[test]
 fn app_only_status_preserves_independent_source_freshness_and_rejects_offline_fetch() {
     let fixture = Fixture::new();
     fixture

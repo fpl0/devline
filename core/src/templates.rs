@@ -9,6 +9,7 @@ use std::io::{self, Read};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 const NAME_TOKEN: &str = "__PROJECT_NAME__";
@@ -399,7 +400,7 @@ fn digest_tree(root: &Path, exclude_release_marker: bool) -> Result<String> {
         exclude_release_marker: bool,
     ) -> Result<()> {
         let mut entries: Vec<_> = fs::read_dir(root.join(relative))?.collect::<io::Result<_>>()?;
-        entries.sort_by_key(fs::DirEntry::file_name);
+        entries.sort_by_cached_key(fs::DirEntry::file_name);
         for entry in entries {
             if exclude_release_marker
                 && relative.as_os_str().is_empty()
@@ -408,7 +409,8 @@ fn digest_tree(root: &Path, exclude_release_marker: bool) -> Result<String> {
                 continue;
             }
             let path = relative.join(entry.file_name());
-            let metadata = fs::symlink_metadata(entry.path())?;
+            let entry_path = entry.path();
+            let metadata = fs::symlink_metadata(&entry_path)?;
             let name = path
                 .to_str()
                 .context("Template filename is not valid UTF-8")?;
@@ -420,7 +422,7 @@ fn digest_tree(root: &Path, exclude_release_marker: bool) -> Result<String> {
             } else if metadata.is_file() {
                 hash.update([1, u8::from(executable(&metadata))]);
                 hash.update(metadata.len().to_le_bytes());
-                let mut file = fs::File::open(entry.path())?;
+                let mut file = fs::File::open(entry_path)?;
                 loop {
                     let size = file.read(buffer)?;
                     if size == 0 {
@@ -542,6 +544,7 @@ pub(crate) fn runtime_reports(ctx: &Context, selected: &[String]) -> Result<Valu
         }
         stacks.entry(&template.stack).or_default().push(template);
     }
+    let sdk = &MacosSdk::default();
     std::thread::scope(|scope| {
         let mut checks = Vec::new();
         for (stack, releases) in stacks {
@@ -575,7 +578,7 @@ pub(crate) fn runtime_reports(ctx: &Context, selected: &[String]) -> Result<Valu
                 .map(|release| &release.id)
                 .collect();
             checks.push(scope.spawn(move || {
-                let report = toolchain_report(sample);
+                let report = toolchain_report_with_sdk(sample, sdk);
                 json!({
                     "id": stack, "name": name, "toolchain": sample.toolchain,
                     "minimum_version": sample.minimum_version, "available": report["available"],
@@ -603,6 +606,7 @@ pub(crate) fn project_runtime_reports(
     path: &Path,
     selected: &[String],
 ) -> Result<Value> {
+    let sdk = MacosSdk::default();
     let mut reports = Vec::new();
     for stack in selected {
         let Some(sample) = ctx
@@ -624,7 +628,7 @@ pub(crate) fn project_runtime_reports(
             if !visited.insert(candidate.clone()) {
                 continue;
             }
-            let Ok(actual) = probe_project(tool, &candidate) else {
+            let Ok(actual) = probe_version(tool, &candidate, false, &sdk) else {
                 continue;
             };
             let Some(version) = observed_version(tool, &actual) else {
@@ -965,13 +969,25 @@ fn known_executable(path: &Path, tool: &str) -> Option<PathBuf> {
 
 fn xcode_path(args: &[&str]) -> Option<PathBuf> {
     let output = Command::new("/usr/bin/xcrun")
-        .arg("--no-cache")
         .args(args)
         .stdin(Stdio::null())
         .output()
         .ok()?;
     let path = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
     (output.status.success() && path.is_absolute() && path.exists()).then_some(path)
+}
+
+// Swift and Cargo share one lazy SDK lookup during discovery. A new scan reads
+// the current developer selection through xcrun.
+#[derive(Default)]
+struct MacosSdk(OnceLock<Option<PathBuf>>);
+
+impl MacosSdk {
+    fn path(&self) -> Option<&Path> {
+        self.0
+            .get_or_init(|| xcode_path(&["--sdk", "macosx", "--show-sdk-path"]))
+            .as_deref()
+    }
 }
 
 fn erlang_bin() -> Option<PathBuf> {
@@ -993,7 +1009,7 @@ fn jdk_home() -> Option<PathBuf> {
 }
 
 pub(crate) fn tool_environment(command: &mut Command, tool: &str, path: &Path) -> Result<()> {
-    tool_environment_inner(command, tool, path, true)
+    tool_environment_inner(command, tool, path, true, &MacosSdk::default())
 }
 
 pub(crate) fn project_tool_environment(
@@ -1001,7 +1017,7 @@ pub(crate) fn project_tool_environment(
     tool: &str,
     path: &Path,
 ) -> Result<()> {
-    tool_environment_inner(command, tool, path, false)
+    tool_environment_inner(command, tool, path, false, &MacosSdk::default())
 }
 
 fn tool_environment_inner(
@@ -1009,6 +1025,7 @@ fn tool_environment_inner(
     tool: &str,
     path: &Path,
     starter: bool,
+    sdk: &MacosSdk,
 ) -> Result<()> {
     tasks::normalize_child_signals(command);
     let mut directories = vec![path
@@ -1056,7 +1073,7 @@ fn tool_environment_inner(
                 command.env(key, value);
             }
         }
-        let sdk = xcode_path(&["--sdk", "macosx", "--show-sdk-path"]);
+        let sdk = sdk.path();
         if tool == "swift" && sdk.is_none() {
             bail!("SwiftUI requires a local macOS SDK. Select Xcode or Command Line Tools with xcode-select; Devline does not install toolchains.");
         }
@@ -1076,22 +1093,14 @@ fn tool_environment_inner(
     Ok(())
 }
 
-fn probe(tool: &str, path: &Path) -> Result<String> {
-    probe_with_environment(tool, path, true)
-}
-
-fn probe_project(tool: &str, path: &Path) -> Result<String> {
-    probe_with_environment(tool, path, false)
-}
-
-fn probe_with_environment(tool: &str, path: &Path, starter: bool) -> Result<String> {
+fn probe_version(tool: &str, path: &Path, starter: bool, sdk: &MacosSdk) -> Result<String> {
     let args: &[&str] = match tool {
         "go" => &["version"],
         "python3" => &["-I", "-S", "-c", "import platform,sys; print(platform.python_version(), sys.implementation.name, platform.machine())"],
         _ => &["--version"],
     };
     let mut command = Command::new(path);
-    tool_environment_inner(&mut command, tool, path, starter)?;
+    tool_environment_inner(&mut command, tool, path, starter, sdk)?;
     let mut child = command
         .args(args)
         .current_dir("/")
@@ -1123,7 +1132,7 @@ fn probe_with_environment(tool: &str, path: &Path, starter: bool) -> Result<Stri
     }
     let mut detail = text.trim().lines().take(6).collect::<Vec<_>>().join(" ");
     if matches!(tool, "swift" | "cargo") {
-        if let Some(sdk) = xcode_path(&["--sdk", "macosx", "--show-sdk-path"]) {
+        if let Some(sdk) = sdk.path() {
             detail.push_str(&format!("; SDK {}", sdk.display()));
         }
     }
@@ -1183,13 +1192,15 @@ fn meets_minimum(template: &Template, observed: &str) -> bool {
 }
 
 fn toolchain(template: &Template) -> (Option<PathBuf>, String) {
+    toolchain_with_sdk(template, &MacosSdk::default())
+}
+
+fn toolchain_with_sdk(template: &Template, sdk: &MacosSdk) -> (Option<PathBuf>, String) {
     let tool = template.toolchain.as_str();
     if tool.is_empty() || tool.contains('/') || tool.contains('\\') {
         return (None, "Invalid executable name".to_owned());
     }
-    if template.id == "rust/tauri-desktop"
-        && xcode_path(&["--sdk", "macosx", "--show-sdk-path"]).is_none()
-    {
+    if template.id == "rust/tauri-desktop" && sdk.path().is_none() {
         return (None, "The Tauri desktop starter needs Apple’s macOS SDK and native build tools. Select an installed Xcode or Command Line Tools with xcode-select. Devline only detects these tools.".into());
     }
     if template.id == "swift/swiftui-app"
@@ -1208,7 +1219,7 @@ fn toolchain(template: &Template) -> (Option<PathBuf>, String) {
         if !visited.insert(path.clone()) {
             continue;
         }
-        let Ok(actual) = probe(tool, &path) else {
+        let Ok(actual) = probe_version(tool, &path, true, sdk) else {
             continue;
         };
         let detail = format!("{} · {actual}", path.display());
@@ -1248,7 +1259,18 @@ fn check(name: &str, ok: bool, detail: impl Into<String>) -> Value {
 pub fn doctor(ctx: &Context, reference: &str) -> Result<Value> {
     let entry = select(ctx, reference, true)?;
     let t = &entry.template;
-    let (tool, detail) = toolchain(t);
+    let ((tool, detail), marker) = if let Some(path) = &entry.installed {
+        std::thread::scope(|scope| {
+            let probe = scope.spawn(|| toolchain(t));
+            let marker = verify_release(path);
+            probe
+                .join()
+                .map(|toolchain| (toolchain, Some(marker)))
+                .map_err(|_| anyhow::anyhow!("Runtime inspection failed"))
+        })?
+    } else {
+        (toolchain(t), None)
+    };
     let mut checks = vec![
         check(
             "Installed release",
@@ -1263,8 +1285,7 @@ pub fn doctor(ctx: &Context, reference: &str) -> Result<Value> {
         check("Toolchain", tool.is_some(), &detail),
     ];
     let mut evidence = None;
-    if let Some(path) = &entry.installed {
-        let marker = verify_release(path);
+    if let Some(marker) = marker {
         let intact = marker.is_ok();
         checks.push(check(
             "Bundle integrity",
@@ -1413,7 +1434,11 @@ fn observed_version(tool: &str, actual: &str) -> Option<String> {
 }
 
 pub(crate) fn toolchain_report(template: &Template) -> Value {
-    let (path, detail) = toolchain(template);
+    toolchain_report_with_sdk(template, &MacosSdk::default())
+}
+
+fn toolchain_report_with_sdk(template: &Template, sdk: &MacosSdk) -> Value {
+    let (path, detail) = toolchain_with_sdk(template, sdk);
     let observed = path.as_ref().and_then(|_| {
         let (_, actual) = detail.split_once(" · ")?;
         observed_version(&template.toolchain, actual)
@@ -1956,6 +1981,7 @@ mod tests {
                 "dotnet",
                 Path::new("/usr/local/bin/dotnet"),
                 starter,
+                &MacosSdk::default(),
             )?;
             let environment = command
                 .get_envs()

@@ -1,11 +1,9 @@
-import AppKit
 import SwiftUI
 
 struct UpdateSnapshot: Decodable, Sendable {
     let checkedAt: TimeInterval?
     let items: [UpdateItem]
     let sources: [UpdateSource]?
-    let availableContent: Int?
     let allChecked: Bool?
 }
 
@@ -15,17 +13,15 @@ struct UpdateSource: Decodable, Identifiable, Sendable {
 }
 
 struct UpdateItem: Decodable, Identifiable, Sendable {
-    enum Kind: String, CaseIterable, Decodable, Identifiable, Sendable {
+    enum Kind: String, Decodable, Sendable {
         case docs, template, image, runtime, app
-
-        var id: String { rawValue }
 
         var title: String {
             switch self {
             case .docs: "Documentation"
             case .template: "App Starters"
-            case .image: "Image Archives"
-            case .runtime: "Runtimes"
+            case .image: "Service Images"
+            case .runtime: "Toolchains"
             case .app: "Devline App"
             }
         }
@@ -38,7 +34,7 @@ struct UpdateItem: Decodable, Identifiable, Sendable {
             switch self {
             case .current: "Up to Date"
             case .available: "Update Available"
-            case .unchecked: "Unchecked"
+            case .unchecked: "Not Checked"
             case .error: "Check Failed"
             case .unconfigured: "Checks Disabled"
             }
@@ -51,15 +47,6 @@ struct UpdateItem: Decodable, Identifiable, Sendable {
             case .unchecked: "clock"
             case .error: "exclamationmark.circle"
             case .unconfigured: "shippingbox"
-            }
-        }
-
-        var sortOrder: Int {
-            switch self {
-            case .available: 0
-            case .error: 1
-            case .unchecked: 2
-            case .current, .unconfigured: 3
             }
         }
     }
@@ -78,500 +65,310 @@ struct UpdateItem: Decodable, Identifiable, Sendable {
     let pending: Bool?
 
     var versionSummary: String? {
-        if let currentVersion, let availableVersion, currentVersion != availableVersion {
-            return "\(currentVersion) → \(availableVersion)"
-        }
-        if let currentVersion { return currentVersion }
-        if let availableVersion { return "Available \(availableVersion)" }
-        return nil
+        let current = currentVersion.map { kind == .docs ? displayDocVersion($0) : $0 }
+        let available = availableVersion.map { kind == .docs ? displayDocVersion($0) : $0 }
+        if let current, let available, current != available { return "\(current) → \(available)" }
+        return current ?? available
     }
 
-    var isContentUpdate: Bool {
+    var canUpdate: Bool {
         state == .available && reference != nil &&
             ["install_docs", "prepare_local_docs", "install_template", "rebuild_template", "update_image"].contains(action ?? "")
     }
 
-    var docInstallRequest: CoreRequest? {
-        guard action == "install_docs", let reference else { return nil }
-        let parts = reference.split(separator: "@", maxSplits: 1, omittingEmptySubsequences: false)
-        guard let id = parts.first, !id.isEmpty else { return nil }
-        let version = parts.count == 2 ? String(parts[1]) : availableVersion
-        guard let version, !version.isEmpty else { return nil }
-        return CoreRequest("jobs.start", id: String(id), version: version, kind: delivery == "local" ? "docs_prepare" : "docs_install")
+    var updateMethod: String? {
+        switch action {
+        case "prepare_local_docs": "From the selected Xcode SDK"
+        case "rebuild_template": "Builds and verifies a new starter release"
+        case "install_docs" where delivery == "local", "install_template": "Included with Devline"
+        default: nil
+        }
     }
 
     var externalURL: URL? {
-        guard action == "open_url", let url else { return nil }
-        return publicHTTPSURL(url)
+        guard action == "open_url", let url,
+              let safe = safeExternalURL(url), safe.scheme?.lowercased() == "https" else { return nil }
+        return safe
     }
 }
 
 struct UpdatesView: View {
-    private enum Page: Hashable { case overview, docs, starters, images, app }
-    private enum Filter: Hashable {
-        case allItems, available
+    private struct StatusRevision: Equatable {
+        let library: Int
+        let finishedJobs: [String]
+        let retry: Int
     }
 
     @ObservedObject var model: WorkspaceModel
-    var checkOnOpen = false
     @State private var snapshot: UpdateSnapshot?
-    @State private var filter: Filter = .allItems
-    @State private var checking = false
-    @State private var loading = false
+    @State private var loadedRevision: StatusRevision?
+    @State private var retry = 0
     @State private var loadError: String?
-    @State private var configuringChannel = false
-    @State private var page = Page.overview
-    private var contentUpdates: [UpdateItem] { snapshot?.items.filter(\.isContentUpdate) ?? [] }
-    private var latestContentJob: JobRecord? {
-        model.jobs.first { ["content_check", "content_update"].contains($0.kind) }
+    @State private var submitting = false
+    @State private var showingSources = false
+
+    private var statusRevision: StatusRevision {
+        StatusRevision(library: model.libraryRevision,
+                       finishedJobs: model.jobs.filter { !$0.isActive }.map(\.id), retry: retry)
     }
-    private var contentJob: JobRecord? {
-        model.jobs.first { $0.isActive && ["content_check", "content_update"].contains($0.kind) }
-    }
-    private var busy: Bool { checking || loading || contentJob != nil || model.operation != nil }
+
+    private var loading: Bool { loadedRevision != statusRevision }
+    private var updates: [UpdateItem] { snapshot?.items.filter(\.canUpdate) ?? [] }
+    private var jobs: [JobRecord] { model.jobs.filter { $0.kind == "content_check" || $0.kind == "content_update" } }
+    private var activeJob: JobRecord? { jobs.first(where: \.isActive) }
+    private var busy: Bool { loading || submitting || activeJob != nil || model.operation != nil }
+    private var sources: [UpdateSource] { snapshot?.sources ?? [] }
+    private var checkFailed: Bool { sources.contains { $0.state == "error" } }
 
     var body: some View {
-        // Keep tab content within the existing window. Populated update lists
-        // should scroll instead of increasing the window's content minimum.
-        GeometryReader { viewport in
-            TabView(selection: $page) {
-                overview.tabItem { Text("Overview") }.tag(Page.overview)
-                DocDistributionView(model: model).tabItem { Text("Documentation") }.tag(Page.docs)
-                sourceUpdates.tabItem { Text("Starters and Runtimes") }.tag(Page.starters)
-                ImageUpdatesView(model: model).tabItem { Text("Infrastructure") }.tag(Page.images)
-                Form { AppUpdatesSettings() }.formStyle(.grouped).tabItem { Text("Devline App") }.tag(Page.app)
-            }
-            .frame(width: viewport.size.width, height: viewport.size.height)
-        }.padding(.top, 8)
-        .task {
-            await loadStatus()
-            if checkOnOpen { await checkOnline() }
-        }
-        .onChange(of: model.jobs.filter { !$0.isActive }.map(\.id)) { _, _ in
-            Task { await loadStatus() }
-        }
-        .onChange(of: model.libraryRevision) { _, _ in Task { await loadStatus() } }
-    }
-
-    private var overview: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text("Keep your toolbox current").font(.title2.weight(.semibold))
-                        Text("Update the docs, starters, and image archives already in your library. Manage older releases in Settings → Local Library.")
-                            .font(.callout).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    Spacer(minLength: 8)
-                    Button("Check All Sources") { Task { await checkOnline() } }.disabled(busy)
-                    Button("Update Available (\(contentUpdates.count))") {
-                        Task { await model.startJob(CoreRequest("jobs.start", kind: "content_update"), inspect: false) }
-                    }.buttonStyle(.borderedProminent).disabled(busy || contentUpdates.isEmpty)
-                }
-                if let job = contentJob {
-                    HStack(spacing: 10) {
-                        ProgressView().controlSize(.small)
-                        Text(job.stage).font(.callout)
-                        Spacer()
-                        Button("View Progress") { model.inspectedJob = job }
-                    }
-                } else if let job = latestContentJob, job.needsAttention || job.state == "cancelled" {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: job.icon).foregroundStyle(.orange)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("\(job.title) · \(job.stateLabel)").font(.callout.weight(.medium))
-                            Text(job.result?.issues.first?.detail ?? job.error ?? "Open the result to see what still needs attention. Completed updates were kept.")
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(3)
-                        }
-                        Spacer()
-                        Button("View Result") { model.inspectedJob = job }
-                        Button(job.kind == "content_check" ? "Retry Checks" : "Retry Updates") {
-                            Task {
-                                if job.kind == "content_check" { await checkOnline() }
-                                else { await model.startJob(CoreRequest("jobs.start", kind: "content_update"), inspect: false) }
-                            }
-                        }.disabled(busy)
-                    }
-                } else if let loadError {
-                    Label(loadError, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange)
-                } else {
-                    Text("Checks use the internet. Updates may download packages and build new starter releases; your projects keep their selected versions.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }.padding(20)
-            Divider()
-            List {
-                Section("Available content updates") {
-                    if contentUpdates.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label(snapshot?.allChecked == true ? "Your prepared content is current" : "No confirmed content updates yet", systemImage: snapshot?.allChecked == true ? "checkmark.circle" : "clock")
-                                .font(.headline)
-                            Text(snapshot?.allChecked == true ? "Check again when you want to look for newer releases." : "Check all sources to refresh missing or failed results. Your saved library remains usable offline.")
-                                .font(.callout).foregroundStyle(.secondary)
-                        }.padding(.vertical, 8)
-                    } else {
-                        ForEach(contentUpdates) { item in updateRow(item) }
-                    }
-                }
-                Section("Sources and freshness") {
-                    ForEach(snapshot?.sources ?? []) { source in
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: source.state == "current" ? "checkmark.circle" : source.state == "error" ? "exclamationmark.circle" : "clock")
-                                .foregroundStyle(source.state == "error" ? Color.orange : .secondary)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(source.name).font(.body.weight(.medium))
-                                Text(source.detail).font(.caption).foregroundStyle(.secondary)
-                                if let checked = source.checkedAt {
-                                    Text("Last checked \(Date(timeIntervalSince1970: checked).formatted(date: .abbreviated, time: .shortened))")
-                                        .font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                            Spacer()
-                            if source.state != "current" {
-                                Button(source.state == "error" ? "Retry Checks" : "Check Sources") { Task { await checkOnline() } }
-                                    .controlSize(.small).disabled(busy)
-                            }
-                        }.padding(.vertical, 5)
-                    }
-                }
-                Section("Managed separately") {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Local toolchains").font(.headline)
-                            Text("Devline detects installed runtimes and reports publisher releases. Use your runtime manager or installer to upgrade them.")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button("View Toolchain Updates") { page = .starters }
-                    }.padding(.vertical, 5)
-                    HStack {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Devline app").font(.headline)
-                            Text("App releases are separate from your content library.").font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button("View App Release") { page = .app }
-                    }.padding(.vertical, 5)
-                }
-            }.listStyle(.inset)
-                .frame(minHeight: 0, maxHeight: .infinity)
-        }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-
-    private var sourceUpdates: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            if let snapshot {
-                if let loadError {
-                    Label(loadError, systemImage: "exclamationmark.circle")
-                        .font(.callout).foregroundStyle(.secondary)
-                        .padding(.horizontal, 18).padding(.vertical, 9)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Divider()
-                }
-                if filter == .available {
-                    let available = snapshot.items.filter { $0.state == .available && ($0.kind == .template || $0.kind == .runtime) }
-                    if available.isEmpty {
-                        availableEmptyState(snapshot)
-                    } else {
-                        updateList(available)
-                    }
-                } else {
-                    updateList(snapshot.items.filter { $0.kind == .template || $0.kind == .runtime })
-                }
-            } else if let loadError {
-                ContentUnavailableView {
-                    Label("Updates Unavailable", systemImage: "exclamationmark.circle")
-                } description: {
-                    Text(loadError)
-                } actions: {
-                    Button("Reload Status") { Task { await loadStatus() } }
-                }
+            statusBanner
+            if !updates.isEmpty {
+                updateList
             } else {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                emptyState
+            }
+            if !sources.isEmpty && (checkFailed || sources.contains { $0.checkedAt != nil }) {
+                Divider()
+                checkDetails
             }
         }
-        .sheet(isPresented: $configuringChannel) {
-            AppUpdateChannelSheet(canClear: snapshot?.items.contains {
-                $0.kind == .app && $0.state != .unconfigured
-            } == true) {
-                configuringChannel = false
-                await loadStatus()
-            }
-        }
+        .task(id: statusRevision) { [revision = statusRevision] in await loadStatus(revision) }
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(checkSummary).font(.headline)
-                Text(checking ? "Checking update sources…" : lastCheckLabel)
+                Text("Library Updates").font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                Text("Documentation, starters, and service images saved for offline use.")
                     .font(.callout).foregroundStyle(.secondary)
             }
-            Spacer(minLength: 8)
-            Picker("Filter updates", selection: $filter) {
-                Text("All Items").tag(Filter.allItems)
-                Text("Available").tag(Filter.available)
+            Spacer(minLength: 12)
+            if updates.isEmpty { checkButton.buttonStyle(.borderedProminent) }
+            else { checkButton.buttonStyle(.bordered) }
+            if updates.count > 1 {
+                Button("Update All") { Task { await run("content_update") } }
+                    .buttonStyle(.borderedProminent)
+                    .fixedSize()
+                    .disabled(busy || loadError != nil)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+        }
+        .padding(20)
+    }
+
+    private var checkButton: some View {
+        Button("Check for Updates") { Task { await run("content_check") } }
             .fixedSize()
-            .accessibilityLabel("Filter updates")
-            if checking { ProgressView().controlSize(.small) }
-            Button("Check for Updates") { Task { await checkOnline() } }
-                .buttonStyle(.borderedProminent)
-                .disabled(busy)
-                .help("Connect to upstream sources to check for updates")
-        }
-        .padding(18)
+            .disabled(busy)
+            .help("Look for newer releases online")
     }
 
-    private func availableEmptyState(_ snapshot: UpdateSnapshot) -> some View {
-        let incomplete = snapshot.checkedAt == nil || snapshot.items.contains {
-            ($0.kind == .template || $0.kind == .runtime) && ($0.state == .unchecked || $0.state == .error)
-        }
-        return ContentUnavailableView(
-            "No Updates Available",
-            systemImage: "tray",
-            description: Text(incomplete
-                ? "Check online to refresh sources that haven’t reported a result."
-                : "No updates were reported by the sources checked.")
-        )
-    }
-
-    private var checkSummary: String {
-        guard let snapshot else { return "Update Status" }
-        let count = snapshot.items.filter { ($0.kind == .template || $0.kind == .runtime) && $0.state == .available }.count
-        if count > 0 { return count == 1 ? "1 Update Available" : "\(count) Updates Available" }
-        return "Update Status"
-    }
-
-    private var lastCheckLabel: String {
-        guard let stamp = snapshot?.checkedAt, stamp > 0, stamp.isFinite else {
-            return "Check online to see what’s available."
-        }
-        let time = Date(timeIntervalSince1970: stamp).formatted(date: .abbreviated, time: .shortened)
-        return "Last checked \(time)"
-    }
-
-    private func updateList(_ items: [UpdateItem]) -> some View {
-        List {
-            ForEach(UpdateItem.Kind.allCases) { kind in
-                let group = items.filter { $0.kind == kind }.sorted {
-                    if $0.state.sortOrder != $1.state.sortOrder { return $0.state.sortOrder < $1.state.sortOrder }
-                    return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+    @ViewBuilder private var statusBanner: some View {
+        if let job = activeJob {
+            banner {
+                ProgressView().controlSize(.small)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(job.kind == "content_check" ? "Checking for updates…" : "Updating your library…")
+                        .fontWeight(.medium)
+                    Text(job.stage).font(.caption).foregroundStyle(.secondary)
                 }
-                if !group.isEmpty {
-                    Section {
-                        ForEach(group) { item in updateRow(item) }
-                    } header: {
-                        HStack {
+                Spacer()
+                Button("Details…") { model.inspectedJob = job }
+            }
+        } else if let loadError, snapshot != nil {
+            banner {
+                Label("Couldn’t refresh update status.", systemImage: "exclamationmark.circle")
+                    .help(loadError)
+                Spacer()
+                Button("Reload") { retry += 1 }
+            }
+        } else if !loading, let job = jobs.first,
+                  (job.state == "cancelled" || job.needsAttention),
+                  !(job.kind == "content_check" && checkFailed && job.result?.allChecked == false) {
+            banner {
+                Label(jobMessage(job), systemImage: job.icon)
+                Spacer()
+                Button("Details…") { model.inspectedJob = job }
+            }
+        } else if !loading, let job = jobs.first, job.kind == "content_update", job.state == "succeeded",
+                  (job.result?.updated ?? 0) > 0 {
+            banner {
+                Label("Library updated.", systemImage: "checkmark.circle")
+                Spacer()
+            }
+        }
+    }
+
+    private func banner<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10, content: content)
+                .font(.callout)
+                .padding(.horizontal, 20).padding(.vertical, 10)
+                .background(.quaternary.opacity(0.35))
+            Divider()
+        }
+    }
+
+    private func jobMessage(_ job: JobRecord) -> String {
+        if job.state == "cancelled" {
+            return job.kind == "content_check" ? "Update check cancelled." : "Update cancelled. Completed work was kept."
+        }
+        return job.kind == "content_check" ? "The update check didn’t finish." : "Some updates couldn’t be applied."
+    }
+
+    private var updateList: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(updates.count == 1 ? "1 update available" : "\(updates.count) updates available")
+                    .font(.headline).accessibilityAddTraits(.isHeader)
+                Text("Your projects keep their pinned versions.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 6)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach([UpdateItem.Kind.docs, .template, .image], id: \.self) { kind in
+                        let group = updates.filter { $0.kind == kind }.sorted {
+                            $0.name.localizedStandardCompare($1.name) == .orderedAscending
+                        }
+                        if !group.isEmpty {
                             Text(kind.title)
-                            Spacer()
-                            if kind == .app {
-                                Button("Configure Channel…") { configuringChannel = true }
-                                    .buttonStyle(.borderless)
-                                    .disabled(busy)
+                                .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                                .accessibilityAddTraits(.isHeader)
+                                .padding(.top, 14).padding(.bottom, 7)
+                            Divider()
+                            ForEach(group) { item in
+                                updateRow(item)
+                                if item.id != group.last?.id { Divider() }
                             }
                         }
                     }
                 }
+                .padding(.horizontal, 20).padding(.bottom, 14)
             }
+            .frame(maxHeight: .infinity)
         }
-        .listStyle(.inset)
     }
 
     private func updateRow(_ item: UpdateItem) -> some View {
-        HStack(alignment: .center, spacing: 14) {
+        HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(item.name).font(.body.weight(.medium))
-                    if let versions = item.versionSummary {
-                        Text(versions).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                    }
+                Text(item.name).font(.body.weight(.medium))
+                if let summary = item.versionSummary {
+                    Text(summary).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                 }
-                if !item.detail.isEmpty {
-                    Text(item.detail)
-                        .font(.caption).foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .help(item.detail)
+                if let method = item.updateMethod {
+                    Text(method).font(.caption).foregroundStyle(.secondary)
                 }
             }
+            Spacer(minLength: 8)
+            if updates.count == 1 { updateButton(item).buttonStyle(.borderedProminent) }
+            else { updateButton(item).buttonStyle(.bordered) }
+        }
+        .padding(.vertical, 10)
+        .help(item.pending == true ? item.detail : "")
+    }
+
+    private func updateButton(_ item: UpdateItem) -> some View {
+        Button(item.pending == true ? "Retry" : "Update") {
+            if let reference = item.reference { Task { await run("content_update", id: reference) } }
+        }
+        .disabled(busy || loadError != nil)
+        .accessibilityLabel(item.pending == true ? "Retry \(item.name) update" : "Update \(item.name)")
+    }
+
+    @ViewBuilder private var emptyState: some View {
+        if loading && snapshot == nil {
+            ProgressView("Loading update status…").frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let loadError, snapshot == nil {
+            ContentUnavailableView {
+                Label("Update Status Unavailable", systemImage: "exclamationmark.circle")
+            } description: {
+                Text(loadError).textSelection(.enabled)
+            } actions: {
+                Button("Reload") { retry += 1 }
+            }
+        } else if activeJob != nil || submitting {
             Spacer(minLength: 0)
-            VStack(alignment: .trailing, spacing: 5) {
-                Label(item.state.label, systemImage: item.state.icon)
-                    .font(.caption)
-                    .foregroundStyle(statusColor(item.state))
-                    .fixedSize()
-                action(for: item)
-            }
+        } else if snapshot?.allChecked == true {
+            ContentUnavailableView("No Library Updates Found", systemImage: "checkmark.circle",
+                                   description: Text("You can check again whenever you’re online."))
+        } else if checkFailed {
+            ContentUnavailableView("No Confirmed Updates", systemImage: "arrow.clockwise",
+                                   description: Text("Your saved library is still available offline."))
+        } else {
+            ContentUnavailableView("Ready to Check", systemImage: "arrow.down.circle",
+                                   description: Text("Check online for newer versions of the items in your library."))
         }
-        .padding(.vertical, 5)
     }
 
-    @ViewBuilder private func action(for item: UpdateItem) -> some View {
-        if let request = item.docInstallRequest {
-            Button("Install Update") {
-                Task { await model.startJob(request) }
-            }
-            .controlSize(.small)
-            .disabled(busy)
-            .accessibilityLabel("Install \(item.name) update")
-        } else if item.action == "prepare_local_docs", let reference = item.reference {
-            Button("Refresh from Xcode") {
-                Task { await model.startJob(CoreRequest("jobs.start", id: reference, kind: "docs_prepare")) }
-            }.controlSize(.small).disabled(busy)
-        } else if item.action == "update_image", let reference = item.reference {
-            Button("Update Image") {
-                Task { await model.startJob(CoreRequest("jobs.start", id: reference, kind: "infra_update")) }
-            }.controlSize(.small).disabled(busy)
-        } else if item.action == "install_template", item.reference != nil {
-            Button(item.pending == true ? "Finish Update" : "Install Update") {
-                Task { await model.startJob(CoreRequest("jobs.start", id: item.id, kind: "content_update"), inspect: false) }
-            }
-            .controlSize(.small)
-            .disabled(busy)
-            .accessibilityLabel("Install \(item.name) update")
-        } else if item.action == "rebuild_template", item.reference != nil {
-            Button("Build Release") {
-                if let reference = item.reference {
-                    Task { await model.startJob(CoreRequest("jobs.start", id: reference, kind: "build")) }
+    private var checkDetails: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if showingSources {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(sources) { source in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(source.name).font(.callout.weight(.medium))
+                                if source.state != "current" {
+                                    Text(source.detail).font(.caption).foregroundStyle(.secondary)
+                                        .textSelection(.enabled)
+                                }
+                                if let date = checkDate(source.checkedAt) {
+                                    Text(date).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 4)
                 }
+                .frame(height: 145)
             }
-                .controlSize(.small)
-                .disabled(busy)
-                .accessibilityLabel("Build a release of \(item.name)")
-        } else if let url = item.externalURL {
-            Button {
-                if !NSWorkspace.shared.open(url) {
-                    loadError = "Could not open the update page."
+            HStack {
+                if checkFailed {
+                    Label("Some checks failed", systemImage: "exclamationmark.circle").foregroundStyle(.orange)
+                } else if let date = checkDate(snapshot?.checkedAt) {
+                    Text("Last checked \(date)").foregroundStyle(.secondary)
+                } else {
+                    Text("Check incomplete").foregroundStyle(.secondary)
                 }
-            } label: {
-                Label(linkTitle(item.kind), systemImage: "arrow.up.right")
+                Spacer()
+                Button(showingSources ? "Hide Check Details" : "Check Details…") { showingSources.toggle() }
+                    .buttonStyle(.borderless)
             }
-            .controlSize(.small)
-            .accessibilityLabel("Open \(item.name) update page")
+            .font(.caption).padding(.horizontal, 20).padding(.vertical, 10)
         }
     }
 
-    private func statusColor(_ state: UpdateItem.State) -> Color {
-        switch state {
-        case .available: .accentColor
-        case .error: .orange
-        default: .secondary
-        }
+    private func checkDate(_ stamp: TimeInterval?) -> String? {
+        guard let stamp, stamp.isFinite, stamp > 0 else { return nil }
+        return Date(timeIntervalSince1970: stamp).formatted(date: .abbreviated, time: .shortened)
     }
 
-    private func linkTitle(_ kind: UpdateItem.Kind) -> String {
-        switch kind {
-        case .docs: "Open Source"
-        case .runtime: "Open Download Page"
-        case .template, .image, .app: "Open Release Page"
-        }
-    }
-
-    private func loadStatus() async {
-        loading = true
-        loadError = nil
-        defer { loading = false }
+    private func loadStatus(_ revision: StatusRevision) async {
         do {
             snapshot = try await Core.request(CoreRequest("updates.status"))
+            loadError = nil
         } catch is CancellationError {
+            return
         } catch {
             loadError = error.localizedDescription
         }
+        loadedRevision = revision
     }
 
-    private func checkOnline() async {
+    private func run(_ kind: String, id: String? = nil) async {
         guard !busy else { return }
-        checking = true
-        loadError = nil
-        defer { checking = false }
-        await model.startJob(CoreRequest("jobs.start", kind: "content_check"), inspect: false)
-    }
-
-
-}
-
-private struct AppUpdateChannelSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let canClear: Bool
-    let didSave: () async -> Void
-    @State private var input = ""
-    @State private var saving = false
-    @State private var failure: String?
-    @FocusState private var fieldFocused: Bool
-
-    private var manifestURL: URL? {
-        publicHTTPSURL(input.trimmingCharacters(in: .whitespacesAndNewlines), allowQuery: false)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("App Update Channel").font(.title2.weight(.semibold))
-                Text("Enter a public HTTPS release manifest for this build. Devline uses it the next time you check for updates.")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            TextField("https://example.com/devline-release.json", text: $input)
-                .textFieldStyle(.roundedBorder)
-                .focused($fieldFocused)
-                .accessibilityLabel("Release manifest URL")
-                .disabled(saving)
-            if let failure {
-                Label(failure, systemImage: "exclamationmark.circle")
-                    .font(.callout).foregroundStyle(.red)
-            } else if !input.isEmpty && manifestURL == nil {
-                Text("Use an HTTPS URL without credentials, a query, or a fragment.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            HStack {
-                if canClear {
-                    Button("Clear Channel", role: .destructive) { Task { await save(url: "") } }
-                        .disabled(saving)
-                }
-                Spacer()
-                if saving { ProgressView().controlSize(.small) }
-                Button("Cancel") { dismiss() }
-                    .keyboardShortcut(.cancelAction)
-                    .disabled(saving)
-                Button("Save Channel") {
-                    if let manifestURL { Task { await save(url: manifestURL.absoluteString) } }
-                }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(manifestURL == nil || saving)
-            }
-        }
-        .padding(22)
-        .frame(width: 510)
-        .interactiveDismissDisabled(saving)
-        .task { fieldFocused = true }
-    }
-
-    private func save(url: String) async {
-        guard !saving else { return }
-        saving = true
-        failure = nil
-        defer { saving = false }
-        do {
-            let _: Acknowledgment = try await Core.request(CoreRequest("updates.configure", url: url))
-            await didSave()
-        } catch {
-            failure = error.localizedDescription
+        submitting = true
+        defer { submitting = false }
+        if await model.startJob(CoreRequest("jobs.start", id: id, kind: kind,
+                                            confirmedOnly: kind == "content_update" ? true : nil), inspect: false) == false {
+            retry += 1
         }
     }
-}
-
-private func publicHTTPSURL(_ value: String, allowQuery: Bool = true) -> URL? {
-    guard let components = URLComponents(string: value),
-          components.scheme?.lowercased() == "https",
-          components.host?.isEmpty == false,
-          components.user == nil,
-          components.password == nil,
-          (allowQuery || components.query == nil),
-          (allowQuery || components.fragment == nil) else { return nil }
-    return components.url
 }

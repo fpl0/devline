@@ -1174,6 +1174,11 @@ pub fn status(ctx: &Context) -> Result<Value> {
     make_status(ctx, settings(ctx)?)
 }
 
+pub(crate) fn runtime_status(ctx: &Context) -> Result<Value> {
+    let prefs = settings(ctx)?;
+    Ok(json!({"checked_at": prefs.checked_at, "items": runtime_updates(ctx, &prefs)?}))
+}
+
 pub(crate) fn app_status(ctx: &Context) -> Result<Value> {
     let prefs = settings(ctx)?;
     let checked_at = prefs

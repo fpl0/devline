@@ -12,6 +12,7 @@ struct RuntimesView: View {
     @State private var scanRevision = 0
     @State private var scanning = true
     @State private var scanError: String?
+    @State private var releases: [UpdateItem] = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -75,6 +76,11 @@ struct RuntimesView: View {
             }
         }
         .task(id: scanRevision) { await scan() }
+        .task {
+            if let snapshot: UpdateSnapshot = try? await Core.request(CoreRequest("updates.runtime.status")) {
+                releases = snapshot.items
+            }
+        }
     }
 
     private func runtimeDetails(_ runtime: RuntimeToolchain) -> some View {
@@ -135,6 +141,29 @@ struct RuntimesView: View {
                     .padding(.top, 7)
                 }
                 .font(.callout)
+                if !publisherReleases(for: runtime).isEmpty {
+                    DisclosureGroup("Publisher Releases") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(publisherReleases(for: runtime)) { release in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text(release.name).fontWeight(.medium)
+                                        Spacer()
+                                        if let url = release.externalURL {
+                                            Link("Publisher’s Site", destination: url)
+                                        }
+                                    }
+                                    Text(release.detail).foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            Text("Publisher results refresh when you check in Updates.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        .padding(.top, 7)
+                    }
+                    .font(.callout)
+                }
                 Text("Devline detects your installed tools. It does not install, upgrade, or remove runtimes. Use your preferred runtime manager to change them.")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -142,6 +171,15 @@ struct RuntimesView: View {
             .padding(26)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
+    }
+
+    private func publisherReleases(for runtime: RuntimeToolchain) -> [UpdateItem] {
+        let ids = switch runtime.id {
+        case "java": ["java", "maven"]
+        case "elixir": ["elixir", "erlang"]
+        default: [runtime.id]
+        }
+        return releases.filter { release in ids.contains { release.id == "runtime:\($0)" } }
     }
 
     private func docsRow(_ packs: [DocPack], for runtime: RuntimeToolchain) -> some View {

@@ -20,19 +20,20 @@ struct DocumentationUpdates: Decodable, Sendable {
 }
 
 struct DocDistributionView: View {
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject var model: WorkspaceModel
-    var checkOnOpen = false
     @State private var updates: DocumentationUpdates?
     @State private var checking = false
     @State private var error: String?
     @State private var detail: DocPack?
+    private var downloading: Bool { model.jobs.contains { $0.kind == "docs_install" && $0.isActive } }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Documentation Updates").font(.title2.weight(.semibold))
-                    Text("Download docsets independently of the app. Previous versions stay available for your projects and rollback.")
+                    Text("Documentation Releases").font(.title2.weight(.semibold))
+                    Text("Browse downloadable docsets, release notes, and installed versions.")
                         .font(.callout).foregroundStyle(.secondary)
                     if let date = updates?.checkedAt {
                         Text("Last checked \(Date(timeIntervalSince1970: date).formatted(date: .abbreviated, time: .shortened))")
@@ -41,11 +42,10 @@ struct DocDistributionView: View {
                 }
                 Spacer()
                 if checking { ProgressView().controlSize(.small) }
-                Button("Check for Docset Updates") { Task { await load(online: true) } }
-                    .buttonStyle(.borderedProminent).disabled(checking)
+                Button("Refresh Releases") { Task { await load(online: true) } }
+                    .disabled(checking)
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }.padding(18)
-            Divider()
-            LocalSDKReferenceView(model: model).padding(.horizontal, 18).padding(.vertical, 8)
             Divider()
             if let failure = error ?? updates?.error {
                 Label(failure, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange)
@@ -75,9 +75,10 @@ struct DocDistributionView: View {
                                     Button(pack.installedVersions.contains(latest.pack.version) ? "Use Latest" : "Download and Use") {
                                         Task {
                                             if pack.installedVersions.contains(latest.pack.version) { await activate(pack.id, version: latest.pack.version) }
-                                            else { await model.startJob(CoreRequest("jobs.start", id: pack.id, version: latest.pack.version, kind: "docs_install")) }
+                                            else { await download(pack.id, version: latest.pack.version) }
                                         }
-                                    }.controlSize(.small).accessibilityLabel("\(pack.installedVersions.contains(latest.pack.version) ? "Use" : "Download and use") \(pack.name) \(latest.pack.version)")
+                                    }.controlSize(.small).disabled(downloading)
+                                        .accessibilityLabel("\(pack.installedVersions.contains(latest.pack.version) ? "Use" : "Download and use") \(pack.name) \(latest.pack.version)")
                                 } else { Label("Current", systemImage: "checkmark.circle").font(.caption).foregroundStyle(.secondary) }
                             } else { Text("Check online for releases").font(.caption).foregroundStyle(.secondary) }
                         }
@@ -93,8 +94,8 @@ struct DocDistributionView: View {
                                                 Spacer()
                                                 Text(ByteCountFormatter.string(fromByteCount: release.size, countStyle: .file)).font(.caption).foregroundStyle(.secondary)
                                                 Button("Download and Use") {
-                                                    Task { await model.startJob(CoreRequest("jobs.start", id: pack.id, version: release.pack.version, kind: "docs_install")) }
-                                                }.controlSize(.small).disabled(pack.installedVersions.contains(release.pack.version))
+                                                    Task { await download(pack.id, version: release.pack.version) }
+                                                }.controlSize(.small).disabled(downloading || pack.installedVersions.contains(release.pack.version))
                                             }
                                         }
                                     }
@@ -105,14 +106,18 @@ struct DocDistributionView: View {
                 }.listStyle(.inset)
             } else if checking { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
             else { ContentUnavailableView("Check for Documentation", systemImage: "book.closed", description: Text("Connect once to see downloadable releases and their sizes. Installed articles remain available offline.")) }
-            Text("Interrupted downloads resume automatically. Open Activity for progress, cancellation and complete logs.")
+            Text(downloading ? "Downloading documentation… Open Activity for progress." : "Find download progress and logs in Activity.")
                 .font(.caption).foregroundStyle(.secondary).padding(12)
         }
-        .task { await load(online: checkOnOpen) }
+        .frame(width: 740, height: 560)
+        .task { await load(online: false) }
         .onChange(of: model.libraryRevision) { _, _ in Task { await load(online: false) } }
         .sheet(isPresented: Binding(get: { detail != nil }, set: { if !$0 { detail = nil } })) {
             if let detail { DocsetInfoView(pack: detail) }
         }
+    }
+    private func download(_ id: String, version: String) async {
+        await model.startJob(CoreRequest("jobs.start", id: id, version: version, kind: "docs_install"), inspect: false)
     }
     private func load(online: Bool) async {
         guard !checking else { return }

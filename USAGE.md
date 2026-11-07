@@ -106,15 +106,13 @@ The desktop documentation includes an official Tauri snapshot and **The Swift Pr
 
 ### Prepare the SwiftUI SDK reference
 
-In **Docset Library → From This Mac** or **Updates → Documentation**, find **SwiftUI · Apple API Reference** and choose **Prepare from Xcode**. **Prepare Offline** in **Current Project** includes this import when the project needs it. The import reads the selected macOS SDK locally and works offline.
+In **Docset Library → From This Mac**, find **SwiftUI · Apple API Reference** and choose **Prepare from Xcode**. **Prepare Offline** in **Current Project** includes this import when the project needs it. The import reads the selected macOS SDK locally and works offline.
 
 ```sh
 devline docs local
 devline --offline docs install swiftui --background
 devline --offline docs search 'swiftui:View'
 ```
-
-![Documentation Updates showing the official SwiftUI SDK reference with 8,796 locally indexed symbols](press/swiftui-reference-library.jpg)
 
 Follow the import in **Activity** or with `devline jobs status JOB_ID --follow`. Search after the job succeeds. Use the same card or import command after selecting a newer Xcode SDK. The card shows **Refresh from Xcode** when the selected snapshot is already installed. Devline keeps earlier installed snapshots available for project pins.
 
@@ -248,7 +246,9 @@ The destination needs Docker, the project toolchains, and dependencies. Importin
 
 ## Updates
 
-**Updates** brings documentation, starters, and image archives into one overview. **Check All Sources** checks their publishers and shows freshness or failures for each source. **Update Available** prepares checked updates for the content you already use. By default, Devline keeps previous releases. Failed items remain available to retry until preparation and offline verification succeed. Toolchains remain managed outside Devline, and app updates are separate.
+Open **Updates** and choose **Check for Updates**. The list shows newer releases for the documentation, starters, and service images saved in your offline library. Choose **Update** for one item or **Update All** for the whole list. Devline keeps project pins and, by default, previous releases. Unfinished updates stay in the list with a **Retry** button. If a publisher check fails, open **Check Details**; updates already confirmed can still be applied.
+
+To browse downloadable docsets, read release notes, or switch the active version, use **Docset Library → Manage Releases…**. Toolchain publisher results are in **Toolchains → Publisher Releases**. To check for a newer Devline app, use **App Updates and Downloads…** in the Devline menu or **App Updates** in Settings.
 
 The **Documentation** tab downloads independently published snapshots. Devline checks archive size and SHA-256 and resumes interrupted downloads where the server supports it. The details show sources, coverage, and known omissions. You can roll back to an earlier installed release.
 

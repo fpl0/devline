@@ -708,6 +708,7 @@ pub fn execute(request: &Value) -> Result<Value> {
         "updates.app.status" => updates::app_status(&ctx),
         "updates.app.check" => updates::app_check(&ctx, request),
         "updates.status" => content_updates::status(&ctx),
+        "updates.runtime.status" => updates::runtime_status(&ctx),
         "updates.check" => content_updates::check(&ctx, request, None),
         "updates.apply" => content_updates::apply(&ctx, request, None),
         "updates.configure" => updates::configure(&ctx, text_arg(request, "url")?),

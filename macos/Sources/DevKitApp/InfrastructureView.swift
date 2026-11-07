@@ -12,9 +12,19 @@ struct InfrastructureView: View {
     @State private var removing: InfrastructureService?
     @State private var importPath: String?
     @State private var helpRequest: HelpRequest?
+    @State private var publisherOffers: [PublisherOffer] = []
 
     private struct HelpRequest: Identifiable {
         let id: String
+    }
+
+    private struct PublisherOffer: Decodable, Sendable {
+        let id, state: String
+        let availableVersion, reference: String?
+    }
+
+    private struct PublisherOffers: Decodable, Sendable {
+        let items: [PublisherOffer]
     }
 
     private var services: [InfrastructureService] {
@@ -82,6 +92,11 @@ struct InfrastructureView: View {
             }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 18).padding(.vertical, 10)
         }
         .task { await library.refresh() }
+        .task {
+            if let saved: PublisherOffers = try? await Core.request(CoreRequest("infra.updates")) {
+                publisherOffers = saved.items
+            }
+        }
         .sheet(isPresented: Binding(get: { importPath != nil }, set: { if !$0 { importPath = nil } })) {
             if let importPath { ImageImportView(path: importPath, model: model) }
         }
@@ -120,6 +135,19 @@ struct InfrastructureView: View {
                         Button("Export Image…") { export([service.reference]) }.disabled(image?.archived != true)
                         Button("Remove Archive…", role: .destructive) { removing = service }.disabled(image?.archived != true)
                     } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("More actions for \(service.name)")
+                }
+                if let offer = publisherOffers.first(where: { $0.id == service.id && $0.state == "available" }),
+                   let version = offer.availableVersion, let reference = offer.reference,
+                   library.image(reference)?.archived != true {
+                    HStack {
+                        Text("Publisher release \(version) available").font(.callout).foregroundStyle(.secondary)
+                        Button("Download Newer Release") {
+                            Task { await model.startJob(CoreRequest("jobs.start", id: reference, kind: "infra_update")) }
+                        }
+                        .disabled(library.status?.docker.available != true || model.jobs.contains {
+                            $0.isActive && ($0.kind == "infra_update" || $0.kind == "content_update")
+                        })
+                    }
                 }
                 VStack(alignment: .leading, spacing: 12) {
                     statusRow("Archived in Devline", detail: archiveDetail(image), ready: image?.verifiedArchive == true)

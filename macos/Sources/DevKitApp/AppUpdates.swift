@@ -25,6 +25,20 @@ final class AppUpdates: ObservableObject {
     func setAutomaticChecks(_ enabled: Bool) { if configured { controller.updater.automaticallyChecksForUpdates = enabled } }
 }
 
+struct AppUpdatesSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Form { AppUpdatesSettings() }.formStyle(.grouped)
+            Button("Done") { dismiss() }
+                .keyboardShortcut(.cancelAction)
+                .padding([.horizontal, .bottom], 20)
+        }
+        .frame(width: 500, height: 360)
+    }
+}
+
 struct AppUpdatesSettings: View {
     @ObservedObject private var updates = AppUpdates.shared
     @State private var release: UpdateItem?

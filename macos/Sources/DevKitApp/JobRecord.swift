@@ -6,14 +6,16 @@ struct JobOutcome: Decodable, Sendable {
         var needsAttention: Bool { ["failed", "blocked", "needs_attention", "error", "unchecked"].contains(state ?? status ?? "") }
     }
     let complete, readyOffline, allChecked: Bool?
+    let updated: Int?
     let status: String?
     let steps, sources, blockers: [Step]?
-    private enum CodingKeys: String, CodingKey { case complete, readyOffline, allChecked, status, steps, sources, blockers }
+    private enum CodingKeys: String, CodingKey { case complete, readyOffline, allChecked, updated, status, steps, sources, blockers }
     init(from decoder: Decoder) throws {
         let values = try? decoder.container(keyedBy: CodingKeys.self)
         complete = try? values?.decodeIfPresent(Bool.self, forKey: .complete)
         readyOffline = try? values?.decodeIfPresent(Bool.self, forKey: .readyOffline)
         allChecked = try? values?.decodeIfPresent(Bool.self, forKey: .allChecked)
+        updated = try? values?.decodeIfPresent(Int.self, forKey: .updated)
         status = try? values?.decodeIfPresent(String.self, forKey: .status)
         steps = try? values?.decodeIfPresent([Step].self, forKey: .steps)
         sources = try? values?.decodeIfPresent([Step].self, forKey: .sources)
@@ -41,8 +43,8 @@ struct JobRecord: Decodable, Identifiable, Sendable {
         case "new_project": "Create Offline Project"
         case "project_prepare": "Prepare Project Dependencies"
         case "toolbox_prepare": "Prepare Project for Offline Work"
-        case "content_check": "Check All Content Updates"
-        case "content_update": "Update Prepared Content"
+        case "content_check": "Check for Library Updates"
+        case "content_update": "Update Library"
         case "infra_prepare": "Prepare Image Archive"
         case "infra_restore": "Restore Image to Docker"
         case "infra_verify": "Verify Image Archive"

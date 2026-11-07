@@ -8,6 +8,7 @@ private extension Notification.Name {
     static let devlineOpenRecent = Self("Devline.openRecent")
     static let devkitLibrary = Self("DevKit.library")
     static let devkitUpdates = Self("DevKit.updates")
+    static let devlineAppUpdates = Self("Devline.appUpdates")
 }
 
 enum Workspace: String, CaseIterable, Identifiable {
@@ -68,9 +69,9 @@ struct DevKitMacApp: App {
                 if appUpdates.configured {
                     Button("Check for App Updates…", action: appUpdates.check).disabled(!appUpdates.canCheck)
                 } else {
-                    Button("App Updates and Downloads…") { announce(.devkitUpdates) }
+                    Button("App Updates and Downloads…") { announce(.devlineAppUpdates) }
                 }
-                Button("Documentation, Starter, and Image Updates…") { announce(.devkitUpdates) }
+                Button("Library Updates…") { announce(.devkitUpdates) }
             }
             CommandGroup(replacing: .newItem) {
                 Button("New Project…") { announce(.devkitNew) }
@@ -280,7 +281,7 @@ private struct WorkspaceView: View {
     @State private var lookupRevision = 0
     @State private var starterReference: String?
     @State private var newStarter: Starter?
-    @State private var updateCheckRequest = 0
+    @State private var showingAppUpdates = false
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -292,12 +293,6 @@ private struct WorkspaceView: View {
                 Section("Reference") { sidebarRows([.docs, .runtimes]) }
                 Section("Manage") {
                     sidebarRows([.library, .offline, .updates, .activity])
-                    SettingsLink {
-                        Label("Settings", systemImage: "gearshape")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
                 }
             }
             .listStyle(.sidebar)
@@ -382,6 +377,7 @@ private struct WorkspaceView: View {
             }
         }
         .sheet(item: $model.inspectedJob) { job in JobDetailsView(job: job, model: model) }
+        .sheet(isPresented: $showingAppUpdates) { AppUpdatesSheet() }
         .alert("Devline", isPresented: Binding(
             get: { model.error != nil },
             set: { if !$0 { model.error = nil } }
@@ -402,14 +398,11 @@ private struct WorkspaceView: View {
             if let path = notification.object as? String { openProject(path) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .devkitLibrary)) { _ in workspace = .library }
-        .onReceive(NotificationCenter.default.publisher(for: .devkitUpdates)) { _ in
-            updateCheckRequest += 1
-            workspace = .updates
-        }
+        .onReceive(NotificationCenter.default.publisher(for: .devkitUpdates)) { _ in workspace = .updates }
+        .onReceive(NotificationCenter.default.publisher(for: .devlineAppUpdates)) { _ in showingAppUpdates = true }
         .onChange(of: workspace) { _, page in
             UserDefaults.standard.set(page?.rawValue ?? "Toolbox", forKey: "devline.workspace")
             columnVisibility = focusReading && page == .docs ? .detailOnly : .all
-            if page != .updates { updateCheckRequest = 0 }
         }
         .onChange(of: focusReading) { _, focused in columnVisibility = focused && workspace == .docs ? .detailOnly : .all }
         .onChange(of: model.libraryRevision) { _, _ in
@@ -472,8 +465,7 @@ private struct WorkspaceView: View {
         case .library:
             LibraryView(model: model)
         case .updates:
-            UpdatesView(model: model, checkOnOpen: updateCheckRequest > 0)
-                .id(updateCheckRequest)
+            UpdatesView(model: model)
         case .activity:
             ActivityView(model: model)
         case .offline:
