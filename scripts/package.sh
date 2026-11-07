@@ -3,6 +3,7 @@ set -euo pipefail
 export MACOSX_DEPLOYMENT_TARGET=14.0
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$(dirname "$ROOT")"
+SWIFT_BUILD_PATH="${DEVLINE_SWIFT_BUILD_PATH:-$ROOT/macos/.build}"
 python3 - "$ROOT" <<'PY'
 import json,sys
 from pathlib import Path
@@ -15,12 +16,12 @@ APP_VERSION="$(cargo metadata --offline --no-deps --format-version 1 --manifest-
 # SwiftPM does not track this externally built static library as a source dependency.
 # Invalidate its build when the Rust archive changes so the app cannot ship a stale core.
 CORE_DIGEST="$(shasum -a 256 "$ROOT/core/target/release/libdevkit_core.a" | cut -d ' ' -f 1)"
-PREVIOUS_DIGEST="$(cat "$ROOT/macos/.build/devline-core.sha256" 2>/dev/null || true)"
+PREVIOUS_DIGEST="$(cat "$SWIFT_BUILD_PATH/devline-core.sha256" 2>/dev/null || true)"
 if [ "$CORE_DIGEST" != "$PREVIOUS_DIGEST" ]; then
-    swift package --package-path "$ROOT/macos" clean
+    swift package --package-path "$ROOT/macos" --scratch-path "$SWIFT_BUILD_PATH" clean
 fi
-swift build --package-path "$ROOT/macos" --build-system native -c release
-printf '%s\n' "$CORE_DIGEST" > "$ROOT/macos/.build/devline-core.sha256"
+swift build --package-path "$ROOT/macos" --scratch-path "$SWIFT_BUILD_PATH" --build-system native -c release
+printf '%s\n' "$CORE_DIGEST" > "$SWIFT_BUILD_PATH/devline-core.sha256"
 STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/devkit-build.XXXXXX")"
 ARCHIVE_STAGE=""
 cleanup() {
@@ -30,8 +31,8 @@ cleanup() {
 trap cleanup EXIT
 APP="$STAGING_ROOT/Devline.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-cp "$ROOT/macos/.build/release/DevKitApp" "$APP/Contents/MacOS/DevlineApp"
-ditto "$ROOT/macos/.build/release/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+cp "$SWIFT_BUILD_PATH/release/DevKitApp" "$APP/Contents/MacOS/DevlineApp"
+ditto "$SWIFT_BUILD_PATH/release/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$ROOT/core/target/release/devline" "$APP/Contents/MacOS/devline"
 ln -s devline "$APP/Contents/MacOS/devkit"
 xcrun actool "$ROOT/macos/Assets/DevKit.icon" \

@@ -3,6 +3,7 @@
 import argparse
 import datetime
 import email.utils
+import os
 import plistlib
 import subprocess
 import tempfile
@@ -23,7 +24,8 @@ def create(archive, url, notes, output, account):
         raise ValueError("Use an immutable HTTPS archive URL without credentials, query or fragment")
     if "/latest/" in components.path:
         raise ValueError("The update archive must have a versioned URL")
-    tool_dir = ROOT / "macos/.build/artifacts/sparkle/Sparkle/bin"
+    build_path = Path(os.environ.get("DEVLINE_SWIFT_BUILD_PATH", ROOT / "macos/.build"))
+    tool_dir = (build_path / "artifacts/sparkle/Sparkle/bin").resolve(strict=True)
     signer = tool_dir / "sign_update"
     key = subprocess.check_output([tool_dir / "generate_keys", "--account", account, "-p"], text=True).strip()
     if key != PUBLIC_KEY:
