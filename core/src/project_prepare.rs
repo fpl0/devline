@@ -86,7 +86,8 @@ impl Project {
         if self.stack.is_empty() {
             bail!("{}", self.unsupported_detail());
         }
-        let reports = templates::runtime_reports(ctx, std::slice::from_ref(&self.stack))?;
+        let reports =
+            templates::project_runtime_reports(ctx, &self.path, std::slice::from_ref(&self.stack))?;
         let report = reports
             .as_array()
             .and_then(|reports| reports.first())
@@ -94,7 +95,7 @@ impl Project {
         let detail = text_arg(report, "detail")?;
         let path = report["path"]
             .as_str()
-            .filter(|_| report["available"] == true)
+            .filter(|_| report["available"] == true && report["compatible"] != false)
             .with_context(|| detail.to_owned())?;
         Ok((
             text_arg(report, "toolchain")?.to_owned(),
@@ -428,16 +429,24 @@ fn step(job: &mut Option<&mut Job>, label: &str) -> Result<()> {
     Ok(())
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Invocation {
+    Prepare,
+    Verify,
+    GeneratedProject,
+    Starter,
+}
+
 fn invoke(
     adapter: &Path,
-    action: &str,
+    invocation: Invocation,
     project: &Path,
     tool: &Path,
     tool_name: &str,
     stage: &Path,
     job: &mut Option<&mut Job>,
 ) -> Result<()> {
-    let verify = action != "prepare";
+    let verify = invocation != Invocation::Prepare;
     let label = if verify {
         "Running isolated offline project tests"
     } else {
@@ -486,7 +495,11 @@ fn invoke(
         .env("HOME", &home)
         .env("TMPDIR", &tmp)
         .env("DEVKIT_TOOLCHAIN", tool);
-    templates::tool_environment(&mut command, tool_name, tool)?;
+    if invocation == Invocation::Starter {
+        templates::tool_environment(&mut command, tool_name, tool)?;
+    } else {
+        templates::project_tool_environment(&mut command, tool_name, tool)?;
+    }
     if tool_name == "mvn" {
         command.env(
             "JDK_JAVA_OPTIONS",
@@ -498,7 +511,10 @@ fn invoke(
         );
     }
     command.arg(adapter).current_dir(project);
-    if action == "generated" {
+    if matches!(
+        invocation,
+        Invocation::GeneratedProject | Invocation::Starter
+    ) {
         for (key, path) in [
             ("GOCACHE", "go-build"),
             ("GOMODCACHE", "go-mod"),
@@ -514,7 +530,11 @@ fn invoke(
         }
     } else {
         command
-            .arg(action)
+            .arg(if invocation == Invocation::Prepare {
+                "prepare"
+            } else {
+                "verify"
+            })
             .arg(project)
             .arg(project.join(MANAGED))
             .arg(tool);
@@ -603,7 +623,25 @@ fn publish(
     result
 }
 
-pub(crate) fn prepare(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> Result<Value> {
+pub(crate) fn lock_project(
+    ctx: &Context,
+    request: &Value,
+    job: &Option<&mut Job>,
+) -> Result<fs::File> {
+    lock(ctx, &Project::from_request(ctx, request)?, job)
+}
+
+pub(crate) fn prepare(ctx: &Context, request: &Value, job: Option<&mut Job>) -> Result<Value> {
+    let _lock = lock_project(ctx, request, &job)?;
+    prepare_locked(ctx, request, job)
+}
+
+// Caller holds the same project lock used by standalone dependency preparation.
+pub(crate) fn prepare_locked(
+    ctx: &Context,
+    request: &Value,
+    mut job: Option<&mut Job>,
+) -> Result<Value> {
     let project = Project::from_request(ctx, request)?;
     if project.path.starts_with(ctx.home.canonicalize()?) {
         bail!("Choose a project outside the Devline library");
@@ -611,7 +649,6 @@ pub(crate) fn prepare(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
     let offline = request["offline"] == true;
     let adapter = project.adapter(ctx)?;
     let (tool_name, tool, tool_detail) = project.toolchain(ctx)?;
-    let _lock = lock(ctx, &project, &job)?;
     step(&mut job, "Copying project files for offline preparation")?;
     let stage = private_stage(&project.path)?;
     let copy = stage.0.join("project");
@@ -625,13 +662,19 @@ pub(crate) fn prepare(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
     if !offline {
         fs::create_dir_all(copy.join(MANAGED))?;
         invoke(
-            &adapter, "prepare", &copy, &tool, &tool_name, &stage.0, &mut job,
+            &adapter,
+            Invocation::Prepare,
+            &copy,
+            &tool,
+            &tool_name,
+            &stage.0,
+            &mut job,
         )?;
     }
     if generated {
         invoke(
             &copy.join("test-offline.sh"),
-            "generated",
+            Invocation::GeneratedProject,
             &copy,
             &tool,
             &tool_name,
@@ -640,7 +683,13 @@ pub(crate) fn prepare(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
         )?;
     } else {
         invoke(
-            &adapter, "verify", &copy, &tool, &tool_name, &stage.0, &mut job,
+            &adapter,
+            Invocation::Verify,
+            &copy,
+            &tool,
+            &tool_name,
+            &stage.0,
+            &mut job,
         )?;
     }
     if fingerprint_tree(&project.stack, &copy, None, true, false)? != original_source {
@@ -833,7 +882,7 @@ pub(crate) fn verify_generated(
     }
     invoke(
         &script,
-        "generated",
+        Invocation::Starter,
         &copy,
         tool,
         tool_name,
@@ -857,6 +906,87 @@ pub(crate) fn verify_generated(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn starter_verification_and_existing_projects_keep_distinct_java_environments() -> Result<()> {
+        const CHILD: &str = "DEVLINE_JAVA_ENV_REGRESSION_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            let output = Command::new(std::env::current_exe()?)
+                .args(["--exact", "project_prepare::tests::starter_verification_and_existing_projects_keep_distinct_java_environments", "--nocapture"])
+                .env(CHILD, "1")
+                .env("JAVA_HOME", "/devline-test-active-project-jdk")
+                .output()?;
+            anyhow::ensure!(
+                output.status.success(),
+                "{} {}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            anyhow::ensure!(
+                String::from_utf8_lossy(&output.stdout).contains("1 passed"),
+                "The Java environment regression child did not run"
+            );
+            return Ok(());
+        }
+        let root = private_stage(&std::env::temp_dir().canonicalize()?)?;
+        let home = root.0.join("library");
+        let source = root.0.join("source");
+        fs::create_dir(&home)?;
+        fs::create_dir(&source)?;
+        let ctx = Context {
+            home,
+            catalog_dir: root.0.clone(),
+            catalog: crate::Catalog {
+                schema_version: 1,
+                docs: Vec::new(),
+                templates: Vec::new(),
+            },
+        };
+        let jdk = Command::new("/usr/libexec/java_home")
+            .args(["-F", "-v", "26"])
+            .output()?;
+        let expected = if jdk.status.success() {
+            String::from_utf8_lossy(&jdk.stdout).trim().to_owned()
+        } else {
+            String::new()
+        };
+        let script = source.join("test-offline.sh");
+        let quoted = |value: &str| format!("'{}'", value.replace('\'', "'\"'\"'"));
+        fs::write(
+            &script,
+            format!(
+                "#!/bin/sh\ntest \"${{JAVA_HOME:-}}\" = {}\n",
+                quoted(&expected)
+            ),
+        )?;
+        // Exercise the actual starter publication verifier, not just the environment
+        // helper. It must match the JDK used when the starter toolchain was probed.
+        verify_generated(
+            &ctx,
+            &source,
+            &root.0.join("destination"),
+            "java",
+            "mvn",
+            Path::new("/bin/sh"),
+            "fixture Maven toolchain",
+        )?;
+        fs::write(
+            &script,
+            "#!/bin/sh\ntest \"${JAVA_HOME:-}\" = /devline-test-active-project-jdk\n",
+        )?;
+        let stage = private_stage(&root.0)?;
+        invoke(
+            &script,
+            Invocation::GeneratedProject,
+            &source,
+            Path::new("/bin/sh"),
+            "mvn",
+            &stage.0,
+            &mut None,
+        )?;
+        Ok(())
+    }
 
     #[test]
     fn desktop_build_outputs_do_not_hide_source_changes() -> Result<()> {

@@ -1,36 +1,6 @@
 import AppKit
 import SwiftUI
 
-struct JobRecord: Decodable, Identifiable, Sendable {
-    let id, kind, state, stage: String
-    let createdAt, updatedAt: Double
-    let error, logPath, log: String?
-    let offset, nextOffset, completedBytes, totalBytes: Int?
-    var isActive: Bool { state == "queued" || state == "running" }
-    var title: String {
-        switch kind {
-        case "build": "Refresh Starter Dependencies"
-        case "verify": "Verify Offline Readiness"
-        case "prepare": "Prepare Starter"
-        case "project_prepare": "Prepare Project for Offline Work"
-        case "infra_prepare": "Prepare Image Archive"
-        case "infra_restore": "Restore Image to Docker"
-        case "infra_verify": "Verify Image Archive"
-        case "infra_update": "Update Image Archive"
-        case "infra_stack_up": "Start Project Services"
-        case "infra_stack_down": "Stop Project Services"
-        case "infra_export": "Export Image Archives"
-        case "infra_import": "Import Image Archives"
-        case "docs_prepare": "Prepare Local Documentation"
-        case "docs_install": "Download Documentation"
-        case "bundle_export": "Export Offline Bundle"
-        case "bundle_import": "Import Offline Bundle"
-        default: kind.capitalized
-        }
-    }
-    var icon: String { isActive ? "arrow.triangle.2.circlepath" : state == "succeeded" ? "checkmark.circle" : state == "cancelled" ? "stop.circle" : "exclamationmark.circle" }
-}
-
 struct ActivityView: View {
     @ObservedObject var model: WorkspaceModel
     var body: some View {
@@ -41,15 +11,17 @@ struct ActivityView: View {
                 List(model.jobs) { job in
                     Button { model.inspectedJob = job } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: job.icon).foregroundStyle(job.state == "failed" ? Color.orange : .secondary)
+                            Image(systemName: job.icon).foregroundStyle(job.needsAttention ? Color.orange : .secondary)
                             VStack(alignment: .leading, spacing: 5) {
                                 Text(job.title).font(.headline)
+                                if let path = job.targetPath { Text(URL(fileURLWithPath: path).lastPathComponent).font(.callout.weight(.medium)) }
+                                else if let reference = job.targetReference { Text(reference).font(.callout.weight(.medium)) }
                                 Text(job.stage).font(.callout).foregroundStyle(.secondary)
                                 if let error = job.error { Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2) }
                             }
                             Spacer()
                             VStack(alignment: .trailing, spacing: 5) {
-                                Text(job.state.capitalized).font(.caption)
+                                Text(job.stateLabel).font(.caption)
                                 Text(Date(timeIntervalSince1970: job.createdAt), style: .relative).font(.caption).foregroundStyle(.secondary)
                             }
                         }.padding(.vertical, 7).contentShape(Rectangle())
@@ -77,10 +49,12 @@ struct JobDetailsView: View {
                 Spacer()
                 Button(job.isActive ? "Run in Background" : "Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
+            if let path = job.targetPath { Text((path as NSString).abbreviatingWithTildeInPath).font(.callout).foregroundStyle(.secondary).textSelection(.enabled) }
+            else if let reference = job.targetReference { Text(reference).font(.callout).foregroundStyle(.secondary) }
             HStack {
                 Text(job.stage).font(.headline)
                 Spacer()
-                Text(cancelling && job.isActive ? "Cancelling…" : job.state.capitalized).foregroundStyle(.secondary)
+                Text(cancelling && job.isActive ? "Cancelling…" : job.stateLabel).foregroundStyle(.secondary)
             }
             if job.isActive {
                 if let completed = job.completedBytes, let total = job.totalBytes, total > 0 {
@@ -90,6 +64,18 @@ struct JobDetailsView: View {
                 } else { ProgressView().progressViewStyle(.linear) }
             }
             if let failure = error ?? job.error { Text(failure).foregroundStyle(.orange).textSelection(.enabled) }
+            if job.result?.needsAttention == true {
+                Text("Some items still need attention. Completed work has been kept.").font(.callout).foregroundStyle(.orange)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array((job.result?.issues ?? []).enumerated()), id: \.offset) { _, step in
+                            Text("\(step.name ?? step.id ?? step.kind ?? "Item"): \(step.detail ?? "Needs attention")")
+                                .font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }.frame(maxHeight: 100)
+            }
             ScrollView([.vertical, .horizontal]) {
                 Text(log.isEmpty ? "Waiting for output…" : log)
                     .font(.system(.caption, design: .monospaced)).textSelection(.enabled)

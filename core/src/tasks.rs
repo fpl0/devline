@@ -35,6 +35,10 @@ impl State {
 struct Status {
     id: String,
     kind: String,
+    #[serde(default)]
+    target_path: Option<String>,
+    #[serde(default)]
+    target_reference: Option<String>,
     state: State,
     stage: String,
     created_at: u64,
@@ -127,9 +131,10 @@ pub fn start(ctx: &Context, request: &Value) -> Result<Value> {
             text_arg(request, "id")?;
         }
         "bundle_export" | "bundle_import" | "infra_export" | "infra_import" | "infra_stack_up"
-        | "infra_stack_down" | "project_prepare" => {
+        | "infra_stack_down" | "project_prepare" | "toolbox_prepare" => {
             text_arg(request, "path")?;
         }
+        "content_check" | "content_update" => {}
         _ => bail!("Unknown job kind {kind}"),
     }
     timeout(request)?;
@@ -154,7 +159,8 @@ pub fn start(ctx: &Context, request: &Value) -> Result<Value> {
         let mut request = request.clone();
         if let Some(input) = request.get_mut("path") {
             if let Some(value) = input.as_str() {
-                let absolute = std::path::absolute(value)?;
+                let absolute =
+                    std::fs::canonicalize(value).or_else(|_| std::path::absolute(value))?;
                 *input = json!(absolute);
             }
         }
@@ -163,6 +169,8 @@ pub fn start(ctx: &Context, request: &Value) -> Result<Value> {
         let record = Status {
             id: id.clone(),
             kind: kind.to_owned(),
+            target_path: request["path"].as_str().map(str::to_owned),
+            target_reference: request["id"].as_str().map(str::to_owned),
             state: State::Queued,
             stage: "Queued".into(),
             created_at: now(),
@@ -432,6 +440,9 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
                 )
             }
             "project_prepare" => crate::project_prepare::prepare(&ctx, &request, Some(&mut job)),
+            "toolbox_prepare" => crate::toolbox::prepare(&ctx, &request, Some(&mut job)),
+            "content_check" => crate::content_updates::check(&ctx, &request, Some(&mut job)),
+            "content_update" => crate::content_updates::apply(&ctx, &request, Some(&mut job)),
             kind if kind.starts_with("infra_") => {
                 let command = match kind {
                     "infra_prepare" => "infra.prepare",
@@ -454,8 +465,23 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
     .unwrap_or_else(|_| Err(anyhow::anyhow!("The worker could not finish the job.")));
     match result {
         Ok(result) => {
-            job.record.state = State::Succeeded;
-            job.record.stage = "Complete".into();
+            let incomplete = (kind == "toolbox_prepare" && result["ready_offline"] == false)
+                || (kind == "content_update" && result["complete"] == false)
+                || (kind == "content_check" && result["all_checked"] == false);
+            job.record.state = if incomplete {
+                State::Failed
+            } else {
+                State::Succeeded
+            };
+            job.record.stage = if incomplete {
+                "Needs attention"
+            } else {
+                "Complete"
+            }
+            .into();
+            if incomplete {
+                job.record.error = Some("Some resources still need attention. Review the result for completed steps and remaining blockers.".into());
+            }
             job.record.result = Some(result);
         }
         Err(error) => {
@@ -492,6 +518,8 @@ mod tests {
             record: Status {
                 id: "1".into(),
                 kind: "build".into(),
+                target_path: None,
+                target_reference: None,
                 state: State::Running,
                 stage: String::new(),
                 created_at: now,

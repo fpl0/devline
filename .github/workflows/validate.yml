@@ -52,6 +52,8 @@ jobs:
         run: |
           swiftc macos/Sources/DevKitApp/ReferenceNavigation.swift macos/Tests/ReferenceNavigationTests.swift -o /tmp/devline-navigation-tests
           /tmp/devline-navigation-tests
+          swiftc macos/Sources/DevKitApp/ProjectNavigation.swift macos/Sources/DevKitApp/JobRecord.swift macos/Tests/ProjectNavigationTests.swift -o /tmp/devline-project-navigation-tests
+          /tmp/devline-project-navigation-tests
 
       - name: Build the native app
         run: |

@@ -114,3 +114,61 @@ fn toolbox_reports_arbitrary_project_dependencies_unverified() {
     );
     assert_eq!(report["data"]["ready_offline"], false);
 }
+
+#[test]
+fn both_project_prepare_spellings_report_combined_readiness_and_exit_three() {
+    let fixture = Fixture::new();
+    let first = fixture.run(&["--offline", "toolbox", "prepare"]);
+    let second = fixture.run(&["--offline", "project", "prepare"]);
+    for output in [first, second] {
+        assert_eq!(
+            output.status.code(),
+            Some(3),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(report["data"]["ready_offline"], false);
+        assert!(report["data"]["library"].is_object());
+        assert!(report["data"]["steps"].is_array());
+        assert!(!report["data"]["blockers"].as_array().unwrap().is_empty());
+    }
+}
+
+#[test]
+fn incomplete_background_preparation_keeps_its_result_and_project_target() {
+    let fixture = Fixture::new();
+    let output = fixture.run(&["--offline", "toolbox", "prepare", "--background"]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let started: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(started["data"]["kind"], "toolbox_prepare");
+    assert_eq!(
+        started["data"]["target_path"],
+        serde_json::json!(fixture.0.canonicalize().unwrap())
+    );
+    let id = started["data"]["id"].as_str().unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let output = fixture.run(&["jobs", "status", id]);
+        let state: Value = serde_json::from_slice(&output.stdout).unwrap();
+        if !matches!(state["data"]["state"].as_str(), Some("queued" | "running")) {
+            assert_eq!(state["data"]["state"], "failed");
+            assert_eq!(state["data"]["stage"], "Needs attention");
+            assert_eq!(state["data"]["result"]["ready_offline"], false);
+            assert!(!state["data"]["result"]["blockers"]
+                .as_array()
+                .unwrap()
+                .is_empty());
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "job did not complete: {state}"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+}

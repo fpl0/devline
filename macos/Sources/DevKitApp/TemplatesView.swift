@@ -5,6 +5,7 @@ struct TemplatesView: View {
     @ObservedObject var model: WorkspaceModel
     @Binding var selection: String?
     @Binding var newStarter: Starter?
+    let openDocs: (DocPack) -> Void
     @State private var stack: String?
     @State private var appType: String?
     @State private var buildCandidate: Starter?
@@ -140,7 +141,19 @@ struct TemplatesView: View {
                             Label("Packaged dependencies and an offline test", systemImage: "shippingbox")
                         }
                         if !docs.isEmpty {
-                            Label(docs.map(\.name).joined(separator: ", "), systemImage: "book")
+                            ForEach(docs, id: \.reference) { pack in
+                                HStack {
+                                    Label(pack.name, systemImage: "book.closed")
+                                    Text(displayDocVersion(pack.version)).font(.caption).foregroundStyle(.secondary)
+                                    Spacer()
+                                    if pack.installed {
+                                        Button("Read Docs") { openDocs(pack) }.controlSize(.small)
+                                            .accessibilityLabel("Read \(pack.name) \(displayDocVersion(pack.version))")
+                                    } else {
+                                        Button("Prepare Docs") { Task { await model.startJob(CoreRequest("jobs.start", id: pack.id, version: pack.version, kind: "docs_prepare")) } }.controlSize(.small)
+                                    }
+                                }
+                            }
                         }
                     }
                     .font(.callout)

@@ -30,6 +30,7 @@ struct Docset {
     id: String,
     installed_versions: Vec<String>,
     available_versions: Vec<String>,
+    prepare_version: Option<String>,
     version: Option<String>,
     state: &'static str,
     compatible: Option<bool>,
@@ -135,6 +136,13 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
     }
     let preferred = doc_updates::preferences(db)?;
     let remote = doc_updates::installed_metadata(db)?;
+    let mut available = ctx.catalog.docs.clone();
+    available.extend(
+        doc_updates::cached_packs(ctx)?
+            .into_iter()
+            .map(|(pack, _)| pack),
+    );
+    available.extend(doc_updates::checked_packs(ctx)?);
     let mut statement = db.prepare_cached("SELECT id,version FROM packs")?;
     let rows = statement.query_map([], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
@@ -145,7 +153,7 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
         installed.entry(id).or_default().push(release);
     }
     let mut metadata = BTreeMap::new();
-    for pack in ctx.catalog.docs.iter().chain(remote.values()) {
+    for pack in available.iter().chain(remote.values()) {
         if let Some(upstream) = &pack.upstream_version {
             metadata.insert((pack.id.as_str(), pack.version.as_str()), upstream.as_str());
         }
@@ -179,9 +187,7 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
     for id in ids {
         let mut installed_versions = installed.remove(id).unwrap_or_default();
         version_order(&mut installed_versions);
-        let mut available_versions = ctx
-            .catalog
-            .docs
+        let mut available_versions = available
             .iter()
             .filter(|pack| pack.id == id)
             .map(|pack| pack.version.clone())
@@ -194,6 +200,7 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
             id: id.to_owned(),
             installed_versions,
             available_versions,
+            prepare_version: None,
             version: None,
             state: "uninstalled",
             compatible: None,
@@ -227,6 +234,17 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
                 &compatible,
             );
         }
+        docset.prepare_version = docset.version.clone().or_else(|| {
+            let dependency = dependency?;
+            docset
+                .available_versions
+                .iter()
+                .find(|release| {
+                    matches!(dependency.rule, Rule::Any)
+                        || compatible(dependency, release) == Some(true)
+                })
+                .cloned()
+        });
         docsets.push(docset);
     }
     Ok(Selection { pins, docsets })

@@ -94,6 +94,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>SURequireSignedFeed</key><true/>
 <key>SUVerifyUpdateBeforeExtraction</key><true/>
 <key>SUEnableAutomaticChecks</key><false/>
+<key>DevlineSignedUpdatesEnabled</key><false/>
 <key>SUAutomaticallyUpdate</key><false/>
 <key>SUSendProfileInfo</key><false/>
 <key>SUScheduledCheckInterval</key><integer>86400</integer>

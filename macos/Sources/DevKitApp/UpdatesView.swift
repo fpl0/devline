@@ -4,18 +4,27 @@ import SwiftUI
 struct UpdateSnapshot: Decodable, Sendable {
     let checkedAt: TimeInterval?
     let items: [UpdateItem]
+    let sources: [UpdateSource]?
+    let availableContent: Int?
+    let allChecked: Bool?
+}
+
+struct UpdateSource: Decodable, Identifiable, Sendable {
+    let id, name, state, detail: String
+    let checkedAt: TimeInterval?
 }
 
 struct UpdateItem: Decodable, Identifiable, Sendable {
     enum Kind: String, CaseIterable, Decodable, Identifiable, Sendable {
-        case docs, template, runtime, app
+        case docs, template, image, runtime, app
 
         var id: String { rawValue }
 
         var title: String {
             switch self {
             case .docs: "Documentation"
-            case .template: "Templates"
+            case .template: "App Starters"
+            case .image: "Image Archives"
             case .runtime: "Runtimes"
             case .app: "Devline App"
             }
@@ -65,6 +74,8 @@ struct UpdateItem: Decodable, Identifiable, Sendable {
     let action: String?
     let reference: String?
     let url: String?
+    let delivery: String?
+    let pending: Bool?
 
     var versionSummary: String? {
         if let currentVersion, let availableVersion, currentVersion != availableVersion {
@@ -75,13 +86,18 @@ struct UpdateItem: Decodable, Identifiable, Sendable {
         return nil
     }
 
+    var isContentUpdate: Bool {
+        state == .available && reference != nil &&
+            ["install_docs", "prepare_local_docs", "install_template", "rebuild_template", "update_image"].contains(action ?? "")
+    }
+
     var docInstallRequest: CoreRequest? {
         guard action == "install_docs", let reference else { return nil }
         let parts = reference.split(separator: "@", maxSplits: 1, omittingEmptySubsequences: false)
         guard let id = parts.first, !id.isEmpty else { return nil }
         let version = parts.count == 2 ? String(parts[1]) : availableVersion
         guard let version, !version.isEmpty else { return nil }
-        return CoreRequest("docs.install", id: String(id), version: version)
+        return CoreRequest("jobs.start", id: String(id), version: version, kind: delivery == "local" ? "docs_prepare" : "docs_install")
     }
 
     var externalURL: URL? {
@@ -91,6 +107,7 @@ struct UpdateItem: Decodable, Identifiable, Sendable {
 }
 
 struct UpdatesView: View {
+    private enum Page: Hashable { case overview, docs, starters, images, app }
     private enum Filter: Hashable {
         case allItems, available
     }
@@ -102,36 +119,148 @@ struct UpdatesView: View {
     @State private var checking = false
     @State private var loading = false
     @State private var loadError: String?
-    @State private var rebuildTarget: UpdateItem?
     @State private var configuringChannel = false
+    @State private var page = Page.overview
+    private var contentUpdates: [UpdateItem] { snapshot?.items.filter(\.isContentUpdate) ?? [] }
+    private var latestContentJob: JobRecord? {
+        model.jobs.first { ["content_check", "content_update"].contains($0.kind) }
+    }
+    private var contentJob: JobRecord? {
+        model.jobs.first { $0.isActive && ["content_check", "content_update"].contains($0.kind) }
+    }
+    private var busy: Bool { checking || loading || contentJob != nil || model.operation != nil }
 
     var body: some View {
-        TabView {
-            DocDistributionView(model: model, checkOnOpen: checkOnOpen).tabItem { Text("Documentation") }
-            sourceUpdates.tabItem { Text("Starters and Runtimes") }
-            ImageUpdatesView(model: model).tabItem { Text("Infrastructure") }
-            Form { AppUpdatesSettings() }.formStyle(.grouped).tabItem { Text("Devline App") }
+        // Keep tab content within the existing window. Populated update lists
+        // should scroll instead of increasing the window's content minimum.
+        GeometryReader { viewport in
+            TabView(selection: $page) {
+                overview.tabItem { Text("Overview") }.tag(Page.overview)
+                DocDistributionView(model: model).tabItem { Text("Documentation") }.tag(Page.docs)
+                sourceUpdates.tabItem { Text("Starters and Runtimes") }.tag(Page.starters)
+                ImageUpdatesView(model: model).tabItem { Text("Infrastructure") }.tag(Page.images)
+                Form { AppUpdatesSettings() }.formStyle(.grouped).tabItem { Text("Devline App") }.tag(Page.app)
+            }
+            .frame(width: viewport.size.width, height: viewport.size.height)
         }.padding(.top, 8)
+        .task {
+            await loadStatus()
+            if checkOnOpen { await checkOnline() }
+        }
+        .onChange(of: model.jobs.filter { !$0.isActive }.map(\.id)) { _, _ in
+            Task { await loadStatus() }
+        }
+    }
+
+    private var overview: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Keep your toolbox current").font(.title2.weight(.semibold))
+                        Text("Update the docs, starters, and image archives already in your library. Previous releases and project pins stay available.")
+                            .font(.callout).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 8)
+                    Button("Check All Sources") { Task { await checkOnline() } }.disabled(busy)
+                    Button("Update Available (\(contentUpdates.count))") {
+                        Task { await model.startJob(CoreRequest("jobs.start", kind: "content_update"), inspect: false) }
+                    }.buttonStyle(.borderedProminent).disabled(busy || contentUpdates.isEmpty)
+                }
+                if let job = contentJob {
+                    HStack(spacing: 10) {
+                        ProgressView().controlSize(.small)
+                        Text(job.stage).font(.callout)
+                        Spacer()
+                        Button("View Progress") { model.inspectedJob = job }
+                    }
+                } else if let job = latestContentJob, job.needsAttention || job.state == "cancelled" {
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: job.icon).foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(job.title) · \(job.stateLabel)").font(.callout.weight(.medium))
+                            Text(job.result?.issues.first?.detail ?? job.error ?? "Open the result to see what still needs attention. Completed updates were kept.")
+                                .font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                        }
+                        Spacer()
+                        Button("View Result") { model.inspectedJob = job }
+                        Button(job.kind == "content_check" ? "Retry Checks" : "Retry Updates") {
+                            Task {
+                                if job.kind == "content_check" { await checkOnline() }
+                                else { await model.startJob(CoreRequest("jobs.start", kind: "content_update"), inspect: false) }
+                            }
+                        }.disabled(busy)
+                    }
+                } else if let loadError {
+                    Label(loadError, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange)
+                } else {
+                    Text("Checks use the internet. Updates may download packages and build new starter releases; your projects keep their selected versions.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }.padding(20)
+            Divider()
+            List {
+                Section("Available content updates") {
+                    if contentUpdates.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(snapshot?.allChecked == true ? "Your prepared content is current" : "No confirmed content updates yet", systemImage: snapshot?.allChecked == true ? "checkmark.circle" : "clock")
+                                .font(.headline)
+                            Text(snapshot?.allChecked == true ? "Check again when you want to look for newer releases." : "Check all sources to refresh missing or failed results. Your saved library remains usable offline.")
+                                .font(.callout).foregroundStyle(.secondary)
+                        }.padding(.vertical, 8)
+                    } else {
+                        ForEach(contentUpdates) { item in updateRow(item) }
+                    }
+                }
+                Section("Sources and freshness") {
+                    ForEach(snapshot?.sources ?? []) { source in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: source.state == "current" ? "checkmark.circle" : source.state == "error" ? "exclamationmark.circle" : "clock")
+                                .foregroundStyle(source.state == "error" ? Color.orange : .secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(source.name).font(.body.weight(.medium))
+                                Text(source.detail).font(.caption).foregroundStyle(.secondary)
+                                if let checked = source.checkedAt {
+                                    Text("Last checked \(Date(timeIntervalSince1970: checked).formatted(date: .abbreviated, time: .shortened))")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                            Spacer()
+                            if source.state != "current" {
+                                Button(source.state == "error" ? "Retry Checks" : "Check Sources") { Task { await checkOnline() } }
+                                    .controlSize(.small).disabled(busy)
+                            }
+                        }.padding(.vertical, 5)
+                    }
+                }
+                Section("Managed separately") {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Local toolchains").font(.headline)
+                            Text("Devline detects installed runtimes and reports publisher releases. Use your runtime manager or installer to upgrade them.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("View Toolchain Updates") { page = .starters }
+                    }.padding(.vertical, 5)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Devline app").font(.headline)
+                            Text("App releases are separate from your content library.").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("View App Release") { page = .app }
+                    }.padding(.vertical, 5)
+                }
+            }.listStyle(.inset)
+                .frame(minHeight: 0, maxHeight: .infinity)
+        }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var sourceUpdates: some View {
         VStack(spacing: 0) {
             header
-            if !documentationUpdates.isEmpty {
-                HStack(spacing: 12) {
-                    Label("\(documentationUpdates.count) documentation updates ready offline", systemImage: "internaldrive")
-                        .font(.callout).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Install Documentation Updates") {
-                        let requests = documentationUpdates
-                        Task {
-                            _ = await model.mutate(requests, label: "Updating documentation",
-                                                   completion: "Installed \(requests.count) documentation updates. Previous versions remain available.")
-                            await loadStatus()
-                        }
-                    }.disabled(checking || loading || model.operation != nil)
-                }.padding(.horizontal, 18).padding(.bottom, 14)
-            }
             Divider()
             if let snapshot {
                 if let loadError {
@@ -163,10 +292,6 @@ struct UpdatesView: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .task {
-            if checkOnOpen, model.operation == nil { await checkOnline() }
-            else { await loadStatus() }
-        }
         .sheet(isPresented: $configuringChannel) {
             AppUpdateChannelSheet(canClear: snapshot?.items.contains {
                 $0.kind == .app && $0.state != .unconfigured
@@ -175,20 +300,6 @@ struct UpdatesView: View {
                 await loadStatus()
             }
         }
-        .confirmationDialog("Build a new template release?", isPresented: Binding(
-            get: { rebuildTarget != nil }, set: { if !$0 { rebuildTarget = nil } }
-        ), titleVisibility: .visible, presenting: rebuildTarget) { item in
-            Button("Build Release") {
-                guard let reference = item.reference else { return }
-                Task { await model.startJob(CoreRequest("jobs.start", id: reference, kind: "build")) }
-            }
-        } message: { item in
-            Text("Devline will fetch current dependencies for \(item.name) and verify the new release offline. Existing releases stay available.")
-        }
-    }
-
-    private var documentationUpdates: [CoreRequest] {
-        []
     }
 
     private var header: some View {
@@ -210,7 +321,7 @@ struct UpdatesView: View {
             if checking { ProgressView().controlSize(.small) }
             Button("Check for Updates") { Task { await checkOnline() } }
                 .buttonStyle(.borderedProminent)
-                .disabled(checking || loading || model.operation != nil)
+                .disabled(busy)
                 .help("Connect to upstream sources to check for updates")
         }
         .padding(18)
@@ -261,7 +372,7 @@ struct UpdatesView: View {
                             if kind == .app {
                                 Button("Configure Channel…") { configuringChannel = true }
                                     .buttonStyle(.borderless)
-                                    .disabled(checking || model.operation != nil)
+                                    .disabled(busy)
                             }
                         }
                     }
@@ -302,23 +413,34 @@ struct UpdatesView: View {
     @ViewBuilder private func action(for item: UpdateItem) -> some View {
         if let request = item.docInstallRequest {
             Button("Install Update") {
-                apply(request, label: "Installing \(item.name)", completion: "Installed \(item.name).")
+                Task { await model.startJob(request) }
             }
             .controlSize(.small)
-            .disabled(checking || model.operation != nil)
+            .disabled(busy)
             .accessibilityLabel("Install \(item.name) update")
-        } else if item.action == "install_template", let reference = item.reference {
-            Button("Install Update") {
-                apply(CoreRequest("templates.install", id: reference),
-                      label: "Installing \(item.name)", completion: "Installed \(item.name).")
+        } else if item.action == "prepare_local_docs", let reference = item.reference {
+            Button("Refresh from Xcode") {
+                Task { await model.startJob(CoreRequest("jobs.start", id: reference, kind: "docs_prepare")) }
+            }.controlSize(.small).disabled(busy)
+        } else if item.action == "update_image", let reference = item.reference {
+            Button("Update Image") {
+                Task { await model.startJob(CoreRequest("jobs.start", id: reference, kind: "infra_update")) }
+            }.controlSize(.small).disabled(busy)
+        } else if item.action == "install_template", item.reference != nil {
+            Button(item.pending == true ? "Finish Update" : "Install Update") {
+                Task { await model.startJob(CoreRequest("jobs.start", id: item.id, kind: "content_update"), inspect: false) }
             }
             .controlSize(.small)
-            .disabled(checking || model.operation != nil)
+            .disabled(busy)
             .accessibilityLabel("Install \(item.name) update")
         } else if item.action == "rebuild_template", item.reference != nil {
-            Button("Build Release…") { rebuildTarget = item }
+            Button("Build Release") {
+                if let reference = item.reference {
+                    Task { await model.startJob(CoreRequest("jobs.start", id: reference, kind: "build")) }
+                }
+            }
                 .controlSize(.small)
-                .disabled(checking || model.operation != nil)
+                .disabled(busy)
                 .accessibilityLabel("Build a release of \(item.name)")
         } else if let url = item.externalURL {
             Button {
@@ -345,7 +467,7 @@ struct UpdatesView: View {
         switch kind {
         case .docs: "Open Source"
         case .runtime: "Open Download Page"
-        case .template, .app: "Open Release Page"
+        case .template, .image, .app: "Open Release Page"
         }
     }
 
@@ -362,24 +484,14 @@ struct UpdatesView: View {
     }
 
     private func checkOnline() async {
-        guard !checking, !loading, model.operation == nil else { return }
+        guard !busy else { return }
         checking = true
         loadError = nil
         defer { checking = false }
-        do {
-            snapshot = try await Core.request(CoreRequest("updates.check"))
-        } catch is CancellationError {
-        } catch {
-            loadError = error.localizedDescription
-        }
+        await model.startJob(CoreRequest("jobs.start", kind: "content_check"), inspect: false)
     }
 
-    private func apply(_ request: CoreRequest, label: String, completion: String) {
-        Task {
-            _ = await model.mutate([request], label: label, completion: completion)
-            await loadStatus()
-        }
-    }
+
 }
 
 private struct AppUpdateChannelSheet: View {

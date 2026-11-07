@@ -113,7 +113,7 @@ struct ProjectPin: Decodable, Sendable {
 struct ProjectDocset: Decodable, Identifiable, Sendable {
     let id, state, detail: String
     let installedVersions, availableVersions: [String]
-    let version, requirement: String?
+    let version, requirement, prepareVersion: String?
     let compatible: Bool?
     var needsAttention: Bool { ["unmatched", "uninstalled", "unversioned"].contains(state) || compatible == false
         || (state == "pinned" && (version == nil || !installedVersions.contains(version!))) }

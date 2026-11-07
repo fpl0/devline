@@ -310,7 +310,9 @@ enum Project {
     Status,
     #[command(about = "Check the current files and toolchain against an offline test receipt")]
     Readiness,
-    #[command(about = "Prepare locked dependencies and verify the existing project")]
+    #[command(
+        about = "Prepare this project's documentation, dependencies and pinned images together"
+    )]
     Prepare {
         /// Start a cancellable job and print its ID.
         #[arg(long)]
@@ -429,8 +431,21 @@ enum Runtimes {
 enum Updates {
     #[command(about = "Read saved update status from the local library")]
     Status,
-    #[command(about = "Check upstream sources online and save the result")]
-    Check,
+    #[command(about = "Check official documentation, starter, image and app update sources")]
+    Check {
+        #[arg(long)]
+        background: bool,
+    },
+    #[command(
+        visible_alias = "update",
+        about = "Apply available content updates while preserving existing project pins"
+    )]
+    Apply {
+        /// Update item ID or exact reference. Omit to apply all available content.
+        id: Option<String>,
+        #[arg(long)]
+        background: bool,
+    },
     #[command(about = "Set or clear the HTTPS manifest used for Devline app releases")]
     Configure {
         #[arg(required_unless_present = "clear", conflicts_with = "clear", value_hint = clap::ValueHint::Url)]
@@ -806,11 +821,18 @@ fn render_update_action(item: &Value, command: &str) {
                 .split_once('@')
                 .unwrap_or((reference, s(item, "available_version")));
             if !id.is_empty() && !version.is_empty() {
-                println!(
-                    "    Install      {command} docs install {} --version {}",
-                    shell_quote(id),
-                    shell_quote(version)
-                );
+                if item["delivery"] == "local" {
+                    println!(
+                        "    Install      {command} docs install {} --version {}",
+                        shell_quote(id),
+                        shell_quote(version)
+                    );
+                } else {
+                    println!(
+                        "    Download     {command} docs fetch {}",
+                        shell_quote(&format!("{id}@{version}"))
+                    );
+                }
             }
         }
         "rebuild_template" if !reference.is_empty() => println!(
@@ -818,9 +840,16 @@ fn render_update_action(item: &Value, command: &str) {
             shell_quote(reference)
         ),
         "install_template" if !reference.is_empty() => println!(
-            "    Install      {command} templates install {}",
+            "    Prepare      {command} updates apply {}",
             shell_quote(reference)
         ),
+        "update_image" if !reference.is_empty() => println!(
+            "    Archive      {command} infra update {}",
+            shell_quote(reference)
+        ),
+        "prepare_local_docs" => {
+            println!("    Prepare      {command} --offline docs install swiftui")
+        }
         "open_url" => {
             let url = s(item, "url");
             if url.starts_with("https://") {
@@ -848,6 +877,15 @@ fn render_updates(cli: &Cli, snapshot: &Value) -> Result<()> {
         println!("Update status · no online check recorded");
         println!("Run {command} updates check when you’re ready to connect.");
     }
+    for source in snapshot["sources"].as_array().into_iter().flatten() {
+        if matches!(source["state"].as_str(), Some("error" | "unchecked")) {
+            println!(
+                "  {} · {}",
+                terminal::safe_text(s(source, "name")),
+                terminal::safe_text(s(source, "detail"))
+            );
+        }
+    }
     let available = items
         .iter()
         .filter(|item| item["state"] == "available")
@@ -860,6 +898,7 @@ fn render_updates(cli: &Cli, snapshot: &Value) -> Result<()> {
     for (kind, title) in [
         ("docs", "Documentation"),
         ("template", "Templates"),
+        ("image", "Infrastructure Images"),
         ("runtime", "Runtimes"),
         ("app", "Devline App"),
     ] {
@@ -1090,6 +1129,7 @@ fn watch_job(cli: &Cli, id: &str, mut offset: u64) -> Result<i32> {
             return Ok(match job["state"].as_str() {
                 Some("succeeded") => 0,
                 Some("cancelled") => 130,
+                _ if job["result"]["ready_offline"] == false => 3,
                 _ => 1,
             });
         }
@@ -1466,6 +1506,8 @@ fn show_project_operation(cli: &Cli, action: &str, data: Value) -> Result<i32> {
             "Follow with devline jobs status {} --follow.",
             s(&data, "id")
         );
+    } else if action == "toolbox" {
+        cli_infra::render("toolbox", &data);
     } else {
         let status = if data["ready_offline"] == true {
             "Ready offline"
@@ -1538,10 +1580,10 @@ fn run(cli: &Cli) -> Result<i32> {
                 Some(Project::Prepare { background }) => {
                     let (action, data) = run_operation(
                         cli,
-                        "project-prepared",
-                        "project_prepare",
+                        "toolbox",
+                        "toolbox_prepare",
                         *background,
-                        json!({"command":"project.prepare","path":path,"offline":cli.offline}),
+                        json!({"command":"toolbox.prepare","path":path,"offline":cli.offline}),
                     )?;
                     return show_project_operation(cli, action, data);
                 }
@@ -1651,13 +1693,26 @@ fn run(cli: &Cli) -> Result<i32> {
                 "updates",
                 request(cli, json!({"command":"updates.status"}))?,
             ),
-            Some(Updates::Check) => {
+            Some(Updates::Check { background }) => {
                 if cli.offline {
                     bail!("Checking for updates requires a connection. Run devline updates to read saved status offline.");
                 }
                 progress(cli, format_args!("Checking upstream update sources…"));
-                ("updates", request(cli, json!({"command":"updates.check"}))?)
+                run_operation(
+                    cli,
+                    "updates",
+                    "content_check",
+                    *background,
+                    json!({"command":"updates.check","offline":cli.offline}),
+                )?
             }
+            Some(Updates::Apply { id, background }) => run_operation(
+                cli,
+                "content-updated",
+                "content_update",
+                *background,
+                json!({"command":"updates.apply","offline":cli.offline,"id":id}),
+            )?,
             Some(Updates::Configure { url, clear }) => {
                 let url = if *clear {
                     ""
@@ -1965,6 +2020,17 @@ fn run(cli: &Cli) -> Result<i32> {
         "doctor" => data["ready"].as_bool(),
         "prepare" => data["doctor"]["ready"].as_bool(),
         "offline" | "verified" | "toolbox" => data["ready_offline"].as_bool(),
+        "updates"
+            if matches!(
+                &cli.command,
+                Some(Commands::Updates {
+                    command: Some(Updates::Check { .. })
+                })
+            ) =>
+        {
+            data["all_checked"].as_bool()
+        }
+        "content-updated" => data["ready"].as_bool(),
         "infra-running" => data["running"].as_bool(),
         "new" if data["dry_run"] == true => data["can_create"].as_bool(),
         "bundle" => data["compatible"].as_bool(),
@@ -2062,6 +2128,26 @@ fn run(cli: &Cli) -> Result<i32> {
             "template-removed" => println!("Removed the installed starter release."),
             "runtime-list" => render_runtimes(&data)?,
             "updates" => render_updates(cli, &data)?,
+            "content-updated" => {
+                println!(
+                    "{}",
+                    if data["complete"] == true {
+                        "Content updates complete"
+                    } else {
+                        "Content updates need attention"
+                    }
+                );
+                for step in data["steps"].as_array().into_iter().flatten() {
+                    println!(
+                        "  {} · {}",
+                        terminal::safe_text(s(step, "name")),
+                        terminal::safe_text(s(step, "state"))
+                    );
+                    if let Some(detail) = step["detail"].as_str() {
+                        println!("    {}", terminal::safe_text(detail));
+                    }
+                }
+            }
             "updates-configured" => println!(
                 "App update channel saved.\nRun {} updates check when you’re ready to connect.",
                 update_command_prefix(cli)

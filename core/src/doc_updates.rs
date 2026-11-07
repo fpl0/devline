@@ -448,6 +448,21 @@ fn installed_versions(db: &Connection) -> Result<BTreeMap<String, Vec<String>>> 
     Ok(versions)
 }
 
+// Only releases from an already checked, validated channel; this never connects.
+pub(crate) fn checked_packs(ctx: &Context) -> Result<Vec<DocPack>> {
+    let state = feed(ctx)?;
+    if let Some(manifest) = state.manifest {
+        validate_manifest(&manifest)?;
+        Ok(manifest
+            .releases
+            .into_iter()
+            .map(|release| release.pack)
+            .collect())
+    } else {
+        Ok(Vec::new())
+    }
+}
+
 pub(crate) fn status(ctx: &Context) -> Result<Value> {
     let feed = feed(ctx)?;
     let db = ctx.database()?;

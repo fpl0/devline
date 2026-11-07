@@ -13,6 +13,7 @@ use std::{
     time::Duration,
 };
 mod apple_docs;
+mod content_updates;
 mod doc_index;
 mod doc_links;
 mod doc_search;
@@ -581,6 +582,7 @@ pub fn execute(request: &Value) -> Result<Value> {
         command if command.starts_with("infra.") => infrastructure::execute(&ctx, request, None),
         "toolbox.status" => toolbox::status(&ctx, request, false),
         "toolbox.check" => toolbox::status(&ctx, request, true),
+        "toolbox.prepare" => toolbox::prepare(&ctx, request, None),
         "project.context" => project::context(&ctx, Path::new(text_arg(request, "path")?)),
         "project.readiness" => project_prepare::readiness(&ctx, request),
         "project.prepare" => project_prepare::prepare(&ctx, request, None),
@@ -668,8 +670,11 @@ pub fn execute(request: &Value) -> Result<Value> {
         }
         "templates.list" => templates::list(&ctx),
         "runtime.list" => templates::runtimes(&ctx),
-        "updates.status" => updates::status(&ctx),
-        "updates.check" => updates::check(&ctx),
+        "updates.app.status" => updates::app_status(&ctx),
+        "updates.app.check" => updates::app_check(&ctx, request),
+        "updates.status" => content_updates::status(&ctx),
+        "updates.check" => content_updates::check(&ctx, request, None),
+        "updates.apply" => content_updates::apply(&ctx, request, None),
         "updates.configure" => updates::configure(&ctx, text_arg(request, "url")?),
         "templates.install" => templates::install(&ctx, text_arg(request, "id")?),
         "doctor" => templates::doctor(&ctx, text_arg(request, "id")?),

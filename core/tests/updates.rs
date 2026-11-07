@@ -162,3 +162,148 @@ fn app_channels_keep_cached_release_on_error_and_clear_on_reconfigure() {
         Value::Null
     );
 }
+
+#[test]
+fn bulk_offline_update_installs_bundled_docs_without_claiming_unchecked_sources_current() {
+    let fixture = Fixture::new();
+    // Restrict this fixture to a documentation library: no external build tools
+    // or network are involved in applying a bundled reference update.
+    let path = fixture.0.join("catalog/catalog.json");
+    let mut catalog: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    catalog["templates"] = json!([]);
+    fs::write(&path, catalog.to_string()).unwrap();
+    fixture
+        .call(json!({"command":"docs.install","id":"go","version":"1.27.2"}))
+        .unwrap();
+    let result = fixture
+        .call(json!({"command":"updates.apply","offline":true}))
+        .unwrap();
+    assert_eq!(result["updated"], 1);
+    assert_eq!(result["complete"], false);
+    assert!(result["failed"].as_u64().unwrap() > 0);
+    assert!(result["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|step| step["id"] == "docs:go" && step["state"] == "succeeded"));
+    let docs = fixture
+        .call(json!({"command":"docs.distribution.status"}))
+        .unwrap();
+    let versions = &docs["packs"][0]["installed_versions"];
+    assert!(versions.as_array().unwrap().contains(&json!("1.27.2")));
+    assert!(versions.as_array().unwrap().contains(&json!("1.27.3")));
+    let result = fixture.call(json!({"command":"updates.check","offline":true}));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("requires a connection"));
+}
+
+#[test]
+fn app_only_status_preserves_independent_source_freshness_and_rejects_offline_fetch() {
+    let fixture = Fixture::new();
+    fixture
+        .call(json!({"command":"updates.configure","url":"https://example.org/release.json"}))
+        .unwrap();
+    let settings = fixture.0.join("library/updates.json");
+    fs::write(&settings, json!({
+        "app_feed":"https://example.org/release.json","checked_at":123,"app_checked_at":456,
+        "observations":{"app":{"version":"9.0.0","compatible":null,"url":"https://example.org/releases/9.0.0","error":null}}
+    }).to_string()).unwrap();
+    let app = fixture
+        .call(json!({"command":"updates.app.status"}))
+        .unwrap();
+    assert_eq!(app["checked_at"], 456);
+    assert_eq!(app["items"].as_array().unwrap().len(), 1);
+    assert_eq!(app["items"][0]["available_version"], "9.0.0");
+    let all = fixture.call(json!({"command":"updates.status"})).unwrap();
+    assert!(all["checked_at"].is_null());
+    assert_eq!(all["all_checked"], false);
+    let upstream = all["sources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|source| source["id"] == "upstream")
+        .unwrap();
+    assert_eq!(upstream["checked_at"], 123);
+    let before = fs::read(&settings).unwrap();
+    assert!(fixture
+        .call(json!({"command":"updates.app.check","offline":true}))
+        .is_err());
+    assert_eq!(fs::read(&settings).unwrap(), before);
+    fixture
+        .call(json!({"command":"updates.configure","url":""}))
+        .unwrap();
+    let app = fixture
+        .call(json!({"command":"updates.app.check"}))
+        .unwrap();
+    assert_eq!(app["items"][0]["state"], "unconfigured");
+    let saved: Value = serde_json::from_slice(&fs::read(&settings).unwrap()).unwrap();
+    assert_eq!(saved["checked_at"], 123);
+    assert!(saved["app_checked_at"].is_null());
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn a_failed_installed_starter_update_remains_retryable_until_offline_verification_passes() {
+    let fixture = Fixture::new();
+    let manifest = fixture.0.join("catalog/catalog.json");
+    let mut catalog: Value = serde_json::from_slice(&fs::read(&manifest).unwrap()).unwrap();
+    let repaired = fixture.0.join("verification-can-succeed");
+    for template in catalog["templates"].as_array_mut().unwrap() {
+        template["toolchain"] = json!("true");
+        template["minimum_version"] = json!("");
+        template["test_command"] = json!("./test-offline.sh");
+        template["docs"] = json!([]);
+        let path = fixture
+            .0
+            .join("catalog")
+            .join(template["path"].as_str().unwrap())
+            .join("project/test-offline.sh");
+        fs::write(
+            path,
+            format!("#!/bin/sh\nset -eu\ntest -f '{}'\n", repaired.display()),
+        )
+        .unwrap();
+    }
+    fs::write(&manifest, catalog.to_string()).unwrap();
+    fixture
+        .call(json!({"command":"templates.install","id":"go/chi-api@1.0.0"}))
+        .unwrap();
+    let first = fixture
+        .call(json!({"command":"updates.apply","id":"go/chi-api@1.1.0","offline":true}))
+        .unwrap();
+    assert_eq!(first["complete"], false);
+    assert_eq!(first["failed"], 1);
+    assert!(fixture
+        .0
+        .join("library/templates/go/chi-api/1.1.0")
+        .is_dir());
+    let snapshot = fixture.call(json!({"command":"updates.status"})).unwrap();
+    let pending = Fixture::item(&snapshot, "template:go/chi-api");
+    assert_eq!(pending["pending"], true);
+    assert_eq!(pending["reference"], "go/chi-api@1.1.0");
+    assert_eq!(pending["action"], "install_template");
+    let repeated = fixture
+        .call(json!({"command":"updates.apply","id":"template:go/chi-api","offline":true}))
+        .unwrap();
+    assert_eq!(repeated["complete"], false);
+    assert_eq!(repeated["failed"], 1);
+    // Repair an external requirement without changing the installed release.
+    fs::write(repaired, "ready").unwrap();
+    let finished = fixture
+        .call(json!({"command":"updates.apply","id":"template:go/chi-api","offline":true}))
+        .unwrap();
+    assert_eq!(finished["complete"], true);
+    assert_eq!(finished["updated"], 1);
+    let doctor = fixture
+        .call(json!({"command":"doctor","id":"go/chi-api@1.1.0"}))
+        .unwrap();
+    assert_eq!(doctor["ready_offline"], true);
+    let snapshot = fixture.call(json!({"command":"updates.status"})).unwrap();
+    assert!(Fixture::item(&snapshot, "template:go/chi-api")["pending"].is_null());
+    assert!(fixture
+        .0
+        .join("library/templates/go/chi-api/1.0.0")
+        .is_dir());
+}

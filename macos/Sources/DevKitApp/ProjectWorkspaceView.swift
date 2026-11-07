@@ -23,15 +23,21 @@ struct ProjectWorkspaceView: View {
     @ObservedObject var infrastructure: InfrastructureLibrary
     let project: ProjectContext?
     let openProject, newProject, showDocs, showInfrastructure: () -> Void
+    let showStarter: (String) -> Void
+    let showToolchains, closeProject: () -> Void
     @State private var stack: InfrastructureStack?
     @State private var readiness: ToolboxStatus?
     @State private var refreshToken = UUID()
     @State private var error: String?
     @State private var checking = false
+    @State private var preparing = false
     @State private var configuring = false
     @State private var log: String?
     @State private var copied = false
     private var refreshKey: String { (project?.path ?? "") + model.jobs.filter { !$0.isActive }.map(\.id).joined() }
+    private var projectJob: JobRecord? {
+        model.jobs.first { $0.targetPath == project?.path && ["toolbox_prepare", "project_prepare"].contains($0.kind) }
+    }
     private var projectReadiness: ProjectReadiness? {
         guard let project, let dependencies = readiness?.projectDependencies else { return nil }
         let ready = dependencies.state == "verified_project"
@@ -80,12 +86,18 @@ struct ProjectWorkspaceView: View {
                         Text(URL(fileURLWithPath: project.path).lastPathComponent).font(.largeTitle.weight(.semibold))
                         Text((project.path as NSString).abbreviatingWithTildeInPath).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
                         Text(project.stacks.isEmpty ? "Custom project" : project.stacks.map(displayStack).joined(separator: " · ")).font(.callout.weight(.medium))
+                        if let origin = project.origin {
+                            Button { showStarter(origin.reference) } label: {
+                                Text("Created from \(model.catalog?.templates.first { $0.reference == origin.reference }?.name ?? origin.starter) · \(origin.version)")
+                            }.buttonStyle(.link).font(.caption).help("Open the exact starter release used for this project")
+                        }
                     }
                     Spacer()
                     Menu {
                         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: project.path)]) }
                         Button("Copy Terminal Command") { copy("cd \(shellQuote(project.path))") }
                         Button("Open Another Project…", action: openProject)
+                        Button("Close Project", action: closeProject)
                     } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Project actions")
                 }
                 readinessPanel(project)
@@ -142,42 +154,68 @@ struct ProjectWorkspaceView: View {
     }
 
     private func readinessPanel(_ project: ProjectContext) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label(projectReadiness?.readyOffline == true ? "Build verified offline" : "Prepare this project for offline work", systemImage: projectReadiness?.readyOffline == true ? "checkmark.shield.fill" : "checkmark.shield")
+                Label(readiness?.readyOffline == true ? "Ready to work offline" : "Prepare this project for offline work",
+                      systemImage: readiness?.readyOffline == true ? "checkmark.shield.fill" : "checkmark.shield")
                     .font(.headline)
                 Spacer()
-                if checking { ProgressView().controlSize(.small) }
-                Button(projectReadiness?.readyOffline == true ? "Verify Again" : "Prepare Offline") {
-                    Task { await model.startJob(CoreRequest("jobs.start", path: project.path, kind: "project_prepare", offline: projectReadiness?.readyOffline == true)) }
-                }.buttonStyle(.borderedProminent).disabled(checking || model.jobs.contains { $0.isActive && $0.kind == "project_prepare" })
+                if checking || preparing { ProgressView().controlSize(.small) }
+                Button(readiness?.readyOffline == true ? "Verify Again" : projectJob?.needsAttention == true ? "Retry Preparation" : "Prepare Offline") {
+                    preparing = true
+                    Task {
+                        defer { preparing = false }
+                        await model.startJob(CoreRequest("jobs.start", path: project.path, kind: "toolbox_prepare", offline: readiness?.readyOffline == true), inspect: false)
+                    }
+                }.buttonStyle(.borderedProminent).disabled(checking || preparing || projectJob?.isActive == true)
+            }
+            if let job = projectJob, job.isActive || job.needsAttention || job.state == "cancelled" {
+                HStack(spacing: 12) {
+                    if job.isActive { ProgressView().controlSize(.small) }
+                    else { Image(systemName: job.icon).foregroundStyle(.orange) }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(job.isActive ? job.stage : job.stateLabel).font(.callout.weight(.medium))
+                        if let failure = job.error { Text(failure).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
+                        else if !job.isActive { Text("Prepared items are kept. Review the remaining steps and try again.").font(.caption).foregroundStyle(.secondary) }
+                    }
+                    Spacer()
+                    Button("View Activity") { model.inspectedJob = job }.controlSize(.small)
+                }
             }
             if let readiness {
-                Text(projectReadiness?.detail ?? readiness.projectDependencies.detail ?? "Devline prepares local dependencies, then tests the project with external networking denied.")
+                Text(readiness.readyOffline ? "The project’s dependencies, references, toolchain, and selected services are ready on this Mac." : "One preparation brings together the project’s dependencies, matching documentation, and pinned service images.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: 20) {
-                    readinessItem("Documentation", ready: readiness.library.docs.allSatisfy(\.readyOffline))
-                    readinessItem("Project Dependencies", ready: projectReadiness?.readyOffline == true)
-                    if !readiness.images.isEmpty { readinessItem("Image Archives", ready: readiness.images.allSatisfy(\.verifiedArchive)) }
-                }.font(.caption)
-                if let gap = project.docsets?.first(where: { $0.id == "swiftui" && $0.version == nil && $0.availableVersions.isEmpty }) {
-                    Text(gap.detail).font(.callout).foregroundStyle(.orange)
-                        .fixedSize(horizontal: false, vertical: true)
-                    HStack {
-                        Button("Prepare SwiftUI Reference") {
-                            Task { await model.startJob(CoreRequest("jobs.start", id: "swiftui", kind: "docs_prepare")) }
-                        }.disabled(model.jobs.contains { $0.isActive && $0.kind == "docs_prepare" })
-                        Link("Apple’s Website", destination: URL(string: "https://developer.apple.com/documentation/swiftui/")!)
-                    }.font(.callout)
+                VStack(alignment: .leading, spacing: 10) {
+                    let runtimes = readiness.library.runtimes ?? []
+                    readinessRow("Toolchain", ready: !runtimes.isEmpty && runtimes.allSatisfy(\.readyOffline),
+                        detail: runtimes.isEmpty ? "No supported toolchain detected. Devline only identifies tools installed on this Mac." : runtimes.map(\.detail).joined(separator: " · "), action: "View Toolchains", perform: showToolchains)
+                    readinessRow("Dependencies", ready: projectReadiness?.readyOffline == true,
+                        detail: projectReadiness?.detail ?? "Prepare and verify this project with networking denied.")
+                    let missing = readiness.library.docs.filter { !$0.readyOffline }
+                    readinessRow("Documentation", ready: missing.isEmpty,
+                        detail: missing.isEmpty ? "\(readiness.library.docs.count) matching references available locally." : missing.map { "\($0.id): \($0.detail ?? "Needs preparation")" }.joined(separator: " · "), action: "Browse Project Docs", perform: showDocs)
+                    if !readiness.images.isEmpty {
+                        readinessRow("Service images", ready: readiness.images.allSatisfy(\.verifiedArchive),
+                            detail: "\(readiness.images.filter(\.verifiedArchive).count) of \(readiness.images.count) pinned image archives verified.", action: "Manage Images", perform: showInfrastructure)
+                        readinessRow("Docker", ready: readiness.docker?.available == true,
+                            detail: readiness.docker?.available == true ? "Local engine available for your project services." : "Start your local Docker engine to run this project’s services.")
+                    }
                 }
-                if !readiness.images.isEmpty, readiness.docker?.available != true {
-                    Text("Start your local Docker engine to run this project’s services.").font(.caption).foregroundStyle(.orange)
-                }
-            } else { Text("Checks use the project’s pinned references and configured services.").font(.callout).foregroundStyle(.secondary) }
+            } else { Text("Checking the project’s dependencies, references, toolchain, and services…").font(.callout).foregroundStyle(.secondary) }
         }.padding(18).background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
     }
-    private func readinessItem(_ title: String, ready: Bool) -> some View {
-        Label(title, systemImage: ready ? "checkmark.circle.fill" : "circle.dashed").foregroundStyle(ready ? Color.secondary : .orange)
+
+    private func readinessRow(_ title: String, ready: Bool, detail: String, action: String? = nil, perform: (() -> Void)? = nil) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: ready ? "checkmark.circle.fill" : "circle.dashed")
+                .foregroundStyle(ready ? Color.secondary : .orange).frame(width: 18)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.callout.weight(.medium))
+                Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            if let action, let perform { Button(action, action: perform).controlSize(.small) }
+        }
     }
     private func serviceRow(_ service: InfrastructureStack.Service) -> some View {
         let catalog = infrastructure.catalog?.services.first { $0.reference == service.reference }

@@ -567,6 +567,66 @@ pub(crate) fn runtime_reports(ctx: &Context, selected: &[String]) -> Result<Valu
     })
 }
 
+/// Existing projects use their own manifest constraints, not a starter's ABI or
+/// minimum-version requirements. Discovery remains read-only.
+pub(crate) fn project_runtime_reports(
+    ctx: &Context,
+    path: &Path,
+    selected: &[String],
+) -> Result<Value> {
+    let mut reports = Vec::new();
+    for stack in selected {
+        let Some(sample) = ctx
+            .catalog
+            .templates
+            .iter()
+            .find(|sample| sample.stack == *stack)
+        else {
+            continue;
+        };
+        let tool = &sample.toolchain;
+        let mut found = None;
+        let mut incompatible = None;
+        let mut visited = std::collections::BTreeSet::new();
+        for candidate in candidate_paths(tool) {
+            let Some(candidate) = known_executable(&candidate, tool) else {
+                continue;
+            };
+            if !visited.insert(candidate.clone()) {
+                continue;
+            }
+            let Ok(actual) = probe_project(tool, &candidate) else {
+                continue;
+            };
+            let Some(version) = observed_version(tool, &actual) else {
+                continue;
+            };
+            let compatible = crate::project::runtime_compatibility(path, stack, &version)?;
+            let value = json!({"available":true,"path":candidate,"detail":format!("{} · {actual}",candidate.display()),"version":version,"compatible":compatible});
+            if compatible != Some(false) {
+                found = Some(value);
+                break;
+            }
+            incompatible.get_or_insert(value);
+        }
+        let mut report = found.or(incompatible).unwrap_or_else(|| json!({"available":false,"path":null,"version":null,"compatible":null,"detail":format!("No {tool} executable was detected. Install or select it using your usual toolchain manager; Devline only detects runtimes.")}));
+        if report["compatible"] == false {
+            report["detail"] = json!(format!(
+                "{} differs from this project's declared runtime requirement.",
+                report["detail"].as_str().unwrap_or_default()
+            ));
+        }
+        report["id"] = json!(stack);
+        report["name"] = json!(stack);
+        report["toolchain"] = json!(tool);
+        report["minimum_version"] = json!("");
+        report["ready_offline"] =
+            json!(report["available"] == true && report["compatible"] != false);
+        reports.push(report);
+    }
+    Ok(json!(reports))
+}
+
 fn installation_result(template: &Template, path: &Path) -> Value {
     json!({"id":template.id,"version":template.version,"path":path,"verified":template.verified,"installed":true})
 }
@@ -895,6 +955,23 @@ fn jdk_home() -> Option<PathBuf> {
 }
 
 pub(crate) fn tool_environment(command: &mut Command, tool: &str, path: &Path) -> Result<()> {
+    tool_environment_inner(command, tool, path, true)
+}
+
+pub(crate) fn project_tool_environment(
+    command: &mut Command,
+    tool: &str,
+    path: &Path,
+) -> Result<()> {
+    tool_environment_inner(command, tool, path, false)
+}
+
+fn tool_environment_inner(
+    command: &mut Command,
+    tool: &str,
+    path: &Path,
+    starter: bool,
+) -> Result<()> {
     let mut directories = vec![path
         .parent()
         .context("Invalid toolchain path")?
@@ -940,7 +1017,11 @@ pub(crate) fn tool_environment(command: &mut Command, tool: &str, path: &Path) -
         }
     }
     if tool == "mvn" {
-        if let Some(java) = jdk_home() {
+        if starter {
+            if let Some(java) = jdk_home() {
+                command.env("JAVA_HOME", java);
+            }
+        } else if let Some(java) = env::var_os("JAVA_HOME") {
             command.env("JAVA_HOME", java);
         }
     }
@@ -948,13 +1029,21 @@ pub(crate) fn tool_environment(command: &mut Command, tool: &str, path: &Path) -
 }
 
 fn probe(tool: &str, path: &Path) -> Result<String> {
+    probe_with_environment(tool, path, true)
+}
+
+fn probe_project(tool: &str, path: &Path) -> Result<String> {
+    probe_with_environment(tool, path, false)
+}
+
+fn probe_with_environment(tool: &str, path: &Path, starter: bool) -> Result<String> {
     let args: &[&str] = match tool {
         "go" => &["version"],
         "python3" => &["-I", "-S", "-c", "import platform,sys; print(platform.python_version(), sys.implementation.name, platform.machine())"],
         _ => &["--version"],
     };
     let mut command = Command::new(path);
-    tool_environment(&mut command, tool, path)?;
+    tool_environment_inner(&mut command, tool, path, starter)?;
     let mut child = command
         .args(args)
         .current_dir("/")
@@ -1259,23 +1348,27 @@ pub(crate) fn bundled_digest(ctx: &Context, template: &Template) -> Result<Optio
         .transpose()
 }
 
+fn observed_version(tool: &str, actual: &str) -> Option<String> {
+    let version = match tool {
+        "elixir" => actual.split("Elixir ").nth(1)?,
+        "mvn" => actual.split("Java version: ").nth(1)?,
+        "swift" => actual.split("Swift version ").nth(1)?,
+        _ => actual,
+    };
+    Some(
+        runtime_numbers(version)?
+            .into_iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>()
+            .join("."),
+    )
+}
+
 pub(crate) fn toolchain_report(template: &Template) -> Value {
     let (path, detail) = toolchain(template);
     let observed = path.as_ref().and_then(|_| {
         let (_, actual) = detail.split_once(" · ")?;
-        let version = match template.toolchain.as_str() {
-            "elixir" => actual.split("Elixir ").nth(1)?,
-            "mvn" => actual.split("Java version: ").nth(1)?,
-            "swift" => actual.split("Swift version ").nth(1)?,
-            _ => actual,
-        };
-        Some(
-            runtime_numbers(version)?
-                .into_iter()
-                .map(|n| n.to_string())
-                .collect::<Vec<_>>()
-                .join("."),
-        )
+        observed_version(&template.toolchain, actual)
     });
     json!({"available":path.is_some(),"path":path,"detail":detail,"version":observed})
 }

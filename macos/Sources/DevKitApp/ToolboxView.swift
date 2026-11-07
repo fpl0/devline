@@ -7,6 +7,7 @@ struct ToolboxView: View {
     let project: ProjectContext?
     let navigate: (Workspace) -> Void
     let openProject: () -> Void
+    let openRecent: (String) -> Void
     @State private var runtimes: [RuntimeToolchain] = []
     @State private var runtimeError: String?
 
@@ -39,6 +40,32 @@ struct ToolboxView: View {
                             Image(systemName: "arrow.right").foregroundStyle(.secondary)
                         }.padding(20).contentShape(Rectangle())
                     }.buttonStyle(.plain).background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 14))
+                }
+                if !model.recentProjects.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Recent projects").font(.title3.weight(.semibold))
+                            Spacer()
+                            Button("Open Another…", action: openProject).controlSize(.small)
+                        }
+                        ForEach(model.recentProjects.filter { $0.path != project?.path }.prefix(5)) { recent in
+                            Button { openRecent(recent.path) } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "folder").foregroundStyle(.secondary)
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(recent.name).font(.callout.weight(.medium))
+                                        Text((recent.path as NSString).abbreviatingWithTildeInPath).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                                }.padding(.vertical, 8).contentShape(Rectangle())
+                            }.buttonStyle(.plain).help(recent.path)
+                                .contextMenu { Button("Remove from Recent Projects") { model.forgetProject(recent.path) } }
+                        }
+                        if model.recentProjects.allSatisfy({ $0.path == project?.path }) {
+                            Text("Projects you open will appear here, ready to return to.").font(.callout).foregroundStyle(.secondary)
+                        }
+                    }
                 }
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {

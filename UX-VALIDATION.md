@@ -1,6 +1,6 @@
-# Devline 0.4.0 validation
+# Devline validation
 
-Checks ran on an Apple M2 Pro Mac with macOS 27.2. Native observations below are from the installed 0.4.0 candidate.
+Checks ran on an Apple M2 Pro Mac with macOS 27.2. Each release section records its own evidence; earlier results are historical rather than proof of a later build. The sections before “Desktop starters” describe the installed 0.4.0 candidate.
 
 ## References, projects, and downloads
 
@@ -64,3 +64,15 @@ The exact application code at `17cf7015d8d1bf2fdabff83cd84a95f2ecdce017` passed 
 - Core and CLI: 77 tests passed, with Clippy warnings denied. All 21 Python ingestion/distribution tests and the native reference-navigation checks passed. Package guards rejected nested and parent symlinks, forged SwiftUI metadata, and local-only packs in isolated fixtures. Runtime tests ran on Apple Silicon macOS 27.2 with Xcode’s Swift 6.4.2 and Rust 1.99.1; macOS 14 was checked as the declared binary deployment target, not on a separate physical host.
 
 - Installed-app verification: the native Prepare from Xcode action imported 8,796 SwiftUI symbols; State rendered original code examples and navigated to View locally. Documentation Updates displayed the selected SDK and indexed count. Devline Help opened a Keycloak guide and followed its local portability link within the help sheet. With outbound networking denied, the installed CLI reported both the generated SwiftUI and Tauri projects Ready Offline, including their documentation.
+
+## Connected project workflow — 0.6.0 (7 November 2026)
+
+- A conventional Go project prepared successfully in a fresh library with `--offline`: matching official documentation was installed from the bundled catalog, dependency checks passed with networking denied, and `go test ./...` ran through the project runner. Source file hashes were unchanged.
+- Removing a pinned older Go reference and preparing again restored that exact revision. Applying a newer local documentation update retained both revisions and did not alter the project pin.
+- Native opening of that conventional project kept preparation progress on Current Project. Toolbox and File → Open Recent showed both projects, and reopening the previous project worked.
+- The installed app's project headline included dependencies, toolchain, references, configured image archives, and Docker availability. The PostgreSQL and Redis services remained stopped.
+- The previously reproduced stale Python search cleared when Browse Project Docs opened the Go project's references. The originating Chi starter link opened release 1.0.0; its Chi reference link opened the exact included revision.
+- Check All Sources completed in the app and reported freshness for documentation, starter/runtime/app publishers, and image publishers. The app-release section displayed the installed version and direct-download controls.
+- Regression coverage includes partial job results, exact pins, source edits verified locally before network preparation, project-specific runtime requirements, starter-versus-project Java selection, and retries after a partially installed starter update. Failed update targets persist until their preparation and offline verification succeed.
+
+The existing waivers still apply: no notarization, physical global-shortcut check, or VoiceOver check was performed. Public downloads exclude the local Apple SDK-derived reference. Full template catalog execution results from earlier releases remain historical; this pass targets project preparation, navigation, and update orchestration.

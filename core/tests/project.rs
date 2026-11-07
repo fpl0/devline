@@ -379,3 +379,193 @@ fn node_detects_exact_lock_versions_and_runtime_source() {
     assert_eq!(entry(&pinned, "dependencies", "node")["source"], ".nvmrc");
     assert_eq!(entry(&pinned, "dependencies", "node")["version"], "26.13.0");
 }
+
+#[test]
+fn toolbox_prepares_compatible_missing_docs_and_keeps_partial_failures_truthful() {
+    let fixture = Fixture::new();
+    fixture.write(
+        "service/pyproject.toml",
+        "[project]\nname='service'\ndependencies=['fastapi==0.120.0']\n",
+    );
+    fixture.call(json!({"command":"docs.remove","id":"fastapi","version":"0.120.0"}));
+    let before = fixture.profile("service");
+    assert!(entry(&before, "docsets", "fastapi")["version"].is_null());
+    assert_eq!(
+        entry(&before, "docsets", "fastapi")["prepare_version"],
+        "0.120.0"
+    );
+    let report = fixture
+        .call(json!({"command":"toolbox.prepare","path":fixture.0.join("service"),"offline":true}));
+    assert_eq!(
+        entry(&report["library"], "docs", "fastapi")["ready_offline"],
+        true
+    );
+    assert_eq!(
+        entry(&fixture.profile("service"), "docsets", "fastapi")["version"],
+        "0.120.0"
+    );
+    // This fixture deliberately has no dependency adapter. Docs succeed while the
+    // complete project remains honestly unready, with the actionable error kept.
+    assert_eq!(report["ready_offline"], false);
+    assert!(report["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|step| step["kind"] == "project" && step["status"] == "blocked"));
+    assert!(report["blockers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|step| step["kind"] == "project"));
+}
+
+#[test]
+fn toolbox_never_substitutes_an_unavailable_exact_project_pin() {
+    let fixture = Fixture::new();
+    fixture.write(
+        "service/pyproject.toml",
+        "[project]\nname='service'\ndependencies=['fastapi==0.120.0']\n",
+    );
+    let path = fixture.0.join("service");
+    fixture.call(json!({"command":"project.pin","path":path,"id":"fastapi","version":"0.119.99"}));
+    let report = fixture.call(json!({"command":"toolbox.prepare","path":path,"offline":true}));
+    assert_eq!(report["ready_offline"], false);
+    let after = fixture.profile("service");
+    assert_eq!(entry(&after, "docsets", "fastapi")["version"], "0.119.99");
+    assert_eq!(entry(&after, "pins", "fastapi")["version"], "0.119.99");
+    assert!(report["steps"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|step| step["id"] == "fastapi@0.119.99" && step["status"] == "blocked"));
+}
+
+#[test]
+fn a_project_origin_is_provenance_but_explicit_starter_selection_is_required() {
+    let fixture = Fixture::new();
+    fixture.write("service/go.mod", "module example.com/service\ngo 1.27\n");
+    fixture.write(
+        "service/.devkit-origin.json",
+        &json!({"template":"go/removed-starter","version":"1.0.0","digest":"a".repeat(64)})
+            .to_string(),
+    );
+    let path = fixture.0.join("service");
+    let inferred = fixture.call(json!({"command":"offline.status","path":path}));
+    assert_eq!(
+        inferred["project"]["origin"]["reference"],
+        "go/removed-starter@1.0.0"
+    );
+    assert!(inferred["starters"].as_array().unwrap().is_empty());
+    let explicit = fixture.call(
+        json!({"command":"offline.status","path":path,"starters":["go/removed-starter@1.0.0"]}),
+    );
+    assert_eq!(explicit["ready_offline"], false);
+    assert_eq!(explicit["starters"][0]["ready_offline"], false);
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn edited_generated_project_reverifies_local_dependencies_before_any_online_adapter() {
+    let fixture = Fixture::new();
+    let catalog_path = fixture.0.join("catalog/catalog.json");
+    let mut catalog: Value = serde_json::from_slice(&fs::read(&catalog_path).unwrap()).unwrap();
+    catalog["templates"] = json!([{"id":"python/fixture","name":"Fixture","stack":"python","version":"1.0.0","description":"Fixture","app_type":"cli","path":"templates/fixture","toolchain":"python3","minimum_version":"","test_command":"./test-offline.sh","docs":[],"target":"any"}]);
+    fs::write(catalog_path, catalog.to_string()).unwrap();
+    // A call to online preparation is a hard failure: the project's closure is
+    // already present, so editing its source must only require local verification.
+    fixture.write(
+        "catalog/project-adapters/python.sh",
+        "#!/bin/sh\necho 'unexpected online adapter' >&2\nexit 97\n",
+    );
+    fixture.write("app/requirements.txt", "");
+    fixture.write("app/source.txt", "first");
+    fixture.write(
+        "app/.devkit-origin.json",
+        &json!({"template":"python/fixture","version":"1.0.0","digest":"a".repeat(64)}).to_string(),
+    );
+    fixture.write(
+        "app/test-offline.sh",
+        "#!/bin/sh\nset -eu\ntest -f requirements.txt\ntest -s source.txt\n\"$DEVKIT_TOOLCHAIN\" -c 'import errno,socket; s=socket.socket(); s.settimeout(2); assert s.connect_ex((\"1.1.1.1\",443)) in (errno.EPERM,errno.EACCES)'\n",
+    );
+    let path = fixture.0.join("app");
+    let first = fixture.call(json!({"command":"toolbox.prepare","path":path,"offline":true}));
+    assert_eq!(first["ready_offline"], true, "{first}");
+    fixture.write("app/source.txt", "edited");
+    let stale = fixture.call(json!({"command":"toolbox.status","path":path}));
+    assert_eq!(stale["ready_offline"], false);
+    let output = Command::new(env!("CARGO_BIN_EXE_devline"))
+        .arg("--home")
+        .arg(fixture.0.join("library"))
+        .arg("--catalog")
+        .arg(fixture.0.join("catalog"))
+        .args(["--json", "toolbox", "prepare", "--path"])
+        .arg(&path)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{} {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(report["data"]["ready_offline"], true);
+    assert_eq!(
+        fs::read_to_string(path.join("source.txt")).unwrap(),
+        "edited"
+    );
+    assert!(report["data"]["library"]["starters"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn project_runtime_constraints_are_independent_of_starter_minimums() {
+    use std::os::unix::fs::PermissionsExt;
+    let fixture = Fixture::new();
+    let catalog_path = fixture.0.join("catalog/catalog.json");
+    let mut catalog: Value = serde_json::from_slice(&fs::read(&catalog_path).unwrap()).unwrap();
+    catalog["templates"] = json!([{"id":"python/fixture","name":"Fixture","stack":"python","version":"1.0.0","description":"Fixture","app_type":"cli","path":"templates/fixture","toolchain":"python3","minimum_version":"3.15","test_command":"./test-offline.sh","docs":[],"target":"any"}]);
+    fs::write(catalog_path, catalog.to_string()).unwrap();
+    fixture.write(
+        "service/pyproject.toml",
+        "[project]\nname='service'\nrequires-python='>=3.12,<3.13'\n",
+    );
+    let tool = fixture.0.join("python3");
+    let invoke = |arguments: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_devline"))
+            .current_dir(fixture.0.join("service"))
+            .env("DEVKIT_PYTHON3", &tool)
+            .arg("--home")
+            .arg(fixture.0.join("library"))
+            .arg("--catalog")
+            .arg(fixture.0.join("catalog"))
+            .arg("--json")
+            .args(arguments)
+            .output()
+            .unwrap();
+        serde_json::from_slice::<Value>(&output.stdout).unwrap()["data"].clone()
+    };
+    fixture.write("python3", "#!/bin/sh\nprintf '3.12.8 cpython arm64\\n'\n");
+    fs::set_permissions(&tool, fs::Permissions::from_mode(0o755)).unwrap();
+    let report = invoke(&["toolbox", "status"]);
+    assert_eq!(report["library"]["runtimes"][0]["version"], "3.12.8");
+    assert_eq!(report["library"]["runtimes"][0]["ready_offline"], true);
+    let starter = invoke(&["runtimes"]);
+    assert_eq!(
+        starter[0]["available"], false,
+        "starter wheels must retain their own ABI constraints"
+    );
+
+    fixture.write("python3", "#!/bin/sh\nprintf '3.15.2 cpython arm64\\n'\n");
+    let mismatch = invoke(&["toolbox", "status"]);
+    assert_eq!(mismatch["library"]["runtimes"][0]["available"], true);
+    assert_eq!(mismatch["library"]["runtimes"][0]["compatible"], false);
+    assert_eq!(mismatch["library"]["runtimes"][0]["ready_offline"], false);
+    fixture.write("python3", "#!/bin/sh\nprintf 'not a version\\n'\n");
+    let invalid = invoke(&["toolbox", "status"]);
+    assert_eq!(invalid["library"]["runtimes"][0]["available"], false);
+    assert_eq!(invalid["library"]["runtimes"][0]["ready_offline"], false);
+}

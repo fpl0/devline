@@ -19,6 +19,10 @@ struct Settings {
     app_feed: Option<String>,
     checked_at: Option<u64>,
     check_started_at: Option<u64>,
+    #[serde(default)]
+    app_checked_at: Option<u64>,
+    #[serde(default)]
+    app_check_started_at: Option<u64>,
     observations: BTreeMap<String, Observation>,
 }
 
@@ -28,6 +32,8 @@ impl Default for Settings {
             app_feed: Some(DEFAULT_APP_FEED.to_owned()),
             checked_at: None,
             check_started_at: None,
+            app_checked_at: None,
+            app_check_started_at: None,
             observations: BTreeMap::new(),
         }
     }
@@ -151,6 +157,8 @@ pub fn configure(ctx: &Context, url: &str) -> Result<Value> {
     if prefs.app_feed != next {
         prefs.app_feed = next;
         prefs.observations.remove("app");
+        prefs.app_checked_at = None;
+        prefs.app_check_started_at = None;
         save(ctx, &prefs)?;
     }
     drop(_lock);
@@ -1141,6 +1149,46 @@ pub fn status(ctx: &Context) -> Result<Value> {
     make_status(ctx, settings(ctx)?)
 }
 
+pub(crate) fn app_status(ctx: &Context) -> Result<Value> {
+    let prefs = settings(ctx)?;
+    let checked_at = prefs
+        .observations
+        .contains_key("app")
+        .then_some(prefs.app_checked_at.or(prefs.checked_at))
+        .flatten();
+    Ok(json!({"checked_at":checked_at,"items":[app_update(&prefs)]}))
+}
+
+pub(crate) fn app_check(ctx: &Context, request: &Value) -> Result<Value> {
+    if request["offline"] == true {
+        bail!("Checking app releases requires a connection. Saved app status works offline.");
+    }
+    let before = settings(ctx)?;
+    let Some(url) = before.app_feed.as_deref() else {
+        return app_status(ctx);
+    };
+    let started = now().as_nanos() as u64;
+    let mut observation = observe_app(url);
+    let _lock = lock_library(ctx)?;
+    let mut prefs = settings(ctx)?;
+    if prefs.app_feed == before.app_feed
+        && prefs.app_check_started_at.is_none_or(|old| started >= old)
+    {
+        if observation.error.is_some() {
+            if let Some(previous) = prefs.observations.get("app") {
+                observation.version.clone_from(&previous.version);
+                observation.url.clone_from(&previous.url);
+            }
+        }
+        prefs.observations.insert("app".to_owned(), observation);
+        prefs.app_checked_at = Some(now().as_secs());
+        prefs.app_check_started_at = Some(started);
+        save(ctx, &prefs)?;
+    }
+    drop(_lock);
+    app_status(ctx)
+}
+
 pub fn check(ctx: &Context) -> Result<Value> {
     let before = settings(ctx)?;
     let check_started = now().as_nanos() as u64;
@@ -1197,6 +1245,18 @@ pub fn check(ctx: &Context) -> Result<Value> {
         if let Some(app) = prefs.observations.get("app") {
             observations.insert("app".to_owned(), app.clone());
         }
+    }
+    if prefs
+        .app_check_started_at
+        .is_some_and(|previous| previous > check_started)
+    {
+        observations.remove("app");
+        if let Some(app) = prefs.observations.get("app") {
+            observations.insert("app".to_owned(), app.clone());
+        }
+    } else if prefs.app_feed == before.app_feed && observations.contains_key("app") {
+        prefs.app_checked_at = Some(now().as_secs());
+        prefs.app_check_started_at = Some(check_started);
     }
     if prefs
         .check_started_at

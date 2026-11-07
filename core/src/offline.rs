@@ -922,7 +922,7 @@ pub fn status(ctx: &Context, request: &Value) -> Result<Value> {
             .map(str::to_owned)
             .collect();
         if !stacks.is_empty() {
-            let mut reports = templates::runtime_reports(ctx, &stacks)?;
+            let mut reports = templates::project_runtime_reports(ctx, Path::new(path), &stacks)?;
             for report in reports.as_array_mut().into_iter().flatten() {
                 let compatible = if let Some(version) = report["version"].as_str() {
                     crate::project::runtime_compatibility(
@@ -958,9 +958,9 @@ pub fn status(ctx: &Context, request: &Value) -> Result<Value> {
                 }
             }
         }
-        if let Some(reference) = project["origin"]["reference"].as_str() {
-            starters.push(reference.to_owned());
-        }
+        // A generated project's dependencies live in the project. Its original
+        // starter is provenance, not a prerequisite for continuing to work.
+        // Explicit --starter selections below still require the library release.
     }
     docs.extend(profile_docs.values().cloned());
     let mut starter_results = Vec::new();

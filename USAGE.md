@@ -18,6 +18,8 @@ In **Settings → Lookup from Any App**, choose a global shortcut. The default *
 
 Open a project folder with **⌘O**. **Current Project** brings together its references, readiness, and local services. Use **Project References** in **Documentation** to see detected dependencies, chosen docset versions, and any mismatch. Devline reads supported manifests and lockfiles for Python, C# and .NET, Java, Ruby, Go, Rust, Elixir, Node.js, and Swift. Resolved framework versions take priority over manifest constraints. Pin choices stay in the local library and are shared with the CLI.
 
+Return through **Toolbox → Recent Projects** or **File → Open Recent**. **Browse Project Docs** clears unrelated searches and opens the project's reference scope. A generated project's origin links back to its exact starter release; the starter's reference links use its included versions.
+
 ```sh
 devline project --path ./service
 devline docs search 'Path.read_text' --project ./service
@@ -29,13 +31,17 @@ An unscoped lookup inside a project uses compatible installed references. Use a 
 
 ### Prepare an existing project
 
-Choose **Prepare Offline** while connected. Devline prepares a managed dependency cache for the selected project, then verifies a staged copy with external networking denied. It publishes `.devline-offline` and a local verification receipt after the checks pass. Your original source files, manifests, and lockfiles stay intact. Changes to the source, lockfiles, toolchain, or cache can require another check. An explicit `project run` command can still use the prepared dependencies during development.
+Choose **Prepare Offline** while connected. Devline prepares the project's matching or pinned documentation, dependency closure, and configured image archives together. Opening a project starts preparation when needed; progress stays in the project screen, with logs in **Activity**. The final result covers every component and identifies anything Devline cannot prepare, such as a missing compiler. Preparing archives does not start services.
+
+Dependency preparation uses a staged copy and tests it with external networking denied. Existing local dependencies are tried first. When needed, Devline prepares a managed `.devline-offline` cache; it records verification only after the checks pass. Your original source files, manifests, and lockfiles stay intact. Changes to the source, lockfiles, toolchain, or cache can require another check. An explicit `project run` command can still use the prepared dependencies during development.
 
 ```sh
 devline project --path ./service prepare --background
-devline --offline project --path ./service readiness
+devline --offline toolbox check --path ./service
 devline --offline project --path ./service run -- python -m pytest -q
 ```
+
+`devline toolbox prepare --path ./service` runs the same complete preparation. Add `--offline` to require local resources; missing downloads are reported rather than fetched. `project readiness` checks dependency evidence only, while `toolbox status` and `toolbox check` include references, toolchains, and services. Removing the original starter from the library does not invalidate an already created project.
 
 Preparation supports conventional single-runtime projects using Go modules, Cargo, Python registry requirements or static project dependencies, Bundler, Maven, NuGet, Mix/Hex, npm with `package-lock.json`, or dependency-free Swift packages with `Package.swift`. Swift packages with external dependencies are currently rejected with an explanation; Devline does not mark them ready. The selected adapter checks its prerequisites. Install the matching toolchain and any reported native build tools first. Open independently locked projects at their individual roots.
 
@@ -64,7 +70,7 @@ The desktop documentation includes an official Tauri snapshot and **The Swift Pr
 
 ### Prepare the SwiftUI SDK reference
 
-In **Docset Library → From This Mac** or **Updates → Documentation**, find **SwiftUI · Apple API Reference** and choose **Prepare from Xcode**. If **Current Project** reports missing SwiftUI documentation, choose **Prepare SwiftUI Reference** there. The import reads the selected macOS SDK locally and works offline.
+In **Docset Library → From This Mac** or **Updates → Documentation**, find **SwiftUI · Apple API Reference** and choose **Prepare from Xcode**. **Prepare Offline** in **Current Project** includes this import when the project needs it. The import reads the selected macOS SDK locally and works offline.
 
 ```sh
 devline docs local
@@ -177,17 +183,24 @@ The destination needs Docker, the project toolchains, and dependencies. Importin
 
 ## Updates
 
-**Updates** shows documentation, starter, and runtime availability. **Documentation Updates** downloads independently published snapshots. Devline checks archive size and SHA-256, resumes interrupted downloads where the server supports it, and keeps installed versions for rollback and project pins. The details show sources, coverage, and known omissions.
+**Updates** brings documentation, starters, and image archives into one overview. **Check All Sources** checks their publishers and shows freshness or failures for each source. **Update Available** prepares checked updates for the content you already use. It keeps previous versions and project pins. Failed items remain available to retry until preparation and offline verification succeed. Toolchains remain managed outside Devline, and app updates are separate.
+
+The **Documentation** tab downloads independently published snapshots. Devline checks archive size and SHA-256, resumes interrupted downloads where the server supports it, and keeps installed versions for rollback and project pins. The details show sources, coverage, and known omissions.
 
 ```sh
 devline docs updates                 # cached channel status
 devline docs updates check           # fetch the channel manifest
 devline docs fetch go@1.27.3+devline.3 --background
 devline docs rollback go@1.27.3+devline.2
-devline updates check                # upstream starter and runtime checks
+devline updates check --background   # check all content sources
+devline updates apply --background   # prepare checked content updates
+devline updates apply template:go/chi-api # update or retry one item
+devline --offline updates            # read saved status
 ```
 
-Runtime updates open official installation pages. **Devline → Check for App Updates…** uses Sparkle. The app requires Ed25519-signed update archives and appcast feeds. Automatic checks are optional and start off. A signed appcast is unavailable for 0.5.0. Install or upgrade this release using the GitHub DMG. The CLI’s separate `updates` status can link to the public app release. [Download Devline 0.5.0](https://github.com/fpl0/devline/releases/download/v0.5.0/Devline-macos-arm64.dmg)
+Follow either background operation with `devline jobs status JOB_ID --follow`. Completed work is retained if another item fails, and the result identifies the remaining items. Retry after resolving the reported prerequisite. Updating library content does not rewrite projects, change their service pins, or start their containers.
+
+Runtime updates open official installation pages. Devline 0.6.0 uses direct downloads: the app-update section and CLI link to the checked public release. Install or upgrade using the GitHub DMG. The signed Sparkle updater remains disabled in this build because no signed appcast is published. A future build can enable it only with its signing key and Ed25519-signed feed and archives. [Download Devline 0.6.0](https://github.com/fpl0/devline/releases/download/v0.6.0/Devline-macos-arm64.dmg)
 
 Infrastructure also checks publishers for newer compatible images. `devline infra updates check` refreshes observations, and `devline infra update SERVICE` prepares the checked release alongside its predecessor. App updates can include newer catalog entries. Existing project configurations retain their exact pins and archived releases.
 

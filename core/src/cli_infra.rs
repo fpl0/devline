@@ -238,6 +238,13 @@ enum ToolboxAction {
     Status,
     #[command(about = "Also verify selected image files from disk")]
     Check,
+    #[command(
+        about = "Prepare this project's references, dependencies and pinned images together"
+    )]
+    Prepare {
+        #[arg(long)]
+        background: bool,
+    },
 }
 
 pub(super) fn run(cli: &Cli, command: Option<&Infra>) -> Result<Output> {
@@ -445,6 +452,18 @@ pub(super) fn toolbox(cli: &Cli, options: &Toolbox) -> Result<Output> {
                 .map_or_else(std::env::current_dir, Ok)?,
         )
     };
+    if let Some(ToolboxAction::Prepare { background }) = options.command {
+        if options.library_only {
+            bail!("Toolbox preparation needs a project. Use --path <folder> or run it in the project directory.");
+        }
+        return run_operation(
+            cli,
+            "toolbox",
+            "toolbox_prepare",
+            background,
+            json!({"command":"toolbox.prepare","path":path,"offline":cli.offline,"docs":options.docs,"starters":options.starters,"images":options.images}),
+        );
+    }
     let command = if matches!(options.command, Some(ToolboxAction::Check)) {
         progress(
             cli,
@@ -724,6 +743,36 @@ pub(super) fn render(action: &str, value: &Value) {
             }
             if let Some(detail) = value["project_dependencies"]["detail"].as_str() {
                 println!("\nProject dependencies\n  {}", terminal::safe_text(detail));
+            }
+            if items(value, "steps").next().is_some() {
+                println!("\nPreparation");
+                for step in items(value, "steps") {
+                    println!(
+                        "  {} · {} · {}",
+                        terminal::safe_text(s(step, "kind")),
+                        terminal::safe_text(s(step, "id")),
+                        terminal::safe_text(s(step, "status"))
+                    );
+                    if let Some(detail) = step["detail"].as_str() {
+                        println!("    {}", terminal::safe_text(detail));
+                    }
+                }
+            }
+            if items(value, "blockers").next().is_some() {
+                println!("\nStill needed");
+                for blocker in items(value, "blockers") {
+                    println!(
+                        "  {}: {}",
+                        terminal::safe_text(s(blocker, "id")),
+                        terminal::safe_text(s(blocker, "detail"))
+                    );
+                }
+                if let Some(path) = value["path"].as_str() {
+                    println!(
+                        "  Prepare together: devline toolbox prepare --path {}",
+                        shell_quote(path)
+                    );
+                }
             }
             if items(value, "images").next().is_some() {
                 println!("\nImage vault");

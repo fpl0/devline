@@ -2,10 +2,12 @@ import SwiftUI
 
 struct ProjectReferencesView: View {
     @State var project: ProjectContext
+    @ObservedObject var model: WorkspaceModel
     let updated: (ProjectContext) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var changing: String?
     @State private var error: String?
+    @State private var contextRequest = UUID()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -41,9 +43,18 @@ struct ProjectReferencesView: View {
                                 }.labelsHidden().frame(maxWidth: 290).disabled(changing != nil)
                             }
                             Text(doc.detail).font(.callout).foregroundStyle(doc.needsAttention ? .orange : .secondary)
+                            if let job = referenceJob(doc), job.isActive {
+                                HStack { ProgressView().controlSize(.small); Text(job.stage).font(.caption).foregroundStyle(.secondary) }
+                            } else if canPrepare(doc) {
+                                Button(doc.id == "swiftui" ? "Prepare from Xcode" : "Prepare \(doc.id) Reference") {
+                                    Task { await prepare(doc) }
+                                }.controlSize(.small).disabled(changing != nil)
+                            }
+                            if let job = referenceJob(doc), job.needsAttention, let failure = job.error {
+                                Text(failure).font(.caption).foregroundStyle(.orange).textSelection(.enabled)
+                            }
                             if doc.id == "swiftui", doc.version == nil, doc.availableVersions.isEmpty {
-                                Link("Apple’s SwiftUI Reference (Online)", destination: URL(string: "https://developer.apple.com/documentation/swiftui/")!)
-                                    .font(.callout)
+                                Text("Read Apple’s API declarations and comments from the Xcode SDK installed on this Mac.").font(.caption).foregroundStyle(.secondary)
                             }
                             if let version = doc.version { Text("Using \(displayDocVersion(version))").font(.caption).foregroundStyle(.secondary) }
                         }
@@ -68,11 +79,41 @@ struct ProjectReferencesView: View {
             }
             if let error { Text(error).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
         }.padding(22).frame(width: 650, height: 540)
+            .onChange(of: model.libraryRevision) { _, _ in Task { await refresh() } }
+            .onChange(of: model.jobs.filter { !$0.isActive }.map(\.id)) { _, _ in Task { await refresh() } }
+    }
+
+    private func referenceJob(_ doc: ProjectDocset) -> JobRecord? {
+        model.jobs.first { ["docs_prepare", "docs_install"].contains($0.kind) && ($0.targetReference == doc.id || $0.targetReference?.hasPrefix(doc.id + "@") == true) }
+    }
+    private func canPrepare(_ doc: ProjectDocset) -> Bool {
+        if let version = doc.prepareVersion { return !doc.installedVersions.contains(version) }
+        return doc.id == "swiftui" && doc.version == nil && doc.installedVersions.isEmpty
+    }
+    private func prepare(_ doc: ProjectDocset) async {
+        guard changing == nil else { return }
+        changing = doc.id
+        defer { changing = nil }
+        let version = doc.prepareVersion
+        let local = doc.id == "swiftui" || model.catalog?.docs.contains { $0.id == doc.id && $0.version == version } == true
+        await model.startJob(CoreRequest("jobs.start", id: doc.id, version: version, kind: local ? "docs_prepare" : "docs_install"), inspect: false)
+    }
+    private func refresh() async {
+        guard changing == nil else { return }
+        let token = UUID()
+        contextRequest = token
+        do {
+            let next: ProjectContext = try await Core.request(CoreRequest("project.context", path: project.path))
+            guard !Task.isCancelled, contextRequest == token, changing == nil else { return }
+            project = next
+            updated(next)
+        } catch is CancellationError {} catch { self.error = error.localizedDescription }
     }
 
     private func choose(_ id: String, version: String) async {
         guard changing == nil else { return }
         changing = id
+        contextRequest = UUID()
         error = nil
         defer { changing = nil }
         do {

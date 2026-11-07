@@ -5,6 +5,7 @@ private extension Notification.Name {
     static let devkitFind = Self("DevKit.find")
     static let devkitNew = Self("DevKit.new")
     static let devkitOpenProject = Self("DevKit.openProject")
+    static let devlineOpenRecent = Self("Devline.openRecent")
     static let devkitLibrary = Self("DevKit.library")
     static let devkitUpdates = Self("DevKit.updates")
 }
@@ -64,7 +65,11 @@ struct DevKitMacApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(after: .appInfo) {
-                Button("Check for App Updates…", action: appUpdates.check).disabled(!appUpdates.canCheck)
+                if appUpdates.configured {
+                    Button("Check for App Updates…", action: appUpdates.check).disabled(!appUpdates.canCheck)
+                } else {
+                    Button("App Updates and Downloads…") { announce(.devkitUpdates) }
+                }
                 Button("Documentation, Starter, and Image Updates…") { announce(.devkitUpdates) }
             }
             CommandGroup(replacing: .newItem) {
@@ -72,6 +77,17 @@ struct DevKitMacApp: App {
                     .keyboardShortcut("n")
                 Button("Open Project Folder…") { announce(.devkitOpenProject) }
                     .keyboardShortcut("o")
+                Menu("Open Recent") {
+                    if model.recentProjects.isEmpty { Text("No Recent Projects") }
+                    ForEach(model.recentProjects) { project in
+                        Button(project.name) { NotificationCenter.default.post(name: .devlineOpenRecent, object: project.path) }
+                            .help(project.path)
+                    }
+                    if !model.recentProjects.isEmpty {
+                        Divider()
+                        Button("Clear Menu") { model.clearRecentProjects() }
+                    }
+                }
             }
             CommandMenu("Workspace") {
                 Button("Find in Docs") { announce(.devkitFind) }
@@ -102,6 +118,25 @@ final class WorkspaceModel: ObservableObject {
     @Published private(set) var jobs: [JobRecord] = []
     @Published var inspectedJob: JobRecord?
     private var jobMonitor: Task<Void, Never>?
+    @Published private(set) var recentProjects: [RecentProject] = {
+        guard let data = UserDefaults.standard.data(forKey: "devline.recentProjects") else { return [] }
+        return (try? JSONDecoder().decode([RecentProject].self, from: data)) ?? []
+    }()
+
+    func rememberProject(_ path: String) {
+        recentProjects = RecentProject.remembering(path, in: recentProjects)
+        saveRecentProjects()
+    }
+    func forgetProject(_ path: String) {
+        recentProjects.removeAll { $0.path == path }
+        saveRecentProjects()
+    }
+    func clearRecentProjects() { recentProjects = []; saveRecentProjects() }
+    private func saveRecentProjects() {
+        if let data = try? JSONEncoder().encode(recentProjects) {
+            UserDefaults.standard.set(data, forKey: "devline.recentProjects")
+        }
+    }
 
     func refresh() async {
         do { try await reload(); await refreshJobs() }
@@ -110,10 +145,10 @@ final class WorkspaceModel: ObservableObject {
     }
 
     @discardableResult
-    func startJob(_ request: CoreRequest) async -> Bool {
+    func startJob(_ request: CoreRequest, inspect: Bool = true) async -> Bool {
         do {
             let job: JobRecord = try await Core.request(request)
-            inspectedJob = job
+            if inspect { inspectedJob = job }
             await refreshJobs()
             return true
         } catch { self.error = error.localizedDescription; return false }
@@ -180,6 +215,7 @@ private struct WorkspaceView: View {
     @State private var restoredSession = false
     @State private var query = ""
     @State private var docStack: String?
+    @State private var docPack: String?
     @State private var directDocumentID: String?
     @State private var projectContext: ProjectContext?
     @State private var openingProject = false
@@ -220,13 +256,12 @@ private struct WorkspaceView: View {
                 switch workspace ?? .toolbox {
                 case .toolbox:
                     ToolboxView(model: model, infrastructure: infrastructure, project: projectContext,
-                        navigate: { workspace = $0 }, openProject: chooseProjectFolder)
+                        navigate: { workspace = $0 }, openProject: chooseProjectFolder, openRecent: openProject)
                 case .project:
                     ProjectWorkspaceView(model: model, infrastructure: infrastructure, project: projectContext,
-                        openProject: chooseProjectFolder, newProject: beginNewProject, showDocs: {
-                            workspace = .docs
-                            focusRequest += 1
-                        }, showInfrastructure: { workspace = .infrastructure })
+                        openProject: chooseProjectFolder, newProject: beginNewProject, showDocs: browseProjectDocs,
+                        showInfrastructure: { workspace = .infrastructure }, showStarter: showStarter,
+                        showToolchains: { workspace = .runtimes }, closeProject: clearProject)
                         .id(projectContext?.path)
                 case .infrastructure:
                     InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureReference)
@@ -236,6 +271,7 @@ private struct WorkspaceView: View {
                         reading: reading,
                         query: $query,
                         stack: $docStack,
+                        packReference: $docPack,
                         directDocumentID: $directDocumentID,
                         projectContext: projectContext,
                         updateProject: { context in
@@ -249,18 +285,16 @@ private struct WorkspaceView: View {
                         openLibrary: { workspace = .library }
                     )
                 case .templates:
-                    TemplatesView(model: model, selection: $starterReference, newStarter: $newStarter)
+                    TemplatesView(model: model, selection: $starterReference, newStarter: $newStarter, openDocs: browseDocset)
                 case .runtimes:
                     RuntimesView(
                         model: model,
                         projectStack: projectContext?.stack,
-                        showStarter: { reference in
-                            starterReference = reference
-                            workspace = .templates
-                        },
+                        showStarter: showStarter,
                         showDocs: { stack in
                             directDocumentID = nil
                             docStack = stack
+                            docPack = nil
                             query = ""
                             workspace = .docs
                             focusRequest += 1
@@ -309,7 +343,7 @@ private struct WorkspaceView: View {
             if navigationRequest == nil,
                let path = UserDefaults.standard.string(forKey: "devline.projectPath"),
                FileManager.default.fileExists(atPath: path) {
-                await loadProjectContext(path)
+                if await loadProjectContext(path) { model.rememberProject(path) }
             }
             guard !Task.isCancelled else { return }
             restoredSession = true
@@ -354,6 +388,9 @@ private struct WorkspaceView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .devkitNew)) { _ in beginNewProject() }
         .onReceive(NotificationCenter.default.publisher(for: .devkitOpenProject)) { _ in chooseProjectFolder() }
+        .onReceive(NotificationCenter.default.publisher(for: .devlineOpenRecent)) { notification in
+            if let path = notification.object as? String { openProject(path) }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .devkitLibrary)) { _ in workspace = .library }
         .onReceive(NotificationCenter.default.publisher(for: .devkitUpdates)) { _ in
             updateCheckRequest += 1
@@ -475,13 +512,17 @@ private struct WorkspaceView: View {
                 model.catalog?.docs.contains { $0.installed && $0.stack == stack } == true ? stack : nil
             }
             directDocumentID = nil
+            docPack = nil
+            query = ""
             workspace = .project
+            guard let resolvedPath = projectContext?.path else { return }
+            model.rememberProject(resolvedPath)
             do {
-                guard let resolvedPath = projectContext?.path else { return }
-                let readiness: ProjectReadiness = try await Core.request(CoreRequest("project.readiness", path: resolvedPath))
+                let readiness: ToolboxStatus = try await Core.request(CoreRequest("toolbox.status", path: resolvedPath))
                 guard navigationRequest == navigation, projectContext?.path == resolvedPath else { return }
                 if !readiness.readyOffline {
-                    await model.startJob(CoreRequest("jobs.start", path: resolvedPath, kind: "project_prepare"))
+                    guard !model.jobs.contains(where: { $0.isActive && $0.targetPath == resolvedPath && ["toolbox_prepare", "project_prepare"].contains($0.kind) }) else { return }
+                    await model.startJob(CoreRequest("jobs.start", path: resolvedPath, kind: "toolbox_prepare"), inspect: false)
                 }
             } catch is CancellationError {}
             catch { model.error = error.localizedDescription }
@@ -494,6 +535,43 @@ private struct WorkspaceView: View {
         projectContext = nil
         UserDefaults.standard.removeObject(forKey: "devline.projectPath")
         docStack = nil
+        docPack = nil
+    }
+
+    private func browseProjectDocs() {
+        beginNavigation()
+        query = ""
+        directDocumentID = nil
+        docPack = nil
+        docStack = projectContext?.stack
+        lookupRevision += 1
+        focusReading = false
+        workspace = .docs
+        focusRequest += 1
+    }
+
+    private func browseDocset(_ pack: DocPack) {
+        guard pack.installed else {
+            model.error = "Prepare \(pack.name) \(displayDocVersion(pack.version)) before browsing it."
+            return
+        }
+        beginNavigation()
+        query = ""
+        directDocumentID = nil
+        docStack = pack.stack
+        docPack = pack.reference
+        lookupRevision += 1
+        focusReading = false
+        workspace = .docs
+    }
+
+    private func showStarter(_ reference: String) {
+        guard model.catalog?.templates.contains(where: { $0.reference == reference }) == true else {
+            model.error = "The original starter release (\(reference)) is no longer in this library. Your project keeps its own files and dependencies."
+            return
+        }
+        starterReference = reference
+        workspace = .templates
     }
 
     private func lookUp(_ request: LookupRequest) {
@@ -514,6 +592,7 @@ private struct WorkspaceView: View {
 
     private func finishLookup(query: String, message: String? = nil) {
         directDocumentID = nil
+        docPack = nil
         self.query = query
         lookupRevision += 1
         model.notice = message

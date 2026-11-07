@@ -7,6 +7,7 @@ struct DocsView: View {
     @ObservedObject var reading: ReadingSession
     @Binding var query: String
     @Binding var stack: String?
+    @Binding var packReference: String?
     @Binding var directDocumentID: String?
     let projectContext: ProjectContext?
     let updateProject: (ProjectContext) -> Void
@@ -31,7 +32,6 @@ struct DocsView: View {
     @State private var restoringHistory = false
     @State private var automaticSelection = false
     @State private var browseCategory: String?
-    @State private var packReference: String?
     @State private var hits: [SearchHit] = []
     @State private var selectedID: String?
     @State private var committedSearch: SearchKey?
@@ -104,16 +104,16 @@ struct DocsView: View {
         .onChange(of: searchKey) { _, scope in
             if let target = pendingBrowseReveal, target.scope != scope { pendingBrowseReveal = nil }
         }
-        .task { if let request = reading.request { restore(request) }; await reading.refresh() }
+        .task { useProjectScope = packReference == nil; if let request = reading.request { restore(request) }; await reading.refresh() }
         .onChange(of: reading.error) { _, error in if let error { model.error = error; reading.error = nil } }
         .onChange(of: reading.request) { _, request in if let request { restore(request) } }
         .sheet(isPresented: $showReferences) { ReferenceShelf(reading: reading, open: openReference, initialSaved: showSavedReferences) }
         .sheet(isPresented: $showProjectReferences) {
-            if let projectContext { ProjectReferencesView(project: projectContext, updated: updateProject) }
+            if let projectContext { ProjectReferencesView(project: projectContext, model: model, updated: updateProject) }
         }
         .onChange(of: projectContext?.path) { _, _ in useProjectScope = true; packReference = nil; browseCategory = nil }
         .onChange(of: lookupRevision) { _, _ in
-            useProjectScope = true; packReference = nil; browseCategory = nil; resetReaderTarget()
+            useProjectScope = packReference == nil; browseCategory = nil; resetReaderTarget()
         }
         .alert("Link Unavailable Offline", isPresented: Binding(get: { externalLink != nil }, set: { if !$0 { externalLink = nil } })) {
             Button("Open in Browser") { if let url = externalLink { NSWorkspace.shared.open(url) }; externalLink = nil }
