@@ -2,7 +2,7 @@
 
 Devline is a native macOS app and terminal tool for offline developer documentation, project starters, and local infrastructure. The app and CLI share one local library.
 
-![Devline showing Python’s Path.read_text method and its code example](press/reference-python-dark.png)
+![Devline’s native Toolbox with local documentation, starters, image archives, and detected toolchains](press/toolbox-dark.png)
 
 ## Install
 

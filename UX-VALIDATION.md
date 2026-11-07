@@ -45,7 +45,10 @@ The release CLI ran seven times per query against the installed library with ext
 ## Native candidate and release checks
 
 - The native search distinguished the two Python `Path.read_text` symbols and landed at the selected signature. The pinned Contents pane supported filtering and keyboard selection. After testing Focus Reading, a relaunch restored the query, article, scroll position, reading mode, and Contents state.
-- Final installed-app checks for layout width changes, project versions and pins, Activity, and Ready Offline are pending.
-- The candidate app passed strict code signature verification with Sparkle 2.10.1 embedded. Final installer verification and an installed Sparkle upgrade are still open. Distribution targets Apple Silicon on macOS 14 or later and uses ad hoc signing. Sparkle requires Ed25519 signatures on the appcast and archive.
+- The final installed app created and verified a Chi Taskboard, started its exact PostgreSQL and Redis releases, reported both healthy on custom loopback ports, and stopped the stack while retaining data. Activity displayed job output and completion. Runtime details showed the resolved executable and detection-only policy.
+- Article scrolling worked, and C# list scrolling loaded additional pages from 80 to 240 articles. Light and dark appearances were inspected. The selected offline library reported Ready Offline. An explicit Chi version pin made in the native app appeared in the CLI; automatic matching was then restored.
+- The final app and the app mounted from its DMG passed strict code signature verification with Sparkle 2.10.1 embedded. The signed update-installation test is waiting on macOS Keychain authorization. Distribution targets Apple Silicon on macOS 14 or later and uses ad hoc signing. Sparkle requires Ed25519 signatures on the appcast and archive. Notarization, the physical global-shortcut check, and VoiceOver were explicitly waived by the user.
 
 The post-rebase core passed 65 Rust tests, formatting checks, and Clippy with warnings denied. The ingestion and distribution suite passed 15 Python tests. The [0.3.0 evidence](validation.json) records the earlier release’s checks.
+
+The exact application code at `17cf7015d8d1bf2fdabff83cd84a95f2ecdce017` passed [GitHub validation](https://github.com/fpl0/devline/actions/runs/42373786445), including the native macOS build. The installed final CLI reports 0.4.0 and the mounted DMG app passed strict signature verification. Final update-installation evidence follows after the signed updater test.
