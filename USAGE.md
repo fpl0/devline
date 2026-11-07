@@ -204,7 +204,7 @@ On Apple Silicon, use Xcode and its command-line tools, Rust/Cargo, and Python 3
 ```sh
 ./scripts/package.sh --no-install
 ./scripts/create-dmg.sh
-./scripts/install.sh
+bash ./scripts/install.sh
 cargo test --locked --manifest-path core/Cargo.toml
 python3 -m unittest discover -s scripts -p 'test_*.py'
 python3 scripts/check-doc-packs.py
