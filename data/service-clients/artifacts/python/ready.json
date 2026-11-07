@@ -43,6 +43,6 @@
       "version": "2.34.2"
     }
   ],
-  "verification": "Every service recommendation was added alone through the offline CLI into a separate empty Python project and exercised against its live local service. Each runner installed only that selection's locked wheel closure; all unselected primary clients were confirmed absent. Keycloak includes its Requests HTTP transport.",
+  "verification": "native client graph resolved and checked with outbound networking denied",
   "inventory_sha256": "93cdd0d434de39b44573820d2f7b0f785001d2ef6a33d1791017662dfc3aeab3"
 }
