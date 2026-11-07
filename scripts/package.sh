@@ -22,7 +22,12 @@ fi
 swift build --package-path "$ROOT/macos" --build-system native -c release
 printf '%s\n' "$CORE_DIGEST" > "$ROOT/macos/.build/devline-core.sha256"
 STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/devkit-build.XXXXXX")"
-trap 'rm -rf "$STAGING_ROOT"' EXIT
+ARCHIVE_STAGE=""
+cleanup() {
+    rm -rf "$STAGING_ROOT"
+    [[ -z "$ARCHIVE_STAGE" ]] || rm -rf "$ARCHIVE_STAGE"
+}
+trap cleanup EXIT
 APP="$STAGING_ROOT/Devline.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$ROOT/macos/.build/release/DevKitApp" "$APP/Contents/MacOS/DevlineApp"
@@ -90,7 +95,18 @@ for nested in \
     codesign --force --sign "$SIGN_IDENTITY" "$nested"
 done
 codesign --verify --deep --strict "$APP"
-ditto --norsrc -c -k --keepParent "$APP" "$OUT/Devline-macos-arm64.zip"
+ARCHIVE_STAGE="$(mktemp -d "$OUT/.devline-package.XXXXXX")"
+ditto --norsrc -c -k --keepParent "$APP" "$ARCHIVE_STAGE/Devline-macos-arm64.zip"
+python3 - "$ARCHIVE_STAGE/Devline-macos-arm64.zip" "$OUT/Devline-macos-arm64.zip" <<'PYTHON'
+import os
+from pathlib import Path
+import sys
+
+source, destination = map(Path, sys.argv[1:])
+if destination.is_symlink() or (destination.exists() and not destination.is_file()):
+    raise SystemExit("Refusing to replace a non-regular ZIP output.")
+os.replace(source, destination)
+PYTHON
 if [ "${1:-}" != "--no-install" ]; then
     bash "$ROOT/scripts/install.sh"
 fi
