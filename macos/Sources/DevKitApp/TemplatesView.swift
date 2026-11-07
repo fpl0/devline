@@ -378,15 +378,15 @@ struct NewProjectView: View {
             }
             readinessPanel
             DisclosureGroup(isExpanded: $showServices) {
-                ServiceSelectionView(library: infrastructure, selected: $services, ports: $ports, clients: $clients,
-                    required: Set(starter.services ?? []), runtime: starter.stack, starterReference: starter.reference)
-                    .frame(height: 230).padding(.top, 8)
+                VStack(alignment: .leading, spacing: 8) {
+                    ServiceSelectionView(library: infrastructure, selected: $services, ports: $ports, clients: $clients,
+                        required: Set(starter.services ?? []), runtime: starter.stack, starterReference: starter.reference)
+                        .frame(height: 230)
+                    Text("Devline saves selected image archives while connected so services can start offline. You can add more services from the project screen later.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }.padding(.top, 8)
             } label: {
                 Text(services.isEmpty ? "Add Local Services" : "Local Services · \(services.count) Selected").font(.callout.weight(.medium))
-            }
-            if !services.isEmpty {
-                Text("Devline saves these image archives while connected so your services can start offline. You can add more services from the project screen later.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
             if let issue = createError ?? portError {
                 Label(issue, systemImage: "exclamationmark.circle")

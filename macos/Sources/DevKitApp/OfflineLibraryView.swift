@@ -153,112 +153,88 @@ struct OfflineLibraryView: View {
     }
 
     private var selectionList: some View {
-        // This catalog is small. Measuring every row up front keeps its scroll geometry
-        // stable when controls change state, including while the list is still scrolling.
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                if let runtimes = status?.runtimes, !runtimes.isEmpty {
-                    selectionSection("Project Toolchains") {
-                        ForEach(runtimes) { runtime in
-                            selectionRow {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(runtime.name + (runtime.version.map { " · \($0)" } ?? ""))
-                                        Text(runtime.detail).font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    readiness(runtime.readyOffline, detail: runtime.detail)
+        ControlList {
+            if let runtimes = status?.runtimes, !runtimes.isEmpty {
+                ControlListSection("Project Toolchains") {
+                    ForEach(runtimes) { runtime in
+                        ControlListRow {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(runtime.name + (runtime.version.map { " · \($0)" } ?? ""))
+                                    Text(runtime.detail).font(.caption).foregroundStyle(.secondary)
                                 }
+                                Spacer()
+                                readiness(runtime.readyOffline, detail: runtime.detail)
                             }
                         }
                     }
                 }
-                selectionSection("Documentation") {
-                    ForEach(visibleDocs, id: \.reference) { pack in
-                        selectionRow {
+            }
+            ControlListSection("Documentation") {
+                ForEach(visibleDocs, id: \.reference) { pack in
+                    ControlListRow {
+                        HStack {
+                            Toggle(isOn: selection(pack.reference, in: $docs)) {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(pack.name)
+                                    Text(displayDocVersion(pack.version)).font(.caption).foregroundStyle(.secondary)
+                                    if pack.localOnly { Text("This Mac only · excluded from exports").font(.caption).foregroundStyle(.secondary) }
+                                }
+                            }.toggleStyle(.checkbox)
+                            Spacer()
+                            if let checked = status?.docs.first(where: { $0.id == pack.id && ($0.version == pack.version || $0.version == nil) }) {
+                                readiness(checked.readyOffline, detail: checked.detail)
+                            } else { Text(pack.installed ? "Installed" : "Not Installed").font(.caption).foregroundStyle(.secondary) }
+                        }
+                    }
+                }
+            }
+            ControlListSection("Starter Dependencies and Toolchains") {
+                ForEach(visibleStarters, id: \.reference) { starter in
+                    ControlListRow {
+                        VStack(alignment: .leading, spacing: 6) {
                             HStack {
-                                Toggle(isOn: selection(pack.reference, in: $docs)) {
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(pack.name)
-                                        Text(displayDocVersion(pack.version)).font(.caption).foregroundStyle(.secondary)
-                                        if pack.localOnly { Text("This Mac only · excluded from exports").font(.caption).foregroundStyle(.secondary) }
-                                    }
+                                Toggle(isOn: selection(starter.reference, in: $starters)) {
+                                    Text("\(starter.name) · \(starter.version)")
                                 }.toggleStyle(.checkbox)
                                 Spacer()
-                                if let checked = status?.docs.first(where: { $0.id == pack.id && ($0.version == pack.version || $0.version == nil) }) {
-                                    readiness(checked.readyOffline, detail: checked.detail)
-                                } else { Text(pack.installed ? "Installed" : "Not Installed").font(.caption).foregroundStyle(.secondary) }
-                            }
-                        }
-                    }
-                }
-                selectionSection("Starter Dependencies and Toolchains") {
-                    ForEach(visibleStarters, id: \.reference) { starter in
-                        selectionRow {
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Toggle(isOn: selection(starter.reference, in: $starters)) {
-                                        Text("\(starter.name) · \(starter.version)")
-                                    }.toggleStyle(.checkbox)
-                                    Spacer()
-                                    if let result = status?.starters.first(where: { $0.template?.reference == starter.reference || $0.id == starter.reference }) {
-                                        readiness(result.readyOffline, detail: result.error)
-                                    }
-                                    if starter.isInstalled {
-                                        Button("Verify Offline") { Task { await model.startJob(CoreRequest("jobs.start", id: starter.reference, kind: "verify")) } }
-                                            .buttonStyle(.bordered).controlSize(.small)
-                                            .accessibilityLabel("Verify \(starter.name) \(starter.version) Offline")
-                                    }
+                                if let result = status?.starters.first(where: { $0.template?.reference == starter.reference || $0.id == starter.reference }) {
+                                    readiness(result.readyOffline, detail: result.error)
                                 }
-                                if let result = status?.starters.first(where: { $0.template?.reference == starter.reference }) {
-                                    ForEach((result.checks ?? []).filter { !$0.ok }, id: \.name) { check in
-                                        Text("\(check.name): \(check.detail)").font(.caption).foregroundStyle(.orange)
-                                    }
+                                if starter.isInstalled {
+                                    Button("Verify Offline") { Task { await model.startJob(CoreRequest("jobs.start", id: starter.reference, kind: "verify")) } }
+                                        .buttonStyle(.bordered).controlSize(.small)
+                                        .accessibilityLabel("Verify \(starter.name) \(starter.version) Offline")
                                 }
                             }
-                        }
-                    }
-                }
-                selectionSection("Infrastructure Images") {
-                    ForEach(infrastructure.catalog?.services ?? [], id: \.reference) { service in
-                        selectionRow {
-                            HStack {
-                                Toggle(isOn: selection(service.reference, in: $images)) {
-                                    Text("\(service.name) · \(service.version)")
-                                }.toggleStyle(.checkbox)
-                                Spacer()
-                                if checkedSelection == readinessSelection, let checked = checkedStatus?.images.first(where: { $0.reference == service.reference }) {
-                                    readiness(checked.readyOffline, detail: checked.status)
-                                } else {
-                                    let image = infrastructure.image(service.reference)
-                                    Text(image?.verifiedArchive == true ? "Archived" : image?.archived == true ? "Verify Archive" : "Not Archived")
-                                        .font(.caption).foregroundStyle(.secondary)
+                            if let result = status?.starters.first(where: { $0.template?.reference == starter.reference }) {
+                                ForEach((result.checks ?? []).filter { !$0.ok }, id: \.name) { check in
+                                    Text("\(check.name): \(check.detail)").font(.caption).foregroundStyle(.orange)
                                 }
                             }
                         }
                     }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 18)
-            .padding(.bottom, 8)
-        }
-    }
-
-    private func selectionSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title)
-                .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                .accessibilityAddTraits(.isHeader)
-                .padding(.top, 14).padding(.bottom, 7)
-            content()
-        }
-    }
-
-    private func selectionRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Divider()
-            content().padding(.vertical, 7)
+            ControlListSection("Infrastructure Images") {
+                ForEach(infrastructure.catalog?.services ?? [], id: \.reference) { service in
+                    ControlListRow {
+                        HStack {
+                            Toggle(isOn: selection(service.reference, in: $images)) {
+                                Text("\(service.name) · \(service.version)")
+                            }.toggleStyle(.checkbox)
+                            Spacer()
+                            if checkedSelection == readinessSelection, let checked = checkedStatus?.images.first(where: { $0.reference == service.reference }) {
+                                readiness(checked.readyOffline, detail: checked.status)
+                            } else {
+                                let image = infrastructure.image(service.reference)
+                                Text(image?.verifiedArchive == true ? "Archived" : image?.archived == true ? "Verify Archive" : "Not Archived")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

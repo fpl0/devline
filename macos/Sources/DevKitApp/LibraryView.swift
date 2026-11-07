@@ -10,26 +10,29 @@ struct LibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             if let catalog = model.catalog {
-                header
+                header(maxSelections: catalog.docs.count + catalog.templates.count)
                 Divider()
-                List {
-                    Section("From This Mac") {
-                        LocalSDKReferenceView(model: model)
+                ControlList {
+                    ControlListSection("From This Mac") {
+                        ControlListRow { LocalSDKReferenceView(model: model) }
                     }
-                    Section("Documentation") {
+                    ControlListSection("Documentation") {
                         ForEach(catalog.docs, id: \.reference) { pack in
-                            choiceRow(.doc(pack), name: pack.name, version: pack.version,
-                                      detail: pack.description, installed: pack.installed)
+                            ControlListRow {
+                                choiceRow(.doc(pack), name: pack.name, version: pack.version,
+                                          detail: pack.description, installed: pack.installed)
+                            }
                         }
                     }
-                    Section("Starter Templates") {
+                    ControlListSection("Starter Templates") {
                         ForEach(catalog.templates, id: \.reference) { starter in
-                            choiceRow(.starter(starter), name: starter.name, version: starter.version,
-                                      detail: "\(displayStack(starter.stack)) · \(starter.target)", installed: starter.isInstalled)
+                            ControlListRow {
+                                choiceRow(.starter(starter), name: starter.name, version: starter.version,
+                                          detail: "\(displayStack(starter.stack)) · \(starter.target)", installed: starter.isInstalled)
+                            }
                         }
                     }
                 }
-                .listStyle(.inset)
                 .onChange(of: availableChoices(in: catalog)) { _, choices in selections.formIntersection(choices) }
             } else {
                 ContentUnavailableView {
@@ -59,7 +62,7 @@ struct LibraryView: View {
         }
     }
 
-    private var header: some View {
+    private func header(maxSelections: Int) -> some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Docset Library").font(.title2.weight(.semibold))
@@ -77,12 +80,17 @@ struct LibraryView: View {
             .help("Refresh library")
             .accessibilityLabel("Refresh library")
             .disabled(model.operation != nil)
-            Button(selections.isEmpty ? "Install Selected" : "Install Selected (\(selections.count))") {
+            Button {
                 let count = selections.count
                 let requests = selections.sorted { $0.sortKey < $1.sortKey }.map(\.request)
                 Task {
                     await model.mutate(requests, label: "Installing selected packs",
                                        completion: "Installed \(count) \(count == 1 ? "pack" : "packs").")
+                }
+            } label: {
+                ZStack {
+                    Text("Install Selected (\(maxSelections))").hidden().accessibilityHidden(true)
+                    Text(selections.isEmpty ? "Install Selected" : "Install Selected (\(selections.count))")
                 }
             }
             .buttonStyle(.borderedProminent)
@@ -132,7 +140,6 @@ struct LibraryView: View {
                 .disabled(model.operation != nil)
             }
         }
-        .padding(.vertical, 5)
     }
 
     private func title(_ name: String, detail: String) -> some View {

@@ -399,42 +399,48 @@ struct ServiceSelectionView: View {
                 .font(.caption).foregroundStyle(.secondary)
             TextField("Find a service", text: $query).textFieldStyle(.roundedBorder)
                 .accessibilityLabel("Find a local service")
-            List(services, id: \.reference) { service in
-            VStack(alignment: .leading, spacing: 8) {
-                Toggle(isOn: Binding(get: { selected.contains(service.reference) }, set: { select(service, enabled: $0) })) {
-                    HStack {
-                        Label(service.name, systemImage: service.symbol)
-                        Spacer()
-                        Text(service.version).font(.caption).foregroundStyle(.secondary)
-                        if required.contains(service.reference) {
-                            Text(configuredServices.contains { $0.reference == service.reference } ? "Configured" : "Required").font(.caption).foregroundStyle(.secondary)
-                        }
-                        Text(imageStatus(service)).font(.caption).foregroundStyle(.secondary)
-                    }
-                }.toggleStyle(.checkbox)
-                    .disabled(required.contains(service.reference) || required.contains { $0.hasPrefix(service.id + "@") && $0 != service.reference })
-                Text(service.description).font(.caption).foregroundStyle(.secondary).lineLimit(2).padding(.leading, 22)
-                if selected.contains(service.reference) {
-                    clientOptions(service)
-                    ForEach(service.ports) { port in
-                        HStack {
-                            Text("\(port.name) port").font(.caption).foregroundStyle(.secondary)
-                            Spacer()
-                            TextField("Port", value: Binding(get: { ports["\(service.id):\(port.id)"] ?? configuredServices.first { $0.id == service.id }?.ports.first { $0.id == port.id }?.hostPort ?? port.hostPort }, set: { ports["\(service.id):\(port.id)"] = $0 }), format: .number.grouping(.never))
-                                .textFieldStyle(.roundedBorder).frame(width: 90).accessibilityLabel("\(service.name) \(port.name) host port")
-                                .disabled(configuredServices.contains { $0.id == service.id })
-                        }.padding(.leading, 22)
-                    }
+            ControlList(horizontalPadding: 8) {
+                ForEach(services, id: \.reference) { service in
+                    ControlListRow { serviceRow(service) }
                 }
-            }.padding(.vertical, 5)
-            }.listStyle(.inset)
-                .overlay {
-                    if library.loading && library.catalog == nil { ProgressView() }
-                    else if services.isEmpty { Text("No matching services").font(.callout).foregroundStyle(.secondary) }
-                }
+            }
+            .overlay {
+                if library.loading && library.catalog == nil { ProgressView() }
+                else if services.isEmpty { Text("No matching services").font(.callout).foregroundStyle(.secondary) }
+            }
             if let clientError { Text(clientError).font(.caption).foregroundStyle(.orange) }
         }
         .task(id: clientContext) { await loadClients() }
+    }
+
+    private func serviceRow(_ service: InfrastructureService) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: Binding(get: { selected.contains(service.reference) }, set: { select(service, enabled: $0) })) {
+                HStack {
+                    Label(service.name, systemImage: service.symbol)
+                    Spacer()
+                    Text(service.version).font(.caption).foregroundStyle(.secondary)
+                    if required.contains(service.reference) {
+                        Text(configuredServices.contains { $0.reference == service.reference } ? "Configured" : "Required").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text(imageStatus(service)).font(.caption).foregroundStyle(.secondary)
+                }
+            }.toggleStyle(.checkbox)
+                .disabled(required.contains(service.reference) || required.contains { $0.hasPrefix(service.id + "@") && $0 != service.reference })
+            Text(service.description).font(.caption).foregroundStyle(.secondary).lineLimit(2).padding(.leading, 22)
+            if selected.contains(service.reference) {
+                clientOptions(service)
+                ForEach(service.ports) { port in
+                    HStack {
+                        Text("\(port.name) port").font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        TextField("Port", value: Binding(get: { ports["\(service.id):\(port.id)"] ?? configuredServices.first { $0.id == service.id }?.ports.first { $0.id == port.id }?.hostPort ?? port.hostPort }, set: { ports["\(service.id):\(port.id)"] = $0 }), format: .number.grouping(.never))
+                            .textFieldStyle(.roundedBorder).frame(width: 90).accessibilityLabel("\(service.name) \(port.name) host port")
+                            .disabled(configuredServices.contains { $0.id == service.id })
+                    }.padding(.leading, 22)
+                }
+            }
+        }
     }
 
     @ViewBuilder private func clientOptions(_ service: InfrastructureService) -> some View {
