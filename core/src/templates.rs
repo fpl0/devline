@@ -377,7 +377,7 @@ pub(crate) fn copy_tree(from: &Path, to: &Path, name: Option<&str>) -> Result<()
 }
 
 pub(crate) fn tree_digest(root: &Path) -> Result<String> {
-    fn walk(root: &Path, relative: &Path, hash: &mut Sha256) -> Result<()> {
+    fn walk(root: &Path, relative: &Path, hash: &mut Sha256, buffer: &mut [u8]) -> Result<()> {
         let mut entries: Vec<_> = fs::read_dir(root.join(relative))?.collect::<io::Result<_>>()?;
         entries.sort_by_key(fs::DirEntry::file_name);
         for entry in entries {
@@ -393,14 +393,13 @@ pub(crate) fn tree_digest(root: &Path) -> Result<String> {
             hash.update(name);
             if metadata.is_dir() {
                 hash.update([0]);
-                walk(root, &path, hash)?;
+                walk(root, &path, hash, buffer)?;
             } else if metadata.is_file() {
                 hash.update([1, u8::from(executable(&metadata))]);
                 hash.update(metadata.len().to_le_bytes());
                 let mut file = fs::File::open(entry.path())?;
-                let mut buffer = [0; 64 * 1024];
                 loop {
-                    let size = file.read(&mut buffer)?;
+                    let size = file.read(buffer)?;
                     if size == 0 {
                         break;
                     }
@@ -414,7 +413,10 @@ pub(crate) fn tree_digest(root: &Path) -> Result<String> {
     }
 
     let mut hash = Sha256::new();
-    walk(root, Path::new(""), &mut hash)?;
+    // Swift's cooperative worker threads have small stacks. Reuse one heap buffer
+    // instead of reserving 64 KiB for every nested dependency directory.
+    let mut buffer = vec![0; 64 * 1024];
+    walk(root, Path::new(""), &mut hash, &mut buffer)?;
     Ok(format!("{:x}", hash.finalize()))
 }
 
@@ -1678,6 +1680,42 @@ pub(crate) fn build_latest_job(
 mod tests {
     use super::*;
     use crate::Catalog;
+
+    #[cfg(unix)]
+    #[test]
+    fn deeply_nested_release_keeps_its_digest_on_a_small_worker_stack() -> Result<()> {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = Stage::new(&env::temp_dir().canonicalize()?)?;
+        let mut nested = root.0.join("vendor");
+        for level in 0..20 {
+            nested.push(format!("level-{level:02}"));
+        }
+        fs::create_dir_all(nested.join("empty"))?;
+        let payload: Vec<_> = (0..70_123).map(|index| (index % 251) as u8).collect();
+        for (file, bytes, mode) in [
+            (nested.join("payload.bin"), payload.as_slice(), 0o644),
+            (root.0.join("notes.txt"), b"starter\n".as_slice(), 0o644),
+            (root.0.join("bin"), b"test\n".as_slice(), 0o755),
+        ] {
+            fs::write(&file, bytes)?;
+            fs::set_permissions(file, fs::Permissions::from_mode(mode))?;
+        }
+        fs::write(root.0.join("installed.json"), "ignored metadata")?;
+
+        let path = root.0.clone();
+        let digest = std::thread::Builder::new()
+            .stack_size(512 * 1024)
+            .spawn(move || tree_digest(&path))?
+            .join()
+            .map_err(|_| anyhow::anyhow!("Template digest worker panicked"))??;
+        // This value uses the original path, kind, mode, length, and byte encoding.
+        assert_eq!(
+            digest,
+            "9ca9c8dc28491efaf603ddc0aa2b81c5e07778b572e7f4f5b169e3cf758b073b"
+        );
+        Ok(())
+    }
 
     struct Fixture {
         _root: Stage,
