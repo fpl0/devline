@@ -150,7 +150,7 @@ devline docs rollback go@1.27.3+devline.2
 devline updates check                # upstream starter and runtime checks
 ```
 
-Runtime updates open official installation pages. **Devline → Check for App Updates…** uses Sparkle. The app requires Ed25519-signed update archives and appcast feeds. Automatic checks are optional and start off. The CLI’s separate `updates` status can link to the public app release.
+Runtime updates open official installation pages. **Devline → Check for App Updates…** uses Sparkle. The app requires Ed25519-signed update archives and appcast feeds. Automatic checks are optional and start off. A signed appcast is unavailable for 0.4.0. Install or upgrade this release using the [GitHub DMG](https://github.com/fpl0/devline/releases/tag/v0.4.0). The CLI’s separate `updates` status can link to the public app release.
 
 Infrastructure also checks publishers for newer compatible images. `devline infra updates check` refreshes observations, and `devline infra update SERVICE` prepares the checked release alongside its predecessor. App updates can include newer catalog entries. Existing project configurations retain their exact pins and archived releases.
 
