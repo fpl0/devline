@@ -449,7 +449,7 @@ pub(crate) fn apply(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -
             ),
         )?;
         let action = text(item, "action");
-        let blocked = offline && matches!(action, "rebuild_template" | "update_image");
+        let blocked = offline && action == "rebuild_template";
         let result = if blocked {
             Err(anyhow::anyhow!(
                 "This update needs a connection. Existing offline releases were kept."
@@ -520,11 +520,32 @@ fn apply_item(
         "prepare_local_docs" => crate::install_docs_job(ctx, reference, None, job.as_deref_mut()),
         "install_template" => templates::prepare(ctx, reference, job.as_deref_mut()),
         "rebuild_template" => templates::build_latest_job(ctx, reference, job.as_deref_mut()),
-        "update_image" => infrastructure::execute(
-            ctx,
-            &json!({"command":"infra.update","id":reference}),
-            job.as_deref_mut(),
-        ),
+        "update_image" => {
+            let (id, version) = reference
+                .split_once('@')
+                .context("Image update has no exact version")?;
+            let saved = infrastructure::execute(ctx, &json!({"command":"infra.status"}), None)?;
+            // A cancelled update may already have committed its archive. Verify
+            // that exact release locally instead of requiring a newer publisher
+            // offer again. A missing or damaged saved archive must stay pending.
+            if rows(&saved, "images").iter().any(|image| {
+                image["id"] == id && image["version"] == version && image["receipt"].is_object()
+            }) {
+                return infrastructure::execute(
+                    ctx,
+                    &json!({"command":"infra.verify","id":reference}),
+                    job.as_deref_mut(),
+                );
+            }
+            if offline {
+                bail!("This image update needs a connection. Existing offline releases were kept.");
+            }
+            infrastructure::execute(
+                ctx,
+                &json!({"command":"infra.update","id":reference}),
+                job.as_deref_mut(),
+            )
+        }
         _ => bail!("This item is not a managed content update"),
     }
 }

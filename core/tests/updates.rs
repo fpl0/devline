@@ -1,5 +1,6 @@
 use devkit_core::execute;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     fs,
     path::PathBuf,
@@ -71,12 +72,130 @@ impl Fixture {
             .find(|row| row["id"] == id)
             .unwrap()
     }
+
+    fn committed_image_update(&self) -> PathBuf {
+        let architecture = if cfg!(target_arch = "aarch64") {
+            "arm64"
+        } else {
+            "amd64"
+        };
+        let platform = format!("linux/{architecture}");
+        let catalog: Value =
+            serde_json::from_slice(include_bytes!("../../data/infrastructure.json")).unwrap();
+        let mut service = catalog["services"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|service| service["id"] == "postgres" && service["image"]["platform"] == platform)
+            .unwrap()
+            .clone();
+        fs::write(
+            self.0.join("catalog/infrastructure.json"),
+            json!({"schema_version":1,"services":[service.clone()]}).to_string(),
+        )
+        .unwrap();
+        service["version"] = json!("18.7");
+        service["image"]["tag"] = json!("18.7-alpine");
+        let config =
+            json!({"os":"linux","architecture":architecture,"rootfs":{"diff_ids":[]}}).to_string();
+        service["image"]["config_digest"] =
+            json!(format!("sha256:{:x}", Sha256::digest(config.as_bytes())));
+        let manifest = br#"[{"Config":"config.json","Layers":[],"RepoTags":null}]"#;
+        let compressed = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
+        let mut archive = tar::Builder::new(compressed);
+        for (name, bytes) in [
+            ("config.json", config.as_bytes()),
+            ("manifest.json", manifest.as_slice()),
+        ] {
+            let mut header = tar::Header::new_gnu();
+            header.set_mode(0o644);
+            header.set_size(bytes.len() as u64);
+            header.set_cksum();
+            archive.append_data(&mut header, name, bytes).unwrap();
+        }
+        let bytes = archive.into_inner().unwrap().finish().unwrap();
+        let hash = format!("{:x}", Sha256::digest(&bytes));
+        let root = self.0.join("library/infrastructure");
+        fs::create_dir_all(root.join("images")).unwrap();
+        let path = root.join(format!("images/{hash}.tar.gz"));
+        fs::write(&path, &bytes).unwrap();
+        let image = &service["image"];
+        let receipt = json!({"id":"postgres","version":"18.7","platform":platform,
+            "source":format!("{}/{}@{}",image["registry"].as_str().unwrap(),image["repository"].as_str().unwrap(),image["digest"].as_str().unwrap()),
+            "source_digest":image["digest"],"image_id":image["config_digest"],
+            "archive_sha256":hash,"size_bytes":bytes.len(),"verified_at":1});
+        fs::write(root.join("index.json"), json!({format!("postgres@18.7/{platform}"):{
+            "service":service,"receipt":receipt,"stamp":{"size":bytes.len(),"seconds":0,"nanos":0,"inode":0}
+        }}).to_string()).unwrap();
+        fs::write(root.join("updates.json"), json!({format!("postgres/{platform}"):{"checked_at":1,"error":null,"offer":{
+            "version":"18.7","tag":"18.7-alpine","index_digest":image["index_digest"],"digest":image["digest"],
+            "config_digest":image["config_digest"],"compressed_bytes":bytes.len()
+        }}}).to_string()).unwrap();
+        // Simulate cancellation after the archive commit, before the aggregate
+        // update could clear its durable pending record.
+        fs::write(self.0.join("library/content-update-pending.json"), json!({"schema_version":1,"items":[{
+            "id":"image:postgres","name":"PostgreSQL","kind":"image","state":"available",
+            "action":"update_image","reference":"postgres@18.7","current_version":"18.6","available_version":"18.7"
+        }]}).to_string()).unwrap();
+        path
+    }
 }
 
 impl Drop for Fixture {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.0);
     }
+}
+
+#[test]
+fn committed_image_updates_retry_by_verifying_the_exact_local_archive() {
+    for offline in [false, true] {
+        let fixture = Fixture::new();
+        let archive = fixture.committed_image_update();
+        let original = fs::read(&archive).unwrap();
+        let direct = fixture.call(json!({"command":"infra.update","id":"postgres@18.7"}));
+        assert!(direct
+            .unwrap_err()
+            .to_string()
+            .contains("No newer compatible"));
+        let result = fixture
+            .call(json!({"command":"updates.apply","id":"postgres@18.7","offline":offline}))
+            .unwrap();
+        assert_eq!(result["complete"], true, "{result}");
+        assert_eq!(result["updated"], 1);
+        assert_eq!(result["steps"][0]["reference"], "postgres@18.7");
+        assert!(Fixture::item(&result["snapshot"], "image:postgres")["pending"].is_null());
+        assert_eq!(fs::read(&archive).unwrap(), original);
+    }
+}
+
+#[test]
+fn missing_or_corrupt_retry_archives_remain_pending_until_verified() {
+    let fixture = Fixture::new();
+    let archive = fixture.committed_image_update();
+    let original = fs::read(&archive).unwrap();
+    let mut corrupt = original.clone();
+    corrupt[0] ^= 1;
+    fs::write(&archive, corrupt).unwrap();
+    for missing in [false, true] {
+        if missing {
+            fs::remove_file(&archive).unwrap();
+        }
+        let result = fixture
+            .call(json!({"command":"updates.apply","id":"image:postgres","offline":true}))
+            .unwrap();
+        assert_eq!(result["complete"], false, "{result}");
+        assert_eq!(result["failed"], 1);
+        let pending = Fixture::item(&result["snapshot"], "image:postgres");
+        assert_eq!(pending["pending"], true);
+        assert_eq!(pending["reference"], "postgres@18.7");
+    }
+    fs::write(&archive, original).unwrap();
+    let recovered = fixture
+        .call(json!({"command":"updates.apply","id":"image:postgres","offline":true}))
+        .unwrap();
+    assert_eq!(recovered["complete"], true, "{recovered}");
+    assert!(Fixture::item(&recovered["snapshot"], "image:postgres")["pending"].is_null());
 }
 
 #[test]
