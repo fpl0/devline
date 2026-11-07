@@ -37,6 +37,9 @@ jobs:
       - name: Lint Rust
         run: cargo +stable clippy --locked --manifest-path core/Cargo.toml --all-targets -- -D warnings
 
+      - name: Install documentation converter
+        run: brew install pandoc
+
       - name: Test document ingestion
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 

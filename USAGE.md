@@ -197,6 +197,8 @@ Use **Read Devline Guide** in Infrastructure, or `devline guide`, for Devline’
 
 ## Build and validate
 
+Documentation ingestion tests use Pandoc. Install it with `brew install pandoc` before running the Python tests. It is not needed to use the app or build projects from its starters.
+
 On Apple Silicon, use Xcode and its command-line tools, Rust/Cargo, and Python 3.
 
 ```sh
@@ -204,6 +206,7 @@ On Apple Silicon, use Xcode and its command-line tools, Rust/Cargo, and Python 3
 ./scripts/create-dmg.sh
 ./scripts/install.sh
 cargo test --locked --manifest-path core/Cargo.toml
+python3 -m unittest discover -s scripts -p 'test_*.py'
 python3 scripts/check-doc-packs.py
 python3 scripts/check-infrastructure.py
 ```
