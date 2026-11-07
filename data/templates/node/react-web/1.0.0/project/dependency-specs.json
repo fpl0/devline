@@ -1,0 +1,17 @@
+[
+  "react@latest",
+  "react-dom@latest",
+  "react-router-dom@latest",
+  "@tanstack/react-query@latest",
+  "zustand@latest",
+  "zod@latest",
+  "vite@latest",
+  "typescript@latest",
+  "vitest@latest",
+  "@testing-library/react@latest",
+  "@testing-library/dom@latest",
+  "happy-dom@latest",
+  "@types/react@latest",
+  "@types/react-dom@latest",
+  "@types/node@latest"
+]

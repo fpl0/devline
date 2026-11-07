@@ -79,9 +79,7 @@ struct RuntimesView: View {
 
     private func runtimeDetails(_ runtime: RuntimeToolchain) -> some View {
         let packs = docPacks(for: runtime)
-        let starter = model.catalog?.templates
-            .filter { $0.verified && (runtime.templates.contains($0.id) || runtime.templates.contains($0.reference)) }
-            .sorted { $0.version.compare($1.version, options: .numeric) == .orderedDescending }.first
+        let starters = latestStarters(for: runtime.id)
         return ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 7) {
@@ -108,8 +106,13 @@ struct RuntimesView: View {
                 }
                 Divider()
                 if !packs.isEmpty { docsRow(packs, for: runtime) }
-                if let starter { starterRow(starter) }
-                if packs.isEmpty && starter == nil {
+                if !starters.isEmpty {
+                    VStack(alignment: .leading, spacing: 16) {
+                        Text("Offline Kits and Starters").font(.headline)
+                        ForEach(starters, id: \.reference) { starter in starterRow(starter) }
+                    }
+                }
+                if packs.isEmpty && starters.isEmpty {
                     Button("Open Library", action: showLibrary)
                 }
                 Divider()
@@ -123,6 +126,7 @@ struct RuntimesView: View {
                             Text(path).font(.system(.caption, design: .monospaced))
                         }
                         Text(probeOutput(runtime))
+                        Text("Discovery checks PATH, standard Homebrew locations, mise installations, and Rust toolchain directories. Devline runs version probes and compares them with starter requirements. Java/Maven and Elixir/Erlang are checked together.")
                     }
                     .font(.callout).foregroundStyle(.secondary)
                     .textSelection(.enabled)
@@ -131,7 +135,7 @@ struct RuntimesView: View {
                     .padding(.top, 7)
                 }
                 .font(.callout)
-                Text("Devline checks locally installed tools. Starter and doc bundles come from the bundled catalog.")
+                Text("Devline detects your installed tools. It does not install, upgrade, or remove runtimes. Use your preferred runtime manager to change them.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .frame(maxWidth: 580, alignment: .leading)
@@ -173,9 +177,8 @@ struct RuntimesView: View {
     private func starterRow(_ starter: Starter) -> some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Project Starter").font(.headline)
-                Text("\(starter.name) · \(starter.version)")
-                    .font(.callout).foregroundStyle(.secondary)
+                Text("\(starter.name) · \(starter.version)").font(.callout.weight(.medium))
+                Text(starter.description).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
             if starter.isInstalled {
@@ -187,6 +190,16 @@ struct RuntimesView: View {
                     .help("Install the starter and related docs from the bundled catalog")
             }
         }
+    }
+
+    private func latestStarters(for stack: String) -> [Starter] {
+        let candidates: [Starter] = (model.catalog?.templates ?? []).filter { $0.stack == stack && $0.verified }
+        let families: [String: [Starter]] = Dictionary(grouping: candidates, by: \.id)
+        var latest: [Starter] = []
+        for releases in families.values {
+            if let starter = releases.max(by: { $0.version.compare($1.version, options: .numeric) == .orderedAscending }) { latest.append(starter) }
+        }
+        return latest.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     private func docPacks(for runtime: RuntimeToolchain) -> [DocPack] {
@@ -262,9 +275,7 @@ struct RuntimesView: View {
 
     private func prepare(_ starter: Starter) {
         Task {
-            let installed = await model.mutate([CoreRequest("prepare", id: starter.reference)],
-                                              label: "Preparing \(starter.name)", completion: "Installed \(starter.name) and its related docs.")
-            if installed { showStarter(starter.reference) }
+            await model.startJob(CoreRequest("jobs.start", id: starter.reference, kind: "prepare"))
         }
     }
 }

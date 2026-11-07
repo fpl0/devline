@@ -22,6 +22,20 @@ if [ -e "$INSTALLED_APP" ] || [ -L "$INSTALLED_APP" ]; then
     EXISTING_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INSTALLED_APP/Contents/Info.plist" 2>/dev/null || true)
     [ "$EXISTING_ID" = 'io.devkit.desktop' ] || { echo 'A different app already occupies the install location.' >&2; exit 1; }
 fi
+# Replacing a mapped executable in place can terminate the running app or CLI.
+# Keep the current installation intact until its processes have exited.
+python3 - "$INSTALLED_APP" <<'PY'
+import os
+import subprocess
+import sys
+
+executables = os.path.realpath(sys.argv[1]) + "/Contents/MacOS/"
+processes = subprocess.check_output(["/bin/ps", "-axo", "pid=,comm="], text=True)
+for line in processes.splitlines():
+    fields = line.strip().split(None, 1)
+    if len(fields) == 2 and os.path.realpath(fields[1]).startswith(executables):
+        raise SystemExit("Quit Devline and let its active CLI jobs finish, then run the installer again. Your installed app has not been changed.")
+PY
 mkdir -p "$INSTALLED_APP"
 rsync -a --delete "$APP/" "$INSTALLED_APP/"
 codesign --verify --deep --strict "$INSTALLED_APP"

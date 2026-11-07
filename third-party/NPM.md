@@ -1,0 +1,12 @@
+# Node.js starter dependency notices
+
+Each starter's `package-lock.json` records the exact npm versions, tarball sources, and integrity checks. The original npm package files and notices remain in its `node_modules` directory. This index covers additional upstream notices and source pointers for packages whose npm tarballs omit a standalone license or contain compiled code.
+
+- Rolldown native binding `@rolldown/binding-darwin-arm64@1.2.16` shares its release's MIT license and third-party notices. [Rolldown v1.2.16 source](https://github.com/rolldown/rolldown/tree/v1.2.16) · [License](npm/Rolldown-LICENSE) · [Third-party notices](npm/Rolldown-THIRD-PARTY-LICENSE)
+- Lightning CSS and its Apple Silicon native binding at `1.33.0` retain their MPL-2.0 licenses in the npm packages. The source for both is available at their npm release commit. [Lightning CSS corresponding source](https://github.com/parcel-bundler/lightningcss/tree/1d680fa14e9a089c92dc0929f869d6757ae91c30)
+- AWS SDK credential provider HTTP `3.972.84`, login `3.972.89`, and nested clients `3.998.1` declare Apache-2.0. [AWS SDK upstream license](https://github.com/aws/aws-sdk-js-v3/blob/ea82eac3afd74c15510e427b91a9eff8292f178b/LICENSE) · [License copy](npm/AWS-SDK-LICENSE)
+- Node Redis `6.3.1` and its `@redis/bloom`, `@redis/client`, `@redis/json`, `@redis/search`, and `@redis/time-series` packages share the same MIT license. [Node Redis source](https://github.com/redis/node-redis/tree/12bcff0ad9ebffdeed0365df2820ae385de7daaa) · [License](npm/Node-Redis-LICENSE)
+- Abstract Logging `2.0.1` links to its author's MIT notice. [Source license reference](https://github.com/jsumners/abstract-logging/blob/80dfaef91ee87008f4ed2b6e78921d383bccd406/Readme.md#license) · [License](npm/Abstract-Logging-LICENSE.html)
+- PostgreSQL types `pg-types@2.2.0` and password file reader `pgpass@1.0.5` include their MIT notices in the source README. [pg-types source](https://github.com/brianc/node-pg-types/blob/d9d9dfb87eb50914043cbc178c301b7dd3b0c50d/README.md#license) · [pg-types license](npm/pg-types-LICENSE.md) · [pgpass source](https://github.com/hoegaarden/pgpass/blob/4230ed5e417ba6044ea7eb80b7c33db9ec301398/README.md#license) · [pgpass license](npm/pgpass-LICENSE.md)
+
+The Playwright WebKit archive also includes the Apple Swift compatibility runtime under the Swift Apache-2.0 license with Runtime Library Exception. [Swift license and exception](webkit/SWIFT-LICENSE.txt)

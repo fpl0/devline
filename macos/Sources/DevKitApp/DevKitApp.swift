@@ -10,26 +10,48 @@ private extension Notification.Name {
 }
 
 enum Workspace: String, CaseIterable, Identifiable {
+    case toolbox = "Toolbox"
+    case project = "Current Project"
+    case infrastructure = "Infrastructure"
     case docs = "Docs"
     case templates = "Templates"
     case runtimes = "Runtimes"
     case library = "Library"
     case updates = "Updates"
+    case activity = "Activity"
+    case offline = "Ready Offline"
 
     var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .docs: "Documentation"
+        case .templates: "App Starters"
+        case .runtimes: "Toolchains"
+        case .library: "Docset Library"
+        case .offline: "Offline Library"
+        default: rawValue
+        }
+    }
     var icon: String {
         switch self {
+        case .toolbox: "shippingbox"
+        case .project: "folder"
+        case .infrastructure: "server.rack"
         case .docs: "book.closed"
         case .templates: "square.on.square"
         case .runtimes: "terminal"
         case .library: "tray.full"
         case .updates: "arrow.down.circle"
+        case .activity: "clock.arrow.circlepath"
+        case .offline: "checkmark.shield"
         }
     }
 }
 
 @main
 struct DevKitMacApp: App {
+    @NSApplicationDelegateAdaptor(DevlineAppDelegate.self) private var appDelegate
+    @StateObject private var appUpdates = AppUpdates.shared
     @StateObject private var model = WorkspaceModel()
     @AppStorage("devline.appearance") private var appearance = "system"
 
@@ -42,7 +64,8 @@ struct DevKitMacApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             CommandGroup(after: .appInfo) {
-                Button("Check for Updates…") { announce(.devkitUpdates) }
+                Button("Check for App Updates…", action: appUpdates.check).disabled(!appUpdates.canCheck)
+                Button("Documentation, Starter, and Image Updates…") { announce(.devkitUpdates) }
             }
             CommandGroup(replacing: .newItem) {
                 Button("New Project…") { announce(.devkitNew) }
@@ -76,11 +99,42 @@ final class WorkspaceModel: ObservableObject {
     @Published private(set) var operation: String?
     @Published var error: String?
     @Published var notice: String?
+    @Published private(set) var jobs: [JobRecord] = []
+    @Published var inspectedJob: JobRecord?
+    private var jobMonitor: Task<Void, Never>?
 
     func refresh() async {
-        do { try await reload() }
+        do { try await reload(); await refreshJobs() }
         catch is CancellationError {}
         catch { self.error = error.localizedDescription }
+    }
+
+    @discardableResult
+    func startJob(_ request: CoreRequest) async -> Bool {
+        do {
+            let job: JobRecord = try await Core.request(request)
+            inspectedJob = job
+            await refreshJobs()
+            return true
+        } catch { self.error = error.localizedDescription; return false }
+    }
+
+    func refreshJobs() async {
+        do { jobs = try await Core.request(CoreRequest("jobs.list")) }
+        catch { return }
+        guard jobMonitor == nil, jobs.contains(where: \.isActive) else { return }
+        jobMonitor = Task { @MainActor in
+            defer { jobMonitor = nil }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(1)) } catch { return }
+                let active = Set(jobs.filter(\.isActive).map(\.id))
+                do {
+                    jobs = try await Core.request(CoreRequest("jobs.list"))
+                    if jobs.contains(where: { active.contains($0.id) && !$0.isActive }) { try await reload() }
+                } catch { self.error = error.localizedDescription; return }
+                if !jobs.contains(where: \.isActive) { return }
+            }
+        }
     }
 
     @discardableResult
@@ -107,8 +161,8 @@ final class WorkspaceModel: ObservableObject {
 
     private func reload() async throws {
         let updated: Catalog = try await Core.request(CoreRequest("catalog"))
-        let previous = catalog?.docs.filter(\.installed).map(\.reference)
-        let next = updated.docs.filter(\.installed).map(\.reference)
+        let previous = catalog?.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
+        let next = updated.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
         catalog = updated
         if previous != next { libraryRevision += 1 }
     }
@@ -116,28 +170,36 @@ final class WorkspaceModel: ObservableObject {
 
 private struct WorkspaceView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: WorkspaceModel
     @StateObject private var reading = ReadingSession()
-    @State private var workspace: Workspace? = .docs
+    @StateObject private var infrastructure = InfrastructureLibrary()
+    @State private var workspace: Workspace? = Workspace(rawValue: UserDefaults.standard.string(forKey: "devline.workspace") ?? "Toolbox") ?? .toolbox
+    @AppStorage("devline.focusReading") private var focusReading = false
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var restoredSession = false
     @State private var query = ""
     @State private var docStack: String?
     @State private var directDocumentID: String?
     @State private var projectContext: ProjectContext?
     @State private var openingProject = false
+    @State private var projectRequest: UUID?
+    @State private var navigationRequest: UUID?
     @State private var focusRequest = 0
+    @State private var lookupRevision = 0
     @State private var starterReference: String?
     @State private var newStarter: Starter?
     @State private var updateCheckRequest = 0
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $workspace) {
                 Section("Workspace") {
-                    ForEach(Workspace.allCases) { page in
-                        Label(page.rawValue, systemImage: page.icon)
-                            .tag(page)
-                    }
+                    sidebarRows([.toolbox, .project])
                 }
+                Section("Build") { sidebarRows([.templates, .infrastructure]) }
+                Section("Reference") { sidebarRows([.docs, .runtimes]) }
+                Section("Manage") { sidebarRows([.library, .offline, .updates, .activity]) }
             }
             .listStyle(.sidebar)
             .safeAreaInset(edge: .bottom) {
@@ -155,7 +217,19 @@ private struct WorkspaceView: View {
             .navigationSplitViewColumnWidth(min: 165, ideal: 190, max: 245)
         } detail: {
             Group {
-                switch workspace ?? .docs {
+                switch workspace ?? .toolbox {
+                case .toolbox:
+                    ToolboxView(model: model, infrastructure: infrastructure, project: projectContext,
+                        navigate: { workspace = $0 }, openProject: chooseProjectFolder)
+                case .project:
+                    ProjectWorkspaceView(model: model, infrastructure: infrastructure, project: projectContext,
+                        openProject: chooseProjectFolder, newProject: beginNewProject, showDocs: {
+                            workspace = .docs
+                            focusRequest += 1
+                        }, showInfrastructure: { workspace = .infrastructure })
+                        .id(projectContext?.path)
+                case .infrastructure:
+                    InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureGuide)
                 case .docs:
                     DocsView(
                         model: model,
@@ -164,8 +238,14 @@ private struct WorkspaceView: View {
                         stack: $docStack,
                         directDocumentID: $directDocumentID,
                         projectContext: projectContext,
+                        updateProject: { context in
+                            guard !openingProject, projectContext?.path == context.path else { return }
+                            projectRequest = nil
+                            projectContext = context
+                        },
                         clearProject: clearProject,
                         focusRequest: focusRequest,
+                        lookupRevision: lookupRevision,
                         openLibrary: { workspace = .library }
                     )
                 case .templates:
@@ -192,9 +272,13 @@ private struct WorkspaceView: View {
                 case .updates:
                     UpdatesView(model: model, checkOnOpen: updateCheckRequest > 0)
                         .id(updateCheckRequest)
+                case .activity:
+                    ActivityView(model: model)
+                case .offline:
+                    OfflineLibraryView(model: model, infrastructure: infrastructure, projectPath: projectContext?.path)
                 }
             }
-            .navigationTitle((workspace ?? .docs).rawValue)
+            .navigationTitle((workspace ?? .toolbox).title)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if let operation = model.operation {
                     StatusBar(text: operation, working: true)
@@ -219,18 +303,41 @@ private struct WorkspaceView: View {
             }
         }
         .frame(minWidth: 840, minHeight: 530)
+        .task {
+            NativeLookup.shared.revealWorkspace = { openWindow(id: "workspace") }
+            guard !restoredSession else { return }
+            if navigationRequest == nil,
+               let path = UserDefaults.standard.string(forKey: "devline.projectPath"),
+               FileManager.default.fileExists(atPath: path) {
+                await loadProjectContext(path)
+            }
+            guard !Task.isCancelled else { return }
+            restoredSession = true
+            if navigationRequest == nil { reading.restoreSession() }
+            columnVisibility = focusReading && workspace == .docs ? .detailOnly : .all
+        }
         .task(id: scenePhase) {
             if scenePhase == .active {
                 await model.refresh()
                 await reading.refresh()
+                if restoredSession, !Task.isCancelled, let path = projectContext?.path {
+                    await loadProjectContext(path)
+                }
+            } else {
+                reading.persist()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in reading.persist() }
+        .onReceive(NotificationCenter.default.publisher(for: .devlineLookup)) { notification in
+            if let request = notification.object as? LookupRequest { lookUp(request) }
         }
         .sheet(item: $newStarter) { starter in
-            NewProjectView(starter: starter) { path in
+            NewProjectView(starter: starter, infrastructure: infrastructure) { path in
                 newStarter = nil
-                Task { await loadProjectContext(path) }
+                openProject(path)
             }
         }
+        .sheet(item: $model.inspectedJob) { job in JobDetailsView(job: job, model: model) }
         .alert("Devline", isPresented: Binding(
             get: { model.error != nil },
             set: { if !$0 { model.error = nil } }
@@ -240,6 +347,7 @@ private struct WorkspaceView: View {
             Text(model.error ?? "")
         }
         .onReceive(NotificationCenter.default.publisher(for: .devkitFind)) { _ in
+            beginNavigation()
             workspace = .docs
             directDocumentID = nil
             focusRequest += 1
@@ -252,19 +360,47 @@ private struct WorkspaceView: View {
             workspace = .updates
         }
         .onChange(of: workspace) { _, page in
+            UserDefaults.standard.set(page?.rawValue ?? "Toolbox", forKey: "devline.workspace")
+            columnVisibility = focusReading && page == .docs ? .detailOnly : .all
             if page != .updates { updateCheckRequest = 0 }
         }
+        .onChange(of: focusReading) { _, focused in columnVisibility = focused && workspace == .docs ? .detailOnly : .all }
+        .onChange(of: model.libraryRevision) { _, _ in
+            if let path = projectContext?.path { Task { await loadProjectContext(path) } }
+        }
         .onOpenURL { url in
+            if let request = LookupRequest(url: url) { lookUp(request); return }
             guard ["devline", "devkit"].contains(url.scheme ?? ""), url.host == "docs",
                   let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
                   let id = components.queryItems?.first(where: { $0.name == "id" })?.value,
                   !id.isEmpty else { return }
+            beginNavigation()
             reading.open(ReferenceLocation(
                 id: id,
                 anchor: components.queryItems?.first(where: { $0.name == "anchor" })?.value,
                 focusText: components.queryItems?.first(where: { $0.name == "focus" })?.value
             ))
             directDocumentID = id
+            workspace = .docs
+        }
+    }
+
+    private func sidebarRows(_ pages: [Workspace]) -> some View {
+        ForEach(pages) { page in Label(page.title, systemImage: page.icon).tag(page) }
+    }
+
+    private func openInfrastructureGuide(_ reference: String) {
+        Task {
+            let pack = model.catalog?.docs.filter { $0.id == "infrastructure" }.max {
+                $0.version.compare($1.version, options: .numeric) == .orderedAscending
+            }
+            if let pack, !pack.installed {
+                guard await model.mutate([CoreRequest("docs.install", id: pack.id, version: pack.version)],
+                    label: "Preparing infrastructure guides", completion: "Infrastructure guides available offline.") else { return }
+            }
+            beginNavigation()
+            reading.open(ReferenceLocation(id: reference))
+            directDocumentID = reference
             workspace = .docs
         }
     }
@@ -290,34 +426,98 @@ private struct WorkspaceView: View {
             panel.directoryURL = URL(fileURLWithPath: path, isDirectory: true)
         }
         if panel.runModal() == .OK, let url = panel.url {
-            Task { await loadProjectContext(url.path(percentEncoded: false)) }
+            openProject(url.path(percentEncoded: false))
         }
     }
 
-    private func loadProjectContext(_ path: String) async {
-        guard !openingProject else { return }
-        openingProject = true
-        defer { openingProject = false }
+    @discardableResult
+    private func beginNavigation() -> UUID {
+        let token = UUID()
+        navigationRequest = token
+        openingProject = false
+        reading.request = nil
+        return token
+    }
+
+    @discardableResult
+    private func loadProjectContext(_ path: String, navigation: UUID? = nil) async -> Bool {
+        if let navigation {
+            guard navigationRequest == navigation else { return false }
+        } else {
+            guard projectRequest == nil, !openingProject, projectContext == nil || projectContext?.path == path else { return false }
+        }
+        let request = UUID()
+        projectRequest = request
+        defer { if projectRequest == request { projectRequest = nil } }
         do {
             let context: ProjectContext = try await Core.request(CoreRequest("project.context", path: path))
+            guard projectRequest == request, navigation == nil || navigationRequest == navigation else { return false }
             projectContext = context
-            if let stack = context.stack, model.catalog?.docs.contains(where: { $0.installed && $0.stack == stack }) == true {
-                docStack = stack
-            } else {
-                docStack = nil
-            }
-            query = ""
-            directDocumentID = nil
-            workspace = .docs
-            focusRequest += 1
+            UserDefaults.standard.set(context.path, forKey: "devline.projectPath")
+            return true
+        } catch is CancellationError {
+            return false
         } catch {
-            model.error = error.localizedDescription
+            if projectRequest == request, navigation == nil || navigationRequest == navigation { model.error = error.localizedDescription }
+            return false
+        }
+    }
+
+    private func openProject(_ path: String) {
+        let navigation = beginNavigation()
+        openingProject = true
+        Task {
+            defer { if navigationRequest == navigation { openingProject = false } }
+            guard await loadProjectContext(path, navigation: navigation), navigationRequest == navigation else { return }
+            docStack = projectContext?.stack.flatMap { stack in
+                model.catalog?.docs.contains { $0.installed && $0.stack == stack } == true ? stack : nil
+            }
+            directDocumentID = nil
+            workspace = .project
+            do {
+                guard let resolvedPath = projectContext?.path else { return }
+                let readiness: ProjectReadiness = try await Core.request(CoreRequest("project.readiness", path: resolvedPath))
+                guard navigationRequest == navigation, projectContext?.path == resolvedPath else { return }
+                if !readiness.readyOffline {
+                    await model.startJob(CoreRequest("jobs.start", path: resolvedPath, kind: "project_prepare"))
+                }
+            } catch is CancellationError {}
+            catch { model.error = error.localizedDescription }
         }
     }
 
     private func clearProject() {
+        beginNavigation()
+        projectRequest = nil
         projectContext = nil
+        UserDefaults.standard.removeObject(forKey: "devline.projectPath")
         docStack = nil
+    }
+
+    private func lookUp(_ request: LookupRequest) {
+        let navigation = beginNavigation()
+        if let path = request.path {
+            openingProject = true
+            Task {
+                defer { if navigationRequest == navigation { openingProject = false } }
+                guard await loadProjectContext(path, navigation: navigation), navigationRequest == navigation else { return }
+                docStack = request.stack ?? projectContext?.stack
+                finishLookup(query: request.query, message: request.message)
+            }
+        } else {
+            docStack = request.stack ?? projectContext?.stack
+            finishLookup(query: request.query, message: request.message)
+        }
+    }
+
+    private func finishLookup(query: String, message: String? = nil) {
+        directDocumentID = nil
+        self.query = query
+        lookupRevision += 1
+        model.notice = message
+        focusReading = false
+        workspace = .docs
+        focusRequest += 1
     }
 }
 
@@ -377,6 +577,8 @@ private struct SettingsView: View {
                 }
                 Button("Refresh Library") { Task { await model.refresh() } }
             }
+            AppUpdatesSettings()
+            LookupSettings()
             Section("Command Line") {
                 Text("Link the bundled devline command into ~/.local/bin to use it from Terminal.")
                     .font(.callout).foregroundStyle(.secondary)
@@ -398,6 +600,7 @@ private struct SettingsView: View {
                 LabeledContent("Find in Docs", value: "⌘F")
                 LabeledContent("Find in Page", value: "⌥⌘F")
                 LabeledContent("Page Contents", value: "⇧⌘O")
+                LabeledContent("Focus Reading", value: "⇧⌘R")
                 LabeledContent("Save Reference", value: "⌘D")
                 LabeledContent("Saved and Recent", value: "⇧⌘B")
                 LabeledContent("Back / Forward", value: "⌘[ / ⌘]")

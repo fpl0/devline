@@ -9,11 +9,16 @@ struct DocsView: View {
     @Binding var stack: String?
     @Binding var directDocumentID: String?
     let projectContext: ProjectContext?
+    let updateProject: (ProjectContext) -> Void
     let clearProject: () -> Void
     let focusRequest: Int
+    let lookupRevision: Int
     let openLibrary: () -> Void
+    @AppStorage("devline.focusReading") private var focusReading = false
 
     @State private var showReferences = false
+    @State private var showProjectReferences = false
+    @State private var useProjectScope = true
     @State private var showSavedReferences = true
     @State private var externalLink: URL?
     @State private var navigationToken = UUID()
@@ -21,6 +26,7 @@ struct DocsView: View {
     @State private var navigationFocus: String?
     @State private var currentReaderAnchor: String?
     @State private var navigationPosition: Double?
+    @State private var navigationOffset: Double?
     @State private var navigationQuery = ""
     @State private var restoringHistory = false
     @State private var automaticSelection = false
@@ -55,7 +61,9 @@ struct DocsView: View {
     private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isBrowsingPack: Bool { currentPack != nil && trimmedQuery.isEmpty }
     private var searchKey: SearchKey {
-        SearchKey(query: trimmedQuery, stack: stack, pack: packReference, category: trimmedQuery.isEmpty ? browseCategory : nil, revision: model.libraryRevision)
+        SearchKey(query: trimmedQuery, stack: stack, pack: packReference, category: trimmedQuery.isEmpty ? browseCategory : nil,
+                  revision: model.libraryRevision, project: useProjectScope ? projectContext?.path : nil,
+                  pins: projectContext?.pins?.map { "\($0.id)@\($0.version)" }.joined(separator: ",") ?? "")
     }
     private var loadingMore: Bool { pageRequest != nil }
     private var readingID: String? { directDocumentID ?? selectedID }
@@ -73,12 +81,23 @@ struct DocsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            searchBar
-            if let projectContext { projectBar(projectContext) }
-            Divider()
+            if !focusReading || readingID == nil {
+                searchBar
+                if let projectContext { projectBar(projectContext) }
+                Divider()
+            }
             content
         }
-        .task(id: focusRequest) { searchFocused = true }
+        .task(id: focusRequest) {
+            if focusRequest > 0 { focusReading = false; searchFocused = true }
+        }
+        .onChange(of: focusReading) { _, _ in
+            if let location = reading.history.current, location.id == readingID {
+                navigationPosition = location.position
+                navigationAnchor = location.anchor
+                navigationOffset = location.anchorOffset
+            }
+        }
         .task(id: searchKey) { await search(searchKey) }
         .task(id: readKey) { await loadDocument(readKey) }
         .task(id: browseRevealKey) { if let key = browseRevealKey { await revealBrowseHistory(key) } }
@@ -89,6 +108,13 @@ struct DocsView: View {
         .onChange(of: reading.error) { _, error in if let error { model.error = error; reading.error = nil } }
         .onChange(of: reading.request) { _, request in if let request { restore(request) } }
         .sheet(isPresented: $showReferences) { ReferenceShelf(reading: reading, open: openReference, initialSaved: showSavedReferences) }
+        .sheet(isPresented: $showProjectReferences) {
+            if let projectContext { ProjectReferencesView(project: projectContext, updated: updateProject) }
+        }
+        .onChange(of: projectContext?.path) { _, _ in useProjectScope = true; packReference = nil; browseCategory = nil }
+        .onChange(of: lookupRevision) { _, _ in
+            useProjectScope = true; packReference = nil; browseCategory = nil; resetReaderTarget()
+        }
         .alert("Link Unavailable Offline", isPresented: Binding(get: { externalLink != nil }, set: { if !$0 { externalLink = nil } })) {
             Button("Open in Browser") { if let url = externalLink { NSWorkspace.shared.open(url) }; externalLink = nil }
             Button("Cancel", role: .cancel) { externalLink = nil }
@@ -105,7 +131,9 @@ struct DocsView: View {
     }
 
     @ViewBuilder private var content: some View {
-        if directDocumentID != nil && hits.isEmpty {
+        if focusReading && readingID != nil {
+            reader
+        } else if directDocumentID != nil && hits.isEmpty {
             reader
         } else if directDocumentID == nil && model.catalog == nil {
             ContentUnavailableView {
@@ -185,7 +213,7 @@ struct DocsView: View {
                 .help(project.path)
             if project.stacks.isEmpty {
                 Text("No supported stack detected").font(.caption).foregroundStyle(.secondary)
-            } else if let detected = project.stack, stack == detected && currentPack == nil {
+            } else if let detected = project.stack, stack == detected && currentPack == nil && useProjectScope {
                 Text("Project scope · \(displayStack(detected))").font(.caption).foregroundStyle(.secondary)
             } else {
                 Text(project.stacks.map(displayStack).joined(separator: ", "))
@@ -193,11 +221,17 @@ struct DocsView: View {
                     .lineLimit(1)
             }
             Spacer()
+            Button {
+                showProjectReferences = true
+            } label: {
+                Label((project.docsets ?? []).contains(where: \.needsAttention) ? "Review Versions" : "Project References",
+                      systemImage: (project.docsets ?? []).contains(where: \.needsAttention) ? "exclamationmark.triangle" : "pin")
+            }.controlSize(.small)
             if let stack = project.stack, !stacks.contains(stack) {
                 Button("Install \(displayStack(stack)) Docs", action: openLibrary)
                     .controlSize(.small)
-            } else if let detected = project.stack, stack != detected || currentPack != nil {
-                Button("Use Project Scope") { setStack(detected) }
+            } else if let detected = project.stack, stack != detected || currentPack != nil || !useProjectScope {
+                Button("Use Project Scope") { setStack(detected); useProjectScope = true }
                     .controlSize(.small)
             }
             Button(action: clearProject) { Image(systemName: "xmark.circle") }
@@ -375,7 +409,7 @@ struct DocsView: View {
 
     private func groupPacks(_ name: String) -> [DocPack] {
         Dictionary(grouping: packs.filter { $0.stack == name }, by: \.id).values
-            .compactMap { versions in versions.max { $0.version.compare($1.version, options: .numeric) == .orderedAscending } }
+            .compactMap { versions in versions.first { $0.active == true } ?? versions.max { $0.version.compare($1.version, options: .numeric) == .orderedAscending } }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
@@ -507,7 +541,7 @@ struct DocsView: View {
     @ViewBuilder private var reader: some View {
         if let document, document.id == readingID {
             DocReader(document: document, packName: packName(document.packId, stack: document.stack),
-                      anchor: navigationAnchor, focus: navigationFocus, restoredPosition: navigationPosition,
+                      anchor: navigationAnchor, focus: navigationFocus, restoredPosition: navigationPosition, restoredOffset: navigationOffset,
                       isSaved: reading.isSaved(document.id),
                       save: { anchor, focus in
                           var location = currentLocation(document)
@@ -517,10 +551,10 @@ struct DocsView: View {
                       },
                       navigate: { url in Task { await follow(url, from: document) } },
                       openPart: { id in reading.open(ReferenceLocation(id: id, query: query, stack: stack, pack: packReference, category: browseCategory)) },
-                      reportPosition: { [token = navigationToken] fraction, anchor in
+                      reportPosition: { [token = navigationToken] fraction, anchor, offset in
                           guard token == navigationToken else { return }
                           currentReaderAnchor = anchor
-                          reading.updatePosition(id: document.id, fraction: fraction)
+                          reading.updatePosition(id: document.id, fraction: fraction, anchor: anchor, anchorOffset: offset)
                       })
                 .id(document.id)
         } else if let documentError {
@@ -546,6 +580,7 @@ struct DocsView: View {
     }
 
     private func setStack(_ value: String?) {
+        useProjectScope = false
         directDocumentID = nil
         packReference = nil
         browseCategory = nil
@@ -610,12 +645,13 @@ struct DocsView: View {
         searching = true
         do {
             if !key.query.isEmpty { try await Task.sleep(for: .milliseconds(30)) }
-            let inheritedScope = pack == nil && key.stack != nil && key.stack == projectContext?.stack
+            let inheritedScope = pack == nil && key.project != nil
             let results: [SearchHit] = try await Core.request(
                 CoreRequest("docs.search", version: pack?.version, query: key.query,
                             stack: inheritedScope ? nil : pack?.stack ?? key.stack, packId: pack?.id,
                             limit: key.query.isEmpty ? browseLimit + 1 : 30,
-                            category: key.category, projectStack: inheritedScope ? key.stack : nil)
+                            category: key.category, projectStack: inheritedScope ? key.stack : nil,
+                            projectPath: inheritedScope ? key.project : nil)
             )
             try Task.checkCancellation()
             guard key == searchKey else { return }
@@ -711,6 +747,7 @@ struct DocsView: View {
         currentReaderAnchor = nil
         navigationFocus = nil
         navigationPosition = nil
+        navigationOffset = nil
         navigationQuery = ""
         restoringHistory = false
         pendingBrowseReveal = nil
@@ -737,12 +774,13 @@ struct DocsView: View {
         currentReaderAnchor = location.anchor
         navigationFocus = location.focusText
         navigationPosition = location.position
+        navigationOffset = location.anchorOffset
         navigationToken = request.token
         restoringHistory = request.restoring
         automaticSelection = false
         if request.restoring, location.pack != nil, trimmedQuery.isEmpty, let index = location.browseIndex {
             let scope = SearchKey(query: "", stack: location.stack, pack: location.pack,
-                                  category: location.category, revision: model.libraryRevision)
+                                  category: location.category, revision: model.libraryRevision, project: searchKey.project, pins: searchKey.pins)
             pendingBrowseReveal = BrowseReveal(id: location.id, index: index, token: request.token, scope: scope)
         } else {
             pendingBrowseReveal = nil
@@ -792,6 +830,8 @@ struct DocsView: View {
         let stack, pack: String?
         let category: String?
         let revision: Int
+        let project: String?
+        let pins: String
     }
 
     private struct ReadKey: Equatable {

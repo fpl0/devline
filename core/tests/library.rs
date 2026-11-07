@@ -151,6 +151,7 @@ fn duplicate_document_id_rolls_back_whole_pack() {
 }
 
 #[test]
+#[cfg(target_os = "macos")]
 fn prepare_uses_docs_from_selected_release() {
     let f = Fixture::new();
     let path = f.root.join("catalog/catalog.json");
@@ -161,7 +162,12 @@ fn prepare_uses_docs_from_selected_release() {
         let project = f.root.join("catalog").join(&relative).join("project");
         fs::create_dir_all(&project).unwrap();
         fs::write(project.join("README.md"), "Fixture").unwrap();
-        releases.push(json!({"id":"go/test","name":"Fixture","stack":"go","version":version,"description":"fixture","app_type":"cli","path":relative,"toolchain":"devkit-test-missing-runtime","minimum_version":"1.0.0","test_command":"true","docs":docs,"verified":true,"target":"any"}));
+        fs::write(
+            project.join("test-offline.sh"),
+            "#!/bin/sh\nset -eu\ntest -x \"$DEVKIT_TOOLCHAIN\"\n",
+        )
+        .unwrap();
+        releases.push(json!({"id":"go/test","name":"Fixture","stack":"go","version":version,"description":"fixture","app_type":"cli","path":relative,"toolchain":"bash","minimum_version":"3.0.0","test_command":"./test-offline.sh","docs":docs,"verified":true,"target":"any"}));
     }
     catalog["templates"] = json!(releases);
     fs::write(path, serde_json::to_vec(&catalog).unwrap()).unwrap();
@@ -170,4 +176,6 @@ fn prepare_uses_docs_from_selected_release() {
         .unwrap();
     assert_eq!(prepared["template"]["version"], "2.0.0");
     assert_eq!(prepared["docs"][0]["version"], "1.0");
+    assert_eq!(prepared["doctor"]["ready_offline"], true);
+    assert!(prepared["doctor"]["verification"]["digest"].is_string());
 }

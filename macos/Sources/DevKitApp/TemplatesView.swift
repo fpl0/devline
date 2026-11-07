@@ -85,8 +85,7 @@ struct TemplatesView: View {
         ), titleVisibility: .visible, presenting: buildCandidate) { starter in
             Button("Build New Release") {
                 Task {
-                    await model.mutate([CoreRequest("templates.build", id: starter.reference)],
-                                       label: "Building \(starter.name)", completion: "Built a new release of \(starter.name).")
+                    await model.startJob(CoreRequest("jobs.start", id: starter.reference, kind: "build"))
                 }
             }
         } message: { starter in
@@ -125,10 +124,15 @@ struct TemplatesView: View {
                     Text(starter.name).font(.title2.weight(.semibold))
                     Text(starter.description).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                    if let minimumMacos = starter.minimumMacos {
+                        Label("macOS \(minimumMacos) or later", systemImage: "desktopcomputer")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
                 actions(for: starter, docs: docs)
                 Divider()
                 releaseRow(starter, in: family)
+                StarterInventoryView(starter: starter, model: model)
                 if starter.verified || !docs.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Included").font(.headline)
@@ -146,6 +150,7 @@ struct TemplatesView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Toolchain: \(starter.toolchain) \(starter.minimumVersion)")
                         Text("Target: \(starter.target)")
+                        if let minimumMacos = starter.minimumMacos { Text("macOS: \(minimumMacos) or later") }
                     }
                     .font(.callout).foregroundStyle(.secondary)
                     .padding(.top, 6)
@@ -205,6 +210,9 @@ struct TemplatesView: View {
                     Button("Install Template Only") { install(starter, withDocs: false) }
                 }
                 Button("Refresh Dependencies…") { buildCandidate = starter }
+                if starter.isInstalled {
+                    Button("Verify Offline Now") { Task { await model.startJob(CoreRequest("jobs.start", id: starter.reference, kind: "verify")) } }
+                }
             } label: {
                 Label("More Actions", systemImage: "ellipsis.circle")
                     .labelStyle(.iconOnly)
@@ -228,7 +236,7 @@ struct TemplatesView: View {
 
     private func releaseStatus(_ starter: Starter) -> String {
         if !starter.verified { return starter.isInstalled ? "Installed preview" : "Preview" }
-        return starter.isInstalled ? "Installed · Verified offline" : "Available · Verified offline"
+        return starter.isInstalled ? "Installed · Packaged dependencies" : "Available · Packaged dependencies"
     }
 
     private func selectVisibleStarter() {
@@ -239,8 +247,12 @@ struct TemplatesView: View {
 
     private func install(_ starter: Starter, withDocs: Bool) {
         Task {
-            await model.mutate([CoreRequest(withDocs ? "prepare" : "templates.install", id: starter.reference)],
-                               label: "Installing \(starter.name)", completion: "Installed \(starter.name) \(starter.version).")
+            if withDocs {
+                await model.startJob(CoreRequest("jobs.start", id: starter.reference, kind: "prepare"))
+            } else {
+                await model.mutate([CoreRequest("templates.install", id: starter.reference)],
+                                   label: "Installing \(starter.name)", completion: "Installed \(starter.name) \(starter.version).")
+            }
         }
     }
 
@@ -264,6 +276,7 @@ struct TemplatesView: View {
 struct NewProjectView: View {
     @Environment(\.dismiss) private var dismiss
     let starter: Starter
+    @ObservedObject var infrastructure: InfrastructureLibrary
     let openDocs: (String) -> Void
     @State private var name = ""
     @State private var parentFolder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents")
@@ -274,6 +287,9 @@ struct NewProjectView: View {
     @State private var createError: String?
     @State private var project: Project?
     @State private var copied = false
+    @State private var services: Set<String> = []
+    @State private var ports: [String: Int] = [:]
+    @State private var showServices = false
     @FocusState private var nameFocused: Bool
 
     private var projectName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -303,10 +319,11 @@ struct NewProjectView: View {
             Divider()
             footer
         }
-        .frame(width: 540)
+        .frame(width: 640)
         .interactiveDismissDisabled(creating)
         .task(id: checkRevision) { await runDoctor() }
-        .onAppear { nameFocused = true }
+        .onAppear { nameFocused = true; services = Set(starter.services ?? []); showServices = !services.isEmpty }
+        .task { await infrastructure.refresh() }
     }
 
     private var configuration: some View {
@@ -335,6 +352,12 @@ struct NewProjectView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             readinessPanel
+            DisclosureGroup(isExpanded: $showServices) {
+                ServiceSelectionView(library: infrastructure, selected: $services, ports: $ports, required: Set(starter.services ?? []))
+                    .frame(height: 230).padding(.top, 8)
+            } label: {
+                Text(services.isEmpty ? "Add Local Services" : "Local Services · \(services.count) Selected").font(.callout.weight(.medium))
+            }
             if let createError {
                 Label(createError, systemImage: "exclamationmark.circle")
                     .font(.callout).foregroundStyle(.red)
@@ -353,7 +376,7 @@ struct NewProjectView: View {
                         Image(systemName: readiness.ready ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                             .foregroundStyle(readiness.ready ? Color.green : .orange)
                             .accessibilityHidden(true)
-                        Text(readiness.ready ? "Ready to Create Offline" : "Setup Required")
+                        Text(readiness.readyOffline == true ? "Verified Ready Offline" : readiness.ready ? "Ready to Create · Verification Pending" : "Setup Required")
                             .font(.callout.weight(.semibold))
                     }
                     let failures = readiness.checks.filter { !$0.ok }
@@ -415,7 +438,11 @@ struct NewProjectView: View {
                     copy("cd \(shellQuote(project.path)) && \(project.testCommand)")
                 }
             }
-            if !starter.docs.isEmpty { Button("Browse Related Docs") { openDocs(project.path) } }
+            if !services.isEmpty {
+                Label("Service images are archived and pinned. Start them from the project workspace.", systemImage: "server.rack")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            if let createError { Text(createError).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
         }
         .padding(21)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -428,16 +455,21 @@ struct NewProjectView: View {
                     NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: project.path)])
                 }
                 Spacer()
-                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+                Button("Open Project") { openDocs(project.path) }.keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
             } else {
                 if validName {
                     Button(copied ? "Copied" : "Copy CLI Command") {
-                        copy("devline new \(shellQuote(starter.reference)) \(shellQuote(destination.path(percentEncoded: false)))")
+                        let serviceFlags = services.sorted().map { " --service \(shellQuote($0))" }.joined()
+                        let portFlags = ports.sorted { $0.key < $1.key }.map { " --port \(shellQuote("\($0.key)=\($0.value)"))" }.joined()
+                        copy("devline new \(shellQuote(starter.reference)) \(shellQuote(destination.path(percentEncoded: false)))\(serviceFlags)\(portFlags)")
                     }
                     .disabled(creating)
                 }
                 Spacer()
-                if creating { ProgressView().controlSize(.small) }
+                if creating {
+                    ProgressView().controlSize(.small)
+                    Text("Preparing and testing offline…").font(.caption).foregroundStyle(.secondary)
+                }
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                     .disabled(creating)
@@ -485,7 +517,7 @@ struct NewProjectView: View {
         copied = false
         defer { creating = false }
         do {
-            project = try await Core.request(CoreRequest("new", id: starter.reference, destination: destination.path(percentEncoded: false)))
+            project = try await Core.request(CoreRequest("new.ready", id: starter.reference, destination: destination.path(percentEncoded: false), services: services.sorted(), ports: ports))
         } catch {
             createError = error.localizedDescription
         }

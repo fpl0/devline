@@ -4,6 +4,7 @@ struct LibraryView: View {
     @ObservedObject var model: WorkspaceModel
     @State private var selections: Set<Choice> = []
     @State private var removePack: DocPack?
+    @State private var infoPack: DocPack?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,6 +36,9 @@ struct LibraryView: View {
                     Button("Reload Catalog") { Task { await model.refresh() } }
                 }
             }
+        }
+        .sheet(isPresented: Binding(get: { infoPack != nil }, set: { if !$0 { infoPack = nil } })) {
+            if let infoPack { DocsetInfoView(pack: infoPack) }
         }
         .confirmationDialog("Remove this doc pack?", isPresented: Binding(
             get: { removePack != nil }, set: { if !$0 { removePack = nil } }
@@ -101,6 +105,11 @@ struct LibraryView: View {
             if installed { Text("Installed").font(.caption).foregroundStyle(.secondary) }
             Text(version).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                 .frame(minWidth: 54, alignment: .trailing)
+            if case .doc(let pack) = choice {
+                Button { infoPack = pack } label: { Image(systemName: "info.circle") }
+                    .buttonStyle(.borderless).help("Coverage and source for \(name)")
+                    .accessibilityLabel("Coverage and source for \(name) \(version)")
+            }
             if installed, case .doc(let pack) = choice {
                 Button {
                     removePack = pack

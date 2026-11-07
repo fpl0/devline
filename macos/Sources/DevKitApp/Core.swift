@@ -12,8 +12,30 @@ struct DocPack: Decodable, Hashable, Sendable {
     let id, name, stack, version, description: String
     let sourceUrl: String
     let installed: Bool
+    let upstreamVersion, snapshotDate: String?
+    let coverage, omissions: [String]?
+    let active: Bool?
 
     var reference: String { "\(id)@\(version)" }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, stack, version, description, sourceUrl, installed, upstreamVersion, snapshotDate, coverage, omissions, active
+    }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(String.self, forKey: .id)
+        name = try values.decode(String.self, forKey: .name)
+        stack = try values.decode(String.self, forKey: .stack)
+        version = try values.decode(String.self, forKey: .version)
+        description = try values.decode(String.self, forKey: .description)
+        sourceUrl = try values.decode(String.self, forKey: .sourceUrl)
+        installed = try values.decodeIfPresent(Bool.self, forKey: .installed) ?? false
+        upstreamVersion = try values.decodeIfPresent(String.self, forKey: .upstreamVersion)
+        snapshotDate = try values.decodeIfPresent(String.self, forKey: .snapshotDate)
+        coverage = try values.decodeIfPresent([String].self, forKey: .coverage)
+        omissions = try values.decodeIfPresent([String].self, forKey: .omissions)
+        active = try values.decodeIfPresent(Bool.self, forKey: .active)
+    }
 }
 
 struct Starter: Decodable, Hashable, Sendable {
@@ -22,6 +44,8 @@ struct Starter: Decodable, Hashable, Sendable {
     let docs: [String]
     let verified: Bool
     let installed: Bool?
+    let services: [String]?
+    let minimumMacos: String?
 
     var reference: String { "\(id)@\(version)" }
     var isInstalled: Bool { installed == true }
@@ -49,6 +73,7 @@ struct Readiness: Decodable, Sendable {
         let ok: Bool
     }
     let ready: Bool
+    let readyOffline: Bool?
     let checks: [Check]
 }
 
@@ -57,9 +82,32 @@ struct Project: Decodable, Sendable {
 }
 
 struct ProjectContext: Decodable, Sendable {
+    struct Origin: Decodable, Sendable { let starter, version, reference, digest: String }
     let path: String
     let stacks: [String]
     let stack: String?
+    let dependencies: [ProjectDependency]?
+    let pins: [ProjectPin]?
+    let docsets: [ProjectDocset]?
+    let origin: Origin?
+}
+
+struct ProjectDependency: Decodable, Identifiable, Sendable {
+    let id: String
+    let version, requirement, source: String?
+}
+
+struct ProjectPin: Decodable, Sendable {
+    let id, version: String
+}
+
+struct ProjectDocset: Decodable, Identifiable, Sendable {
+    let id, state, detail: String
+    let installedVersions: [String]
+    let version, requirement: String?
+    let compatible: Bool?
+    var needsAttention: Bool { ["unmatched", "uninstalled", "unversioned"].contains(state) || compatible == false
+        || (state == "pinned" && (version == nil || !installedVersions.contains(version!))) }
 }
 
 struct RuntimeToolchain: Decodable, Identifiable, Sendable {
@@ -91,12 +139,27 @@ struct CoreRequest: Encodable, Sendable {
     var focusText: String?
     var category: String?
     var projectStack: String?
+    var projectPath: String?
+    var kind: String?
+    var docs: [String]?
+    var starters: [String]?
+    var trustStarters: Bool?
+    var jobId: String?
+    var images: [String]?
+    var services: [String]?
+    var tail: Int?
+    var ports: [String: Int]?
+    var offline: Bool?
+    var trustImages: Bool?
+    var manifestSha256: String?
 
     init(
         _ command: String, id: String? = nil, version: String? = nil,
         query: String? = nil, stack: String? = nil, packId: String? = nil, limit: Int? = nil, offset: Int? = nil,
         destination: String? = nil, path: String? = nil, dryRun: Bool? = nil, url: String? = nil,
-        anchor: String? = nil, focusText: String? = nil, category: String? = nil, projectStack: String? = nil
+        anchor: String? = nil, focusText: String? = nil, category: String? = nil, projectStack: String? = nil,
+        projectPath: String? = nil, kind: String? = nil, docs: [String]? = nil, starters: [String]? = nil, trustStarters: Bool? = nil,
+        jobId: String? = nil, images: [String]? = nil, services: [String]? = nil, tail: Int? = nil, ports: [String: Int]? = nil, offline: Bool? = nil, trustImages: Bool? = nil, manifestSha256: String? = nil
     ) {
         self.command = command
         self.catalog = Self.catalogPath
@@ -115,6 +178,19 @@ struct CoreRequest: Encodable, Sendable {
         self.category = category
         self.projectStack = projectStack
         self.dryRun = dryRun
+        self.projectPath = projectPath
+        self.kind = kind
+        self.docs = docs
+        self.starters = starters
+        self.trustStarters = trustStarters
+        self.jobId = jobId
+        self.images = images
+        self.services = services
+        self.tail = tail
+        self.ports = ports
+        self.offline = offline
+        self.trustImages = trustImages
+        self.manifestSha256 = manifestSha256
     }
 
     private static var catalogPath: String {
@@ -178,7 +254,7 @@ func displayStack(_ stack: String) -> String {
     case "dotnet", ".net": ".NET"
     case "javascript": "JavaScript"
     case "typescript": "TypeScript"
-    case "nodejs": "Node.js"
+    case "node", "nodejs": "JavaScript / TypeScript"
     default: stack.capitalized
     }
 }

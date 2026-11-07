@@ -2,60 +2,43 @@
   "schema_version": 1,
   "docs": [
     {
-      "id": "python",
-      "name": "Python",
-      "stack": "python",
-      "version": "3.15.2+devline.2",
-      "description": "Official language reference, tutorial and standard library manual.",
-      "source_url": "https://docs.python.org/3.15/",
-      "license": "PSF-2.0; examples also 0BSD",
-      "path": "docs/python/3.15.2+devline.2",
-      "markdown": []
-    },
-    {
-      "id": "fastapi",
-      "name": "FastAPI",
-      "stack": "python",
-      "version": "0.162.0+devline.1",
-      "description": "Official FastAPI tutorial, advanced user guide and deployment guides.",
-      "source_url": "https://fastapi.tiangolo.com/",
-      "license": "MIT; Starlette BSD-3-Clause",
-      "path": "docs/fastapi/0.162.0+devline.1",
-      "markdown": []
-    },
-    {
-      "id": "csharp",
-      "name": "C# and .NET",
-      "stack": "dotnet",
-      "version": "2026.11.06+devline.4",
-      "description": "Microsoft Learn C# language, runtime, tooling and .NET fundamentals snapshot.",
-      "source_url": "https://learn.microsoft.com/en-us/dotnet/",
-      "license": "CC-BY-4.0; accompanying code MIT",
-      "path": "docs/csharp/2026.11.06+devline.4",
-      "markdown": [],
-      "shards": 2
-    },
-    {
       "id": "aspnet",
       "name": "ASP.NET Core",
       "stack": "dotnet",
-      "version": "2026.11.06+devline.3",
+      "version": "2026.11.06+devline.4",
       "description": "Microsoft Learn ASP.NET Core fundamentals, Web APIs and tutorials snapshot.",
       "source_url": "https://learn.microsoft.com/en-us/aspnet/core/",
       "license": "CC-BY-4.0; accompanying code MIT",
-      "path": "docs/aspnet/2026.11.06+devline.3",
-      "markdown": []
+      "path": "docs/aspnet/2026.11.06+devline.4",
+      "markdown": [],
+      "upstream_version": "10.0",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "ASP.NET Core fundamentals, Web APIs, security, tests, hosting, and tutorials"
+      ],
+      "omissions": [
+        "The full ASP.NET API catalog and version variants are outside this snapshot",
+        "59 links target headings absent from this snapshot"
+      ]
     },
     {
-      "id": "go",
-      "name": "Go",
-      "stack": "go",
-      "version": "1.27.3+devline.2",
-      "description": "Official language specification and common standard-library APIs.",
-      "source_url": "https://go.dev/",
-      "license": "BSD-3-Clause",
-      "path": "docs/go/1.27.3+devline.2",
-      "markdown": []
+      "id": "axum",
+      "name": "Axum",
+      "stack": "rust",
+      "version": "0.8.9+devline.1",
+      "description": "Official Rustdoc for Axum routing, extractors, responses and middleware.",
+      "source_url": "https://docs.rs/axum/0.8.9/",
+      "license": "MIT",
+      "path": "docs/axum/0.8.9+devline.1",
+      "markdown": [],
+      "upstream_version": "0.8.9",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Rustdoc for routing, extractors, responses, and middleware"
+      ],
+      "omissions": [
+        "Transitive crate APIs are separate references"
+      ]
     },
     {
       "id": "chi",
@@ -66,40 +49,268 @@
       "source_url": "https://pkg.go.dev/github.com/go-chi/chi/v5@v5.2.4",
       "license": "MIT",
       "path": "docs/chi/5.2.4+devline.1",
-      "markdown": []
+      "markdown": [],
+      "upstream_version": "5.2.4",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Router and middleware APIs, README, and examples"
+      ],
+      "omissions": [
+        "Third-party middleware modules are omitted"
+      ]
+    },
+    {
+      "id": "chi",
+      "name": "Chi",
+      "stack": "go",
+      "version": "5.5.0+devline.1",
+      "description": "Official Chi router, middleware and example documentation.",
+      "source_url": "https://pkg.go.dev/github.com/go-chi/chi/v5@v5.5.0",
+      "license": "MIT",
+      "path": "docs/chi/5.5.0+devline.1",
+      "markdown": [],
+      "upstream_version": "5.5.0",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "Router and middleware APIs, README, and examples"
+      ],
+      "omissions": [
+        "Third-party middleware modules are omitted"
+      ]
+    },
+    {
+      "id": "csharp",
+      "name": "C# and .NET",
+      "stack": "dotnet",
+      "version": "2026.11.06+devline.5",
+      "description": "Microsoft Learn C# language, runtime, tooling and .NET fundamentals snapshot.",
+      "source_url": "https://learn.microsoft.com/en-us/dotnet/",
+      "license": "CC-BY-4.0; accompanying code MIT",
+      "path": "docs/csharp/2026.11.06+devline.5",
+      "markdown": [],
+      "upstream_version": "10.0",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "C# language, .NET fundamentals, SDK tooling, and compatibility notes"
+      ],
+      "omissions": [
+        "The full .NET API catalog is outside this snapshot",
+        "One link targets a heading absent from this snapshot"
+      ],
+      "shards": 2
+    },
+    {
+      "id": "ecto",
+      "name": "Ecto",
+      "stack": "elixir",
+      "version": "3.14.3+devline.1",
+      "description": "Official Ecto database library guides and API documentation.",
+      "source_url": "https://hexdocs.pm/ecto/3.14.3/",
+      "license": "Apache-2.0",
+      "path": "docs/ecto/3.14.3+devline.1",
+      "markdown": [],
+      "upstream_version": "3.14.3",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Ecto guides and database library API modules"
+      ],
+      "omissions": [
+        "External adapters and Ecto SQL documentation are separate"
+      ]
+    },
+    {
+      "id": "elixir",
+      "name": "Elixir",
+      "stack": "elixir",
+      "version": "1.20.5+devline.1",
+      "description": "Official language guides and core/standard library documentation.",
+      "source_url": "https://hexdocs.pm/elixir/1.20.5/",
+      "license": "Apache-2.0",
+      "path": "docs/elixir/1.20.5+devline.1",
+      "markdown": [],
+      "upstream_version": "1.20.5",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Language guides and core and standard library APIs"
+      ],
+      "omissions": [
+        "Erlang/OTP documentation is separate",
+        "Two links target headings absent from this snapshot"
+      ]
+    },
+    {
+      "id": "fastapi",
+      "name": "FastAPI",
+      "stack": "python",
+      "version": "0.162.0+devline.1",
+      "description": "Official FastAPI tutorial, advanced user guide and deployment guides.",
+      "source_url": "https://fastapi.tiangolo.com/",
+      "license": "MIT; Starlette BSD-3-Clause",
+      "path": "docs/fastapi/0.162.0+devline.1",
+      "markdown": [],
+      "upstream_version": "0.162.0",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Tutorial, advanced patterns, deployment, and generated API pages"
+      ],
+      "omissions": [
+        "Translated guides and upstream release history are omitted"
+      ]
+    },
+    {
+      "id": "go",
+      "name": "Go",
+      "stack": "go",
+      "version": "1.27.3+devline.2",
+      "description": "Official language specification and common standard-library APIs.",
+      "source_url": "https://go.dev/",
+      "license": "BSD-3-Clause",
+      "path": "docs/go/1.27.3+devline.2",
+      "markdown": [],
+      "upstream_version": "1.27.3",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Language specification, memory model, assembler, and selected standard library packages"
+      ],
+      "omissions": [
+        "Packages outside the curated standard library selection and third-party modules are omitted"
+      ]
+    },
+    {
+      "id": "go",
+      "name": "Go",
+      "stack": "go",
+      "version": "1.27.3+devline.3",
+      "description": "Official language specification and common standard-library APIs.",
+      "source_url": "https://go.dev/",
+      "license": "BSD-3-Clause",
+      "path": "docs/go/1.27.3+devline.3",
+      "markdown": [],
+      "upstream_version": "1.27.3",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "Language specification, memory model, assembler, and selected standard library packages",
+        "Expanded networking, cryptography, image formats, and filesystem/concurrency testing APIs"
+      ],
+      "omissions": [
+        "Packages outside the curated standard library selection and third-party modules are omitted"
+      ]
+    },
+    {
+      "id": "infrastructure",
+      "name": "Local Infrastructure",
+      "stack": "infrastructure",
+      "version": "2026.11.07+devline.1",
+      "description": "Offline runbooks for ten prepared services, app connections, and portable data.",
+      "source_url": "https://github.com/fpl0/devline/blob/main/scripts/infrastructure-docs/overview.md",
+      "license": "Devline runbooks; PostgreSQL License and Apache-2.0 for upstream references",
+      "path": "docs/infrastructure/2026.11.07+devline.1",
+      "markdown": [],
+      "upstream_version": "2026.11.07",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "Service runbooks, app connections, portable images and volumes, selected PostgreSQL and SeaweedFS references"
+      ],
+      "omissions": [
+        "Cluster administration, production deployments, and complete product manuals are outside this snapshot"
+      ]
     },
     {
       "id": "java",
       "name": "Java SE",
       "stack": "java",
-      "version": "26.0.2.1+devline.1",
+      "version": "26.0.2.1+devline.2",
       "description": "Official OpenJDK API reference generated from curated JDK 26 library sources.",
       "source_url": "https://docs.oracle.com/en/java/javase/26/docs/api/",
       "license": "GPL-2.0 with Classpath Exception",
-      "path": "docs/java/26.0.2.1+devline.1",
-      "markdown": []
+      "path": "docs/java/26.0.2.1+devline.2",
+      "markdown": [],
+      "upstream_version": "26.0.2.1",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "OpenJDK API pages for selected core modules and classes"
+      ],
+      "omissions": [
+        "JDK packages outside the selected modules and platform guides are omitted",
+        "One link targets a heading absent from this snapshot"
+      ]
     },
     {
-      "id": "spring-boot",
-      "name": "Spring Boot",
-      "stack": "java",
-      "version": "4.1.2+devline.1",
-      "description": "Official Spring Boot reference, how-to guides and tutorials.",
-      "source_url": "https://docs.spring.io/spring-boot/4.1/",
+      "id": "node",
+      "name": "Node.js",
+      "stack": "node",
+      "version": "26.13.0+devline.1",
+      "description": "Official Node.js core API reference.",
+      "source_url": "https://nodejs.org/dist/v26.13.0/docs/api/",
+      "license": "MIT; bundled upstream notices",
+      "path": "docs/node/26.13.0+devline.1",
+      "markdown": [],
+      "upstream_version": "26.13.0",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "Official Node.js APIs for file I/O, HTTP, streams, SQLite, tests, modules, workers, and related core libraries"
+      ],
+      "omissions": [
+        "Unselected Node APIs, release history, and npm packages are outside this snapshot"
+      ]
+    },
+    {
+      "id": "phoenix",
+      "name": "Phoenix",
+      "stack": "elixir",
+      "version": "1.8.16+devline.1",
+      "description": "Official Phoenix guides and API documentation.",
+      "source_url": "https://hexdocs.pm/phoenix/1.8.16/",
+      "license": "MIT",
+      "path": "docs/phoenix/1.8.16+devline.1",
+      "markdown": [],
+      "upstream_version": "1.8.16",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Framework guides and Phoenix API modules"
+      ],
+      "omissions": [
+        "External Phoenix packages have separate documentation"
+      ]
+    },
+    {
+      "id": "playwright",
+      "name": "Playwright",
+      "stack": "node",
+      "version": "1.65.0+devline.1",
+      "description": "Official Playwright testing guides and API references.",
+      "source_url": "https://playwright.dev/docs/",
       "license": "Apache-2.0",
-      "path": "docs/spring-boot/4.1.2+devline.1",
-      "markdown": []
+      "path": "docs/playwright/1.65.0+devline.1",
+      "markdown": [],
+      "upstream_version": "1.65.0",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "JavaScript and TypeScript browser testing guides, API requests, fixtures, configuration, and selected API classes"
+      ],
+      "omissions": [
+        "Other language examples and unselected API classes are omitted"
+      ]
     },
     {
-      "id": "ruby",
-      "name": "Ruby",
-      "stack": "ruby",
-      "version": "4.0.9+devline.2",
-      "description": "Official Ruby language guides and core/standard-library reference from RDoc.",
-      "source_url": "https://docs.ruby-lang.org/en/4.0/",
-      "license": "Ruby License or BSD-2-Clause",
-      "path": "docs/ruby/4.0.9+devline.2",
-      "markdown": []
+      "id": "python",
+      "name": "Python",
+      "stack": "python",
+      "version": "3.15.2+devline.2",
+      "description": "Official language reference, tutorial and standard library manual.",
+      "source_url": "https://docs.python.org/3.15/",
+      "license": "PSF-2.0; examples also 0BSD",
+      "path": "docs/python/3.15.2+devline.2",
+      "markdown": [],
+      "upstream_version": "3.15.2",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Tutorial, language reference, HOWTOs, and standard library API pages"
+      ],
+      "omissions": [
+        "Packaging tools and third-party libraries are separate references",
+        "Two links target headings absent from this snapshot"
+      ]
     },
     {
       "id": "rails",
@@ -110,7 +321,55 @@
       "source_url": "https://guides.rubyonrails.org/v8.1/",
       "license": "CC-BY-SA-4.0",
       "path": "docs/rails/8.1.3+devline.2",
-      "markdown": []
+      "markdown": [],
+      "upstream_version": "8.1.3",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Application guides, Active Record, controllers, routing, jobs, and deployment"
+      ],
+      "omissions": [
+        "The full Rails API class catalog is omitted",
+        "Eight links target headings absent from this snapshot"
+      ]
+    },
+    {
+      "id": "react",
+      "name": "React",
+      "stack": "node",
+      "version": "19.3.1+devline.1",
+      "description": "Official React learning guides and selected Hook references.",
+      "source_url": "https://react.dev/",
+      "license": "CC-BY-4.0",
+      "path": "docs/react/19.3.1+devline.1",
+      "markdown": [],
+      "upstream_version": "19.3.1",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "Official React fundamentals and selected component and Hook references"
+      ],
+      "omissions": [
+        "Interactive sandboxes and unselected learning and API pages are omitted"
+      ]
+    },
+    {
+      "id": "ruby",
+      "name": "Ruby",
+      "stack": "ruby",
+      "version": "4.0.9+devline.2",
+      "description": "Official Ruby language guides and core/standard-library reference from RDoc.",
+      "source_url": "https://docs.ruby-lang.org/en/4.0/",
+      "license": "Ruby License or BSD-2-Clause",
+      "path": "docs/ruby/4.0.9+devline.2",
+      "markdown": [],
+      "upstream_version": "4.0.9",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Language guides, selected standard library classes, and methods from RDoc"
+      ],
+      "omissions": [
+        "Gem documentation and unselected RDoc entries are omitted",
+        "One link targets a heading absent from this snapshot"
+      ]
     },
     {
       "id": "rust",
@@ -122,51 +381,74 @@
       "license": "MIT OR Apache-2.0",
       "path": "docs/rust/1.99.1+devline.1",
       "markdown": [],
-      "shards": 2
+      "shards": 2,
+      "upstream_version": "1.99.1",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Rust Book, Reference, Cargo Book, and selected standard library APIs"
+      ],
+      "omissions": [
+        "Nightly-only and unselected Rustdoc pages are omitted",
+        "Six links target headings absent from this snapshot"
+      ]
     },
     {
-      "id": "axum",
-      "name": "Axum",
-      "stack": "rust",
-      "version": "0.8.9+devline.1",
-      "description": "Official Rustdoc for Axum routing, extractors, responses and middleware.",
-      "source_url": "https://docs.rs/axum/0.8.9/",
-      "license": "MIT",
-      "path": "docs/axum/0.8.9+devline.1",
-      "markdown": []
-    },
-    {
-      "id": "elixir",
-      "name": "Elixir",
-      "stack": "elixir",
-      "version": "1.20.5+devline.1",
-      "description": "Official language guides and core/standard library documentation.",
-      "source_url": "https://hexdocs.pm/elixir/1.20.5/",
+      "id": "spring-boot",
+      "name": "Spring Boot",
+      "stack": "java",
+      "version": "4.1.2+devline.1",
+      "description": "Official Spring Boot reference, how-to guides and tutorials.",
+      "source_url": "https://docs.spring.io/spring-boot/4.1/",
       "license": "Apache-2.0",
-      "path": "docs/elixir/1.20.5+devline.1",
-      "markdown": []
+      "path": "docs/spring-boot/4.1.2+devline.1",
+      "markdown": [],
+      "upstream_version": "4.1.2",
+      "snapshot_date": "2026-11-06",
+      "coverage": [
+        "Spring Boot reference, how-to guides, and tutorials"
+      ],
+      "omissions": [
+        "Spring Framework and external Spring projects are separate references",
+        "Five links target headings absent from this snapshot"
+      ]
     },
     {
-      "id": "phoenix",
-      "name": "Phoenix",
-      "stack": "elixir",
-      "version": "1.8.16+devline.1",
-      "description": "Official Phoenix guides and API documentation.",
-      "source_url": "https://hexdocs.pm/phoenix/1.8.16/",
+      "id": "typescript",
+      "name": "TypeScript",
+      "stack": "node",
+      "version": "7.0.2+devline.1",
+      "description": "Official TypeScript Handbook and selected TSConfig options.",
+      "source_url": "https://www.typescriptlang.org/",
+      "license": "CC-BY-4.0",
+      "path": "docs/typescript/7.0.2+devline.1",
+      "markdown": [],
+      "upstream_version": "7.0.2",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "The official TypeScript Handbook and selected TSConfig compiler options"
+      ],
+      "omissions": [
+        "Interactive compiler playgrounds, localized pages, and the full compiler API are omitted"
+      ]
+    },
+    {
+      "id": "vite",
+      "name": "Vite",
+      "stack": "node",
+      "version": "8.3.6+devline.1",
+      "description": "Official Vite development, build, and configuration guides.",
+      "source_url": "https://v8.vite.dev/",
       "license": "MIT",
-      "path": "docs/phoenix/1.8.16+devline.1",
-      "markdown": []
-    },
-    {
-      "id": "ecto",
-      "name": "Ecto",
-      "stack": "elixir",
-      "version": "3.14.3+devline.1",
-      "description": "Official Ecto database library guides and API documentation.",
-      "source_url": "https://hexdocs.pm/ecto/3.14.3/",
-      "license": "Apache-2.0",
-      "path": "docs/ecto/3.14.3+devline.1",
-      "markdown": []
+      "path": "docs/vite/8.3.6+devline.1",
+      "markdown": [],
+      "upstream_version": "8.3.6",
+      "snapshot_date": "2026-11-07",
+      "coverage": [
+        "Official Vite guides for setup, development, building, assets, and configuration"
+      ],
+      "omissions": [
+        "Framework plugin manuals and interactive media are outside this snapshot"
+      ]
     }
   ],
   "templates": [
@@ -183,7 +465,7 @@
       "test_command": "./test-offline.sh",
       "docs": [
         "go",
-        "chi"
+        "chi@5.2.4+devline.1"
       ],
       "verified": true,
       "target": "darwin-arm64"
@@ -201,7 +483,7 @@
       "test_command": "./test-offline.sh",
       "docs": [
         "go",
-        "chi"
+        "chi@5.2.4+devline.1"
       ],
       "verified": true,
       "target": "darwin-arm64"
@@ -326,7 +608,30 @@
       "test_command": "./test-offline.sh",
       "docs": [
         "go",
-        "chi"
+        "chi@5.2.4+devline.1"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "go/chi-taskboard",
+      "name": "Chi Taskboard",
+      "stack": "go",
+      "version": "1.0.0",
+      "description": "Server-rendered task board with PostgreSQL persistence, a Redis read-through cache, and vendored Go clients.",
+      "app_type": "web",
+      "path": "templates/go/chi-taskboard/1.0.0",
+      "toolchain": "go",
+      "minimum_version": "1.27.3",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "go",
+        "chi@5.5.0+devline.1",
+        "infrastructure"
+      ],
+      "services": [
+        "postgres@18.6",
+        "redis@8.10.1"
       ],
       "verified": true,
       "target": "darwin-arm64"
@@ -345,6 +650,313 @@
       "docs": [
         "python",
         "fastapi"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "node/playwright-automation",
+      "name": "Playwright Browser and API Automation",
+      "stack": "node",
+      "version": "1.0.0",
+      "description": "Playwright browser and API tests with bundled Apple Silicon WebKit.",
+      "app_type": "automation",
+      "path": "templates/node/playwright-automation/1.0.0",
+      "toolchain": "node",
+      "minimum_version": "26.0.0",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "node@26.13.0+devline.1",
+        "typescript@7.0.2+devline.1",
+        "playwright@1.65.0+devline.1"
+      ],
+      "verified": true,
+      "target": "darwin-arm64",
+      "minimum_macos": "26.5"
+    },
+    {
+      "id": "node/react-web",
+      "name": "React and TypeScript Web App",
+      "stack": "node",
+      "version": "1.0.0",
+      "description": "Vite frontend with React Router, TanStack Query, Zustand, Zod, and DOM tests. All build tools and npm dependencies are stored locally.",
+      "app_type": "web-app",
+      "path": "templates/node/react-web/1.0.0",
+      "toolchain": "node",
+      "minimum_version": "26.0.0",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "node@26.13.0+devline.1",
+        "typescript@7.0.2+devline.1",
+        "react@19.3.1+devline.1",
+        "vite@8.3.6+devline.1"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "python/service-kit",
+      "name": "Python Service Kit",
+      "stack": "python",
+      "version": "1.0.0",
+      "description": "FastAPI and an offline wheelhouse for SQL, Redis, RabbitMQ, NATS, S3, JWT, HTTP, and testing.",
+      "app_type": "api",
+      "path": "templates/python/service-kit/1.0.0",
+      "toolchain": "python3",
+      "minimum_version": "3.15.2",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "python",
+        "fastapi",
+        "infrastructure"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "python/data-automation",
+      "name": "Python Data Automation",
+      "stack": "python",
+      "version": "1.0.0",
+      "description": "DuckDB, HTTPX, and pytest for reproducible CSV and JSON processing.",
+      "app_type": "cli",
+      "path": "templates/python/data-automation/1.0.0",
+      "toolchain": "python3",
+      "minimum_version": "3.15.2",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "python"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "ruby/service-kit",
+      "name": "Ruby Service Kit",
+      "stack": "ruby",
+      "version": "1.0.0",
+      "description": "Sinatra and a local gem cache for SQL, Redis, RabbitMQ, NATS, S3, JWT, HTTP, and testing.",
+      "app_type": "api",
+      "path": "templates/ruby/service-kit/1.0.0",
+      "toolchain": "ruby",
+      "minimum_version": "4.0.9",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "ruby",
+        "infrastructure"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "ruby/task-automation",
+      "name": "Ruby Task Automation",
+      "stack": "ruby",
+      "version": "1.0.0",
+      "description": "Thor, Rake, CSV, WEBrick, and Minitest for local and HTTP fixture automation.",
+      "app_type": "cli",
+      "path": "templates/ruby/task-automation/1.0.0",
+      "toolchain": "ruby",
+      "minimum_version": "4.0.9",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "ruby"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "go/service-kit",
+      "name": "Go Service Kit",
+      "stack": "go",
+      "version": "1.0.0",
+      "description": "Chi Notes API with SQLite and vendored PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JWT and HTTP clients.",
+      "app_type": "api",
+      "path": "templates/go/service-kit/1.0.0",
+      "toolchain": "go",
+      "minimum_version": "1.27.3",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "go",
+        "chi@5.5.0+devline.1",
+        "infrastructure"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "go/file-index",
+      "name": "Go File Index",
+      "stack": "go",
+      "version": "1.0.0",
+      "description": "Stream deterministic JSON Lines file inventories with relative paths, byte counts and SHA-256.",
+      "app_type": "cli",
+      "path": "templates/go/file-index/1.0.0",
+      "toolchain": "go",
+      "minimum_version": "1.27.3",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "go"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "rust/service-kit",
+      "name": "Rust Service Kit",
+      "stack": "rust",
+      "version": "1.0.0",
+      "description": "Axum Notes API with SQLite and vendored PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JWT and HTTP clients.",
+      "app_type": "api",
+      "path": "templates/rust/service-kit/1.0.0",
+      "toolchain": "cargo",
+      "minimum_version": "1.99.1",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "rust",
+        "axum",
+        "infrastructure"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "rust/jsonl-report",
+      "name": "Rust JSONL Report",
+      "stack": "rust",
+      "version": "1.0.0",
+      "description": "Count scalar values in JSON Lines files or streams using a JSON Pointer.",
+      "app_type": "cli",
+      "path": "templates/rust/jsonl-report/1.0.0",
+      "toolchain": "cargo",
+      "minimum_version": "1.99.1",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "rust"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "node/service-kit",
+      "name": "Node.js Service Kit",
+      "stack": "node",
+      "version": "1.0.0",
+      "description": "Working SQLite task API plus PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JWT, validation, HTTP, and test libraries stored locally.",
+      "app_type": "service-kit",
+      "path": "templates/node/service-kit/1.0.0",
+      "toolchain": "node",
+      "minimum_version": "26.0.0",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "node@26.13.0+devline.1",
+        "infrastructure@2026.11.07+devline.1"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "dotnet/aspnet-api",
+      "name": "ASP.NET Core API",
+      "stack": "dotnet",
+      "version": "1.1.0",
+      "description": "ASP.NET Core 10 with EF Core SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, S3, JWT, and xUnit in a locked local NuGet feed.",
+      "app_type": "api",
+      "path": "templates/dotnet/aspnet-api/1.1.0",
+      "toolchain": "dotnet",
+      "minimum_version": "10.0.400",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "csharp",
+        "aspnet"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "java/spring-api",
+      "name": "Spring Boot API",
+      "stack": "java",
+      "version": "1.1.0",
+      "description": "Spring Boot 4.1.2 with PostgreSQL, MySQL, SQLite, Redis, RabbitMQ, S3, JWT, and JUnit in a local Maven repository.",
+      "app_type": "api",
+      "path": "templates/java/spring-api/1.1.0",
+      "toolchain": "mvn",
+      "minimum_version": "3.10.0",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "java",
+        "spring-boot"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "elixir/phoenix-api",
+      "name": "Phoenix HTTP API",
+      "stack": "elixir",
+      "version": "1.1.0",
+      "description": "Phoenix 1.8 with vendored Ecto database adapters, Redis, AMQP, S3, JWT, and HTTP. SQLite needs a local C toolchain.",
+      "app_type": "api",
+      "path": "templates/elixir/phoenix-api/1.1.0",
+      "toolchain": "elixir",
+      "minimum_version": "1.20.5",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "elixir",
+        "phoenix"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "dotnet/report-worker",
+      "name": "Hosted Report Worker",
+      "stack": "dotnet",
+      "version": "1.0.0",
+      "description": "A .NET Generic Host worker with typed configuration, cancellation, and an atomic local JSON report.",
+      "app_type": "worker",
+      "path": "templates/dotnet/report-worker/1.0.0",
+      "toolchain": "dotnet",
+      "minimum_version": "10.0.400",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "csharp",
+        "aspnet"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "java/json-tool",
+      "name": "JSON File Tool",
+      "stack": "java",
+      "version": "1.0.0",
+      "description": "An offline Java CLI with Picocli, Jackson, JUnit, and an executable JAR.",
+      "app_type": "cli",
+      "path": "templates/java/json-tool/1.0.0",
+      "toolchain": "mvn",
+      "minimum_version": "3.10.0",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "java"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "elixir/otp-worker",
+      "name": "OTP Report Worker",
+      "stack": "elixir",
+      "version": "1.0.0",
+      "description": "A supervised OTP task queue with local file reports and ExUnit tests.",
+      "app_type": "worker",
+      "path": "templates/elixir/otp-worker/1.0.0",
+      "toolchain": "elixir",
+      "minimum_version": "1.20.5",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "elixir"
       ],
       "verified": true,
       "target": "darwin-arm64"

@@ -1,0 +1,7 @@
+require "rake/testtask"
+
+Rake::TestTask.new do |test|
+  test.pattern = "test_app.rb"
+end
+
+task default: :test

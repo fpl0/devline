@@ -1,8 +1,13 @@
-use crate::{doc_index, markdown, text_arg, updates::compare_doc_releases, Context};
+use crate::{
+    doc_index, doc_updates, markdown, project, text_arg, updates::compare_doc_releases, Context,
+};
 use anyhow::{bail, Context as _, Result};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashSet},
+    path::Path,
+};
 
 struct DocScope<'a> {
     stack: &'a str,
@@ -43,29 +48,58 @@ impl<'a> DocScope<'a> {
             .chain(ctx.catalog.docs.iter().map(|pack| pack.stack.as_str()))
             .collect::<HashSet<_>>();
         let (term, selectors) = scoped_term(input, &known_packs, &known_stacks);
+        let pack = request["pack_id"].as_str().unwrap_or("");
+        let version = request["version"].as_str().unwrap_or("");
+        let automatic = latest
+            && selectors.is_empty()
+            && pack.is_empty()
+            && version.is_empty()
+            && request["stack"].as_str().is_none();
+        let project_releases = if automatic {
+            request["project_path"]
+                .as_str()
+                .map(|path| project::search_releases(ctx, db, Path::new(path)))
+                .transpose()?
+                .flatten()
+        } else {
+            None
+        };
         let stack = match request["stack"].as_str() {
             Some("all" | "") => "",
             Some(stack) => stack,
-            None if selectors.is_empty() => request["project_stack"].as_str().unwrap_or(""),
+            None if selectors.is_empty() && project_releases.is_none() => {
+                request["project_stack"].as_str().unwrap_or("")
+            }
             None => "",
         };
-        let pack = request["pack_id"].as_str().unwrap_or("");
-        let version = request["version"].as_str().unwrap_or("");
         let eligible = |id: &str, release: &str, family: &str| {
             (stack.is_empty() || stack == family)
                 && (pack.is_empty() || pack == id)
                 && (version.is_empty() || version == release)
+                && project_releases.as_ref().is_none_or(|releases| {
+                    releases.get(id).is_some_and(|selected| selected == release)
+                })
                 && (selectors.is_empty()
                     || selectors
                         .iter()
                         .any(|selector| selector.matches(id, release, family)))
         };
         let mut head = BTreeMap::<&str, &str>::new();
-        for (id, release, family) in &installed {
-            if eligible(id, release, family) {
-                let current = head.entry(id).or_insert(release);
-                if compare_doc_releases(release, current).is_gt() {
-                    *current = release;
+        if latest {
+            let preferred = if version.is_empty() && project_releases.is_none() {
+                doc_updates::preferences(db)?
+            } else {
+                BTreeMap::new()
+            };
+            for (id, release, family) in &installed {
+                if eligible(id, release, family) {
+                    let current = head.entry(id).or_insert(release);
+                    let pin = preferred.get(id).map(String::as_str);
+                    if pin == Some(release)
+                        || (pin != Some(*current) && compare_doc_releases(release, current).is_gt())
+                    {
+                        *current = release;
+                    }
                 }
             }
         }
@@ -803,7 +837,7 @@ pub(super) fn show(ctx: &Context, request: &Value) -> Result<Value> {
                 )
             }
             _ => bail!(
-                "Several documents match this reference. Use --version or an exact result id."
+                "Several documents match this reference. Use a fully qualified symbol, --version, or an exact result ID."
             ),
         }
     };

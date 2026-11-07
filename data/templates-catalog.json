@@ -12,7 +12,7 @@
     "test_command": "./test-offline.sh",
     "docs": [
       "go",
-      "chi"
+      "chi@5.2.4+devline.1"
     ],
     "verified": true,
     "target": "darwin-arm64"
@@ -30,7 +30,7 @@
     "test_command": "./test-offline.sh",
     "docs": [
       "go",
-      "chi"
+      "chi@5.2.4+devline.1"
     ],
     "verified": true,
     "target": "darwin-arm64"
@@ -155,7 +155,30 @@
     "test_command": "./test-offline.sh",
     "docs": [
       "go",
-      "chi"
+      "chi@5.2.4+devline.1"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "go/chi-taskboard",
+    "name": "Chi Taskboard",
+    "stack": "go",
+    "version": "1.0.0",
+    "description": "Server-rendered task board with PostgreSQL persistence, a Redis read-through cache, and vendored Go clients.",
+    "app_type": "web",
+    "path": "templates/go/chi-taskboard/1.0.0",
+    "toolchain": "go",
+    "minimum_version": "1.27.3",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "go",
+      "chi@5.5.0+devline.1",
+      "infrastructure"
+    ],
+    "services": [
+      "postgres@18.6",
+      "redis@8.10.1"
     ],
     "verified": true,
     "target": "darwin-arm64"
@@ -174,6 +197,313 @@
     "docs": [
       "python",
       "fastapi"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "node/playwright-automation",
+    "name": "Playwright Browser and API Automation",
+    "stack": "node",
+    "version": "1.0.0",
+    "description": "Playwright browser and API tests with bundled Apple Silicon WebKit.",
+    "app_type": "automation",
+    "path": "templates/node/playwright-automation/1.0.0",
+    "toolchain": "node",
+    "minimum_version": "26.0.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "node@26.13.0+devline.1",
+      "typescript@7.0.2+devline.1",
+      "playwright@1.65.0+devline.1"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
+    "minimum_macos": "26.5"
+  },
+  {
+    "id": "node/react-web",
+    "name": "React and TypeScript Web App",
+    "stack": "node",
+    "version": "1.0.0",
+    "description": "Vite frontend with React Router, TanStack Query, Zustand, Zod, and DOM tests. All build tools and npm dependencies are stored locally.",
+    "app_type": "web-app",
+    "path": "templates/node/react-web/1.0.0",
+    "toolchain": "node",
+    "minimum_version": "26.0.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "node@26.13.0+devline.1",
+      "typescript@7.0.2+devline.1",
+      "react@19.3.1+devline.1",
+      "vite@8.3.6+devline.1"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "python/service-kit",
+    "name": "Python Service Kit",
+    "stack": "python",
+    "version": "1.0.0",
+    "description": "FastAPI and an offline wheelhouse for SQL, Redis, RabbitMQ, NATS, S3, JWT, HTTP, and testing.",
+    "app_type": "api",
+    "path": "templates/python/service-kit/1.0.0",
+    "toolchain": "python3",
+    "minimum_version": "3.15.2",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "python",
+      "fastapi",
+      "infrastructure"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "python/data-automation",
+    "name": "Python Data Automation",
+    "stack": "python",
+    "version": "1.0.0",
+    "description": "DuckDB, HTTPX, and pytest for reproducible CSV and JSON processing.",
+    "app_type": "cli",
+    "path": "templates/python/data-automation/1.0.0",
+    "toolchain": "python3",
+    "minimum_version": "3.15.2",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "python"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "ruby/service-kit",
+    "name": "Ruby Service Kit",
+    "stack": "ruby",
+    "version": "1.0.0",
+    "description": "Sinatra and a local gem cache for SQL, Redis, RabbitMQ, NATS, S3, JWT, HTTP, and testing.",
+    "app_type": "api",
+    "path": "templates/ruby/service-kit/1.0.0",
+    "toolchain": "ruby",
+    "minimum_version": "4.0.9",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "ruby",
+      "infrastructure"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "ruby/task-automation",
+    "name": "Ruby Task Automation",
+    "stack": "ruby",
+    "version": "1.0.0",
+    "description": "Thor, Rake, CSV, WEBrick, and Minitest for local and HTTP fixture automation.",
+    "app_type": "cli",
+    "path": "templates/ruby/task-automation/1.0.0",
+    "toolchain": "ruby",
+    "minimum_version": "4.0.9",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "ruby"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "go/service-kit",
+    "name": "Go Service Kit",
+    "stack": "go",
+    "version": "1.0.0",
+    "description": "Chi Notes API with SQLite and vendored PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JWT and HTTP clients.",
+    "app_type": "api",
+    "path": "templates/go/service-kit/1.0.0",
+    "toolchain": "go",
+    "minimum_version": "1.27.3",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "go",
+      "chi@5.5.0+devline.1",
+      "infrastructure"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "go/file-index",
+    "name": "Go File Index",
+    "stack": "go",
+    "version": "1.0.0",
+    "description": "Stream deterministic JSON Lines file inventories with relative paths, byte counts and SHA-256.",
+    "app_type": "cli",
+    "path": "templates/go/file-index/1.0.0",
+    "toolchain": "go",
+    "minimum_version": "1.27.3",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "go"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "rust/service-kit",
+    "name": "Rust Service Kit",
+    "stack": "rust",
+    "version": "1.0.0",
+    "description": "Axum Notes API with SQLite and vendored PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JWT and HTTP clients.",
+    "app_type": "api",
+    "path": "templates/rust/service-kit/1.0.0",
+    "toolchain": "cargo",
+    "minimum_version": "1.99.1",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "rust",
+      "axum",
+      "infrastructure"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "rust/jsonl-report",
+    "name": "Rust JSONL Report",
+    "stack": "rust",
+    "version": "1.0.0",
+    "description": "Count scalar values in JSON Lines files or streams using a JSON Pointer.",
+    "app_type": "cli",
+    "path": "templates/rust/jsonl-report/1.0.0",
+    "toolchain": "cargo",
+    "minimum_version": "1.99.1",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "rust"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "node/service-kit",
+    "name": "Node.js Service Kit",
+    "stack": "node",
+    "version": "1.0.0",
+    "description": "Working SQLite task API plus PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JWT, validation, HTTP, and test libraries stored locally.",
+    "app_type": "service-kit",
+    "path": "templates/node/service-kit/1.0.0",
+    "toolchain": "node",
+    "minimum_version": "26.0.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "node@26.13.0+devline.1",
+      "infrastructure@2026.11.07+devline.1"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "dotnet/aspnet-api",
+    "name": "ASP.NET Core API",
+    "stack": "dotnet",
+    "version": "1.1.0",
+    "description": "ASP.NET Core 10 with EF Core SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, S3, JWT, and xUnit in a locked local NuGet feed.",
+    "app_type": "api",
+    "path": "templates/dotnet/aspnet-api/1.1.0",
+    "toolchain": "dotnet",
+    "minimum_version": "10.0.400",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "csharp",
+      "aspnet"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "java/spring-api",
+    "name": "Spring Boot API",
+    "stack": "java",
+    "version": "1.1.0",
+    "description": "Spring Boot 4.1.2 with PostgreSQL, MySQL, SQLite, Redis, RabbitMQ, S3, JWT, and JUnit in a local Maven repository.",
+    "app_type": "api",
+    "path": "templates/java/spring-api/1.1.0",
+    "toolchain": "mvn",
+    "minimum_version": "3.10.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "java",
+      "spring-boot"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "elixir/phoenix-api",
+    "name": "Phoenix HTTP API",
+    "stack": "elixir",
+    "version": "1.1.0",
+    "description": "Phoenix 1.8 with vendored Ecto database adapters, Redis, AMQP, S3, JWT, and HTTP. SQLite needs a local C toolchain.",
+    "app_type": "api",
+    "path": "templates/elixir/phoenix-api/1.1.0",
+    "toolchain": "elixir",
+    "minimum_version": "1.20.5",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "elixir",
+      "phoenix"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "dotnet/report-worker",
+    "name": "Hosted Report Worker",
+    "stack": "dotnet",
+    "version": "1.0.0",
+    "description": "A .NET Generic Host worker with typed configuration, cancellation, and an atomic local JSON report.",
+    "app_type": "worker",
+    "path": "templates/dotnet/report-worker/1.0.0",
+    "toolchain": "dotnet",
+    "minimum_version": "10.0.400",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "csharp",
+      "aspnet"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "java/json-tool",
+    "name": "JSON File Tool",
+    "stack": "java",
+    "version": "1.0.0",
+    "description": "An offline Java CLI with Picocli, Jackson, JUnit, and an executable JAR.",
+    "app_type": "cli",
+    "path": "templates/java/json-tool/1.0.0",
+    "toolchain": "mvn",
+    "minimum_version": "3.10.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "java"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "elixir/otp-worker",
+    "name": "OTP Report Worker",
+    "stack": "elixir",
+    "version": "1.0.0",
+    "description": "A supervised OTP task queue with local file reports and ExUnit tests.",
+    "app_type": "worker",
+    "path": "templates/elixir/otp-worker/1.0.0",
+    "toolchain": "elixir",
+    "minimum_version": "1.20.5",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "elixir"
     ],
     "verified": true,
     "target": "darwin-arm64"

@@ -106,6 +106,15 @@ struct UpdatesView: View {
     @State private var configuringChannel = false
 
     var body: some View {
+        TabView {
+            DocDistributionView(model: model, checkOnOpen: checkOnOpen).tabItem { Text("Documentation") }
+            sourceUpdates.tabItem { Text("Starters and Runtimes") }
+            ImageUpdatesView(model: model).tabItem { Text("Infrastructure") }
+            Form { AppUpdatesSettings() }.formStyle(.grouped).tabItem { Text("Devline App") }
+        }.padding(.top, 8)
+    }
+
+    private var sourceUpdates: some View {
         VStack(spacing: 0) {
             header
             if !documentationUpdates.isEmpty {
@@ -133,14 +142,14 @@ struct UpdatesView: View {
                     Divider()
                 }
                 if filter == .available {
-                    let available = snapshot.items.filter { $0.state == .available }
+                    let available = snapshot.items.filter { $0.state == .available && ($0.kind == .template || $0.kind == .runtime) }
                     if available.isEmpty {
                         availableEmptyState(snapshot)
                     } else {
                         updateList(available)
                     }
                 } else {
-                    updateList(snapshot.items)
+                    updateList(snapshot.items.filter { $0.kind == .template || $0.kind == .runtime })
                 }
             } else if let loadError {
                 ContentUnavailableView {
@@ -171,8 +180,7 @@ struct UpdatesView: View {
         ), titleVisibility: .visible, presenting: rebuildTarget) { item in
             Button("Build Release") {
                 guard let reference = item.reference else { return }
-                apply(CoreRequest("templates.build", id: reference),
-                      label: "Building \(item.name)", completion: "Built a new release of \(item.name).")
+                Task { await model.startJob(CoreRequest("jobs.start", id: reference, kind: "build")) }
             }
         } message: { item in
             Text("Devline will fetch current dependencies for \(item.name) and verify the new release offline. Existing releases stay available.")
@@ -180,7 +188,7 @@ struct UpdatesView: View {
     }
 
     private var documentationUpdates: [CoreRequest] {
-        snapshot?.items.filter { $0.state == .available }.compactMap(\.docInstallRequest) ?? []
+        []
     }
 
     private var header: some View {
@@ -210,7 +218,7 @@ struct UpdatesView: View {
 
     private func availableEmptyState(_ snapshot: UpdateSnapshot) -> some View {
         let incomplete = snapshot.checkedAt == nil || snapshot.items.contains {
-            $0.state == .unchecked || $0.state == .error
+            ($0.kind == .template || $0.kind == .runtime) && ($0.state == .unchecked || $0.state == .error)
         }
         return ContentUnavailableView(
             "No Updates Available",
@@ -223,7 +231,7 @@ struct UpdatesView: View {
 
     private var checkSummary: String {
         guard let snapshot else { return "Update Status" }
-        let count = snapshot.items.filter { $0.state == .available }.count
+        let count = snapshot.items.filter { ($0.kind == .template || $0.kind == .runtime) && $0.state == .available }.count
         if count > 0 { return count == 1 ? "1 Update Available" : "\(count) Updates Available" }
         return "Update Status"
     }

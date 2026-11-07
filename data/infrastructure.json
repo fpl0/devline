@@ -1,0 +1,731 @@
+{
+  "schema_version": 1,
+  "services": [
+    {
+      "id": "postgres",
+      "name": "PostgreSQL",
+      "version": "18.6",
+      "category": "Database",
+      "description": "Relational database with SQL, JSONB, and transaction support.",
+      "image": {
+        "registry": "docker.io",
+        "repository": "library/postgres",
+        "tag": "18.6-alpine",
+        "index_digest": "sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395",
+        "digest": "sha256:c935aff069a7bbe5c286411a08e9678850d79be7848b190a0e4637b266478626",
+        "config_digest": "sha256:bc06ed2188a33388c6952bc58b9ce06dac389bbded2d70101c7c138218900f2f",
+        "platform": "linux/arm64",
+        "compressed_bytes": 117904255
+      },
+      "ports": [
+        {
+          "id": "database",
+          "name": "PostgreSQL",
+          "container_port": 5432,
+          "host_port": 5432,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {
+        "POSTGRES_USER": "devline",
+        "POSTGRES_DB": "devline",
+        "POSTGRES_PASSWORD": "{{secret:password}}"
+      },
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/var/lib/postgresql"
+        }
+      ],
+      "command": [],
+      "healthcheck": {
+        "command": [
+          "CMD",
+          "pg_isready",
+          "-h",
+          "127.0.0.1",
+          "-U",
+          "devline",
+          "-d",
+          "devline"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 3,
+        "retries": 12,
+        "start_period_seconds": 10
+      },
+      "provenance": {
+        "publisher": "Docker Official Image · PostgreSQL Docker Community",
+        "image_url": "https://hub.docker.com/_/postgres",
+        "source_url": "https://github.com/docker-library/postgres",
+        "docs_url": "https://www.postgresql.org/docs/18/",
+        "license": "PostgreSQL",
+        "license_url": "https://www.postgresql.org/about/licence/"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/postgres",
+      "connection": "postgresql://devline:{{secret:password}}@127.0.0.1:{{port:database}}/devline",
+      "credentials": [
+        {
+          "id": "password",
+          "label": "Database password"
+        }
+      ]
+    },
+    {
+      "id": "mysql",
+      "name": "MySQL",
+      "version": "8.4.11",
+      "category": "Database",
+      "description": "MySQL 8.4 LTS for relational schemas and application integration testing.",
+      "image": {
+        "registry": "docker.io",
+        "repository": "library/mysql",
+        "tag": "8.4.11",
+        "index_digest": "sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364",
+        "digest": "sha256:4452d4257b94692c09df0f6011a3275744746001150f3cdbdc9278bacfa385bb",
+        "config_digest": "sha256:b568b36c40dcaf1c2967403fa404be8d5f5ce7df967dd305153facee1a34cb87",
+        "platform": "linux/arm64",
+        "compressed_bytes": 232973493
+      },
+      "ports": [
+        {
+          "id": "database",
+          "name": "MySQL",
+          "container_port": 3306,
+          "host_port": 3306,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {
+        "MYSQL_DATABASE": "devline",
+        "MYSQL_USER": "devline",
+        "MYSQL_PASSWORD": "{{secret:password}}",
+        "MYSQL_ROOT_PASSWORD": "{{secret:root-password}}"
+      },
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/var/lib/mysql"
+        }
+      ],
+      "command": [],
+      "healthcheck": {
+        "command": [
+          "CMD",
+          "mysql",
+          "--host=127.0.0.1",
+          "--user=devline",
+          "--password={{secret:password}}",
+          "--database=devline",
+          "--execute=SELECT 1"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 3,
+        "retries": 12,
+        "start_period_seconds": 35
+      },
+      "provenance": {
+        "publisher": "Docker Official Image · MySQL team",
+        "image_url": "https://hub.docker.com/_/mysql",
+        "source_url": "https://github.com/docker-library/mysql",
+        "docs_url": "https://dev.mysql.com/doc/refman/8.4/en/",
+        "license": "GPL-2.0-only with Universal FOSS Exception (Community Server)",
+        "license_url": "https://github.com/mysql/mysql-server/blob/mysql-8.4.11/LICENSE"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/mysql",
+      "connection": "mysql://devline:{{secret:password}}@127.0.0.1:{{port:database}}/devline",
+      "credentials": [
+        {
+          "id": "password",
+          "label": "Database password"
+        },
+        {
+          "id": "root-password",
+          "label": "Root password"
+        }
+      ]
+    },
+    {
+      "id": "rabbitmq",
+      "name": "RabbitMQ",
+      "version": "4.3.7",
+      "category": "Messaging",
+      "description": "AMQP message broker with queues, exchanges, and a local management console.",
+      "image": {
+        "registry": "docker.io",
+        "repository": "library/rabbitmq",
+        "tag": "4.3.7-management-alpine",
+        "index_digest": "sha256:eb338b3fc8f5c251028c0022ac0de3fe1db2d599d1c6a08b45898f756f248881",
+        "digest": "sha256:728e54184d22a4116a9aa4a8ef2061544d96e5f443a02bd7847e95d2e247d712",
+        "config_digest": "sha256:21adc123913fb6da7943f264997566b83391b6873dafad763ca8bde3367da977",
+        "platform": "linux/arm64",
+        "compressed_bytes": 87826984
+      },
+      "ports": [
+        {
+          "id": "amqp",
+          "name": "AMQP",
+          "container_port": 5672,
+          "host_port": 5672,
+          "protocol": "tcp"
+        },
+        {
+          "id": "management",
+          "name": "Management",
+          "container_port": 15672,
+          "host_port": 15672,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {
+        "RABBITMQ_DEFAULT_USER": "devline",
+        "RABBITMQ_DEFAULT_PASS": "{{secret:password}}",
+        "RABBITMQ_DEFAULT_VHOST": "devline",
+        "RABBITMQ_NODENAME": "rabbit@localhost"
+      },
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/var/lib/rabbitmq"
+        }
+      ],
+      "command": [],
+      "healthcheck": {
+        "command": [
+          "CMD",
+          "rabbitmq-diagnostics",
+          "-q",
+          "check_running"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 5,
+        "retries": 12,
+        "start_period_seconds": 30
+      },
+      "provenance": {
+        "publisher": "Docker Official Image · Docker Community",
+        "image_url": "https://hub.docker.com/_/rabbitmq",
+        "source_url": "https://github.com/docker-library/rabbitmq",
+        "docs_url": "https://www.rabbitmq.com/docs/4.3",
+        "license": "MPL-2.0",
+        "license_url": "https://github.com/rabbitmq/rabbitmq-server/blob/v4.3.7/LICENSE-MPL-RabbitMQ"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/rabbitmq",
+      "connection": "amqp://devline:{{secret:password}}@127.0.0.1:{{port:amqp}}/devline",
+      "credentials": [
+        {
+          "id": "password",
+          "label": "Broker password"
+        }
+      ]
+    },
+    {
+      "id": "redis",
+      "name": "Redis",
+      "version": "8.10.1",
+      "category": "Cache",
+      "description": "Redis data structures with password authentication and append-only persistence.",
+      "image": {
+        "registry": "docker.io",
+        "repository": "library/redis",
+        "tag": "8.10.1-alpine",
+        "index_digest": "sha256:ef216d85ec44f4fdf7c0e6df2d1757a4734ed32fbb278cabd3181b5a27353b79",
+        "digest": "sha256:0ba1ade8d2139544540fb6aa1338bb6a95ca4e44f4ae8a49627abee1db345da7",
+        "config_digest": "sha256:335368721d328df9bf4779e9af816b0c8d3a87eddf1865fad80402b6b468f426",
+        "platform": "linux/arm64",
+        "compressed_bytes": 38675111
+      },
+      "ports": [
+        {
+          "id": "redis",
+          "name": "Redis",
+          "container_port": 6379,
+          "host_port": 6379,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {
+        "REDISCLI_AUTH": "{{secret:password}}"
+      },
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/data"
+        }
+      ],
+      "command": [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "{{secret:password}}"
+      ],
+      "healthcheck": {
+        "command": [
+          "CMD-SHELL",
+          "redis-cli --raw ping | grep -qx PONG"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 3,
+        "retries": 12,
+        "start_period_seconds": 10
+      },
+      "provenance": {
+        "publisher": "Docker Official Image · Redis Ltd",
+        "image_url": "https://hub.docker.com/_/redis",
+        "source_url": "https://github.com/redis/docker-library-redis",
+        "docs_url": "https://redis.io/docs/latest/",
+        "license": "AGPL-3.0-only OR RSALv2 OR SSPL-1.0",
+        "license_url": "https://redis.io/legal/licenses/"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/redis",
+      "connection": "redis://:{{secret:password}}@127.0.0.1:{{port:redis}}/0",
+      "credentials": [
+        {
+          "id": "password",
+          "label": "Redis password"
+        }
+      ]
+    },
+    {
+      "id": "mongodb",
+      "name": "MongoDB",
+      "version": "8.0.34",
+      "category": "Database",
+      "description": "Standalone document database with authentication and a persistent WiredTiger volume.",
+      "image": {
+        "registry": "docker.io",
+        "repository": "library/mongo",
+        "tag": "8.0.34-noble",
+        "index_digest": "sha256:3c64937121b9437095921c4bb2569911084c05f7b88e4a263d62a8959d2b2399",
+        "digest": "sha256:ec4aeabb7db10f2fb3cde7e1982becef96779646c34c220a7fbcfe2f880b2846",
+        "config_digest": "sha256:4ceaf589fde84b5581be60626bff57ab8d48b1eb66ab4eeb6a807908546ff2f9",
+        "platform": "linux/arm64",
+        "compressed_bytes": 303323510
+      },
+      "ports": [
+        {
+          "id": "database",
+          "name": "MongoDB",
+          "container_port": 27017,
+          "host_port": 27017,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {
+        "MONGO_INITDB_ROOT_USERNAME": "devline",
+        "MONGO_INITDB_ROOT_PASSWORD": "{{secret:password}}"
+      },
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/data/db"
+        },
+        {
+          "id": "config",
+          "target": "/data/configdb"
+        }
+      ],
+      "command": [],
+      "healthcheck": {
+        "command": [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--host",
+          "127.0.0.1",
+          "--username",
+          "devline",
+          "--password",
+          "{{secret:password}}",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "quit(db.adminCommand({ping:1}).ok === 1 ? 0 : 1)"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 5,
+        "retries": 12,
+        "start_period_seconds": 25
+      },
+      "provenance": {
+        "publisher": "Docker Official Image · Docker Community",
+        "image_url": "https://hub.docker.com/_/mongo",
+        "source_url": "https://github.com/docker-library/mongo",
+        "docs_url": "https://www.mongodb.com/docs/v8.0/",
+        "license": "SSPL-1.0",
+        "license_url": "https://www.mongodb.com/legal/licensing/server-side-public-license"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/mongodb",
+      "connection": "mongodb://devline:{{secret:password}}@127.0.0.1:{{port:database}}/devline?authSource=admin",
+      "credentials": [
+        {
+          "id": "password",
+          "label": "MongoDB admin password"
+        }
+      ]
+    },
+    {
+      "id": "nats",
+      "name": "NATS",
+      "version": "2.15.2",
+      "category": "Messaging",
+      "description": "Subject-based messaging with authenticated clients and persistent JetStream.",
+      "image": {
+        "registry": "docker.io",
+        "repository": "library/nats",
+        "tag": "2.15.2-alpine",
+        "index_digest": "sha256:afae2fdbe2e326c65e1246cb83b9d05d319188734f3bd577ac8072daae78a10f",
+        "digest": "sha256:20196671f18d72f951ae7c6877cdbad3a6fee55a4b0844b76eb152fa49fbee61",
+        "config_digest": "sha256:c96d815945a57ca20dae2dbbcbaac196a56ccf1914d9b95595d731f5b475d65c",
+        "platform": "linux/arm64",
+        "compressed_bytes": 11182175
+      },
+      "ports": [
+        {
+          "id": "nats",
+          "name": "NATS",
+          "container_port": 4222,
+          "host_port": 4222,
+          "protocol": "tcp"
+        },
+        {
+          "id": "monitor",
+          "name": "HTTP monitoring",
+          "container_port": 8222,
+          "host_port": 8222,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {},
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/data"
+        }
+      ],
+      "command": [
+        "nats-server",
+        "--jetstream",
+        "--store_dir",
+        "/data",
+        "--http_port",
+        "8222",
+        "--user",
+        "devline",
+        "--pass",
+        "{{secret:password}}"
+      ],
+      "healthcheck": {
+        "command": [
+          "CMD",
+          "wget",
+          "-q",
+          "-O",
+          "/dev/null",
+          "http://127.0.0.1:8222/healthz?js-enabled-only=true"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 3,
+        "retries": 12,
+        "start_period_seconds": 10
+      },
+      "provenance": {
+        "publisher": "Docker Official Image · NATS Project",
+        "image_url": "https://hub.docker.com/_/nats",
+        "source_url": "https://github.com/nats-io/nats-docker",
+        "docs_url": "https://docs.nats.io/",
+        "license": "Apache-2.0",
+        "license_url": "https://github.com/nats-io/nats-server/blob/v2.15.2/LICENSE"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/nats",
+      "connection": "nats://devline:{{secret:password}}@127.0.0.1:{{port:nats}}",
+      "credentials": [
+        {
+          "id": "password",
+          "label": "NATS password"
+        }
+      ]
+    },
+    {
+      "id": "mailpit",
+      "name": "Mailpit",
+      "version": "1.33.0",
+      "category": "Email",
+      "description": "Local SMTP inbox with HTML preview and an API for email integration tests.",
+      "image": {
+        "registry": "docker.io",
+        "repository": "axllent/mailpit",
+        "tag": "v1.33.0",
+        "index_digest": "sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231",
+        "digest": "sha256:e5bf699db0edd1a813496f7a49e546d328e3484cd4d35bc4e3e29b403405715c",
+        "config_digest": "sha256:245e558b2e440962f2d646b6415fbb99b38761dc8a170e6646edf1113779965f",
+        "platform": "linux/arm64",
+        "compressed_bytes": 14426857
+      },
+      "ports": [
+        {
+          "id": "smtp",
+          "name": "SMTP",
+          "container_port": 1025,
+          "host_port": 1025,
+          "protocol": "tcp"
+        },
+        {
+          "id": "web",
+          "name": "Web inbox",
+          "container_port": 8025,
+          "host_port": 8025,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {
+        "MP_DATABASE": "/data/mailpit.db",
+        "MP_MAX_MESSAGES": "5000"
+      },
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/data"
+        }
+      ],
+      "command": [],
+      "healthcheck": {
+        "command": [
+          "CMD",
+          "/mailpit",
+          "readyz"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 3,
+        "retries": 12,
+        "start_period_seconds": 10
+      },
+      "provenance": {
+        "publisher": "Mailpit project",
+        "image_url": "https://hub.docker.com/r/axllent/mailpit",
+        "source_url": "https://github.com/axllent/mailpit/tree/v1.33.0",
+        "docs_url": "https://mailpit.axllent.org/docs/",
+        "license": "MIT",
+        "license_url": "https://github.com/axllent/mailpit/blob/v1.33.0/LICENSE"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/mailpit",
+      "connection": "smtp://127.0.0.1:{{port:smtp}}",
+      "credentials": []
+    },
+    {
+      "id": "meilisearch",
+      "name": "Meilisearch",
+      "version": "1.56.1",
+      "category": "Search",
+      "description": "HTTP search engine for typo-tolerant text search, filtering, and facets.",
+      "image": {
+        "registry": "docker.io",
+        "repository": "getmeili/meilisearch",
+        "tag": "v1.56.1",
+        "index_digest": "sha256:b7ba431bf6f9b26cc86132798f3640964147a699cf23f026b74c6c05dbb1d60d",
+        "digest": "sha256:7f04665b09c9ec91a1b72acbbf14a5046df4c3d358320e8bbb4deb9d054e3e1b",
+        "config_digest": "sha256:00eb4f77cdea3b6092b4d3ad1a23cffc267ab1944d142964c2ba2fec4f174691",
+        "platform": "linux/arm64",
+        "compressed_bytes": 105570131
+      },
+      "ports": [
+        {
+          "id": "http",
+          "name": "Search API",
+          "container_port": 7700,
+          "host_port": 7700,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {
+        "MEILI_ENV": "development",
+        "MEILI_MASTER_KEY": "{{secret:password}}",
+        "MEILI_NO_ANALYTICS": "true"
+      },
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/meili_data"
+        }
+      ],
+      "command": [],
+      "healthcheck": {
+        "command": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "-o",
+          "/dev/null",
+          "http://127.0.0.1:7700/health"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 3,
+        "retries": 12,
+        "start_period_seconds": 10
+      },
+      "provenance": {
+        "publisher": "Meilisearch project",
+        "image_url": "https://hub.docker.com/r/getmeili/meilisearch",
+        "source_url": "https://github.com/meilisearch/meilisearch/tree/v1.56.1",
+        "docs_url": "https://www.meilisearch.com/docs",
+        "license": "MIT (Community Edition)",
+        "license_url": "https://github.com/meilisearch/meilisearch/blob/v1.56.1/LICENSE"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/meilisearch",
+      "connection": "http://127.0.0.1:{{port:http}}",
+      "credentials": [
+        {
+          "id": "password",
+          "label": "Meilisearch master key"
+        }
+      ]
+    },
+    {
+      "id": "seaweedfs",
+      "name": "SeaweedFS S3",
+      "version": "4.52",
+      "category": "Object storage",
+      "description": "Single-node S3-compatible object storage with a pre-created development bucket.",
+      "image": {
+        "registry": "docker.io",
+        "repository": "chrislusf/seaweedfs",
+        "tag": "4.52",
+        "index_digest": "sha256:57877e32bb90073b37dc109b438ba66e84fd5ed9ced5f5c04f56444ef243ce59",
+        "digest": "sha256:18a805c81cd574a24571cfbc23ff1cb0bb2b875b1ac028a58c065c15f0c7b3ad",
+        "config_digest": "sha256:f01d2260762bfe0a3b4780b561d716251a1dc3fd3d20dccfa8fde4d95c414104",
+        "platform": "linux/arm64",
+        "compressed_bytes": 265860397
+      },
+      "ports": [
+        {
+          "id": "s3",
+          "name": "S3 API",
+          "container_port": 8333,
+          "host_port": 8333,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {
+        "AWS_ACCESS_KEY_ID": "devline",
+        "AWS_SECRET_ACCESS_KEY": "{{secret:password}}",
+        "S3_BUCKET": "devline"
+      },
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/data"
+        }
+      ],
+      "command": [
+        "mini",
+        "-dir=/data"
+      ],
+      "healthcheck": {
+        "command": [
+          "CMD",
+          "wget",
+          "-q",
+          "-O",
+          "/dev/null",
+          "http://127.0.0.1:8333/healthz"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 3,
+        "retries": 12,
+        "start_period_seconds": 25
+      },
+      "provenance": {
+        "publisher": "SeaweedFS project",
+        "image_url": "https://hub.docker.com/r/chrislusf/seaweedfs",
+        "source_url": "https://github.com/seaweedfs/seaweedfs/tree/4.52",
+        "docs_url": "https://github.com/seaweedfs/seaweedfs/wiki/Amazon-S3-API",
+        "license": "Apache-2.0",
+        "license_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/LICENSE"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/seaweedfs",
+      "connection": "http://127.0.0.1:{{port:s3}}",
+      "credentials": [
+        {
+          "id": "password",
+          "label": "S3 secret access key"
+        }
+      ]
+    },
+    {
+      "id": "keycloak",
+      "name": "Keycloak",
+      "version": "26.8.2",
+      "category": "Identity",
+      "description": "Local OAuth 2.0 and OpenID Connect provider for authentication flows.",
+      "image": {
+        "registry": "quay.io",
+        "repository": "keycloak/keycloak",
+        "tag": "26.8.2",
+        "index_digest": "sha256:3879c623248408de29a5303178b5816c77e8dfef3890c361f8c0bbeaa979ba3b",
+        "digest": "sha256:1beace43eb563942a05fdea24fc04898e1a182797397f97a63fdb6c421aede44",
+        "config_digest": "sha256:12018a15aa80a74d1225f761c17c0fdfd5c72e397f971758d735e81756cedd77",
+        "platform": "linux/arm64",
+        "compressed_bytes": 263515453
+      },
+      "ports": [
+        {
+          "id": "http",
+          "name": "Admin and OIDC",
+          "container_port": 8080,
+          "host_port": 8180,
+          "protocol": "tcp"
+        },
+        {
+          "id": "health",
+          "name": "Health",
+          "container_port": 9000,
+          "host_port": 9100,
+          "protocol": "tcp"
+        }
+      ],
+      "env": {
+        "KC_BOOTSTRAP_ADMIN_USERNAME": "devline",
+        "KC_BOOTSTRAP_ADMIN_PASSWORD": "{{secret:password}}",
+        "KC_HEALTH_ENABLED": "true"
+      },
+      "volumes": [
+        {
+          "id": "data",
+          "target": "/opt/keycloak/data"
+        }
+      ],
+      "command": [
+        "start-dev"
+      ],
+      "healthcheck": {
+        "command": [
+          "CMD",
+          "bash",
+          "-c",
+          "{ printf 'HEAD /health/ready HTTP/1.0\\r\\n\\r\\n' >&0; grep -q 'HTTP/1.0 200'; } 0<>/dev/tcp/127.0.0.1/9000"
+        ],
+        "interval_seconds": 5,
+        "timeout_seconds": 5,
+        "retries": 12,
+        "start_period_seconds": 60
+      },
+      "provenance": {
+        "publisher": "Keycloak project",
+        "image_url": "https://quay.io/repository/keycloak/keycloak",
+        "source_url": "https://github.com/keycloak/keycloak/tree/26.8.2",
+        "docs_url": "https://www.keycloak.org/documentation",
+        "license": "Apache-2.0",
+        "license_url": "https://github.com/keycloak/keycloak/blob/26.8.2/LICENSE.txt"
+      },
+      "docs_ref": "infrastructure@2026.11.07+devline.1/keycloak",
+      "connection": "http://127.0.0.1:{{port:http}}/realms/devline",
+      "credentials": [
+        {
+          "id": "password",
+          "label": "Bootstrap admin password"
+        }
+      ]
+    }
+  ]
+}

@@ -8,12 +8,15 @@ struct DocReader: View {
     var anchor: String?
     var focus: String?
     var restoredPosition: Double?
+    var restoredOffset: Double?
     var isSaved = false
     var save: (String?, String?) -> Void = { _, _ in }
     var navigate: (URL) -> Void = { NSWorkspace.shared.open($0) }
     var openPart: (String) -> Void = { _ in }
-    var reportPosition: (Double, String?) -> Void = { _, _ in }
+    var reportPosition: (Double, String?, Double?) -> Void = { _, _, _ in }
     @AppStorage("devline.readerScale") private var scale = 1.0
+    @AppStorage("devline.contentsPinned") private var contentsPinned = false
+    @AppStorage("devline.focusReading") private var focusReading = false
     @State private var article: ReaderArticle?
     @State private var currentAnchor: String?
     @State private var currentFocus: String?
@@ -34,7 +37,7 @@ struct DocReader: View {
         sections.filter { outlineFilter.isEmpty || $0.title.localizedCaseInsensitiveContains(outlineFilter) }
     }
     private var initialTarget: ReaderTarget {
-        ReaderTarget(anchor: anchor, focus: focus ?? document.focusText, position: restoredPosition)
+        ReaderTarget(anchor: anchor, focus: focus ?? document.focusText, position: restoredPosition, offset: restoredOffset)
     }
 
     var body: some View {
@@ -42,23 +45,13 @@ struct DocReader: View {
             readerBar
             Divider()
             if findVisible { findBar; Divider() }
-            if let html {
-                OfflineArticle(html: html, title: ReaderMarkup.title(document.title, fallback: "\(packName) Overview"),
-                               sourceURL: document.sourceUrl, scale: scale, request: request,
-                               report: reportFind, reportSections: { htmlSections = $0 },
-                               navigate: navigate, reportPosition: { fraction, anchor, userInitiated in
-                                   if userInitiated { currentAnchor = anchor; currentFocus = nil }
-                                   reportPosition(fraction, currentAnchor)
-                               })
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if let article {
-                GeometryReader { geometry in
-                    PlainArticle(article: article, horizontalInset: max(25, (geometry.size.width - 710 * scale) / 2),
-                                 scale: scale, request: request, report: reportFind,
-                                 reportPosition: { reportPosition($0, currentAnchor) })
+            HSplitView {
+                articleBody.frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity)
+                if contentsPinned {
+                    outlineContents(pinned: true)
+                        .frame(minWidth: 180, idealWidth: 215, maxWidth: 260, maxHeight: .infinity)
+                        .background(.quaternary.opacity(0.15))
                 }
-            } else {
-                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             if document.previousId != nil || document.nextId != nil { continuationBar }
         }
@@ -67,7 +60,7 @@ struct DocReader: View {
             currentFocus = initialTarget.focus
             if html == nil, article == nil { article = ReaderMarkup.article(document, fallback: "\(packName) Overview") }
             if let position = initialTarget.position {
-                request = ReaderRequest(action: .restore(position))
+                request = ReaderRequest(action: .restore(position, anchor: initialTarget.anchor, offset: initialTarget.offset))
             } else if let anchor = initialTarget.anchor, !anchor.isEmpty, html != nil {
                 request = ReaderRequest(action: .jump(ReaderSection(title: "", target: .anchor(anchor), fallbackText: initialTarget.focus)))
             } else if let focus = initialTarget.focus, !focus.isEmpty {
@@ -78,21 +71,51 @@ struct DocReader: View {
         }
     }
 
+    @ViewBuilder private var articleBody: some View {
+            if let html {
+                OfflineArticle(html: html, title: ReaderMarkup.title(document.title, fallback: "\(packName) Overview"),
+                               sourceURL: document.sourceUrl, scale: scale, request: request,
+                               report: reportFind, reportSections: { htmlSections = $0 },
+                               navigate: navigate, reportPosition: { fraction, anchor, offset, userInitiated in
+                                   if userInitiated { currentAnchor = anchor; currentFocus = nil }
+                                   reportPosition(fraction, anchor, offset)
+                               })
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let article {
+                GeometryReader { geometry in
+                    PlainArticle(article: article, horizontalInset: max(25, (geometry.size.width - 710 * scale) / 2),
+                                 scale: scale, request: request, report: reportFind,
+                                 reportPosition: { reportPosition($0, currentAnchor, nil) })
+                }
+            } else {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+    }
+
     private var readerBar: some View {
         HStack(spacing: 12) {
             Label("\(packName) · \(displayDocVersion(document.version))", systemImage: "book")
                 .font(.callout.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
                 .help("\(packName) \(document.version) — installed offline")
             Spacer(minLength: 5)
+            Button { focusReading.toggle() } label: { Image(systemName: focusReading ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right") }
+                .buttonStyle(.borderless).keyboardShortcut("r", modifiers: [.command, .shift])
+                .help(focusReading ? "Exit Focus Reading (⇧⌘R)" : "Focus Reading (⇧⌘R)")
+                .accessibilityLabel(focusReading ? "Exit Focus Reading" : "Focus Reading")
             Button { save(currentAnchor, currentFocus) } label: { Image(systemName: isSaved ? "bookmark.fill" : "bookmark") }
                 .buttonStyle(.borderless).keyboardShortcut("d")
                 .help(isSaved ? "Remove Saved Reference (⌘D)" : "Save Reference (⌘D)")
                 .accessibilityLabel(isSaved ? "Remove Saved Reference" : "Save Reference")
             if !sections.isEmpty {
-                Button { outlineFilter = ""; outlineSelection = nil; outlineVisible.toggle() } label: { Label("Contents", systemImage: "list.bullet") }
+                Button {
+                    outlineFilter = ""; outlineSelection = nil
+                    if contentsPinned { outlineFocused = true } else { outlineVisible.toggle() }
+                } label: { Label("Contents", systemImage: "list.bullet") }
                     .buttonStyle(.borderless).keyboardShortcut("o", modifiers: [.command, .shift])
                     .help("Search Page Contents (⇧⌘O)").accessibilityLabel("Search Page Contents")
-                    .popover(isPresented: $outlineVisible, arrowEdge: .bottom) { outline }
+                    .popover(isPresented: $outlineVisible, arrowEdge: .bottom) {
+                        outlineContents(pinned: false).frame(width: 380, height: 430).task { outlineFocused = true }
+                    }
             }
             Button { findVisible = true; findFocused = true } label: { Image(systemName: "magnifyingglass") }
                 .buttonStyle(.borderless).keyboardShortcut("f", modifiers: [.command, .option])
@@ -101,6 +124,7 @@ struct DocReader: View {
                 Button("Larger Text") { scale = min(1.65, scale + 0.1) }.keyboardShortcut("+")
                 Button("Smaller Text") { scale = max(0.8, scale - 0.1) }.keyboardShortcut("-")
                 Button("Actual Size") { scale = 1 }.keyboardShortcut("0")
+                Toggle("Pin Page Contents", isOn: $contentsPinned)
                 Divider()
                 Button("Copy Reference Link") { copyReferenceLink() }
                 Button("Copy Official URL") { copy(document.sourceUrl) }
@@ -113,9 +137,19 @@ struct DocReader: View {
         }.padding(.horizontal, 20).padding(.vertical, 10)
     }
 
-    private var outline: some View {
+    private func outlineContents(pinned: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("On This Page").font(.headline)
+            HStack {
+                Text("On This Page").font(.headline)
+                Spacer()
+                Button {
+                    outlineVisible = false
+                    contentsPinned.toggle()
+                } label: { Image(systemName: pinned ? "pin.slash" : "pin") }
+                    .buttonStyle(.borderless)
+                    .help(pinned ? "Unpin Contents" : "Pin Contents Beside Article")
+                    .accessibilityLabel(pinned ? "Unpin Contents" : "Pin Contents Beside Article")
+            }
             TextField("Find a section or symbol", text: $outlineFilter)
                 .textFieldStyle(.roundedBorder).focused($outlineFocused)
                 .onSubmit { if let item = filteredSections.first(where: { $0.id == outlineSelection }) ?? filteredSections.first { jump(item) } }
@@ -146,8 +180,7 @@ struct DocReader: View {
             }
             Text("\(sections.count) sections · ↑ ↓ to select · Return to jump")
                 .font(.caption).foregroundStyle(.secondary)
-        }.padding(16).frame(width: 380, height: 430)
-            .task { outlineFocused = true }
+        }.padding(14)
     }
 
     private func moveOutline(_ offset: Int) {
@@ -217,7 +250,7 @@ struct DocReader: View {
         if let focus = currentFocus { components.queryItems?.append(URLQueryItem(name: "focus", value: focus)) }
         if let address = components.string { copy(address) }
     }
-    private struct ReaderTarget: Equatable { let anchor, focus: String?; let position: Double? }
+    private struct ReaderTarget: Equatable { let anchor, focus: String?; let position, offset: Double? }
 }
 
 private struct ReaderArticle {
@@ -248,7 +281,7 @@ private struct ReaderRequest: Equatable {
         case find(text: String, backwards: Bool, fromStart: Bool)
         case focus(String)
         case jump(ReaderSection)
-        case restore(Double)
+        case restore(Double, anchor: String?, offset: Double?)
     }
 
     let id = UUID()
@@ -591,7 +624,7 @@ private struct PlainArticle: NSViewRepresentable {
         switch request.action {
         case .focus(let text):
             apply(ReaderRequest(action: .find(text: text, backwards: false, fromStart: true)), last: last, to: textView, in: scrollView)
-        case .restore(let fraction):
+        case .restore(let fraction, _, _):
             let height = max(0, textView.frame.height - scrollView.contentView.bounds.height)
             scrollView.contentView.scroll(to: NSPoint(x: 0, y: height * min(1, max(0, fraction))))
             scrollView.reflectScrolledClipView(scrollView.contentView)
@@ -665,7 +698,7 @@ private struct PlainArticle: NSViewRepresentable {
     }
 }
 
-private func safeExternalURL(_ value: String) -> URL? {
+func safeExternalURL(_ value: String) -> URL? {
     guard let url = URL(string: value), let scheme = url.scheme?.lowercased(),
           scheme == "https" || scheme == "http", url.host != nil,
           url.user == nil, url.password == nil else { return nil }
@@ -681,7 +714,7 @@ private struct OfflineArticle: NSViewRepresentable {
     let report: (ReaderRequest, Bool) -> Void
     let reportSections: ([ReaderSection]) -> Void
     let navigate: (URL) -> Void
-    let reportPosition: (Double, String?, Bool) -> Void
+    let reportPosition: (Double, String?, Double?, Bool) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -771,7 +804,7 @@ private struct OfflineArticle: NSViewRepresentable {
         var report: ((ReaderRequest, Bool) -> Void)?
         var reportSections: (([ReaderSection]) -> Void)?
         var navigate: ((URL) -> Void)?
-        var reportPosition: ((Double, String?, Bool) -> Void)?
+        var reportPosition: ((Double, String?, Double?, Bool) -> Void)?
         private var navigation: WKNavigation?
         private var ready = false
         private var lastRequest: ReaderRequest?
@@ -823,7 +856,14 @@ private struct OfflineArticle: NSViewRepresentable {
                 document.addEventListener('keydown', event => {
                     if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(event.key)) window.devlineUserScroll = true;
                 });
-                let pending = false;
+                let pending = false, semanticPosition = null, previousWidth = window.innerWidth;
+                window.addEventListener('resize', () => {
+                    if (window.innerWidth !== previousWidth && semanticPosition) {
+                        const target = document.getElementById(semanticPosition.anchor);
+                        if (target) window.scrollBy(0, target.getBoundingClientRect().top - semanticPosition.offset);
+                    }
+                    previousWidth = window.innerWidth;
+                });
                 document.addEventListener('scroll', () => {
                     if (pending) return;
                     pending = true;
@@ -837,7 +877,9 @@ private struct OfflineArticle: NSViewRepresentable {
                             if (visible[middle].getBoundingClientRect().top <= 70) { active = visible[middle].id; low = middle + 1; }
                             else high = middle - 1;
                         }
-                        send({action: 'position', fraction: max > 0 ? window.scrollY / max : 0, anchor: active, userInitiated: window.devlineUserScroll});
+                        const offset = active ? document.getElementById(active).getBoundingClientRect().top : null;
+                        semanticPosition = active ? {anchor: active, offset} : null;
+                        send({action: 'position', fraction: max > 0 ? window.scrollY / max : 0, anchor: active, offset, userInitiated: window.devlineUserScroll});
                     }, 120);
                 }, {passive: true});
                 return sections;
@@ -861,7 +903,10 @@ private struct OfflineArticle: NSViewRepresentable {
                 guard let text = value["text"] as? String, text.utf8.count <= 2_000_000 else { return }
                 NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
             case "position":
-                if let fraction = value["fraction"] as? Double, fraction.isFinite { reportPosition?(min(1, max(0, fraction)), value["anchor"] as? String, value["userInitiated"] as? Bool ?? false) }
+                if let fraction = value["fraction"] as? Double, fraction.isFinite {
+                    let offset = value["offset"] as? Double
+                    reportPosition?(min(1, max(0, fraction)), value["anchor"] as? String, offset?.isFinite == true ? offset : nil, value["userInitiated"] as? Bool ?? false)
+                }
             default: break
             }
         }
@@ -891,9 +936,13 @@ private struct OfflineArticle: NSViewRepresentable {
                     if (try? result.get()) as? Bool == true { self.report?(request, true) }
                     else { self.find(text, backwards: false, request: request, in: webView) }
                 }
-            case .restore(let position):
-                webView.callAsyncJavaScript("window.scrollTo(0, Math.max(0, document.documentElement.scrollHeight - window.innerHeight) * fraction)",
-                                            arguments: ["fraction": min(1, max(0, position))], in: nil, in: Self.readerWorld)
+            case .restore(let position, let anchor, let offset):
+                webView.callAsyncJavaScript("""
+                    const target = anchor ? document.getElementById(anchor) : null;
+                    if (target && offset !== null) window.scrollBy(0, target.getBoundingClientRect().top - offset);
+                    else window.scrollTo(0, Math.max(0, document.documentElement.scrollHeight - window.innerHeight) * fraction);
+                    """, arguments: ["fraction": min(1, max(0, position)), "anchor": anchor as Any? ?? NSNull(),
+                                       "offset": offset as Any? ?? NSNull()], in: nil, in: Self.readerWorld)
             case .jump(let section):
                 guard case .anchor(let id) = section.target else { return }
                 webView.callAsyncJavaScript("""

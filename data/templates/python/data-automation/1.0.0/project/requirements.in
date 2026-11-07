@@ -1,0 +1,3 @@
+duckdb<3
+httpx<1
+pytest<10

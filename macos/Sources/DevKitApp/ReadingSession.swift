@@ -33,6 +33,34 @@ final class ReadingSession: ObservableObject {
     @Published var error: String?
     private var operation: Task<Void, Never>?
     private var operationID = 0
+    private var persistence: Task<Void, Never>?
+    private let sessionKey = "devline.readingSession.v1"
+
+    init() {
+        if let data = UserDefaults.standard.data(forKey: sessionKey), data.count <= 2_000_000,
+           let restored = try? JSONDecoder().decode(ReferenceHistory.self, from: data) {
+            history = restored
+        }
+    }
+
+    func restoreSession() {
+        if request == nil, let location = history.current {
+            request = ReferenceRequest(location: location, restoring: true)
+        }
+    }
+
+    func persist() {
+        persistence?.cancel()
+        if let data = try? JSONEncoder().encode(history) { UserDefaults.standard.set(data, forKey: sessionKey) }
+    }
+
+    private func schedulePersistence() {
+        persistence?.cancel()
+        persistence = Task { @MainActor in
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            persist()
+        }
+    }
 
     func refresh() async { await enqueue { CoreRequest("reading.list") } }
 
@@ -41,14 +69,19 @@ final class ReadingSession: ObservableObject {
     func move(_ direction: Int) {
         guard let location = history.move(direction) else { return }
         request = ReferenceRequest(location: location, restoring: true)
+        schedulePersistence()
     }
 
     func didOpen(_ location: ReferenceLocation, restoring: Bool, searchPreview: Bool) async {
         if !restoring { history.record(location, searchPreview: searchPreview) }
+        schedulePersistence()
         await enqueue { CoreRequest("reading.visit", id: location.id, anchor: location.anchor, focusText: location.focusText) }
     }
 
-    func updatePosition(id: String, fraction: Double) { history.updatePosition(id: id, fraction: fraction) }
+    func updatePosition(id: String, fraction: Double, anchor: String? = nil, anchorOffset: Double? = nil) {
+        history.updatePosition(id: id, fraction: fraction, anchor: anchor, anchorOffset: anchorOffset)
+        schedulePersistence()
+    }
     func isSaved(_ id: String) -> Bool { library.saved.contains { $0.id == id } }
 
     func toggleSaved(_ location: ReferenceLocation) async {

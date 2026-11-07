@@ -11,13 +11,15 @@ let package = Package(
     name: "DevKitMac",
     platforms: [.macOS(.v14)],
     products: [.executable(name: "DevKitApp", targets: ["DevKitApp"])],
+    dependencies: [.package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1")],
     targets: [
         .systemLibrary(name: "DevKitBridge"),
         .executableTarget(
             name: "DevKitApp",
-            dependencies: ["DevKitBridge"],
+            dependencies: ["DevKitBridge", .product(name: "Sparkle", package: "Sparkle")],
             linkerSettings: [
                 .unsafeFlags(["-L", coreRelease]),
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),
                 .linkedLibrary("devkit_core"),
                 .linkedLibrary("sqlite3"),
                 .linkedFramework("Security"),

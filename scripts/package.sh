@@ -24,8 +24,9 @@ printf '%s\n' "$CORE_DIGEST" > "$ROOT/macos/.build/devline-core.sha256"
 STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/devkit-build.XXXXXX")"
 trap 'rm -rf "$STAGING_ROOT"' EXIT
 APP="$STAGING_ROOT/Devline.app"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$ROOT/macos/.build/release/DevKitApp" "$APP/Contents/MacOS/DevlineApp"
+ditto "$ROOT/macos/.build/release/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$ROOT/core/target/release/devline" "$APP/Contents/MacOS/devline"
 ln -s devline "$APP/Contents/MacOS/devkit"
 xcrun actool "$ROOT/macos/Assets/DevKit.icon" \
@@ -52,14 +53,42 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>NSHighResolutionCapable</key><true/>
 <key>NSPrincipalClass</key><string>NSApplication</string>
 <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>Devline reference</string><key>CFBundleURLSchemes</key><array><string>devline</string><string>devkit</string></array></dict></array>
+<key>NSApplicationServicesProvider</key><true/>
+<key>NSServices</key><array><dict>
+<key>NSMessage</key><string>lookUpInDevline</string>
+<key>NSMenuItem</key><dict><key>default</key><string>Look Up in Devline</string></dict>
+<key>NSSendTypes</key><array><string>NSStringPboardType</string><string>public.utf8-plain-text</string></array>
+<key>NSPortName</key><string>Devline</string>
+</dict></array>
+<key>SUPublicEDKey</key><string>VMLqt73XeFU7d/CqPBorEl6j6zDLn+d66lPb2MsLiro=</string>
+<key>SUFeedURL</key><string>https://github.com/fpl0/devline/releases/latest/download/appcast.xml</string>
+<key>SURequireSignedFeed</key><true/>
+<key>SUVerifyUpdateBeforeExtraction</key><true/>
+<key>SUEnableAutomaticChecks</key><false/>
+<key>SUAutomaticallyUpdate</key><false/>
+<key>SUSendProfileInfo</key><false/>
+<key>SUScheduledCheckInterval</key><integer>86400</integer>
 </dict></plist>
 PLIST
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$APP/Contents/Info.plist"
+APP_BUILD="$(python3 -c 'import sys; a,b,c=map(int,sys.argv[1].split(".")); print(a*1000000+b*1000+c)' "$APP_VERSION")"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_BUILD" "$APP/Contents/Info.plist"
 # Finder may attach presentation metadata when a development bundle is opened.
 # Remove only the metadata disallowed by codesign; preserve security attributes.
 xattr -dr com.apple.FinderInfo "$APP" 2>/dev/null || true
 xattr -dr com.apple.ResourceFork "$APP" 2>/dev/null || true
-codesign --force --deep --sign - "$APP"
+# Sign nested executables from the inside out; preserve Sparkle's framework links.
+SIGN_IDENTITY="${DEVLINE_SIGN_IDENTITY:--}"
+for nested in \
+    "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc" \
+    "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc" \
+    "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate" \
+    "$APP/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app" \
+    "$APP/Contents/Frameworks/Sparkle.framework" \
+    "$APP/Contents/MacOS/devline" \
+    "$APP"; do
+    codesign --force --sign "$SIGN_IDENTITY" "$nested"
+done
 codesign --verify --deep --strict "$APP"
 ditto --norsrc -c -k --keepParent "$APP" "$OUT/Devline-macos-arm64.zip"
 if [ "${1:-}" != "--no-install" ]; then

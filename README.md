@@ -1,37 +1,52 @@
 # Devline
 
-Devline is a native macOS app and terminal tool for searching installed developer documentation and creating projects from versioned starters. The desktop app and CLI use the same local library.
+Devline is a native macOS app and terminal tool for offline developer documentation, project starters, and local infrastructure. The app and CLI share one local library.
 
 ![Devline showing Python’s Path.read_text method and its code example](press/reference-python-dark.png)
 
-## Download
+## Install
 
-Download the Apple Silicon installer from [GitHub Releases](https://github.com/fpl0/devline/releases/latest). Open the DMG, drag **Devline** into **Applications**, then open it. macOS 14 or later is required. The build uses ad hoc signing and the installer includes Apple’s first-launch guidance.
+Download the Apple Silicon DMG from [GitHub Releases](https://github.com/fpl0/devline/releases/latest), then drag **Devline** into **Applications**. macOS 14 or later is required. The DMG includes first-launch instructions for the ad hoc-signed build.
 
-## Open the app
+## Read and look up references
 
-After installing from the DMG, open **Devline** from **Applications**. If you downloaded the ZIP, extract it and move `Devline.app` into **Applications** first.
+Open **Library** and install the docsets you want. Use **⌘F** to search in Devline, or try `py:Path.read_text()` to search Python directly. The reader keeps code examples, tables, links, and available illustrations. Links to installed pages open in Devline.
 
-1. Open **Library** and select the doc packs and starter releases you want. **Install Selected** copies from the catalog bundled in the app. Each installed doc pack becomes searchable in **Docs**.
-2. Use **⌘F** to find a symbol or topic. Try `py:Path.read_text()` or open an installed docset to browse by category. **⌘O** opens a project folder and detects its stack.
-3. Open **Runtimes** to check detected toolchains, their executable paths and versions, and what setup is needed. **Prepare Starter** installs the verified starter and related docs from the bundled catalog.
-4. In **Templates**, select a starter family and choose a release from its version picker. Install it on its own or with the related docs. **New Project** opens a sheet that checks the installed bundle and required toolchain. Choose a project name and an existing parent folder. The completion screen shows where the project was created and how to run its first test.
+Use **⇧⌘O** to search Contents and pin it beside the article, **⇧⌘R** for Focus Reading, and **⌥⌘F** to find text within an article. **⌘[** and **⌘]** navigate reading history. Use **⌘D** to save a reference and **⇧⌘B** to open Saved and Recent. The app remembers the current reference, scroll position, and reading layout between launches.
 
-The bundled doc packs contain selected sections from upstream language and framework references. Each pack records its sources and license. Installing a starter gives you its packaged dependencies. Its compiler, interpreter, or SDK must already be available on your Mac. **Preview** releases are in the catalog for inspection and require offline verification before they can create projects.
+In **Settings → Lookup from Any App**, choose a global shortcut. The default **⌃⌥D** opens lookup and **⌃⌥⌘D** looks up selected text when Accessibility access is enabled. You can also select text and use **Services → Look Up in Devline**. [Visual Studio Code and Neovim integrations](integrations/README.md) open the selected symbol with the editor’s project context.
 
-The offline reader preserves article headings, code examples, tables, links, and available illustrations. Links to installed articles open in Devline. **⇧⌘O** opens **On This Page**, **⌥⌘F** finds text in the article, and **⌘[** and **⌘]** move through reading history. Use **⌘D** to save a reference and **⇧⌘B** to open Saved and Recent. **Open Official Source** opens the publisher’s page in your browser.
+## Match documentation to a project
 
-## Use the CLI
-
-In the app, open **Devline → Settings → Command Line** and choose **Install CLI** to link the bundled command at `~/.local/bin/devline`. If your shell needs that directory on its `PATH`, use **Copy PATH Command** and run the copied command in Terminal.
-
-If you built and installed from source, you can also add the local launcher to your shell from the repository root.
+Open a project folder with **⌘O**. The **Project** workspace brings together its references, readiness, and local services. Use **Project References** to see detected dependencies, chosen docset versions, and any mismatch. Devline reads supported manifests and lockfiles for Python, C# and .NET, Java, Ruby, Go, Rust, Elixir, and Node.js. Resolved framework versions take priority over manifest constraints. Pin choices stay in the local library and are shared with the CLI.
 
 ```sh
-export PATH="$(cd ../bin && pwd):$PATH"
-devline library
-devline runtimes
-devline docs install go
+devline project --path ./service
+devline docs search 'Path.read_text' --project ./service
+devline project --path ./service pin fastapi@0.162.0+devline.1
+devline project --path ./service unpin fastapi
+```
+
+An unscoped lookup inside a project uses compatible installed references. Use a docset prefix such as `go:`, an exact `--docset PACK[@VERSION]`, or `--stack all` to override that selection. Computed versions and unsupported constraints can require a manual pin.
+
+### Prepare an existing project
+
+Choose **Prepare Offline** while connected. Devline prepares a managed dependency cache for the selected project, then verifies a staged copy with external networking denied. It publishes `.devline-offline` and a local verification receipt after the checks pass. Your original source files, manifests, and lockfiles stay intact. Changes to the source, lockfiles, toolchain, or cache can require another check. An explicit `project run` command can still use the prepared dependencies during development.
+
+```sh
+devline project --path ./service prepare --background
+devline --offline project --path ./service readiness
+devline --offline project --path ./service run -- python -m pytest -q
+```
+
+Preparation supports conventional single-runtime projects using Go modules, Cargo, Python registry requirements or static project dependencies, Bundler, Maven, NuGet, Mix/Hex, or npm with `package-lock.json`. The selected adapter checks its prerequisites. Install the matching toolchain and any reported native build tools first. Open independently locked projects at their individual roots.
+
+## Use the terminal
+
+In **Devline → Settings → Command Line**, choose **Install CLI** to link the bundled command at `~/.local/bin/devline`. Use **Copy PATH Command** if your current shell needs that directory on its PATH. For a source install, the packaging script also creates a launcher in `../bin`.
+
+```sh
+devline docs install go@1.27.3+devline.3
 devline docs search 'go:http.Handler' --pick
 devline docs show 'go:http.Handler'
 devline docs save 'go:http.Handler'
@@ -39,88 +54,121 @@ devline docs saved --pick
 devline docs recent
 ```
 
-The CLI works with the app closed. An unscoped lookup inside a project uses its detected stack when available. Prefix a query with a docset such as `go:` or `py:`, or use `--docset PACK[@VERSION]` to select an exact docset or release. Use `--stack all` to clear the project scope.
+The CLI works with the app closed. With the default pager, the reader opens at the matching declaration when available. Set `DEVLINE_PAGER` or `PAGER` to choose a pager. Pipes and `--no-pager` use the stored article text. Use `--ids` with search for exact IDs or `--json` for structured output. Use `docs show --open` to open an article in Devline or `--link` to print its versioned local link.
 
-With the default pager, the interactive reader opens at the matching declaration when available. Set `DEVLINE_PAGER` or `PAGER` to choose a pager. Pipes and `--no-pager` write the stored article text without pager formatting. Use `--ids` with `docs search` for one exact article ID per line or `--json` for structured output.
+The CLI accepts `--offline` for operations that must stay local. An empty search exits with status 4, and readiness checks that require preparation exit with status 3. Run `devline completions --help` for shell setup. The `devkit` compatibility command, `devkit://` links, and `DEVKIT_HOME` and `DEVKIT_CATALOG` still work.
 
-Saved references and articles opened interactively are shared with the desktop app. Reopen a reference with `devline docs saved --pick` or `devline docs recent --pick`. To open a reference in the app, launch `Devline.app` once to register links, then run `devline docs show 'go:http.Handler' --open`. Use `--link` to print the versioned local link without opening it.
+## Prepare a starter for offline use
+
+**Templates** shows a starter’s available releases, contents, dependency versions, and verification. **Runtimes** checks which compilers, interpreters, and SDKs are available. **Ready Offline** checks the selected docs and starters, or the references and toolchains needed by your open project.
+
+**Prepare Starter** installs its related docs and runs verification. **Verify Offline** reruns the installed starter’s test with external networking denied. Background work appears in **Activity** with progress, logs, and cancellation.
 
 ```sh
-devline templates list --stack go
-devline prepare go/chi-api@1.1.0
-devline doctor go/chi-api@1.1.0
-devline new go/chi-api@1.1.0 ./status-api --dry-run
-devline new go/chi-api@1.1.0 ./status-api
-cd status-api
-./devkit-test.sh
+devline templates inspect go/chi-api@1.2.0
+devline prepare go/chi-api@1.2.0 --background
+devline jobs status JOB_ID --follow
+devline jobs cancel JOB_ID
+devline offline status --starter go/chi-api@1.2.0
+devline new go/chi-api@1.2.0 ./status-api
 ```
 
-`prepare` installs the selected starter and its related docs, then reports readiness. If you omit the version, `new` prefers the latest installed, verified release for your Mac’s target and then checks its toolchain. Use `--json` for structured results and `devline completions zsh` for shell completions. `doctor` and `prepare` exit with status 3 when preparation is needed. An empty search exits with status 4.
+Use the ID printed by `prepare` when following or cancelling a job. Generated projects include an offline test script. Creating a project prepares its selected documentation and required service archives, then verifies the generated files with external networking denied. `devline --offline new` requires those service archives to be present already. A recipe can refresh its supported upstream dependencies online and verify the new release offline before installing it.
 
-Search, reads, and creation use local files. A recipe with upstream refresh support can build a new release while connected. For example, `devline templates build go/chi-api --refresh-deps` resolves dependencies and installs the new release after its offline checks pass. Earlier releases stay available.
+```sh
+devline templates build go/chi-api --refresh-deps --background
+devline templates verify go/chi-api@1.2.0 --background
+```
+
+### Starter inventory
+
+Each starter includes its local dependency closure and an offline test. Use `devline templates inspect STARTER@VERSION` for the exact packages and platform. Service kits exercise their SQLite workflows and client setup locally. Use the corresponding prepared infrastructure services when your app needs a live database, broker, cache, or object store.
+
+- **Go** ships a Chi API, a PostgreSQL and Redis Taskboard, a service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3 and JWT, and a file-index CLI.
+- **Rust** ships an Axum API, a service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, HTTP and JWT, and a JSONL report CLI.
+- **Python** ships a FastAPI API, a service kit with Psycopg, PyMySQL, SQLite, Redis, Pika, NATS, Boto3, JWT and HTTPX, and a DuckDB and HTTPX data automation CLI.
+- **Ruby** ships a JSON CLI, a Sinatra service kit with Sequel, PostgreSQL, MySQL, SQLite, Redis, RabbitMQ, NATS, S3, JWT and Faraday, and a Thor and Rake task automation starter. The native Ruby service dependencies require Apple Command Line Tools and OpenSSL 3.
+- **C# and .NET** ship an ASP.NET Core API with EF Core, SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, S3 and JWT, and a hosted report worker.
+- **Java** ships a Spring Boot API with SQLite, PostgreSQL and MySQL JDBC, Redis, RabbitMQ, S3 and JOSE, and a JSON file tool.
+- **Elixir** ships a Phoenix API with Ecto SQL, Postgrex, MyXQL, SQLite, Redis, RabbitMQ, S3 and Joken, and an OTP report worker.
+- **Node.js and TypeScript** ship a Fastify service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JOSE and Zod, a React and Vite web app, and Playwright browser and API automation with bundled WebKit for Apple Silicon on macOS 26.5 or later.
+
+### Transfer a library
+
+Export exact docset and starter releases from **Ready Offline**, then inspect and import the compressed bundle on another Mac. The destination needs its own toolchain and local verification for imported starters.
+
+```sh
+devline bundle export ./travel.devlinebundle \
+  --doc go@1.27.3+devline.3 --doc chi@5.2.4+devline.1 --starter go/chi-api@1.2.0
+devline bundle inspect ./travel.devlinebundle
+devline bundle import ./travel.devlinebundle
+```
+
+Inspect unfamiliar bundles before trusting their executable starter files. The import requires `--trust-starters` for starters outside Devline’s bundled catalog.
+
+## Prepare local services
+
+Open **Infrastructure** to browse PostgreSQL, MySQL, RabbitMQ, Redis, MongoDB, NATS, Mailpit, Meilisearch, SeaweedFS S3, and Keycloak. Each release shows its image publisher, license, exact tag, platform digest, and offline runbook. **Download for Offline Use** saves a verified arm64 archive in Devline's image vault independently of Docker's cache. Install and start a compatible local Docker engine with Compose before using the vault to run services.
+
+In **Project**, choose the services your project needs. Devline gives the stack exact release pins, loopback ports, local credentials, and dedicated data volumes. Start, stop, and view service logs from that workspace. Stopping keeps the project's data. **Toolbox** and **Ready Offline** show archive and toolchain readiness alongside documentation and starter dependencies.
+
+```sh
+devline infra catalog
+devline infra prepare postgres@18.6
+devline infra prepare redis@8.10.1
+devline prepare go/chi-taskboard@1.0.0
+devline --offline new go/chi-taskboard@1.0.0 ./taskboard
+devline --offline infra run ./taskboard
+devline toolbox check --path ./taskboard
+devline infra stop ./taskboard
+```
+
+The Taskboard starter uses PostgreSQL for persistence and Redis for caching. Its generated README includes the local app launch and test commands. Use `devline infra credentials ./taskboard` in a private terminal when you need the connection strings. For an existing project, readiness checks the selected local resources and reports whether its own dependencies were verified. Use `devline toolbox check --library-only --image postgres@18.6` to check an archive independently of a project.
+
+### Transfer images
+
+Use **Infrastructure → Transfer** or export selected images to a local file. Import verifies the archive against the catalog's exact image identity. Restore loads it into Docker without pulling from a registry.
+
+```sh
+devline infra export ./project-images.devlineimages --image postgres@18.6 --image redis@8.10.1
+devline infra import ./project-images.devlineimages --inspect
+devline infra import ./project-images.devlineimages
+devline --offline infra restore postgres@18.6
+```
+
+The destination needs Docker, the project toolchains, and dependencies. Importing an image pin outside the known catalog requires explicit trust. Move service data and credentials separately. [Volume backup guide](scripts/infrastructure-docs/portable-toolbox.md)
 
 ## Updates
 
-Open **Updates** or choose **Devline → Check for Updates…**. Reading status stays local. **Check for Updates** contacts the official release sources. Cached versions remain available when a later check fails, with the failure shown explicitly. Filter to **Available** to see pending updates.
-
-- Newer bundled documentation and verified starter releases install alongside existing versions. Search defaults to the newest installed revision of each docset. Pin an older release to search it, or open an existing saved reference at its original version.
-- The upstream documentation action opens the publisher’s latest documentation. Updated offline snapshots are distributed through catalog releases.
-- Template rebuilds resolve current dependencies within the recipe’s supported version range and run offline verification before adding an immutable release.
-- Runtime updates open official installation pages so you can use your existing version manager or installer. Devline does not silently replace toolchains.
-- App checks use the [public GitHub release manifest](https://github.com/fpl0/devline/releases/latest/download/release.json). An available app update opens the release page. The native settings and CLI can replace or clear this channel.
+**Updates** shows documentation, starter, and runtime availability. **Documentation Updates** downloads independently published snapshots. Devline checks archive size and SHA-256, resumes interrupted downloads where the server supports it, and keeps installed versions for rollback and project pins. The details show sources, coverage, and known omissions.
 
 ```sh
-devline updates                 # cached status, no network
-devline updates check           # explicit online check
-devline updates check --json    # structured status for scripts
-devline --offline updates      # cached status while disconnected
+devline docs updates                 # cached channel status
+devline docs updates check           # fetch the channel manifest
+devline docs fetch go@1.27.3+devline.3 --background
+devline docs rollback go@1.27.3+devline.2
+devline updates check                # upstream starter and runtime checks
 ```
 
-For a custom app release channel, serve `{"schema_version":1,"version":"0.3.0","url":"https://example.com/releases/0.3.0"}` over HTTPS, then run `devline updates configure https://example.com/release.json`. URLs must not include credentials, queries or fragments. `devline updates configure --clear` disables app checks.
+Runtime updates open official installation pages. **Devline → Check for App Updates…** uses Sparkle. The app requires Ed25519-signed update archives and appcast feeds. Automatic checks are optional and start off. The CLI’s separate `updates` status can link to the public app release.
 
-The `devkit` command remains a compatibility alias in the app and packaged launchers. Existing `DEVKIT_HOME`, `DEVKIT_CATALOG`, `devkit://` links, and generated project filenames remain supported.
+Infrastructure also checks publishers for newer compatible images. `devline infra updates check` refreshes observations, and `devline infra update SERVICE` prepares the checked release alongside its predecessor. App updates can include newer catalog entries. Existing project configurations retain their exact pins and archived releases.
 
-## Build from source
+## Build and validate
 
-On an Apple Silicon Mac with Xcode and its command-line tools, Rust/Cargo, and Python 3, run these commands from the repository root.
+On Apple Silicon, use Xcode and its command-line tools, Rust/Cargo, and Python 3.
 
 ```sh
 ./scripts/package.sh --no-install
 ./scripts/create-dmg.sh
 ./scripts/install.sh
 cargo test --locked --manifest-path core/Cargo.toml
+python3 scripts/check-doc-packs.py
+python3 scripts/check-infrastructure.py
 ```
 
-The package script uses Xcode’s native icon compiler and the checked-in catalog snapshots and may need a connection to fetch Cargo build dependencies. Without `--no-install`, it installs the local build at `~/Applications/Devline.app`, writes `../Devline-macos-arm64.zip`, and creates `../Devline.app` and `../bin/devline` launchers, with `devkit` as a compatibility alias. Bundles are signed in a temporary local directory because iCloud File Provider adds metadata to app folders in Documents.
+The build uses checked-in catalog snapshots and may download locked Rust dependencies and Sparkle. The app defaults to `~/Library/Application Support/DevKit`. Use `DEVKIT_HOME` or `--home` to isolate the library and `DEVKIT_CATALOG` or `--catalog` to select another catalog.
 
-- `macos/` contains the SwiftUI app and C bridge. Native requests cross the bridge off the UI thread.
-- `core/` contains the Rust CLI, SQLite search and local library, template installation, and project creation.
-- `data/` contains the versioned docs and starter bundles, upstream source notices, and catalog manifests.
-- `scripts/` contains the packaging and documentation preparation tools.
+The bundled library includes 21 docsets and keeps earlier Go and Chi revisions for pinned projects. Its Node ecosystem references cover Node.js core APIs, TypeScript, Playwright, React, and Vite. The starter catalog spans eight runtimes. [Validation and coverage](UX-VALIDATION.md) · [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-[GitHub Actions](https://github.com/fpl0/devline/actions) runs Rust validation, Python ingestion tests, and Swift navigation tests, then builds the native app on Apple Silicon. [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
-
-The existing library stays at `~/Library/Application Support/DevKit` for compatibility with earlier builds. Set `DEVKIT_HOME` for an isolated library and `DEVKIT_CATALOG` to use a different catalog directory. The CLI also accepts `--home` and `--catalog`.
-
-## Rebuilding documentation snapshots
-
-The package build uses the checked-in snapshots. Rebuilding from upstream requires Python 3 and the pinned source inputs recorded in each pack’s `SOURCES.md`. Use Pandoc 3.13 when rebuilding a pack from Markdown. The installed reader uses the generated HTML directly.
-
-```sh
-python3 scripts/fetch-docs.py --help
-python3 -m unittest discover -s scripts -p test_fetch_docs.py
-```
-
-The ingestion tests use only Python’s standard library. The build script accepts local archives and toolchains, and `--fetch` downloads missing pinned archives. An existing content revision is reused only when its output matches byte for byte.
-
-## Included and verified
-
-The catalog contains 10,358 searchable articles across 15 documentation packs and 10 starter releases for Python/FastAPI, C#/ASP.NET Core, Java/Spring Boot, Ruby, Go/Chi, Rust/Axum, and Elixir/Phoenix. The newest Go and Python starters include an in-memory task API with validation, structured errors, and lifecycle tests. The ASP.NET starter includes SQLite.
-
-All ten starter releases passed smoke tests with external network access denied, using fresh language caches or environments and the toolchains installed on this Apple Silicon Mac. Devline detects the compiler or interpreter on the Mac. Generated projects include `devkit-test.sh`, which selects the detected runtime and companions. `DEVKIT_TOOLCHAIN` can override it. Generated projects for all seven stacks also passed with a system-only PATH. The final Rust check rebuilt with empty Cargo caches and external networking blocked.
-
-The 32 Rust tests cover indexing, version-scoped search and offline links, atomic pack installs, saved references, starter integrity, and project creation. Clippy passed with warnings denied. The complete refreshed library was tested on both a fresh install and an upgraded library that retained its existing doc versions.
-
-A 48-query benchmark over the full refreshed library measured 9.69 ms median and 12.76 ms at the 95th percentile. The same run measured 13.60 ms median and 34.64 ms at the 95th percentile for 0.2.0 on its original library. Measurements include CLI process startup and use warm filesystem caches on this Apple Silicon Mac.
-
-Go's online dependency refresh, network-denied verification, and new-release publication were exercised end to end. Refresh recipes for the other stacks are included but have not yet been exercised end to end against their upstream registries. Normal lookup, installation from the bundled catalog, and project creation stay local.
+Documentation source versions and licenses are recorded in each pack’s `SOURCES.md`. Rebuild Markdown snapshots with Pandoc 3.13 and `scripts/fetch-docs.py`. `scripts/doc-release.py` builds and verifies independently downloadable pack archives. [GitHub Actions](https://github.com/fpl0/devline/actions)

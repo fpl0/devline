@@ -6,9 +6,10 @@ use std::{
     io::{self, IsTerminal, Write},
     path::PathBuf,
     process::Command,
-    time::{SystemTime, UNIX_EPOCH},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+mod cli_infra;
 mod terminal;
 
 #[derive(Parser)]
@@ -33,7 +34,7 @@ struct Cli {
     #[arg(
         long,
         global = true,
-        help = "Require local resources (the default for read/create commands)"
+        help = "Require local resources and skip network preparation"
     )]
     offline: bool,
     #[command(subcommand)]
@@ -43,7 +44,7 @@ struct Cli {
 enum Commands {
     #[command(
         about = "Search and read installed documentation",
-        after_long_help = "Run 'devline docs' for interactive search. Prefix a query with a docset, as in 'go:http.Handler', or use --docset. With a single detected stack in the current project, search defaults to that stack. Use --stack all to search the full installed library."
+        after_long_help = "Run 'devline docs' for interactive search. Unscoped search selects installed releases compatible with the current project. Run 'devline project' to inspect that selection. Prefix a query with a docset, use --docset, or use --stack all to override project scope."
     )]
     Docs {
         #[command(subcommand)]
@@ -54,7 +55,46 @@ enum Commands {
         #[command(subcommand)]
         command: Templates,
     },
-    #[command(about = "Inspect local runtimes and toolchains")]
+    #[command(
+        about = "Inspect project dependencies and pin documentation",
+        after_long_help = "Examples:\n  devline project\n  devline project --path ./services/api\n  devline project pin fastapi@0.162.0+devline.1\n  devline project unpin fastapi"
+    )]
+    Project {
+        #[arg(long, global = true, value_hint = clap::ValueHint::AnyPath)]
+        /// Project folder or file. Defaults to the current directory.
+        path: Option<PathBuf>,
+        #[command(subcommand)]
+        command: Option<Project>,
+    },
+    #[command(about = "Inspect offline readiness and verify installed starters")]
+    Offline {
+        #[command(subcommand)]
+        command: Option<Offline>,
+    },
+    #[command(about = "Check a project's docs, starter, toolchains and image vault together")]
+    Toolbox(cli_infra::Toolbox),
+    #[command(
+        about = "Archive container images and run project services offline",
+        after_long_help = "Start with 'devline infra catalog' to find an exact release. Prepare it while connected, then configure a project and use 'devline infra run'. Run never pulls images. Use 'devline infra export' and 'devline infra import' to transfer archives."
+    )]
+    Infra {
+        #[command(subcommand)]
+        command: Option<cli_infra::Infra>,
+    },
+    #[command(about = "Export, inspect, and import an offline library bundle")]
+    Bundle {
+        #[command(subcommand)]
+        command: Bundle,
+    },
+    #[command(about = "Inspect and cancel background operations")]
+    Jobs {
+        #[command(subcommand)]
+        command: Option<Jobs>,
+    },
+    #[command(
+        about = "Inspect local runtimes and toolchains",
+        long_about = "Report the executables and versions discovered on this Mac, from PATH and known locations such as Homebrew, mise and rustup. Starter minimums are listed separately. Use the runtime's own tools to install or upgrade it."
+    )]
     Runtimes {
         #[command(subcommand)]
         command: Option<Runtimes>,
@@ -71,12 +111,15 @@ enum Commands {
     Prepare {
         /// Starter ID or exact release, for example go/chi-api@1.0.0.
         id: String,
+        #[arg(long)]
+        /// Start a cancellable job and print its ID.
+        background: bool,
     },
     #[command(about = "Check a starter and its toolchain on this Mac")]
     Doctor { id: String },
     #[command(
         about = "Create a project from an installed starter",
-        after_long_help = "Examples:\n  devline new go/chi-api ./status-api\n  devline new go/chi-api@1.0.0 ./status-api --dry-run\n\nWithout arguments, Devline prompts for an installed starter and destination."
+        after_long_help = "Examples:\n  devline new go/chi-api ./status-api\n  devline new go/chi-api@1.0.0 ./status-api --dry-run\n  devline --offline new go/chi-taskboard ./board\n\nDevline installs the selected starter, tests the generated project with external networking denied, and configures requested services. Missing service images are prepared while connected. Use --offline to require their existing archives. Without arguments, Devline prompts for a starter and destination."
     )]
     New {
         /// Starter ID or exact release.
@@ -86,6 +129,12 @@ enum Commands {
         #[arg(long)]
         /// Check the selected release and destination before creating files.
         dry_run: bool,
+        /// Add an exact local service release. Repeat for more services.
+        #[arg(long = "service", value_name = "SERVICE@VERSION", value_parser = cli_infra::release)]
+        services: Vec<String>,
+        /// Override a service's published localhost port.
+        #[arg(long = "port", value_name = "SERVICE:PORT=HOST_PORT", value_parser = cli_infra::port)]
+        ports: Vec<cli_infra::Port>,
     },
     #[command(about = "List available packs and installed versions")]
     Library,
@@ -106,6 +155,9 @@ struct Scope {
     #[arg(long, value_name = "PACK[@VERSION]")]
     /// Search a docset such as fastapi, optionally pinned to a release.
     docset: Option<String>,
+    #[arg(long, value_hint = clap::ValueHint::AnyPath)]
+    /// Resolve project versions from this folder or file.
+    project: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -171,6 +223,9 @@ enum Docs {
         id: String,
         #[arg(long)]
         version: Option<String>,
+        #[arg(long)]
+        /// Install from the bundled catalog as a background job.
+        background: bool,
     },
     #[command(about = "List available documentation packs")]
     List {
@@ -182,6 +237,24 @@ enum Docs {
         id: String,
         #[arg(long)]
         version: String,
+    },
+    #[command(about = "View or check the independently published documentation channel")]
+    Updates {
+        #[command(subcommand)]
+        command: Option<DocsUpdates>,
+    },
+    #[command(about = "Download and activate an exact documentation release")]
+    Fetch {
+        /// Pack ID or PACK@VERSION. Omit the version for the latest checked release.
+        id: String,
+        #[arg(long)]
+        /// Download as a cancellable background job.
+        background: bool,
+    },
+    #[command(about = "Activate an earlier installed documentation release")]
+    Rollback {
+        /// Pack ID or PACK@VERSION. Omit the version to use the previous release.
+        id: String,
     },
 }
 #[derive(Subcommand)]
@@ -202,11 +275,142 @@ enum Templates {
         id: String,
         #[arg(long, required = true)]
         refresh_deps: bool,
+        #[arg(long)]
+        /// Start a cancellable job and print its ID.
+        background: bool,
     },
+    #[command(about = "Inspect a starter's files, dependencies, and verification")]
+    Inspect { id: String },
+    #[command(about = "Test an installed starter with external networking denied")]
+    Verify {
+        id: String,
+        #[arg(long)]
+        /// Start a cancellable job and print its ID.
+        background: bool,
+    },
+    #[command(about = "Remove one exact installed starter release")]
+    Remove { id: String },
+}
+
+#[derive(Subcommand)]
+enum Project {
+    #[command(about = "Show detected dependencies and selected documentation")]
+    Status,
+    #[command(about = "Check the current files and toolchain against an offline test receipt")]
+    Readiness,
+    #[command(about = "Prepare locked dependencies and verify the existing project")]
+    Prepare {
+        /// Start a cancellable job and print its ID.
+        #[arg(long)]
+        background: bool,
+    },
+    #[command(about = "Run a command using this project's prepared offline dependencies")]
+    Run {
+        #[arg(required = true, last = true, value_name = "COMMAND")]
+        command: Vec<std::ffi::OsString>,
+    },
+    #[command(about = "Pin an exact documentation release for this project")]
+    Pin {
+        #[arg(value_name = "PACK@VERSION")]
+        id: String,
+    },
+    #[command(about = "Restore automatic version selection for a project docset")]
+    Unpin { id: String },
+}
+
+#[derive(Subcommand)]
+enum DocsUpdates {
+    #[command(about = "Show the cached documentation channel state")]
+    Status,
+    #[command(about = "Fetch the documentation release manifest")]
+    Check,
+    #[command(about = "Set or clear the independent documentation channel")]
+    Configure {
+        #[arg(required_unless_present = "clear", conflicts_with = "clear", value_hint = clap::ValueHint::Url)]
+        url: Option<String>,
+        #[arg(long)]
+        clear: bool,
+    },
+}
+
+#[derive(Args)]
+struct BundleSelection {
+    #[arg(long = "doc", value_name = "PACK@VERSION")]
+    /// Select an exact documentation release. Repeat to select more.
+    docs: Vec<String>,
+    #[arg(long = "starter", value_name = "STARTER@VERSION")]
+    /// Select an exact starter release. Repeat to select more.
+    starters: Vec<String>,
+}
+
+#[derive(Subcommand)]
+enum Offline {
+    #[command(about = "Report installed documentation and starter readiness")]
+    Status {
+        #[arg(long, value_hint = clap::ValueHint::AnyPath)]
+        path: Option<PathBuf>,
+        #[command(flatten)]
+        selection: BundleSelection,
+    },
+    #[command(about = "Run the network-denied smoke test for an installed starter")]
+    Check {
+        id: String,
+        #[arg(long)]
+        background: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum Bundle {
+    #[command(about = "Export selected pinned releases to a portable bundle")]
+    Export {
+        #[arg(value_hint = clap::ValueHint::FilePath)]
+        path: PathBuf,
+        #[command(flatten)]
+        selection: BundleSelection,
+        #[arg(long)]
+        background: bool,
+    },
+    #[command(about = "Validate a bundle and show what it contains")]
+    Inspect {
+        #[arg(value_hint = clap::ValueHint::FilePath)]
+        path: PathBuf,
+    },
+    #[command(about = "Install the verified contents of a local bundle")]
+    Import {
+        #[arg(value_hint = clap::ValueHint::FilePath)]
+        path: PathBuf,
+        #[arg(long)]
+        /// Trust and install executable starter files from this bundle.
+        trust_starters: bool,
+        #[arg(long)]
+        background: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum Jobs {
+    #[command(about = "List background jobs")]
+    List,
+    #[command(about = "Read a job status and log")]
+    Status {
+        id: String,
+        #[arg(long, default_value_t = 0)]
+        /// Read the log from this byte offset.
+        offset: u64,
+        #[arg(long)]
+        /// Stream log updates until the job stops.
+        follow: bool,
+    },
+    #[command(about = "Request cancellation of a background job")]
+    Cancel { id: String },
 }
 #[derive(Subcommand)]
 enum Runtimes {
-    #[command(about = "List supported stacks and report toolchain availability on this Mac")]
+    #[command(
+        about = "Report detected tools, versions and starter minimums",
+        long_about = "Probe the local toolchain executables and compare their versions to the selected stack's starter minimums. Devline looks on PATH and in known macOS tool locations, including Homebrew, mise and rustup. Runtime installation and upgrades stay with the runtime's own tool or installer."
+    )]
     List,
 }
 #[derive(Subcommand)]
@@ -230,9 +434,12 @@ enum CompletionKind {
     AvailableDocs,
     InstalledDocs,
     InstalledDocsets,
+    ExactDocs,
     Stacks,
     AvailableStarters,
     InstalledStarters,
+    ExactStarters,
+    InfraImages,
 }
 fn answer(label: &str) -> Result<Option<String>> {
     if !io::stdin().is_terminal() || !io::stderr().is_terminal() {
@@ -286,15 +493,17 @@ impl Scope {
         }
         request["version"] = json!(version);
         if let Some(stack) = &self.stack {
-            if stack != "all" {
-                request["stack"] = json!(stack);
-            }
+            request["stack"] = json!(stack);
         } else if self.docset.is_none()
             && version.is_none()
             && !request["id"].as_str().is_some_and(exact_id)
         {
-            if let Ok(cwd) = std::env::current_dir() {
-                request["project_stack"] = devkit_core::project_context(&cwd)["stack"].clone();
+            if let Some(path) = self
+                .project
+                .clone()
+                .or_else(|| std::env::current_dir().ok())
+            {
+                request["project_path"] = json!(path);
             }
         }
         Ok(())
@@ -304,9 +513,12 @@ impl Scope {
 fn completion_values(cli: &Cli, kind: CompletionKind) -> Result<()> {
     let (docs, installed) = match kind {
         CompletionKind::AvailableDocs | CompletionKind::Stacks => (true, false),
-        CompletionKind::InstalledDocs | CompletionKind::InstalledDocsets => (true, true),
+        CompletionKind::InstalledDocs
+        | CompletionKind::InstalledDocsets
+        | CompletionKind::ExactDocs => (true, true),
         CompletionKind::AvailableStarters => (false, false),
-        CompletionKind::InstalledStarters => (false, true),
+        CompletionKind::InstalledStarters | CompletionKind::ExactStarters => (false, true),
+        CompletionKind::InfraImages => return cli_infra::complete_images(cli),
     };
     let data = if docs {
         request(cli, json!({"command":"catalog"}))?["docs"].clone()
@@ -315,6 +527,10 @@ fn completion_values(cli: &Cli, kind: CompletionKind) -> Result<()> {
     };
     let mut choices = BTreeSet::new();
     let stacks = matches!(kind, CompletionKind::Stacks);
+    let exact = matches!(
+        kind,
+        CompletionKind::ExactDocs | CompletionKind::ExactStarters
+    );
     if stacks {
         choices.insert("all".to_owned());
     }
@@ -333,9 +549,15 @@ fn completion_values(cli: &Cli, kind: CompletionKind) -> Result<()> {
         {
             continue;
         }
-        choices.insert(id.to_owned());
+        if !exact {
+            choices.insert(id.to_owned());
+        }
         let version = s(item, "version");
-        if (!docs || matches!(kind, CompletionKind::InstalledDocsets))
+        if (!docs
+            || matches!(
+                kind,
+                CompletionKind::InstalledDocsets | CompletionKind::ExactDocs
+            ))
             && !version.is_empty()
             && version
                 .bytes()
@@ -381,6 +603,9 @@ fn print_completions(shell: clap_complete::Shell) -> Result<()> {
                     completion_argument(cmd, "__available_docs")
                 })
                 .mut_subcommand("remove", |cmd| completion_argument(cmd, "__installed_docs"))
+                .mut_subcommand("rollback", |cmd| {
+                    completion_argument(cmd, "__installed_docsets")
+                })
         })
         .mut_subcommand("templates", |command| {
             command
@@ -390,6 +615,42 @@ fn print_completions(shell: clap_complete::Shell) -> Result<()> {
                 .mut_subcommand("build", |cmd| {
                     completion_argument(cmd, "__available_starters")
                 })
+                .mut_subcommand("inspect", |cmd| {
+                    completion_argument(cmd, "__available_starters")
+                })
+                .mut_subcommand("verify", |cmd| {
+                    completion_argument(cmd, "__installed_starters")
+                })
+                .mut_subcommand("remove", |cmd| completion_argument(cmd, "__exact_starters"))
+        })
+        .mut_subcommand("project", |cmd| {
+            cmd.mut_subcommand("pin", |cmd| completion_argument(cmd, "__exact_docs"))
+                .mut_subcommand("unpin", |cmd| completion_argument(cmd, "__installed_docs"))
+        })
+        .mut_subcommand("offline", |cmd| {
+            cmd.mut_subcommand("check", |cmd| {
+                completion_argument(cmd, "__installed_starters")
+            })
+        })
+        .mut_subcommand("bundle", |cmd| {
+            cmd.mut_subcommand("export", |cmd| {
+                cmd.mut_arg("docs", |arg| arg.value_parser(["__exact_docs"]))
+                    .mut_arg("starters", |arg| arg.value_parser(["__exact_starters"]))
+            })
+        })
+        .mut_subcommand("infra", |command| {
+            command
+                .mut_subcommand("prepare", |cmd| completion_argument(cmd, "__infra_images"))
+                .mut_subcommand("restore", |cmd| completion_argument(cmd, "__infra_images"))
+                .mut_subcommand("verify", |cmd| completion_argument(cmd, "__infra_images"))
+                .mut_subcommand("remove", |cmd| completion_argument(cmd, "__infra_images"))
+                .mut_subcommand("status", |cmd| completion_argument(cmd, "__infra_images"))
+                .mut_subcommand("export", |cmd| {
+                    cmd.mut_arg("images", |arg| arg.value_parser(["__infra_images"]))
+                })
+                .mut_subcommand("configure", |cmd| {
+                    cmd.mut_arg("services", |arg| arg.value_parser(["__infra_images"]))
+                })
         })
         .mut_subcommand("doctor", |cmd| {
             completion_argument(cmd, "__available_starters")
@@ -398,7 +659,8 @@ fn print_completions(shell: clap_complete::Shell) -> Result<()> {
             completion_argument(cmd, "__available_starters")
         })
         .mut_subcommand("new", |cmd| {
-            completion_argument(cmd, "__installed_starters")
+            completion_argument(cmd, "__available_starters")
+                .mut_arg("services", |arg| arg.value_parser(["__infra_images"]))
         });
     let mut generated = Vec::new();
     clap_complete::generate(shell, &mut command, "devline", &mut generated);
@@ -410,6 +672,9 @@ fn print_completions(shell: clap_complete::Shell) -> Result<()> {
             "_devline_local_ids installed-docsets",
         )
         .replace("(__stacks)", "_devline_local_ids stacks")
+        .replace("(__exact_docs)", "_devline_local_ids exact-docs")
+        .replace("(__exact_starters)", "_devline_local_ids exact-starters")
+        .replace("(__infra_images)", "_devline_local_ids infra-images")
         .replace(
             "(__available_starters)",
             "_devline_local_ids available-starters",
@@ -662,7 +927,305 @@ fn resolve_article(cli: &Cli, input: &str, scope: &Scope, terminal_format: bool)
     if terminal_format {
         query["terminal_format"] = json!(true);
     }
-    request(cli, query)
+    let project = query["project_path"]
+        .as_str()
+        .filter(|_| may_use_project(input))
+        .map(str::to_owned);
+    request(cli, query).map_err(|error| {
+        let Some(path) = project else {
+            return error;
+        };
+        let Ok(context) = request(cli, json!({"command":"project.context","path":path})) else {
+            return error;
+        };
+        let details: Vec<_> = project_warnings(&context).collect();
+        if details.is_empty() {
+            error
+        } else {
+            error.context(format!("Project documentation: {}", details.join(" ")))
+        }
+    })
+}
+
+fn may_use_project(query: &str) -> bool {
+    query
+        .split_once(':')
+        .is_none_or(|(_, suffix)| suffix.starts_with([':', '/']))
+}
+
+fn project_warnings(context: &Value) -> impl Iterator<Item = &str> {
+    context["docsets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|pack| {
+            matches!(pack["state"].as_str(), Some("unmatched" | "uninstalled"))
+                || (pack["state"] == "pinned"
+                    && (pack["compatible"] == false
+                        || !pack["installed_versions"]
+                            .as_array()
+                            .is_some_and(|versions| versions.contains(&pack["version"]))))
+        })
+        .filter_map(|pack| pack["detail"].as_str())
+}
+
+fn render_project(value: &Value) {
+    println!("Project  {}", terminal::safe_text(s(value, "path")));
+    if value["stacks"].as_array().is_none_or(Vec::is_empty) {
+        println!("No supported project manifests found.");
+    }
+    for dependency in value["dependencies"].as_array().into_iter().flatten() {
+        let version = dependency["version"]
+            .as_str()
+            .or(dependency["requirement"].as_str())
+            .unwrap_or("version unspecified");
+        println!(
+            "  {:<14} {}  ·  {}",
+            s(dependency, "id"),
+            terminal::safe_text(version),
+            terminal::safe_text(s(dependency, "source"))
+        );
+    }
+    if let Some(docsets) = value["docsets"]
+        .as_array()
+        .filter(|packs| !packs.is_empty())
+    {
+        println!("\nDocumentation");
+        for pack in docsets {
+            let reference = pack["version"].as_str().map_or_else(
+                || s(pack, "id").to_owned(),
+                |version| format!("{}@{version}", s(pack, "id")),
+            );
+            println!(
+                "  {reference:<28} {}",
+                terminal::safe_text(s(pack, "detail"))
+            );
+        }
+    }
+    cli_infra::render_project_config(&value["infrastructure"]);
+}
+
+fn pack_reference(input: &str, required: bool) -> Result<(&str, Option<&str>)> {
+    let (id, version) = input
+        .split_once('@')
+        .map_or((input, None), |(id, version)| (id, Some(version)));
+    if id.is_empty()
+        || version.is_some_and(|version| version.is_empty() || version.contains('@'))
+        || (required && version.is_none())
+    {
+        bail!("Use an exact release such as fastapi@0.162.0+devline.1.");
+    }
+    Ok((id, version))
+}
+
+fn run_operation(
+    cli: &Cli,
+    action: &'static str,
+    kind: &str,
+    background: bool,
+    mut payload: Value,
+) -> Result<(&'static str, Value)> {
+    if background {
+        payload["command"] = json!("jobs.start");
+        payload["kind"] = json!(kind);
+        return Ok(("job-started", request(cli, payload)?));
+    }
+    Ok((action, request(cli, payload)?))
+}
+
+fn render_job(job: &Value) {
+    println!(
+        "{}  {}  {}",
+        s(job, "id"),
+        s(job, "kind").replace('_', " "),
+        s(job, "state")
+    );
+    if let Some(stage) = job["stage"].as_str() {
+        println!("  {}", terminal::safe_text(stage));
+    }
+    if let Some(error) = job["error"].as_str() {
+        println!("  {}", terminal::safe_text(error));
+    }
+    if job["cancel_requested"] == true
+        && matches!(job["state"].as_str(), Some("queued" | "running"))
+    {
+        println!("  Cancellation requested.");
+    }
+    if let (Some(done), Some(total)) =
+        (job["completed_bytes"].as_u64(), job["total_bytes"].as_u64())
+    {
+        println!("  {done} / {total} bytes");
+    }
+}
+
+fn watch_job(cli: &Cli, id: &str, mut offset: u64) -> Result<i32> {
+    loop {
+        let job = request(
+            cli,
+            json!({"command":"jobs.status","job_id":id,"offset":offset}),
+        )?;
+        if !cli.json {
+            eprint!("{}", terminal::safe_text(s(&job, "log")));
+        }
+        let next = job["next_offset"].as_u64().unwrap_or(offset);
+        let terminal = !matches!(job["state"].as_str(), Some("queued" | "running"));
+        if terminal && next == offset {
+            if cli.json {
+                println!("{}", json!({"schema_version":1,"data":job}));
+            } else {
+                render_job(&job);
+            }
+            return Ok(match job["state"].as_str() {
+                Some("succeeded") => 0,
+                Some("cancelled") => 130,
+                _ => 1,
+            });
+        }
+        if next == offset {
+            std::thread::sleep(Duration::from_millis(250));
+        }
+        offset = next;
+    }
+}
+
+fn render_doc_updates(value: &Value) {
+    if let Some(channel) = value["channel_url"].as_str() {
+        println!("Documentation channel  {channel}");
+    } else {
+        println!("No documentation release channel configured.");
+    }
+    if let Some(error) = value["error"].as_str() {
+        println!("Last check  {}", terminal::safe_text(error));
+    }
+    for pack in value["packs"].as_array().into_iter().flatten() {
+        let active = pack["active_version"].as_str().unwrap_or("not installed");
+        let latest = pack["latest"]["pack"]["version"]
+            .as_str()
+            .unwrap_or("no channel release");
+        println!(
+            "  {:<18} {:<12} {active}  ·  {latest}",
+            s(pack, "id"),
+            s(pack, "state")
+        );
+    }
+}
+
+fn render_offline(value: &Value) {
+    println!(
+        "Offline readiness  {}",
+        if value["ready_offline"] == true {
+            "Ready"
+        } else {
+            "Needs attention"
+        }
+    );
+    for pack in value["docs"].as_array().into_iter().flatten() {
+        let state = if pack["ready_offline"] == true {
+            "ready"
+        } else {
+            "missing"
+        };
+        println!(
+            "  {state:<8} {}@{}  {}",
+            s(pack, "id"),
+            s(pack, "version"),
+            terminal::safe_text(s(pack, "detail"))
+        );
+    }
+    for starter in value["starters"].as_array().into_iter().flatten() {
+        if let Some(error) = starter["error"].as_str() {
+            println!(
+                "  {}  {}",
+                terminal::safe_text(s(starter, "id")),
+                terminal::safe_text(error)
+            );
+        } else {
+            readiness(starter);
+        }
+    }
+    for runtime in value["runtimes"].as_array().into_iter().flatten() {
+        println!(
+            "  {}  {}",
+            terminal::safe_text(s(runtime, "name")),
+            terminal::safe_text(s(runtime, "detail"))
+        );
+    }
+}
+
+fn render_bundle(value: &Value) {
+    println!(
+        "Bundle  {}",
+        if value["compatible"] == true {
+            "Compatible"
+        } else {
+            "Needs attention"
+        }
+    );
+    println!(
+        "{} files · {} bytes",
+        value["file_count"], value["size_bytes"]
+    );
+    for item in value["docs"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .chain(value["starters"].as_array().into_iter().flatten())
+    {
+        println!("  {}@{}", s(item, "id"), s(item, "version"));
+    }
+    for problem in value["problems"].as_array().into_iter().flatten() {
+        println!(
+            "  {}  {}",
+            s(problem, "id"),
+            terminal::safe_text(s(problem, "reason"))
+        );
+    }
+    if value["requires_trust"] == true {
+        println!("Installing executable starters requires --trust-starters.");
+    }
+}
+
+fn render_starter_details(value: &Value) {
+    let starter = &value["template"];
+    println!("{}@{}", s(starter, "id"), s(starter, "version"));
+    println!(
+        "{} files · {} bytes",
+        value["file_count"], value["size_bytes"]
+    );
+    println!(
+        "Offline readiness  {}",
+        if value["ready_offline"] == true {
+            "Ready"
+        } else {
+            "Needs attention"
+        }
+    );
+    if let Some(digest) = value["digest"].as_str() {
+        println!("SHA-256  {digest}");
+    }
+    if let Some(contents) = value["contents"]
+        .as_array()
+        .filter(|items| !items.is_empty())
+    {
+        println!("\nProject contents");
+        for item in contents {
+            let suffix = if item["kind"] == "directory" { "/" } else { "" };
+            println!("  {}{suffix}", terminal::safe_text(s(item, "name")));
+        }
+    }
+    if let Some(dependencies) = value["dependencies"]
+        .as_array()
+        .filter(|items| !items.is_empty())
+    {
+        println!("\nDependencies");
+        for dep in dependencies {
+            println!(
+                "  {}  {}",
+                terminal::safe_text(s(dep, "name")),
+                terminal::safe_text(s(dep, "version"))
+            );
+        }
+    }
 }
 
 fn reading_action(cli: &Cli, command: &str, article: &Value) -> Result<Value> {
@@ -812,16 +1375,20 @@ fn search_docs(
     }
     let mut search = json!({"command":"docs.search","query":query,"limit":limit});
     scope.apply(&mut search)?;
-    let inferred = search["project_stack"]
+    let project = search["project_path"]
         .as_str()
-        .filter(|_| {
-            query
-                .split_once(':')
-                .is_none_or(|(_, suffix)| suffix.starts_with(':'))
-        })
+        .filter(|_| may_use_project(query))
         .map(str::to_owned);
     let data = request(cli, search)?;
     let items = data.as_array().context("Unexpected search results")?;
+    let inferred = project
+        .filter(|_| !cli.json && !ids && (items.is_empty() || io::stderr().is_terminal()))
+        .and_then(|path| request(cli, json!({"command":"project.context","path":path})).ok())
+        .filter(|context| {
+            context["docsets"]
+                .as_array()
+                .is_some_and(|packs| !packs.is_empty())
+        });
     if cli.json {
         println!("{}", json!({"schema_version":1,"data":data}));
     } else if ids {
@@ -829,10 +1396,11 @@ fn search_docs(
             println!("{}", s(item, "id"));
         }
     } else if items.is_empty() {
-        if let Some(stack) = &inferred {
-            println!(
-                "No installed documentation matched {query:?} in the detected {stack} project."
-            );
+        if let Some(context) = &inferred {
+            println!("No compatible installed documentation matched {query:?} in this project.");
+            for warning in project_warnings(context) {
+                println!("  {}", terminal::safe_text(warning));
+            }
             println!("Add --stack all to search every installed docset.");
         } else {
             println!("No installed documentation matched {query:?}.");
@@ -842,13 +1410,16 @@ fn search_docs(
             "Run devline docs list to see available packs and devline docs install <id> to add one."
         );
     } else {
-        if let Some(stack) = &inferred {
+        if let Some(context) = &inferred {
             progress(
                 cli,
                 format_args!(
-                    "Project scope is {stack}. Use --stack all to search all installed docsets."
+                    "Using project documentation. Run devline project to review versions."
                 ),
             );
+            for warning in project_warnings(context) {
+                progress(cli, format_args!("  {}", terminal::safe_text(warning)));
+            }
         }
         for (index, item) in items.iter().enumerate() {
             if pick {
@@ -874,6 +1445,55 @@ fn search_docs(
     }
     Ok(if items.is_empty() { 4 } else { 0 })
 }
+fn show_project_operation(cli: &Cli, action: &str, data: Value) -> Result<i32> {
+    if cli.json {
+        println!("{}", json!({"schema_version":1,"data":data}));
+    } else if action == "job-started" {
+        render_job(&data);
+        println!(
+            "Follow with devline jobs status {} --follow.",
+            s(&data, "id")
+        );
+    } else {
+        let status = if data["ready_offline"] == true {
+            "Ready offline"
+        } else {
+            "Needs preparation"
+        };
+        println!(
+            "Project  {}\n{status}\n{}",
+            terminal::safe_text(s(&data, "path")),
+            terminal::safe_text(s(&data, "detail"))
+        );
+    }
+    Ok(if data["ready_offline"] == false { 3 } else { 0 })
+}
+
+fn run_project(cli: &Cli, path: &std::path::Path, arguments: &[std::ffi::OsString]) -> Result<i32> {
+    if cli.json {
+        bail!("Project commands own their standard output. Remove --json for project run.");
+    }
+    let runner = request(cli, json!({"command":"project.runner","path":path}))?;
+    let mut command = if cli.offline {
+        let mut command = Command::new("/usr/bin/sandbox-exec");
+        command.args(["-p", "(version 1)(allow default)(deny network-outbound)(allow network-outbound (remote ip \"localhost:*\"))", "/bin/sh"]);
+        command
+    } else {
+        Command::new("/bin/sh")
+    };
+    let status = command
+        .arg(s(&runner, "adapter"))
+        .arg("run")
+        .arg(s(&runner, "path"))
+        .arg(s(&runner, "cache"))
+        .arg(s(&runner, "toolchain_path"))
+        .args(arguments)
+        .current_dir(s(&runner, "path"))
+        .status()
+        .context("Could not run the prepared project command")?;
+    Ok(status.code().unwrap_or(1))
+}
+
 fn run(cli: &Cli) -> Result<i32> {
     let (action, data) = match &cli.command {
         None => {
@@ -885,6 +1505,115 @@ fn run(cli: &Cli) -> Result<i32> {
             print_completions(*shell)?;
             return Ok(0);
         }
+        Some(Commands::Project { path, command }) => {
+            let path = path.clone().map_or_else(std::env::current_dir, Ok)?;
+            let payload = match command {
+                None | Some(Project::Status) => json!({"command":"project.context","path":path}),
+                Some(Project::Readiness) => json!({"command":"project.readiness","path":path}),
+                Some(Project::Prepare { background }) => {
+                    let (action, data) = run_operation(
+                        cli,
+                        "project-prepared",
+                        "project_prepare",
+                        *background,
+                        json!({"command":"project.prepare","path":path,"offline":cli.offline}),
+                    )?;
+                    return show_project_operation(cli, action, data);
+                }
+                Some(Project::Run { command }) => return run_project(cli, &path, command),
+                Some(Project::Pin { id }) => {
+                    let (pack, version) = pack_reference(id, true)?;
+                    json!({"command":"project.pin","path":path,"id":pack,"version":version})
+                }
+                Some(Project::Unpin { id }) => {
+                    json!({"command":"project.unpin","path":path,"id":id})
+                }
+            };
+            let mut project = request(cli, payload)?;
+            if matches!(command, Some(Project::Readiness)) {
+                return show_project_operation(cli, "project-readiness", project);
+            }
+            let project_path = project["path"]
+                .as_str()
+                .map(std::path::Path::new)
+                .unwrap_or(&path);
+            project["infrastructure"] = cli_infra::project_config(cli, project_path)
+                .unwrap_or_else(|error| json!({"error":format!("{error:#}")}));
+            ("project", project)
+        }
+        Some(Commands::Infra { command }) => cli_infra::run(cli, command.as_ref())?,
+        Some(Commands::Toolbox(options)) => cli_infra::toolbox(cli, options)?,
+        Some(Commands::Offline { command }) => match command {
+            None => (
+                "offline",
+                request(cli, json!({"command":"offline.status"}))?,
+            ),
+            Some(Offline::Status { path, selection }) => (
+                "offline",
+                request(
+                    cli,
+                    json!({"command":"offline.status","path":path,"docs":selection.docs,"starters":selection.starters}),
+                )?,
+            ),
+            Some(Offline::Check { id, background }) => run_operation(
+                cli,
+                "verified",
+                "verify",
+                *background,
+                json!({"command":"offline.check","id":id}),
+            )?,
+        },
+        Some(Commands::Bundle { command }) => match command {
+            Bundle::Export {
+                path,
+                selection,
+                background,
+            } => run_operation(
+                cli,
+                "bundle-exported",
+                "bundle_export",
+                *background,
+                json!({"command":"bundle.export","path":path,"docs":selection.docs,"starters":selection.starters}),
+            )?,
+            Bundle::Inspect { path } => (
+                "bundle",
+                request(cli, json!({"command":"bundle.inspect","path":path}))?,
+            ),
+            Bundle::Import {
+                path,
+                trust_starters,
+                background,
+            } => run_operation(
+                cli,
+                "bundle-imported",
+                "bundle_import",
+                *background,
+                json!({"command":"bundle.import","path":path,"trust_starters":trust_starters}),
+            )?,
+        },
+        Some(Commands::Jobs { command }) => match command {
+            None | Some(Jobs::List) => ("jobs", request(cli, json!({"command":"jobs.list"}))?),
+            Some(Jobs::Status {
+                id,
+                offset,
+                follow: true,
+            }) => return watch_job(cli, id, *offset),
+            Some(Jobs::Status {
+                id,
+                offset,
+                follow: false,
+            }) => (
+                "job",
+                request(
+                    cli,
+                    json!({"command":"jobs.status","job_id":id,"offset":offset}),
+                )?,
+            ),
+            Some(Jobs::Cancel { id }) => (
+                "job",
+                request(cli, json!({"command":"jobs.cancel","job_id":id}))?,
+            ),
+        },
         Some(Commands::Library) => ("catalog", request(cli, json!({"command":"catalog"}))?),
         Some(Commands::Runtimes {
             command: None | Some(Runtimes::List),
@@ -1002,15 +1731,24 @@ fn run(cli: &Cli) -> Result<i32> {
                 let result = request(cli, json!({"command":"reading.remove","id":id}))?;
                 ("unsaved-article", result)
             }
-            Some(Docs::Install { id, version }) => {
+            Some(Docs::Install {
+                id,
+                version,
+                background,
+            }) => {
+                let (id, pinned) = pack_reference(id, false)?;
+                if pinned.zip(version.as_deref()).is_some_and(|(a, b)| a != b) {
+                    bail!("The documentation reference and --version specify different releases.");
+                }
+                let version = pinned.or(version.as_deref());
                 progress(cli, format_args!("Installing documentation for {id}…"));
-                (
+                run_operation(
+                    cli,
                     "install",
-                    request(
-                        cli,
-                        json!({"command":"docs.install","id":id,"version":version}),
-                    )?,
-                )
+                    "docs_prepare",
+                    *background,
+                    json!({"command":"docs.install","id":id,"version":version}),
+                )?
             }
             Some(Docs::List { installed }) => {
                 let mut list = request(cli, json!({"command":"catalog"}))?["docs"].clone();
@@ -1028,6 +1766,59 @@ fn run(cli: &Cli) -> Result<i32> {
                     json!({"command":"docs.remove","id":id,"version":version}),
                 )?,
             ),
+            Some(Docs::Updates { command }) => {
+                let payload = match command {
+                    None | Some(DocsUpdates::Status) => {
+                        json!({"command":"docs.distribution.status"})
+                    }
+                    Some(DocsUpdates::Check) => {
+                        if cli.offline {
+                            bail!("Checking the documentation channel requires a connection.");
+                        }
+                        progress(
+                            cli,
+                            format_args!("Checking the documentation release channel…"),
+                        );
+                        json!({"command":"docs.distribution.check"})
+                    }
+                    Some(DocsUpdates::Configure { url, clear }) => {
+                        let url = if *clear {
+                            ""
+                        } else {
+                            url.as_deref().unwrap_or_default().trim()
+                        };
+                        if !*clear && url.is_empty() {
+                            bail!("Enter a public HTTPS manifest URL or use --clear.");
+                        }
+                        json!({"command":"docs.distribution.configure","url":url})
+                    }
+                };
+                ("doc-updates", request(cli, payload)?)
+            }
+            Some(Docs::Fetch { id, background }) => {
+                if cli.offline {
+                    bail!("Fetching documentation requires a connection. Use docs install for bundled packs.");
+                }
+                let (id, version) = pack_reference(id, false)?;
+                progress(cli, format_args!("Fetching {id}…"));
+                run_operation(
+                    cli,
+                    "doc-fetched",
+                    "docs_install",
+                    *background,
+                    json!({"command":"docs.distribution.install","id":id,"version":version}),
+                )?
+            }
+            Some(Docs::Rollback { id }) => {
+                let (id, version) = pack_reference(id, false)?;
+                (
+                    "doc-rollback",
+                    request(
+                        cli,
+                        json!({"command":"docs.distribution.rollback","id":id,"version":version}),
+                    )?,
+                )
+            }
         },
         Some(Commands::Templates { command }) => match command {
             Templates::List {
@@ -1052,26 +1843,50 @@ fn run(cli: &Cli) -> Result<i32> {
                     request(cli, json!({"command":"templates.install","id":id}))?,
                 )
             }
-            Templates::Build { id, .. } => {
+            Templates::Build { id, background, .. } => {
                 if cli.offline {
                     bail!("Building with latest upstream dependencies requires a connection. Run this command while connected.");
                 }
                 progress(cli, format_args!("Refreshing dependencies for {id}, then testing with network access blocked…"));
-                (
+                run_operation(
+                    cli,
                     "build",
-                    request(cli, json!({"command":"templates.build","id":id}))?,
+                    "build",
+                    *background,
+                    json!({"command":"templates.build","id":id}),
+                )?
+            }
+            Templates::Inspect { id } => (
+                "template-detail",
+                request(cli, json!({"command":"templates.inspect","id":id}))?,
+            ),
+            Templates::Verify { id, background } => run_operation(
+                cli,
+                "verified",
+                "verify",
+                *background,
+                json!({"command":"offline.check","id":id}),
+            )?,
+            Templates::Remove { id } => {
+                pack_reference(id, true)?;
+                (
+                    "template-removed",
+                    request(cli, json!({"command":"templates.remove","id":id}))?,
                 )
             }
         },
-        Some(Commands::Prepare { id }) => {
+        Some(Commands::Prepare { id, background }) => {
             progress(
                 cli,
                 format_args!("Installing starter and matching documentation for {id}…"),
             );
-            (
+            run_operation(
+                cli,
                 "prepare",
-                request(cli, json!({"command":"prepare","id":id}))?,
-            )
+                "prepare",
+                *background,
+                json!({"command":"prepare","id":id}),
+            )?
         }
         Some(Commands::Doctor { id }) => {
             ("doctor", request(cli, json!({"command":"doctor","id":id}))?)
@@ -1080,19 +1895,17 @@ fn run(cli: &Cli) -> Result<i32> {
             id,
             destination,
             dry_run,
+            services,
+            ports,
         }) => {
             let selected = match id {
                 Some(id) => id.clone(),
                 None => {
                     let list = request(cli, json!({"command":"templates.list"}))?;
-                    let items: Vec<_> = list
-                        .as_array()
-                        .context("Unexpected list")?
-                        .iter()
-                        .filter(|v| v["installed"] == true)
-                        .collect();
+                    let items: Vec<_> =
+                        list.as_array().context("Unexpected list")?.iter().collect();
                     if items.is_empty() {
-                        bail!("No starters are installed. Browse with devline templates list, then install with devline prepare <id>.");
+                        bail!("No starters are available. Browse the current catalog with devline templates list.");
                     }
                     for (i, v) in items.iter().enumerate() {
                         eprintln!("{}. {}@{}", i + 1, s(v, "id"), s(v, "version"));
@@ -1114,7 +1927,7 @@ fn run(cli: &Cli) -> Result<i32> {
                 "new",
                 request(
                     cli,
-                    json!({"command":"new","id":selected,"destination":path,"dry_run":dry_run}),
+                    json!({"command":"new.ready","id":selected,"destination":path,"dry_run":dry_run,"offline":cli.offline,"services":services,"ports":cli_infra::port_overrides(ports)?}),
                 )?,
             )
         }
@@ -1122,12 +1935,77 @@ fn run(cli: &Cli) -> Result<i32> {
     let ready = match action {
         "doctor" => data["ready"].as_bool(),
         "prepare" => data["doctor"]["ready"].as_bool(),
+        "offline" | "verified" | "toolbox" => data["ready_offline"].as_bool(),
+        "infra-running" => data["running"].as_bool(),
+        "new" if data["dry_run"] == true => data["can_create"].as_bool(),
+        "bundle" => data["compatible"].as_bool(),
         _ => None,
     };
     if cli.json {
         println!("{}", json!({"schema_version":1,"data":data}));
     } else {
         match action {
+            "project" => render_project(&data),
+            "offline" => render_offline(&data),
+            action if action == "toolbox" || action.starts_with("infra-") => {
+                cli_infra::render(action, &data)
+            }
+            "verified" => {
+                let template = &data["template"];
+                println!(
+                    "Verified {}@{} with external networking denied.",
+                    s(template, "id"),
+                    s(template, "version")
+                );
+            }
+            "bundle" => render_bundle(&data),
+            "bundle-exported" => println!(
+                "Exported {} docsets and {} starters to {}.",
+                data["docs"],
+                data["starters"],
+                s(&data, "path")
+            ),
+            "bundle-imported" => println!(
+                "Imported {} docsets and {} starters.",
+                data["docs"].as_array().map_or(0, Vec::len),
+                data["starters"].as_array().map_or(0, Vec::len)
+            ),
+            "jobs" => {
+                let jobs = data.as_array().context("Unexpected job list")?;
+                if jobs.is_empty() {
+                    println!("No background jobs.");
+                }
+                for job in jobs {
+                    render_job(job);
+                }
+            }
+            "job" => {
+                render_job(&data);
+                if let Some(log) = data["log"].as_str() {
+                    print!("{}", terminal::safe_text(log));
+                }
+            }
+            "job-started" => {
+                render_job(&data);
+                println!(
+                    "Follow with devline jobs status {} --follow.",
+                    s(&data, "id")
+                );
+            }
+            "doc-updates" => render_doc_updates(&data),
+            "doc-fetched" => println!(
+                "Installed and activated {}@{} · {} articles.",
+                s(&data, "id"),
+                s(&data, "version"),
+                data["count"]
+            ),
+            "doc-rollback" => println!(
+                "Active documentation is {}@{}.",
+                s(&data, "id"),
+                s(&data, "active_version")
+            ),
+            "template-detail" => render_starter_details(&data),
+            "template-removed" => println!("Removed the installed starter release."),
             "runtime-list" => render_runtimes(&data)?,
             "updates" => render_updates(cli, &data)?,
             "updates-configured" => println!(
@@ -1184,13 +2062,72 @@ fn run(cli: &Cli) -> Result<i32> {
                 let release = format!("{}@{}", s(&data, "template"), s(&data, "version"));
                 let path = s(&data, "path");
                 if dry_run {
-                    println!("Ready to create {path}\nTemplate  {release}\n\nCreate the project\n  devline new {release} {}", shell_quote(path));
+                    println!(
+                        "Project plan  {}\nTemplate  {release}",
+                        terminal::safe_text(path)
+                    );
+                    let services = &data["service_plan"];
+                    if !services.is_null() {
+                        println!("\nProject services");
+                        for image in services["images"].as_array().into_iter().flatten() {
+                            let operation = if image["archived"] == true {
+                                "verify local archive"
+                            } else if data["offline"] == true {
+                                "archive required before creation"
+                            } else {
+                                "prepare archive while connected"
+                            };
+                            println!(
+                                "  {}@{}  ·  {operation}",
+                                s(image, "id"),
+                                s(image, "version")
+                            );
+                        }
+                        if let Some(ports) = services["ports"].as_object() {
+                            for (port, host) in ports {
+                                println!("  {}  →  127.0.0.1:{host}", terminal::safe_text(port));
+                            }
+                        }
+                        if services["docker"]["available"] != true
+                            || services["docker"]["platform"] != services["platform"]
+                        {
+                            println!("  Start a compatible local Docker engine before creating this project.");
+                        }
+                    }
+                    println!(
+                        "\n{}",
+                        if data["can_create"] == true {
+                            "Ready to create. Rerun this command without --dry-run."
+                        } else {
+                            "Preparation needed before creation."
+                        }
+                    );
                 } else {
                     println!(
                         "Created {path}\nTemplate  {release}\n\nTest offline\n  cd {}\n  {}",
                         shell_quote(path),
                         s(&data, "test_command")
                     );
+                    let services = data["services"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(Value::as_str)
+                        .map(|service| format!(" --service {}", shell_quote(service)))
+                        .collect::<String>();
+                    if data["infrastructure"]["configured"] == true {
+                        println!(
+                            "\nStart the configured services offline\n  {} --offline infra run {}",
+                            update_command_prefix(cli),
+                            shell_quote(path)
+                        );
+                    } else if !services.is_empty() {
+                        println!(
+                            "\nConfigure project services\n  {} infra configure {}{services}",
+                            update_command_prefix(cli),
+                            shell_quote(path)
+                        );
+                    }
                 }
             }
             "install" => println!(
@@ -1211,6 +2148,9 @@ fn run(cli: &Cli) -> Result<i32> {
             _ => println!("{}", serde_json::to_string_pretty(&data)?),
         }
     }
+    if action == "infra-update-batch" && data["failed"].as_u64().unwrap_or(0) > 0 {
+        return Ok(1);
+    }
     if ready == Some(false) {
         return Ok(3);
     }
@@ -1219,10 +2159,34 @@ fn run(cli: &Cli) -> Result<i32> {
 fn shell_quote(input: &str) -> String {
     format!("'{}'", input.replace('\'', "'\\''"))
 }
+
+fn job_worker() -> Option<Result<()>> {
+    let mut args = std::env::args_os().skip(1);
+    if args.next()? != "__job-worker" {
+        return None;
+    }
+    Some((|| {
+        let id = args.next().context("Missing job ID")?;
+        let home = PathBuf::from(args.next().context("Missing job library path")?);
+        let catalog = PathBuf::from(args.next().context("Missing job catalog path")?);
+        if args.next().is_some() {
+            bail!("Unexpected job worker argument");
+        }
+        devkit_core::tasks::run_worker(home, catalog, id.to_str().context("Invalid job ID")?)
+    })())
+}
+
 fn main() {
     #[cfg(unix)]
     unsafe {
         libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
+    if let Some(result) = job_worker() {
+        if let Err(error) = result {
+            eprintln!("devline worker: {error:#}");
+            std::process::exit(1);
+        }
+        return;
     }
     let cli = Cli::parse();
     if cli.command.is_none() {

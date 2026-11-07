@@ -176,10 +176,16 @@ enum Feed {
     EntityFramework,
     Rails,
     Ecto,
+    Node,
+    React,
+    Vite,
+    TypeScript,
+    Playwright,
+    Fastify,
 }
 
 impl Feed {
-    const ALL: [Self; 17] = [
+    const ALL: [Self; 23] = [
         Self::Go,
         Self::Python,
         Self::Rust,
@@ -197,6 +203,12 @@ impl Feed {
         Self::EntityFramework,
         Self::Rails,
         Self::Ecto,
+        Self::Node,
+        Self::React,
+        Self::Vite,
+        Self::TypeScript,
+        Self::Playwright,
+        Self::Fastify,
     ];
 
     fn id(self) -> &'static str {
@@ -218,6 +230,12 @@ impl Feed {
             Self::EntityFramework => "entity-framework",
             Self::Rails => "rails",
             Self::Ecto => "ecto",
+            Self::Node => "node",
+            Self::React => "react",
+            Self::Vite => "vite",
+            Self::TypeScript => "typescript",
+            Self::Playwright => "playwright",
+            Self::Fastify => "fastify",
         }
     }
 
@@ -240,6 +258,12 @@ impl Feed {
             Self::EntityFramework => "Entity Framework Core SQLite",
             Self::Rails => "Ruby on Rails",
             Self::Ecto => "Ecto",
+            Self::Node => "Node.js",
+            Self::React => "React",
+            Self::Vite => "Vite",
+            Self::TypeScript => "TypeScript",
+            Self::Playwright => "Playwright",
+            Self::Fastify => "Fastify",
         }
     }
 
@@ -262,6 +286,12 @@ impl Feed {
             Self::EntityFramework => "https://api.nuget.org/v3-flatcontainer/microsoft.entityframeworkcore.sqlite/index.json",
             Self::Rails => "https://rubygems.org/api/v1/versions/rails/latest.json",
             Self::Ecto => "https://hex.pm/api/packages/ecto",
+            Self::Node => "https://nodejs.org/dist/index.json",
+            Self::React => "https://registry.npmjs.org/react/latest",
+            Self::Vite => "https://registry.npmjs.org/vite/latest",
+            Self::TypeScript => "https://registry.npmjs.org/typescript/latest",
+            Self::Playwright => "https://registry.npmjs.org/playwright/latest",
+            Self::Fastify => "https://registry.npmjs.org/fastify/latest",
         }
     }
 
@@ -286,6 +316,12 @@ impl Feed {
             }
             Self::Rails => "https://guides.rubyonrails.org/",
             Self::Ecto => "https://hexdocs.pm/ecto/",
+            Self::Node => "https://nodejs.org/en/download",
+            Self::React => "https://react.dev/",
+            Self::Vite => "https://vite.dev/",
+            Self::TypeScript => "https://www.typescriptlang.org/",
+            Self::Playwright => "https://playwright.dev/",
+            Self::Fastify => "https://fastify.dev/",
         }
     }
 
@@ -436,6 +472,21 @@ fn feed_versions(feed: Feed, body: &str) -> Result<Vec<String>> {
                             .map(str::to_owned)
                     })
                     .collect()),
+                Feed::Node => Ok(json
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|entry| {
+                        entry["version"]
+                            .as_str()?
+                            .strip_prefix('v')
+                            .filter(|version| stable_version(version).is_some())
+                            .map(str::to_owned)
+                    })
+                    .collect()),
+                Feed::React | Feed::Vite | Feed::TypeScript | Feed::Playwright | Feed::Fastify => {
+                    one(json["version"].as_str())
+                }
                 Feed::Dotnet => Ok(many(&json["releases-index"], "latest-sdk")),
                 Feed::Java => json["most_recent_feature_release"]
                     .as_u64()
@@ -734,17 +785,34 @@ fn docs_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
 
 fn starter_feed(id: &str) -> Option<Feed> {
     match id {
-        "go/chi-api" => Some(Feed::Chi),
-        "python/fastapi-api" => Some(Feed::FastApi),
-        "rust/axum-api" => Some(Feed::Axum),
+        "go/chi-api" | "go/chi-taskboard" | "go/service-kit" => Some(Feed::Chi),
+        "python/fastapi-api" | "python/service-kit" => Some(Feed::FastApi),
+        "rust/axum-api" | "rust/service-kit" => Some(Feed::Axum),
         "java/spring-api" => Some(Feed::Spring),
         "elixir/phoenix-api" => Some(Feed::Phoenix),
         "dotnet/aspnet-api" => Some(Feed::EntityFramework),
+        "node/react-web" => Some(Feed::React),
+        "node/playwright-automation" => Some(Feed::Playwright),
+        "node/service-kit" => Some(Feed::Fastify),
         _ => None,
     }
 }
 
 fn dependency_version(feed: Feed, project: &Path) -> Option<String> {
+    let npm = match feed {
+        Feed::React => Some("react"),
+        Feed::Playwright => Some("@playwright/test"),
+        Feed::Fastify => Some("fastify"),
+        _ => None,
+    };
+    if let Some(package) = npm {
+        let manifest: Value =
+            serde_json::from_slice(&fs::read(project.join("package.json")).ok()?).ok()?;
+        let version = manifest["dependencies"][package]
+            .as_str()
+            .or_else(|| manifest["devDependencies"][package].as_str())?;
+        return stable_version(version).map(|_| version.to_owned());
+    }
     let (file, marker) = match feed {
         Feed::Chi => ("go.mod", "github.com/go-chi/chi/v5 v"),
         Feed::FastApi => ("requirements.txt", "fastapi=="),
@@ -870,6 +938,7 @@ fn runtime_version(feed: Feed, detail: &str) -> Option<&str> {
         Feed::Maven => output.split_once("Apache Maven ")?.1,
         Feed::Elixir => output.rsplit_once("Elixir ")?.1,
         Feed::Erlang => output.split_once("Erlang/OTP ")?.1,
+        Feed::Node => output.strip_prefix('v')?,
         Feed::Dotnet | Feed::Python => output,
         _ => return None,
     };
@@ -889,6 +958,7 @@ fn runtime_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
             "dotnet" => &[Feed::Dotnet],
             "java" => &[Feed::Java, Feed::Maven],
             "elixir" => &[Feed::Elixir, Feed::Erlang],
+            "node" => &[Feed::Node],
             _ => &[],
         };
         for &feed in feeds {
@@ -1111,6 +1181,33 @@ pub fn check(ctx: &Context) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn node_and_npm_updates_use_stable_publisher_versions() {
+        let versions = feed_versions(
+            Feed::Node,
+            r#"[{"version":"v26.13.0"},{"version":"v27.0.0-rc.1"},{"version":"v26.12.1"}]"#,
+        )
+        .unwrap();
+        assert_eq!(latest(versions.iter().map(String::as_str)), Some("26.13.0"));
+        assert_eq!(
+            runtime_version(Feed::Node, "/tools/node · v26.13.0"),
+            Some("26.13.0")
+        );
+        for feed in [
+            Feed::React,
+            Feed::Vite,
+            Feed::TypeScript,
+            Feed::Playwright,
+            Feed::Fastify,
+        ] {
+            assert_eq!(
+                feed_versions(feed, r#"{"version":"1.2.3"}"#).unwrap(),
+                ["1.2.3"]
+            );
+            assert!(feed_versions(feed, r#"{"version":"2.0.0-beta.1"}"#).is_err());
+        }
+    }
 
     #[test]
     fn compares_numeric_stable_versions() {

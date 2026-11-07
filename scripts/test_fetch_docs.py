@@ -16,6 +16,16 @@ spec.loader.exec_module(ingest)
 
 
 class ReferenceIngestionTests(unittest.TestCase):
+    def test_empty_and_nested_examples_keep_valid_offline_markup(self):
+        upstream = ('<main><pre><code></code></pre><pre id="kept"><code> </code></pre>'
+                    '<pre><details><summary>Example note</summary><pre><code>call()</code></pre></details></pre></main>')
+        _, node, _ = ingest.article_from_html(upstream, "main", "Fixture")
+        body, markup = ingest.prepared_html(node, "https://example.org/guide", "java")
+        self.assertEqual(markup.count("<pre"), 1)
+        self.assertIn('<span id="kept"></span>', markup)
+        self.assertIn("<pre><code>call()</code></pre>", markup)
+        self.assertIn("Example note", body)
+
     def test_html_keeps_code_table_anchors_and_safe_links(self):
         upstream = """<main><h1 id="topic" onclick="bad()">Topic</h1>
         <aside class="admonition note"><p>Useful note</p></aside>

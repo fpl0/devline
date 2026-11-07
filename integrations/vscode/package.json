@@ -1,0 +1,39 @@
+{
+  "name": "devline-lookup",
+  "displayName": "Devline Lookup",
+  "description": "Open the selected symbol in Devline’s offline documentation library.",
+  "publisher": "fpl0",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fpl0/devline.git"
+  },
+  "categories": ["Other"],
+  "extensionKind": ["ui"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "devline.lookupSelection",
+        "title": "Look Up Symbol",
+        "category": "Devline",
+        "enablement": "isMac"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "devline.lookupSelection",
+          "when": "isMac && editorTextFocus",
+          "group": "navigation@20"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

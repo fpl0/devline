@@ -1,0 +1,18 @@
+[
+  "fastify@latest",
+  "@fastify/cors@latest",
+  "@fastify/helmet@latest",
+  "pg@latest",
+  "mysql2@latest",
+  "redis@latest",
+  "amqplib@latest",
+  "@nats-io/transport-node@latest",
+  "@aws-sdk/client-s3@latest",
+  "jose@latest",
+  "zod@latest",
+  "dotenv@latest",
+  "pino@latest",
+  "undici@latest",
+  "typescript@latest",
+  "@types/node@latest"
+]

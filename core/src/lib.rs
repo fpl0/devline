@@ -7,6 +7,7 @@ use sha2::{Digest, Sha256};
 use std::{
     ffi::{CStr, CString},
     fs,
+    io::{self, Read},
     os::raw::c_char,
     path::{Path, PathBuf},
     time::Duration,
@@ -14,9 +15,16 @@ use std::{
 mod doc_index;
 mod doc_links;
 mod doc_search;
+mod doc_updates;
+mod infrastructure;
 mod markdown;
+mod offline;
+mod project;
+mod project_prepare;
 mod reference;
+pub mod tasks;
 pub mod templates;
+mod toolbox;
 mod updates;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -33,6 +41,14 @@ pub struct DocPack {
     pub markdown: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shards: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upstream_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub snapshot_date: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub coverage: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub omissions: Vec<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Template {
@@ -45,9 +61,13 @@ pub struct Template {
     pub path: String,
     pub toolchain: String,
     pub minimum_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minimum_macos: Option<String>,
     pub test_command: String,
     #[serde(default)]
     pub docs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub services: Vec<String>,
     #[serde(default)]
     pub verified: bool,
     pub target: String,
@@ -58,6 +78,7 @@ pub struct Catalog {
     pub docs: Vec<DocPack>,
     pub templates: Vec<Template>,
 }
+#[derive(Clone)]
 pub struct Context {
     pub home: PathBuf,
     pub catalog_dir: PathBuf,
@@ -160,13 +181,64 @@ fn text_arg<'a>(r: &'a Value, name: &str) -> Result<&'a str> {
         .and_then(Value::as_str)
         .with_context(|| format!("Missing {name}"))
 }
+
+fn valid_doc_id(id: &str) -> bool {
+    id.len() <= 64
+        && id.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
+        && id.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
+        })
+}
+
+pub(crate) fn validate_doc_identity(id: &str, version: &str) -> Result<()> {
+    if !valid_doc_id(id)
+        || version.is_empty()
+        || version.len() > 128
+        || !version.as_bytes()[0].is_ascii_alphanumeric()
+        || !version
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'+' | b'-' | b'_'))
+    {
+        bail!("Invalid documentation release identity");
+    }
+    Ok(())
+}
+
 fn install_docs(ctx: &Context, id: &str, version: Option<&str>) -> Result<Value> {
+    if !valid_doc_id(id) {
+        bail!("Invalid documentation pack ID");
+    }
+    if let Some(version) = version {
+        validate_doc_identity(id, version)?;
+    }
     let pack = ctx
         .catalog
         .docs
         .iter()
         .filter(|p| p.id == id && version.is_none_or(|v| v == p.version))
         .max_by(|a, b| updates::compare_doc_releases(&a.version, &b.version));
+    // Do not verify or select an equal/older cache when original files are bundled.
+    if let Some(bundled) = pack {
+        if version.is_some() {
+            return install_doc_pack(ctx, bundled, &safe_catalog_path(ctx, &bundled.path)?);
+        }
+        let newer = doc_updates::cached_packs(ctx)?
+            .into_iter()
+            .filter(|(candidate, _)| {
+                candidate.id == id
+                    && updates::compare_doc_releases(&candidate.version, &bundled.version).is_gt()
+            })
+            .max_by(|(a, _), (b, _)| updates::compare_doc_releases(&a.version, &b.version));
+        if let Some((candidate, _)) = newer {
+            if let Some((cached, path)) =
+                doc_updates::cached_pack(ctx, id, Some(&candidate.version))?
+            {
+                return install_doc_pack(ctx, &cached, &path);
+            }
+        }
+    } else if let Some((cached, path)) = doc_updates::cached_pack(ctx, id, version)? {
+        return install_doc_pack(ctx, &cached, &path);
+    }
     let Some(pack) = pack else {
         if let Some(version) = version {
             let db = ctx.database()?;
@@ -183,21 +255,147 @@ fn install_docs(ctx: &Context, id: &str, version: Option<&str>) -> Result<Value>
         }
         bail!("Documentation pack {id} is unavailable in the catalog");
     };
-    let _lock = lock_library(ctx)?;
     let directory = safe_catalog_path(ctx, &pack.path)?;
+    install_doc_pack(ctx, pack, &directory)
+}
+
+const DOC_SHARD_LIMIT: u64 = 128 * 1024 * 1024;
+
+fn open_doc_shard(directory: &Path, pack: &DocPack, shard: usize) -> Result<fs::File> {
+    let name = if shard == 1 {
+        "documents.json".to_owned()
+    } else {
+        format!("documents-{shard}.json")
+    };
+    let path = directory.join(&name);
+    let detail = || format!("Read {name} for {}@{}", pack.id, pack.version);
+    let mut options = fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+    }
+    #[cfg(not(unix))]
+    if !fs::symlink_metadata(&path)?.is_file() {
+        bail!("Invalid documentation shard");
+    }
+    let file = options.open(&path).with_context(detail)?;
+    let metadata = file.metadata().with_context(detail)?;
+    if !metadata.is_file() || metadata.len() > DOC_SHARD_LIMIT {
+        bail!(
+            "Invalid documentation shard {name} for {}@{}",
+            pack.id,
+            pack.version
+        );
+    }
+    Ok(file)
+}
+
+fn read_doc_shard(directory: &Path, pack: &DocPack, shard: usize) -> Result<Vec<u8>> {
+    let file = open_doc_shard(directory, pack, shard)?;
+    let mut bytes = Vec::with_capacity(file.metadata()?.len().min(DOC_SHARD_LIMIT) as usize);
+    file.take(DOC_SHARD_LIMIT + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > DOC_SHARD_LIMIT {
+        bail!("Documentation shard exceeds its size limit");
+    }
+    Ok(bytes)
+}
+
+fn hash_doc_shard(directory: &Path, pack: &DocPack, shard: usize) -> Result<String> {
+    let mut hash = Sha256::new();
+    let count = io::copy(
+        &mut open_doc_shard(directory, pack, shard)?.take(DOC_SHARD_LIMIT + 1),
+        &mut hash,
+    )?;
+    if count > DOC_SHARD_LIMIT {
+        bail!("Documentation shard exceeds its size limit");
+    }
+    Ok(format!("{:x}", hash.finalize()))
+}
+
+fn verify_doc_source<'a>(
+    ctx: &'a Context,
+    pack: &'a DocPack,
+    directory: &Path,
+) -> Result<&'a DocPack> {
+    validate_doc_identity(&pack.id, &pack.version)?;
+    let Some(bundled) = ctx
+        .catalog
+        .docs
+        .iter()
+        .find(|known| known.id == pack.id && known.version == pack.version)
+    else {
+        return Ok(pack);
+    };
+    let original = safe_catalog_path(ctx, &bundled.path)?;
+    if directory.canonicalize()? == original {
+        return Ok(bundled);
+    }
+    let shards = bundled.shards.unwrap_or(1);
+    if !(1..=1024).contains(&shards) || pack.shards.unwrap_or(1) != shards {
+        bail!(
+            "Documentation {}@{} conflicts with the bundled release",
+            pack.id,
+            pack.version
+        );
+    }
+    for shard in 1..=shards {
+        let original = hash_doc_shard(&original, bundled, shard)?;
+        let incoming = hash_doc_shard(directory, pack, shard)?;
+        if original != incoming {
+            bail!(
+                "Documentation {}@{} conflicts with the bundled release",
+                pack.id,
+                pack.version
+            );
+        }
+    }
+    Ok(bundled)
+}
+
+pub(crate) fn install_doc_pack(ctx: &Context, pack: &DocPack, directory: &Path) -> Result<Value> {
+    let pack = verify_doc_source(ctx, pack, directory)?;
+    let _lock = lock_library(ctx)?;
+    let mut db = ctx.database()?;
+    let tx = db.transaction()?;
+    let result = import_doc_pack(&tx, pack, directory)?;
+    tx.commit()?;
+    Ok(result)
+}
+
+// The caller holds the library lock while staging companion starter/cache files.
+pub(crate) fn install_doc_packs(ctx: &Context, packs: &[(DocPack, PathBuf)]) -> Result<Vec<Value>> {
+    let packs = packs
+        .iter()
+        .map(|(pack, directory)| Ok((verify_doc_source(ctx, pack, directory)?, directory)))
+        .collect::<Result<Vec<_>>>()?;
+    let mut db = ctx.database()?;
+    let tx = db.transaction()?;
+    let results = packs
+        .into_iter()
+        .map(|(pack, path)| import_doc_pack(&tx, pack, path))
+        .collect::<Result<Vec<_>>>()?;
+    tx.commit()?;
+    Ok(results)
+}
+
+fn import_doc_pack(
+    tx: &rusqlite::Transaction<'_>,
+    pack: &DocPack,
+    directory: &Path,
+) -> Result<Value> {
     let shards = pack.shards.unwrap_or(1);
     if !(1..=1024).contains(&shards) {
         bail!("Invalid documentation pack shard count");
     }
-    let mut db = ctx.database()?;
-    let previous: Option<(String, usize)> = db
+    let previous: Option<(String, usize)> = tx
         .query_row(
             "SELECT digest,count FROM packs WHERE id=?1 AND version=?2",
             params![pack.id, pack.version],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .optional()?;
-    let tx = db.transaction()?;
     let mut hash = Sha256::new();
     let mut count = 0;
     {
@@ -206,13 +404,7 @@ fn install_docs(ctx: &Context, id: &str, version: Option<&str>) -> Result<Value>
             tx.prepare("INSERT INTO docs_fts(rowid,title,body,stack) VALUES(?1,?2,?3,?4)")?;
         let mut aliases = tx.prepare("INSERT INTO aliases VALUES(?1,?2)")?;
         for shard in 1..=shards {
-            let file = if shard == 1 {
-                "documents.json".to_owned()
-            } else {
-                format!("documents-{shard}.json")
-            };
-            let bytes = fs::read(directory.join(&file))
-                .with_context(|| format!("Read {file} for {}@{}", pack.id, pack.version))?;
+            let bytes = read_doc_shard(directory, pack, shard)?;
             if shards > 1 {
                 hash.update((bytes.len() as u64).to_le_bytes());
             }
@@ -221,10 +413,10 @@ fn install_docs(ctx: &Context, id: &str, version: Option<&str>) -> Result<Value>
                 continue;
             }
             let docs: Vec<Document> = serde_json::from_slice(&bytes)
-                .with_context(|| format!("Parse {file} for {}@{}", pack.id, pack.version))?;
+                .with_context(|| format!("Parse shard {shard} for {}@{}", pack.id, pack.version))?;
             drop(bytes);
             if docs.is_empty() {
-                bail!("Documentation pack {file} is empty");
+                bail!("Documentation pack shard {shard} is empty");
             }
             count += docs.len();
             for doc in docs {
@@ -256,7 +448,7 @@ fn install_docs(ctx: &Context, id: &str, version: Option<&str>) -> Result<Value>
                 ])?;
                 for alias in std::iter::once(&doc.title).chain(doc.aliases.iter()) {
                     aliases.execute(params![alias.to_lowercase(), id])?;
-                    doc_index::add_alias(&tx, &id, alias)?;
+                    doc_index::add_alias(tx, &id, alias)?;
                 }
             }
         }
@@ -270,14 +462,15 @@ fn install_docs(ctx: &Context, id: &str, version: Option<&str>) -> Result<Value>
                 pack.version
             );
         }
+        doc_updates::record_installed(tx, pack)?;
         return Ok(json!({"id":pack.id,"version":pack.version,"count":count}));
     }
     tx.execute(
         "INSERT INTO packs VALUES(?1,?2,?3,?4)",
         params![pack.id, pack.version, digest, count],
     )?;
-    doc_index::mark_pack(&tx, &pack.id, &pack.version)?;
-    tx.commit()?;
+    doc_index::mark_pack(tx, &pack.id, &pack.version)?;
+    doc_updates::record_installed(tx, pack)?;
     Ok(json!({"id":pack.id,"version":pack.version,"count":count}))
 }
 
@@ -289,6 +482,24 @@ fn catalog_docs(ctx: &Context, db: &Connection) -> Result<Vec<Value>> {
         })?
         .collect::<rusqlite::Result<std::collections::HashSet<_>>>()?;
     let mut entries = ctx.catalog.docs.clone();
+    for (pack, _) in doc_updates::cached_packs(ctx)? {
+        if !entries
+            .iter()
+            .any(|entry| entry.id == pack.id && entry.version == pack.version)
+        {
+            entries.push(pack);
+        }
+    }
+    let metadata = doc_updates::installed_metadata(db)?;
+    for pack in metadata.values() {
+        if !entries
+            .iter()
+            .any(|entry| entry.id == pack.id && entry.version == pack.version)
+        {
+            entries.push(pack.clone());
+        }
+    }
+    let preferred = doc_updates::preferences(db)?;
     for (id, version) in &installed {
         if entries
             .iter()
@@ -307,6 +518,11 @@ fn catalog_docs(ctx: &Context, db: &Connection) -> Result<Vec<Value>> {
             older.version.clone_from(version);
             older.markdown = None;
             older.shards = None;
+            older.upstream_version = None;
+            older.snapshot_date = None;
+            older.coverage.clear();
+            older.omissions =
+                vec!["Coverage metadata was not recorded for this older snapshot.".into()];
             entries.push(older);
         }
     }
@@ -318,52 +534,65 @@ fn catalog_docs(ctx: &Context, db: &Connection) -> Result<Vec<Value>> {
         .into_iter()
         .map(|pack| {
             let present = installed.contains(&(pack.id.clone(), pack.version.clone()));
+            let active = preferred.get(&pack.id).map_or_else(
+                || {
+                    installed
+                        .iter()
+                        .filter(|(id, _)| id == &pack.id)
+                        .max_by(|(_, a), (_, b)| updates::compare_doc_releases(a, b))
+                        .is_some_and(|(_, version)| version == &pack.version)
+                },
+                |version| version == &pack.version,
+            );
             let mut value = serde_json::to_value(pack)?;
             value["installed"] = json!(present);
+            value["active"] = json!(present && active);
             Ok(value)
         })
         .collect()
 }
 pub fn project_context(path: &Path) -> Value {
-    let mut current = path.to_path_buf();
-    let markers = [
-        ("go.mod", "go"),
-        ("Cargo.toml", "rust"),
-        ("pyproject.toml", "python"),
-        ("requirements.txt", "python"),
-        ("Gemfile", "ruby"),
-        ("pom.xml", "java"),
-        ("mix.exs", "elixir"),
-        ("global.json", "dotnet"),
-    ];
-    loop {
-        let mut stacks = std::collections::BTreeSet::new();
-        for (file, stack) in markers {
-            if current.join(file).is_file() {
-                stacks.insert(stack.to_string());
-            }
-        }
-        if let Ok(entries) = fs::read_dir(&current) {
-            if entries
-                .flatten()
-                .any(|e| e.path().extension().is_some_and(|v| v == "csproj"))
-            {
-                stacks.insert("dotnet".into());
-            }
-        }
-        if !stacks.is_empty() {
-            return json!({"path": current, "stacks": stacks, "stack": if stacks.len()==1 {stacks.first().cloned()} else {None}});
-        }
-        if !current.pop() {
-            return json!({"path":path,"stacks":[],"stack":null});
-        }
-    }
+    project::detected_context(path)
 }
 
 pub fn execute(request: &Value) -> Result<Value> {
     let ctx = Context::new(request)?;
     match text_arg(request, "command")? {
-        "project.context" => Ok(project_context(Path::new(text_arg(request, "path")?))),
+        command if command.starts_with("infra.") => infrastructure::execute(&ctx, request, None),
+        "toolbox.status" => toolbox::status(&ctx, request, false),
+        "toolbox.check" => toolbox::status(&ctx, request, true),
+        "project.context" => project::context(&ctx, Path::new(text_arg(request, "path")?)),
+        "project.readiness" => project_prepare::readiness(&ctx, request),
+        "project.prepare" => project_prepare::prepare(&ctx, request, None),
+        "project.runner" => project_prepare::runner(&ctx, request),
+        "new.ready" => project_prepare::create(&ctx, request),
+        "project.pin" => project::pin(
+            &ctx,
+            Path::new(text_arg(request, "path")?),
+            text_arg(request, "id")?,
+            text_arg(request, "version")?,
+        ),
+        "project.unpin" => project::unpin(
+            &ctx,
+            Path::new(text_arg(request, "path")?),
+            text_arg(request, "id")?,
+        ),
+        "docs.distribution.status" => doc_updates::status(&ctx),
+        "docs.distribution.check" => doc_updates::check(&ctx),
+        "docs.distribution.install" => doc_updates::install(&ctx, request),
+        "docs.distribution.rollback" => doc_updates::rollback(&ctx, request),
+        "docs.distribution.configure" => doc_updates::configure(&ctx, text_arg(request, "url")?),
+        "jobs.start" => tasks::start(&ctx, request),
+        "jobs.status" => tasks::status(&ctx, request),
+        "jobs.cancel" => tasks::cancel(&ctx, request),
+        "jobs.list" => tasks::list(&ctx),
+        "offline.status" => offline::status(&ctx, request),
+        "offline.check" => templates::verify_offline(&ctx, text_arg(request, "id")?, None),
+        "bundle.export" => offline::export(&ctx, request),
+        "bundle.inspect" => offline::inspect(&ctx, request),
+        "bundle.import" => offline::import(&ctx, request),
+        "templates.inspect" => templates::inspect(&ctx, text_arg(request, "id")?),
+        "templates.remove" => templates::remove(&ctx, text_arg(request, "id")?),
         "catalog" => {
             let db = ctx.database()?;
             let docs = catalog_docs(&ctx, &db)?;
@@ -420,29 +649,7 @@ pub fn execute(request: &Value) -> Result<Value> {
             request["dry_run"].as_bool().unwrap_or(false),
         ),
         "templates.build" => templates::build_latest(&ctx, text_arg(request, "id")?),
-        "prepare" => {
-            let id = text_arg(request, "id")?;
-            let template = templates::install(&ctx, id)?;
-            let releases = templates::list(&ctx)?;
-            let entry = releases
-                .as_array()
-                .context("Invalid template library")?
-                .iter()
-                .find(|t| t["id"] == template["id"] && t["version"] == template["version"])
-                .context("Unknown template")?;
-            let mut docs = vec![];
-            for doc in entry["docs"]
-                .as_array()
-                .context("Missing related documentation")?
-            {
-                let reference = doc.as_str().context("Invalid documentation reference")?;
-                let (pack, version) = reference
-                    .split_once('@')
-                    .map_or((reference, None), |(id, version)| (id, Some(version)));
-                docs.push(install_docs(&ctx, pack, version)?);
-            }
-            Ok(json!({"template":template,"docs":docs,"doctor":templates::doctor(&ctx,id)?}))
-        }
+        "prepare" => templates::prepare(&ctx, text_arg(request, "id")?, None),
         other => bail!("Unknown command {other}"),
     }
 }
@@ -477,5 +684,74 @@ pub unsafe extern "C" fn devkit_request(input: *const c_char) -> *mut c_char {
 pub unsafe extern "C" fn devkit_free(pointer: *mut c_char) {
     if !pointer.is_null() {
         drop(CString::from_raw(pointer));
+    }
+}
+
+#[cfg(test)]
+mod installation_tests {
+    use super::*;
+
+    #[test]
+    fn a_cached_exact_version_cannot_replace_the_bundled_documentation() -> Result<()> {
+        let staging = templates::Stage::new(&std::env::temp_dir())?;
+        let pack: DocPack = serde_json::from_value(json!({
+            "id":"go","version":"1.2.3","path":"docs/go/1.2.3","name":"Go",
+            "stack":"go","description":"Pack","source_url":"https://go.dev/","license":"BSD-3-Clause"
+        }))?;
+        let catalog_dir = staging.0.join("catalog");
+        let bundled = catalog_dir.join(&pack.path);
+        let conflicting = staging.0.join("conflicting");
+        let home = staging.0.join("home");
+        fs::create_dir(&home)?;
+        for (directory, body) in [
+            (&bundled, "Bundled original"),
+            (&conflicting, "Conflicting data"),
+        ] {
+            fs::create_dir_all(directory)?;
+            fs::write(
+                directory.join("documents.json"),
+                serde_json::to_vec(&json!([{
+                    "id":"article","title":"Article","body":body,"source_url":"https://go.dev/reference"
+                }]))?,
+            )?;
+        }
+        let ctx = Context {
+            home,
+            catalog_dir,
+            catalog: Catalog {
+                schema_version: 1,
+                docs: vec![pack.clone()],
+                templates: Vec::new(),
+            },
+        };
+        assert!(install_doc_pack(&ctx, &pack, &conflicting)
+            .unwrap_err()
+            .to_string()
+            .contains("bundled release"));
+        {
+            let _lock = lock_library(&ctx)?;
+            assert!(install_doc_packs(&ctx, &[(pack.clone(), conflicting.clone())]).is_err());
+        }
+        assert_eq!(
+            ctx.database()?
+                .query_row("SELECT count(*) FROM packs", [], |row| row.get::<_, u64>(0))?,
+            0
+        );
+        doc_updates::store_original(&ctx, &pack, &conflicting)?;
+        assert_eq!(install_docs(&ctx, "go", None)?["count"], 1);
+        assert_eq!(install_docs(&ctx, "go", Some("1.2.3"))?["count"], 1);
+        assert_eq!(
+            ctx.database()?
+                .query_row("SELECT body FROM documents", [], |row| row
+                    .get::<_, String>(0))?,
+            "Bundled original"
+        );
+        let mut invalid = pack;
+        invalid.version = "../../outside".into();
+        assert!(install_doc_pack(&ctx, &invalid, &bundled)
+            .unwrap_err()
+            .to_string()
+            .contains("identity"));
+        Ok(())
     }
 }

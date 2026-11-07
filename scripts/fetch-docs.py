@@ -35,6 +35,35 @@ DOTNET_COMMIT = "37fe0bfc5f596bf0bafd74bf927010384f184d96"
 ASPNET_COMMIT = "47d6f5c46f7a4c552fbf8ca9077439b95150c719"
 ASPNET_SAMPLES_COMMIT = "8dbb6f86c84f78cfd4a61f9207d55199635595bf"
 ASPNET_SAMPLES_ARCHIVE = f"aspnet-samples-{ASPNET_SAMPLES_COMMIT}.tar.gz"
+NODE_VERSION = "26.13.0"
+NODE_DOC_BASE = f"https://nodejs.org/dist/v{NODE_VERSION}/docs/api/"
+NODE_PAGES = (
+    "assert async_context buffer child_process cli console crypto dgram dns events fs http http2 https "
+    "module net os path perf_hooks process readline sqlite stream test timers tls url util worker_threads zlib esm packages typescript"
+).split()
+REACT_DOC_COMMIT = "2e6dca162985d438d7a834b339d89177cf0a92b9"
+TYPESCRIPT_DOC_COMMIT = "a3ed0be5249fd75fae9c2f527de23f0fc16c5d0d"
+WEB_ARCHIVES = {
+    "playwright-v1.65.0.tar.gz": "https://codeload.github.com/microsoft/playwright/tar.gz/refs/tags/v1.65.0",
+    "vite-v8.3.6.tar.gz": "https://codeload.github.com/vitejs/vite/tar.gz/refs/tags/v8.3.6",
+    "react-docs-2e6dca1.tar.gz": f"https://codeload.github.com/reactjs/react.dev/tar.gz/{REACT_DOC_COMMIT}",
+    "typescript-docs-a3ed0be.tar.gz": f"https://codeload.github.com/microsoft/TypeScript-Website/tar.gz/{TYPESCRIPT_DOC_COMMIT}",
+}
+NODE_DOWNLOADS = {
+    f"node{NODE_VERSION}-{page}.html": NODE_DOC_BASE + f"{page}.html"
+    for page in NODE_PAGES
+}
+NODE_DOWNLOADS[f"node{NODE_VERSION}-LICENSE"] = f"https://raw.githubusercontent.com/nodejs/node/v{NODE_VERSION}/LICENSE"
+NODE_ANCHOR_REPAIRS = {
+    "cli.html": {"-p---print-script": "-print-script", "-r---require-module": "-require-module",
+                 "--force-fips": "--force-fipsmode", "--experimental-test-tag-filtertag": "--experimental-test-tag-filterexpr"},
+    "fs.html": {"fsfswatcher": "class-fsfswatcher"},
+    "readline.html": {"class-readlineinterfaceconstructor": "class-interfaceconstructor"},
+    "tls.html": {"tlstlssocket": "class-tlstlssocket", "class-tlssecurecontext": "tlscreatesecurecontextoptions"},
+    "net.html": {"event-error_1": "event-error-1"},
+    "process.html": {"processexitcode_1": "processexitcode-1"},
+    "worker_threads.html": {"event-message_1": "event-message-1"},
+}
 
 DOWNLOADS = {
     "python.zip": "https://docs.python.org/3.15/archives/python-3.15-docs-html.zip",
@@ -50,6 +79,8 @@ DOWNLOADS = {
     "dotnet-docs-full.tar.gz": f"https://codeload.github.com/dotnet/docs/tar.gz/{DOTNET_COMMIT}",
     "aspnet-docs-full.tar.gz": f"https://codeload.github.com/dotnet/AspNetCore.Docs/tar.gz/{ASPNET_COMMIT}",
     ASPNET_SAMPLES_ARCHIVE: f"https://codeload.github.com/dotnet/AspNetCore.Docs.Samples/tar.gz/{ASPNET_SAMPLES_COMMIT}",
+    **WEB_ARCHIVES,
+    **NODE_DOWNLOADS,
 }
 
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
@@ -70,13 +101,91 @@ SAFE_CLASSES = {"admonition", "admonition-title", "attention", "caution", "dange
                 "versionchanged", "deprecated", "versionmodified", "sourceCode", "sig", "signature"}
 CONTENT_REVISION = "devline.1"
 CONTENT_REVISIONS = {
-    "csharp": "devline.4", "aspnet": "devline.3", "python": "devline.2",
-    "go": "devline.2", "rails": "devline.2", "ruby": "devline.2",
+    "csharp": "devline.5", "aspnet": "devline.4", "python": "devline.2",
+    "go": "devline.3", "java": "devline.2", "rails": "devline.2", "ruby": "devline.2",
+}
+REFRESHED_SNAPSHOTS = {
+    ("csharp", "2026.11.06+devline.5"), ("aspnet", "2026.11.06+devline.4"),
+    ("go", "1.27.3+devline.3"), ("java", "26.0.2.1+devline.2"),
+    ("chi", "5.5.0+devline.1"),
+    ("infrastructure", "2026.11.07+devline.1"),
+    ("node", "26.13.0+devline.1"), ("typescript", "7.0.2+devline.1"),
+    ("playwright", "1.65.0+devline.1"), ("react", "19.3.1+devline.1"), ("vite", "8.3.6+devline.1"),
 }
 PANDOC_VERSION = "3.13"
 MAX_IMAGE_BYTES = 750_000
 SHARD_BYTES = 64 * 1024 * 1024
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
+
+PACK_SCOPE = {
+    "python": ("Tutorial, language reference, HOWTOs, and standard library API pages", "Packaging tools and third-party libraries are separate references"),
+    "fastapi": ("Tutorial, advanced patterns, deployment, and generated API pages", "Translated guides and upstream release history are omitted"),
+    "csharp": ("C# language, .NET fundamentals, SDK tooling, and compatibility notes", "The full .NET API catalog is outside this snapshot"),
+    "aspnet": ("ASP.NET Core fundamentals, Web APIs, security, tests, hosting, and tutorials", "The full ASP.NET API catalog and version variants are outside this snapshot"),
+    "go": ("Language specification, memory model, assembler, and selected standard library packages", "Packages outside the curated standard library selection and third-party modules are omitted"),
+    "chi": ("Router and middleware APIs, README, and examples", "Third-party middleware modules are omitted"),
+    "java": ("OpenJDK API pages for selected core modules and classes", "JDK packages outside the selected modules and platform guides are omitted"),
+    "spring-boot": ("Spring Boot reference, how-to guides, and tutorials", "Spring Framework and external Spring projects are separate references"),
+    "ruby": ("Language guides, selected standard library classes, and methods from RDoc", "Gem documentation and unselected RDoc entries are omitted"),
+    "rails": ("Application guides, Active Record, controllers, routing, jobs, and deployment", "The full Rails API class catalog is omitted"),
+    "rust": ("Rust Book, Reference, Cargo Book, and selected standard library APIs", "Nightly-only and unselected Rustdoc pages are omitted"),
+    "axum": ("Rustdoc for routing, extractors, responses, and middleware", "Transitive crate APIs are separate references"),
+    "elixir": ("Language guides and core and standard library APIs", "Erlang/OTP documentation is separate"),
+    "phoenix": ("Framework guides and Phoenix API modules", "External Phoenix packages have separate documentation"),
+    "ecto": ("Ecto guides and database library API modules", "External adapters and Ecto SQL documentation are separate"),
+    "infrastructure": ("Service runbooks, app connections, portable images and volumes, selected PostgreSQL and SeaweedFS references",
+                       "Cluster administration, production deployments, and complete product manuals are outside this snapshot"),
+    "node": ("Official Node.js APIs for file I/O, HTTP, streams, SQLite, tests, modules, workers, and related core libraries",
+             "Unselected Node APIs, release history, and npm packages are outside this snapshot"),
+    "typescript": ("The official TypeScript Handbook and selected TSConfig compiler options",
+                   "Interactive compiler playgrounds, localized pages, and the full compiler API are omitted"),
+    "playwright": ("JavaScript and TypeScript browser testing guides, API requests, fixtures, configuration, and selected API classes",
+                   "Other language examples and unselected API classes are omitted"),
+    "react": ("Official React fundamentals and selected component and Hook references",
+              "Interactive sandboxes and unselected learning and API pages are omitted"),
+    "vite": ("Official Vite guides for setup, development, building, assets, and configuration",
+             "Framework plugin manuals and interactive media are outside this snapshot"),
+}
+
+SNAPSHOT_OMISSIONS = {
+    ("aspnet", "2026.11.06+devline.3"): [
+        "59 links target headings absent from this snapshot",
+        "One source example is blank",
+    ],
+    ("aspnet", "2026.11.06+devline.4"): ["59 links target headings absent from this snapshot"],
+    ("csharp", "2026.11.06+devline.4"): [
+        "One link targets a heading absent from this snapshot",
+        "One source example is blank",
+    ],
+    ("csharp", "2026.11.06+devline.5"): ["One link targets a heading absent from this snapshot"],
+    ("elixir", "1.20.5+devline.1"): ["Two links target headings absent from this snapshot"],
+    ("java", "26.0.2.1+devline.1"): [
+        "One link targets a heading absent from this snapshot",
+        "One Javadoc example contains nested code markup",
+    ],
+    ("java", "26.0.2.1+devline.2"): ["One link targets a heading absent from this snapshot"],
+    ("python", "3.15.2+devline.2"): ["Two links target headings absent from this snapshot"],
+    ("rails", "8.1.3+devline.2"): ["Eight links target headings absent from this snapshot"],
+    ("ruby", "4.0.9+devline.2"): ["One link targets a heading absent from this snapshot"],
+    ("rust", "1.99.1+devline.1"): ["Six links target headings absent from this snapshot"],
+    ("spring-boot", "4.1.2+devline.1"): ["Five links target headings absent from this snapshot"],
+}
+
+
+def pack_metadata(pack_id, upstream, snapshot_version, missing=0):
+    coverage, omission = PACK_SCOPE[pack_id]
+    expanded_go = (pack_id, snapshot_version) == ("go", "1.27.3+devline.3")
+    result = {
+        "upstream_version": "10.0" if pack_id in {"csharp", "aspnet"} else upstream,
+        "snapshot_date": "2026-11-07" if (pack_id, snapshot_version) in REFRESHED_SNAPSHOTS else "2026-11-06",
+        "coverage": [coverage],
+        "omissions": [omission, *SNAPSHOT_OMISSIONS.get((pack_id, snapshot_version), [])],
+    }
+    if expanded_go:
+        result["coverage"].append("Expanded networking, cryptography, image formats, and filesystem/concurrency testing APIs")
+    if missing:
+        result["omissions"].append(f"{missing} unavailable source includes or samples are listed in MISSING-INCLUDES.txt")
+    return result
 
 
 @dataclass
@@ -170,6 +279,8 @@ def link_destination(raw, source, pack_id, xrefs):
         target = urlsplit(absolute)
         if target.scheme not in {"http", "https"} or not target.hostname or target.username is not None:
             return None
+        if pack_id == "vite" and target.hostname == "www.typescriptlang.org" and target.path.rstrip("/") == "/tsconfig":
+            return target._replace(fragment=target.fragment.split(":~:text=", 1)[0]).geturl()
         return absolute
     except ValueError:
         return None
@@ -303,6 +414,12 @@ def sanitize(node, source, pack_id, xrefs, assets=None):
         attrs["open"] = ""
     children = [value for item in node.children if (value := sanitize(item, source, pack_id, xrefs, assets)) is not None]
     tag = node.tag if node.tag in SAFE_TAGS else "span" if anchor else ""
+    if tag == "pre":
+        # Javadoc diagnostics can wrap a nested example in an outer pre.
+        if any(descendant.tag == "pre" for child in children if isinstance(child, Node) for descendant in child.walk()):
+            tag = "div" if attrs else ""
+        elif not as_text(Node("", children=children), pre=True).strip():
+            return Node("span", {"id": anchor}) if "id" in attrs else None
     if tag == "span" and not attrs:
         tag = ""
     return Node(tag, attrs, children)
@@ -479,6 +596,12 @@ def slug_title(file):
 
 def document_category(pack, key):
     area, _, rest = key.partition("/")
+    if pack == "infrastructure":
+        return "reference" if area == "reference" else "guide"
+    if pack == "node" or pack == "playwright" and area == "api" or pack == "react" and area == "reference":
+        return "api"
+    if pack in {"typescript", "playwright", "react", "vite"}:
+        return "reference" if area in {"tsconfig", "config"} else "guide"
     if pack == "csharp" and key.startswith(("core/compatibility/", "core/breaking-changes/")):
         return "compatibility"
     if pack == "python":
@@ -611,6 +734,7 @@ class Pack:
             "path": target.relative_to(data).as_posix(),
         }
         metadata["markdown"] = []
+        metadata.update(pack_metadata(self.id, self.version, snapshot_version, len(self.missing)))
         if shard_count > 1:
             metadata["shards"] = shard_count
         return metadata
@@ -1180,7 +1304,12 @@ encoding/csv encoding/gob encoding/hex encoding/json encoding/xml errors flag fm
 hash html/template io io/fs iter log log/slog maps math math/rand/v2 mime/multipart
 net net/http net/http/httptest net/netip net/url os os/exec os/signal path path/filepath
 reflect regexp runtime slices sort strconv strings sync sync/atomic testing text/template
-time unicode unicode/utf8""".split()
+time unicode unicode/utf8
+compress/bzip2 compress/flate compress/lzw compress/zlib crypto/ecdsa crypto/ed25519
+crypto/rsa crypto/subtle crypto/x509 encoding/ascii85 encoding/binary encoding/pem html
+image image/color image/draw image/gif image/jpeg image/png mime net/http/cookiejar
+net/http/httptrace net/http/httputil net/mail net/smtp net/textproto os/user runtime/metrics
+testing/fstest testing/iotest testing/quick testing/synctest text/scanner unicode/utf16""".split()
 
 
 GO_DECLARATION = re.compile(r"^(?:func\s+(?:\(([^)]+)\)\s+)?|(?:type|var|const)\s+)([A-Z]\w*)")
@@ -1545,6 +1674,370 @@ def hex_pack(cache, scratch, reference, name):
     return pack
 
 
+def infrastructure_pack(source, catalog_file):
+    catalog = json.loads(read_text(catalog_file))
+    base_url = "https://github.com/fpl0/devline/blob/main/scripts/infrastructure-docs"
+    pack = Pack(
+        "infrastructure", "Local Infrastructure", "infrastructure", "2026.11.07",
+        "Offline runbooks for ten prepared services, app connections, and portable data.",
+        base_url + "/overview.md", "Devline runbooks; PostgreSQL License and Apache-2.0 for upstream references",
+        "Devline service guides are based on the tagged image configuration and upstream references "
+        "listed in each article. Full selected PostgreSQL 18 manual entries and the SeaweedFS 4.52 "
+        "REST API guide are included under their original licenses.",
+    )
+    for name, title, aliases in (
+        ("overview", "Local infrastructure overview", ("offline services", "service setup")),
+        ("portable-toolbox", "Save images and back up service volumes", ("docker save", "docker load", "compose offline", "volume restore")),
+        ("application-connections", "Connect an application to local services", ("DATABASE_URL", "AMQP_URL", "SQL transaction", "AMQP publish")),
+    ):
+        raw = read_text(source / f"{name}.md")
+        pack.add_markdown(name, title, f"# {title}\n\n{raw}", f"{base_url}/{name}.md", aliases)
+
+    for service in catalog["services"]:
+        name = service["id"]
+        title = f"{service['name']} {service['version']} · Local runbook"
+        image = service["image"]
+        reference = f"{image['registry']}/{image['repository']}:{image['tag']}"
+        ports = ", ".join(f"`{port['host_port']}` for {port['name']}" for port in service["ports"])
+        intro = f"**Image** `{reference}` for Linux arm64. **Default host ports** {ports}."
+        raw = read_text(source / f"{name}.md")
+        pack.add_markdown(name, title, f"# {title}\n\n{intro}\n\n{raw}", f"{base_url}/{name}.md",
+                          (service["name"], name, reference, service["category"]))
+
+    upstream = source / "upstream"
+    pack.notice(upstream / "postgresql-COPYRIGHT", "LICENSE-POSTGRESQL")
+    pack.notice(upstream / "seaweedfs-LICENSE", "LICENSE-SEAWEEDFS")
+    for name, title, aliases in (
+        ("app-psql", "PostgreSQL 18 · psql", ("psql", "postgres psql")),
+        ("app-pg-isready", "PostgreSQL 18 · pg_isready", ("pg_isready", "postgres health")),
+        ("app-pgdump", "PostgreSQL 18 · pg_dump", ("pg_dump", "postgres backup")),
+        ("app-pgrestore", "PostgreSQL 18 · pg_restore", ("pg_restore", "postgres restore")),
+        ("backup-dump", "PostgreSQL 18 · SQL dump", ("pg_dumpall", "database dump")),
+    ):
+        url = f"https://www.postgresql.org/docs/18/{name}.html"
+        parser = DocumentParser()
+        parser.feed(read_text(upstream / f"postgresql-{name}.html"))
+        parser.close()
+        article = next(node for node in parser.root.walk()
+                       if node.tag == "div" and node.attrs.get("class") in {"refentry", "sect1"})
+        body, markup = prepared_html(article, url, pack.id)
+        pack.add(f"reference/postgresql/{name}", title, body, url, aliases, markup)
+
+    seaweed_url = "https://github.com/seaweedfs/seaweedfs/blob/4.52/REST_API.md"
+    pack.add_markdown("reference/seaweedfs/rest-api", "SeaweedFS 4.52 · HTTP API",
+                      read_text(upstream / "seaweedfs-rest-api.md"), seaweed_url,
+                      ("seaweedfs api", "seaweed master", "seaweed filer", "S3 healthz"))
+    return pack
+
+
+def node_pack(cache):
+    pack = Pack(
+        "node", "Node.js", "node", NODE_VERSION, "Official Node.js core API reference.",
+        NODE_DOC_BASE, "MIT; bundled upstream notices",
+        f"The Node.js contributors, rendered Node.js {NODE_VERSION} API documentation from {NODE_DOC_BASE}.",
+    )
+    pack.notice(cache / f"node{NODE_VERSION}-LICENSE", "LICENSE")
+    for page in NODE_PAGES:
+        key = f"{page}.html"
+        raw = read_text(cache / f"node{NODE_VERSION}-{key}")
+        if f"Node.js v{NODE_VERSION} Documentation" not in raw:
+            raise RuntimeError(f"Node API page {key} does not match {NODE_VERSION}")
+        title, article, _ = article_from_html(raw, "sphinx", page)
+        if article.attrs.get("id") != "apicontent":
+            raise RuntimeError(f"Cannot identify Node API content for {key}")
+        title = title.partition(" | Node.js")[0]
+        aliases = [page, f"node:{page}"]
+        for node in list(article.walk()):
+            node.children = [child for child in node.children
+                             if not isinstance(child, Node) or child.attrs.get("id") not in {"toc", "toc-toggle"}]
+            if "mark" in (node.attrs.get("class") or "").split():
+                node.tag = "span"
+                node.attrs = {"id": node.attrs["id"]} if "id" in node.attrs else {}
+                node.children = []
+            if node.tag == "a":
+                href = node.attrs.get("href") or ""
+                target = urlsplit(href)
+                if target.path.startswith("/api/") and target.hostname in {None, "nodejs.org"}:
+                    target = urlsplit(urljoin(NODE_DOC_BASE, target.path.removeprefix("/api/"))) \
+                        ._replace(fragment=target.fragment)
+                if target.hostname in {None, "nodejs.org"}:
+                    page_name = Path(target.path).name or key
+                    corrected = NODE_ANCHOR_REPAIRS.get(page_name, {}).get(target.fragment, target.fragment)
+                    node.attrs["href"] = target._replace(fragment=corrected).geturl()
+            if node.tag in {"h2", "h3", "h4", "h5"}:
+                for child in node.walk():
+                    if child.tag != "code":
+                        continue
+                    symbol = re.match(r"[A-Za-z_$][\w$.:/]*", as_text(child).strip())
+                    if symbol:
+                        name = symbol[0]
+                        aliases.extend((name, name.replace("fsPromises.", "fs.promises.")))
+        # Article links retain the upstream IDs and version-specific release URLs.
+        body, markup = prepared_html(article, NODE_DOC_BASE + key, pack.id)
+        pack.add(key, title, body, NODE_DOC_BASE + key, aliases, markup)
+    return pack
+
+
+def tar_texts(cache, name, accept):
+    result = {}
+    with tarfile.open(cache / name) as archive:
+        for member in archive:
+            key = member.name.partition("/")[2]
+            if member.isfile() and accept(key):
+                result[key] = archive.extractfile(member).read().decode("utf-8")
+    return result
+
+
+def front_matter(raw, key):
+    if not raw.startswith("---"):
+        return None
+    header = raw.split("---", 2)[1]
+    field = re.search(rf"^{key}:[ \t]*(.*?)\s*$", header, re.M)
+    return field[1].strip("\"'") if field else None
+
+
+def prose_markdown(raw, pack):
+    raw = without_front_matter(raw)
+
+    def replace(prose):
+        if pack == "react":
+            prose = re.sub(r'^<Recipes titleText="([^"]+)" titleId="([\w.-]+)">[ \t]*$', r"### \1 {#\2}\n", prose, flags=re.M)
+        prose = re.sub(r"^[ \t]*</?[A-Z][A-Za-z0-9]*(?:\s+[^<>]*?)?\s*/?>[ \t]*\n", "", prose, flags=re.M)
+        if pack == "react":
+            prose = re.sub(r"[ \t]*\{\s*/\*\s*([\w.-]+)\s*\*/\s*\}[ \t]*$", r" {#\1}", prose, flags=re.M)
+        if pack in {"playwright", "vite"}:
+            prose = re.sub(r"^:::[ \t]*(?:code-group|details[^\n]*)[ \t]*$", "", prose, flags=re.M)
+            prose = re.sub(r"^:::[ \t]*([\w-]+)[ \t]*([^\n]*)$", r"**\1 \2**\n", prose, flags=re.M)
+            prose = re.sub(r"^:::[ \t]*$", "", prose, flags=re.M)
+        if pack == "vite":
+            prose = re.sub(r"[ \t]+<NonInheritBadge\s*/>", "", prose)
+        return prose
+
+    return transform_prose(raw, replace)
+
+
+PLAYWRIGHT_GUIDES = {
+    "intro-js", "writing-tests-js", "running-tests-js", "test-configuration-js", "api-testing-js", "test-fixtures-js",
+    "test-assertions-js", "locators", "network", "test-cli-js", "trace-viewer-intro-js", "trace-viewer",
+    "test-projects-js", "test-webserver-js", "test-timeouts-js", "mock", "pages", "authentication-js", "browsers",
+}
+PLAYWRIGHT_CLASSES = {
+    "apirequest", "apirequestcontext", "apiresponse", "browser", "browsercontext", "locator", "locatorassertions",
+    "page", "pageassertions", "test", "testconfig", "testinfo", "testoptions", "browsertype", "route",
+}
+
+
+def playwright_slug(symbol):
+    separated = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1-\2", symbol)
+    separated = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "-", separated)
+    return re.sub(r"[.#]", "-", separated).lower()
+
+
+def playwright_parameters(raw):
+    sections = re.split(r"^## ([\w-]+)[ \t]*$", raw, flags=re.M)
+    params = {}
+    for key, body in zip(sections[1::2], sections[2::2]):
+        langs = re.search(r"^\* langs:[ \t]*(.+)$", body, re.M)
+        params[key] = (not langs or "js" in langs[1].replace(",", " ").split(),
+                       re.sub(r"^\* langs:[^\n]*\n", "", body, flags=re.M).strip())
+    return params
+
+
+def playwright_expansion(prose, params, routes):
+    def option(match):
+        heading, token = match.groups()
+        javascript, body = params[token]
+        return f"{heading}\n\n{body}" if javascript else ""
+
+    prose = re.sub(r"^(#{2,5}[^\n=]+?)\s*=\s*%%-([\w-]+)-%%[ \t]*$", option, prose, flags=re.M)
+    prose = re.sub(r"%%-([\w-]+)-%%", lambda match: params[match[1]][1], prose)
+    prose = re.sub(r"^\* langs:[^\n]*\n", "", prose, flags=re.M)
+
+    def reference(match):
+        name = match[1]
+        owner = name.split(".")[0]
+        route = routes.get(owner, f"api/class-{owner.lower()}")
+        target = route + ("#" + playwright_slug(name) if "." in name else "")
+        return f"[`{name}`](https://playwright.dev/docs/{target})"
+
+    return re.sub(r"\[`?(?:method|property|event):\s*([\w.#]+)`?\](?!\()", reference, prose)
+
+
+def playwright_pack(cache):
+    base = "https://playwright.dev/docs/"
+    pack = Pack(
+        "playwright", "Playwright", "node", "1.65.0", "Official Playwright testing guides and API references.",
+        base, "Apache-2.0", "Microsoft and Playwright contributors, from the v1.65.0 documentation source tree. "
+        "https://github.com/microsoft/playwright/tree/v1.65.0/docs/src",
+    )
+    keys = {f"docs/src/{page}.md" for page in PLAYWRIGHT_GUIDES}
+    keys.update(f"docs/src/api/class-{page}.md" for page in PLAYWRIGHT_CLASSES)
+    params_key = "docs/src/api/params.md"
+    sources = tar_texts(cache, "playwright-v1.65.0.tar.gz", lambda key: key in keys or key in {"LICENSE", "NOTICE", params_key})
+    pack.notices = {key: sources.pop(key) for key in ("LICENSE", "NOTICE") if key in sources}
+    params = playwright_parameters(sources.pop(params_key))
+    routes = {name[1]: path.removeprefix("docs/src/").removesuffix(".md") for path, raw in sources.items()
+              if (name := re.search(r"^# class:\s+(\w+)", raw, re.M))}
+    for path, raw in sorted(sources.items()):
+        key = path.removeprefix("docs/src/")
+        api = key.startswith("api/")
+        slug = front_matter(raw, "id") or key.removesuffix(".md").removesuffix("-js")
+        title = front_matter(raw, "title") or key.removesuffix(".md").replace("-", " ")
+        aliases = [slug.rsplit("/", 1)[-1]]
+        if api:
+            symbol = re.search(r"^# class:\s+(\w+)", raw, re.M)
+            if symbol:
+                title = symbol[1]
+                aliases.append(title)
+        raw = prose_markdown(raw, pack.id)
+        raw = re.sub(r"^# class:[^\n]*\n", "", raw, count=1, flags=re.M)
+        raw = re.sub(r"^\x60{3,}(?:csharp|java|python|py|c#)[^\n]*\n.*?^\x60{3,}[ \t]*$", "", raw, flags=re.M | re.S)
+        raw = transform_prose(raw, lambda prose: playwright_expansion(prose, params, routes))
+        seen = set()
+
+        def headings(prose):
+            def heading(match):
+                level, kind, name = match.groups()
+                anchor = playwright_slug(name)
+                if kind == "option" and "." in name:
+                    method, parameter = name.rsplit(".", 1)
+                    anchor = f"{playwright_slug(method)}-option-{playwright_slug(parameter)}"
+                if kind in {"method", "property", "event"}:
+                    aliases.append(name.partition("#")[0])
+                original = anchor
+                number = 2
+                while anchor in seen:
+                    anchor = f"{original}-{number}"
+                    number += 1
+                seen.add(anchor)
+                return f"{level} `{name.partition('#')[0]}` {{#{anchor}}}"
+
+            prose = re.sub(r"^(#{2,5})\s+(?:async\s+)?(method|property|event|param|option):\s+([\w.#]+)[ \t]*$",
+                           heading, prose, flags=re.M)
+            return re.sub(r"^\* since:\s*(.+)$", r"**Since** \1", prose, flags=re.M)
+
+        raw = transform_prose(raw, headings)
+        pack.add_markdown(key, title, f"# {title}\n\n{raw}", base + slug, aliases)
+    return pack
+
+
+REACT_LEARN = {
+    "index", "installation", "creating-a-react-app", "build-a-react-app-from-scratch", "your-first-component",
+    "writing-markup-with-jsx", "javascript-in-jsx-with-curly-braces", "passing-props-to-a-component",
+    "conditional-rendering", "rendering-lists", "responding-to-events", "state-a-components-memory",
+    "state-as-a-snapshot", "updating-objects-in-state", "updating-arrays-in-state", "sharing-state-between-components",
+    "synchronizing-with-effects", "you-might-not-need-an-effect", "referencing-values-with-refs", "reusing-logic-with-custom-hooks",
+}
+REACT_API = {
+    "useState", "useEffect", "useRef", "useMemo", "useContext", "useReducer", "useCallback", "useId",
+    "useTransition", "useSyncExternalStore", "StrictMode", "Suspense", "memo", "lazy",
+}
+
+
+def react_pack(cache):
+    base = "https://react.dev/"
+    pack = Pack(
+        "react", "React", "node", "19.3.1", "Official React learning guides and selected Hook references.",
+        base, "CC-BY-4.0", f"React documentation contributors, React 19 site snapshot at {REACT_DOC_COMMIT}. "
+        f"https://github.com/reactjs/react.dev/tree/{REACT_DOC_COMMIT}/src/content",
+    )
+    keys = {f"src/content/learn/{name}.md" for name in REACT_LEARN}
+    keys.update(f"src/content/reference/react/{name}.md" for name in REACT_API)
+    sources = tar_texts(cache, "react-docs-2e6dca1.tar.gz", lambda key: key in keys or key == "LICENSE-DOCS.md")
+    pack.notices["LICENSE"] = sources.pop("LICENSE-DOCS.md")
+    for path, raw in sorted(sources.items()):
+        key = path.removeprefix("src/content/").removesuffix(".md")
+        title = front_matter(raw, "title") or key.rsplit("/", 1)[-1]
+        aliases = (key.rsplit("/", 1)[-1], f"React.{title}")
+        pack.add_markdown(key, title, f"# {title}\n\n{prose_markdown(raw, pack.id)}",
+                          base + key.removesuffix("/index"), aliases)
+    return pack
+
+
+TS_OPTIONS = (
+    "strict", "target", "module", "moduleResolution", "esModuleInterop", "skipLibCheck", "noEmit",
+    "isolatedModules", "jsx", "types", "paths", "sourceMap", "declaration", "verbatimModuleSyntax",
+    "noEmitOnError", "noImplicitAny", "strictNullChecks", "strictPropertyInitialization", "useDefineForClassFields",
+    "downlevelIteration", "baseUrl", "outFile", "rootDirs", "lib", "allowSyntheticDefaultImports",
+    "emitDeclarationOnly", "importHelpers", "outDir", "typeRoots",
+    "allowArbitraryExtensions", "emitDecoratorMetadata", "exclude", "experimentalDecorators", "extends", "files",
+    "importsNotUsedAsValues", "include", "jsxFactory", "jsxFragmentFactory", "jsxImportSource", "noEmitHelpers",
+    "preserveValueImports", "references", "rootDir", "allowJs", "composite", "disableFilenameBasedTypeAcquisition",
+)
+
+
+def typescript_pack(cache):
+    base = "https://www.typescriptlang.org/"
+    pack = Pack(
+        "typescript", "TypeScript", "node", "7.0.2", "Official TypeScript Handbook and selected TSConfig options.",
+        base, "CC-BY-4.0", f"Microsoft and TypeScript Website contributors, documentation snapshot at {TYPESCRIPT_DOC_COMMIT}. "
+        f"https://github.com/microsoft/TypeScript-Website/tree/{TYPESCRIPT_DOC_COMMIT}/packages",
+    )
+    handbook = "packages/documentation/copy/en/handbook-v2/"
+    options = "packages/tsconfig-reference/copy/en/options/"
+    sources = tar_texts(cache, "typescript-docs-a3ed0be.tar.gz", lambda key: key == "LICENSE"
+                        or key.startswith(handbook) and key.endswith(".md")
+                        or key.startswith(options) and Path(key).stem in TS_OPTIONS)
+    pack.notices["LICENSE"] = sources.pop("LICENSE")
+    compiler_options = []
+    for path, raw in sorted(sources.items()):
+        name = Path(path).stem
+        title = front_matter(raw, "title") or name
+        if path.startswith(options):
+            compiler_options.append(f"## `{name}` {{#{name}}}\n\n{prose_markdown(raw, pack.id)}")
+            continue
+        permalink = front_matter(raw, "permalink")
+        if not permalink:
+            continue
+        key = permalink.lstrip("/")
+        pack.add_markdown(key, title, f"# {title}\n\n{prose_markdown(raw, pack.id)}", base + key, (name, title))
+    pack.add_markdown("tsconfig/options", "TSConfig compiler options",
+                      "# TSConfig compiler options\n\n" + "\n\n".join(compiler_options),
+                      base + "tsconfig/", TS_OPTIONS)
+    return pack
+
+
+def vite_pack(cache):
+    base = "https://v8.vite.dev/"
+    pack = Pack(
+        "vite", "Vite", "node", "8.3.6", "Official Vite development, build, and configuration guides.",
+        base, "MIT", "VoidZero and Vite contributors, from the v8.3.6 documentation source tree. "
+        "https://github.com/vitejs/vite/tree/v8.3.6/docs",
+    )
+    keys = {
+        "guide/index", "guide/features", "guide/env-and-mode", "guide/build", "guide/static-deploy", "guide/assets",
+        "guide/api-javascript", "guide/backend-integration", "guide/troubleshooting", "guide/dep-pre-bundling",
+        "config/index", "config/shared-options", "config/server-options", "config/build-options", "config/preview-options",
+    }
+    workflow = "docs/guide/static-deploy-github-pages.yaml"
+    sources = tar_texts(cache, "vite-v8.3.6.tar.gz", lambda key: key in {"LICENSE", workflow}
+                        or key.removeprefix("docs/").removesuffix(".md") in keys)
+    pack.notices["LICENSE"] = sources.pop("LICENSE")
+    deploy = sources.pop(workflow)
+    for path, raw in sorted(sources.items()):
+        key = path.removeprefix("docs/").removesuffix(".md")
+        title, _ = markdown_article(raw, front_matter(raw, "title") or slug_title(Path(key)))
+        body = prose_markdown(raw, pack.id).replace("<<< @/guide/static-deploy-github-pages.yaml", code_fence(deploy, "yaml"))
+        body = transform_prose(body, vite_headings)
+        slug = key.removesuffix("index") if key.endswith("/index") else key
+        aliases = (key.rsplit("/", 1)[-1], title)
+        if key.startswith("config/"):
+            aliases += tuple(re.findall(r"^## ([A-Za-z][\w.]*) \{#", body, re.M))
+        pack.add_markdown(key, title, body, base + slug, aliases)
+    return pack
+
+
+def vite_headings(prose):
+    def heading(match):
+        title = match[2]
+        if re.search(r"\{#[\w.-]+\}\s*$", title):
+            return match[0]
+        anchor = re.sub(r"[^\w]+", "-", title.lower()).strip("-")
+        return f"{match[1]} {title} {{#{anchor}}}" if anchor else match[0]
+
+    return re.sub(r"^(#{1,6})[ \t]+([^\n]+)$", heading, prose, flags=re.M)
+
+
 def download(cache, name):
     path = cache / name
     if path.is_file():
@@ -1558,12 +2051,13 @@ def download(cache, name):
 
 
 def main():
+    project = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache", type=Path, required=True, help="directory containing the upstream archives and licenses")
     parser.add_argument("--reference", type=Path, required=True, help="prepared Offline Developer Kit/reference tree")
     parser.add_argument("--output", type=Path, default=Path(__file__).resolve().parents[1] / "data")
     parser.add_argument("--fetch", action="store_true", help="download any missing upstream archives and licenses into --cache")
-    parser.add_argument("--only", nargs="+", help="rebuild selected pack IDs and preserve other catalog entries")
+    parser.add_argument("--only", nargs="+", help="rebuild selected pack IDs")
     parser.add_argument("--go-root", type=Path)
     parser.add_argument("--chi-root", type=Path)
     parser.add_argument("--rust-docs", type=Path)
@@ -1580,7 +2074,7 @@ def main():
         scratch = Path(tmp)
         def go_sources():
             goroot = options.go_root or Path(command("go", "env", "GOROOT").strip())
-            chi = options.chi_root or Path(command("go", "env", "GOMODCACHE").strip()) / "github.com/go-chi/chi/v5@v5.2.4"
+            chi = options.chi_root or Path(command("go", "env", "GOMODCACHE").strip()) / "github.com/go-chi/chi/v5@v5.5.0"
             return go_packs(goroot, chi, scratch)
 
         def java_source():
@@ -1614,6 +2108,13 @@ def main():
             "elixir": (("elixir-docs.tar.gz", "elixir-LICENSE"), lambda: hex_pack(cache, scratch, reference, "elixir")),
             "phoenix": (("phoenix-LICENSE",), lambda: hex_pack(cache, scratch, reference, "phoenix")),
             "ecto": (("ecto-LICENSE",), lambda: hex_pack(cache, scratch, reference, "ecto")),
+            "infrastructure": ((), lambda: infrastructure_pack(
+                project / "scripts/infrastructure-docs", project / "data/infrastructure.json")),
+            "node": (tuple(NODE_DOWNLOADS), lambda: node_pack(cache)),
+            "typescript": (("typescript-docs-a3ed0be.tar.gz",), lambda: typescript_pack(cache)),
+            "playwright": (("playwright-v1.65.0.tar.gz",), lambda: playwright_pack(cache)),
+            "react": (("react-docs-2e6dca1.tar.gz",), lambda: react_pack(cache)),
+            "vite": (("vite-v8.3.6.tar.gz",), lambda: vite_pack(cache)),
         }
         selected = set(options.only or builders)
         if not selected <= builders.keys():
@@ -1623,7 +2124,7 @@ def main():
             with ThreadPoolExecutor(max_workers=4) as pool:
                 list(pool.map(lambda name: download(cache, name), sorted(names)))
         catalog_path = data / "docs-catalog.json"
-        entries = {item["id"]: item for item in json.loads(read_text(catalog_path))} if options.only and catalog_path.is_file() else {}
+        entries = json.loads(read_text(catalog_path)) if catalog_path.is_file() else []
         done = set()
         for key, (_, build) in builders.items():
             if key not in selected or key in done:
@@ -1632,9 +2133,13 @@ def main():
             packs = result if isinstance(result, tuple) else (result,)
             for pack in packs:
                 if pack.id in selected:
-                    entries[pack.id] = pack.emit(data)
+                    item = pack.emit(data)
+                    entries = [item, *(entry for entry in entries
+                                       if (entry["id"], entry["version"]) != (pack.id, item["version"]))]
                     done.add(pack.id)
-                    atomic_json(catalog_path, [entries[id] for id in builders if id in entries])
+                    atomic_json(catalog_path, [
+                        entry for pack_id in builders for entry in entries if entry["id"] == pack_id
+                    ])
 
 
 if __name__ == "__main__":

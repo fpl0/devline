@@ -1,0 +1,14 @@
+{
+  "platform": "darwin",
+  "arch": "arm64",
+  "kind": "Playwright WebKit",
+  "version": "27.2",
+  "revision": "2388",
+  "minimum_macos": "26.5",
+  "source": "https://cdn.playwright.dev/dbazure/download/playwright/builds/webkit/2388/webkit-mac-26-arm64.zip",
+  "source_commit": "5b391e6d3b14d549908dad2c6695999291313f30",
+  "playwright": "1.65.0",
+  "executable": "webkit-2388/pw_run.sh",
+  "bytes": 85789503,
+  "sha256": "d3cc730027105a014d0cbf53925bd7eababbdf8dbccbb4a3a1713c5f631dbcaf"
+}

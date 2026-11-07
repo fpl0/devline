@@ -1,4 +1,4 @@
-use crate::{lock_library, Context, Template};
+use crate::{lock_library, tasks, text_arg, Context, Template};
 use anyhow::{bail, Context as _, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -15,9 +15,19 @@ const NAME_TOKEN: &str = "__PROJECT_NAME__";
 static STAGE_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Serialize, Deserialize)]
-struct Installed {
-    template: Template,
+pub(crate) struct Installed {
+    pub(crate) template: Template,
+    pub(crate) digest: String,
+    #[serde(default)]
+    pub(crate) verified_at: Option<u64>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct Verification {
+    at: u64,
     digest: String,
+    toolchain: String,
+    target: String,
 }
 
 #[derive(Clone)]
@@ -49,7 +59,7 @@ fn version(value: &str) -> Result<[u64; 3]> {
     Ok([parts[0].parse()?, parts[1].parse()?, parts[2].parse()?])
 }
 
-fn id_parts(id: &str) -> Result<(&str, &str)> {
+pub(crate) fn id_parts(id: &str) -> Result<(&str, &str)> {
     let (stack, name) = id
         .split_once('/')
         .context("Expected a template ID such as go/chi-api")?;
@@ -76,7 +86,7 @@ fn regular(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn library(ctx: &Context, path: &Path, create: bool) -> Result<PathBuf> {
+pub(crate) fn library(ctx: &Context, path: &Path, create: bool) -> Result<PathBuf> {
     let mut result = ctx.home.canonicalize()?;
     for part in path.components() {
         let Component::Normal(part) = part else {
@@ -102,7 +112,7 @@ fn library(ctx: &Context, path: &Path, create: bool) -> Result<PathBuf> {
     Ok(result)
 }
 
-fn installed_base(ctx: &Context, id: &str, create: bool) -> Result<PathBuf> {
+pub(crate) fn installed_base(ctx: &Context, id: &str, create: bool) -> Result<PathBuf> {
     let (stack, name) = id_parts(id)?;
     library(ctx, &Path::new("templates").join(stack).join(name), create)
 }
@@ -126,6 +136,29 @@ fn catalog_entries(ctx: &Context) -> Result<Vec<Entry>> {
             template: template.clone(),
             installed: None,
         });
+    }
+    let base = library(ctx, Path::new("templates"), false)?;
+    if let Ok(stacks) = fs::read_dir(base) {
+        for stack in stacks {
+            let stack = stack?;
+            if !stack.file_type()?.is_dir() {
+                continue;
+            }
+            let label = stack.file_name();
+            let Some(stack_name) = label.to_str().filter(|name| slug(name)) else {
+                continue;
+            };
+            for family in fs::read_dir(stack.path())? {
+                let family = family?;
+                if !family.file_type()?.is_dir() {
+                    continue;
+                }
+                let label = family.file_name();
+                if let Some(name) = label.to_str().filter(|name| slug(name)) {
+                    ids.insert(format!("{stack_name}/{name}"));
+                }
+            }
+        }
     }
     for id in ids {
         let base = installed_base(ctx, &id, false)?;
@@ -208,10 +241,10 @@ fn source(ctx: &Context, path: &str) -> Result<PathBuf> {
     Ok(result)
 }
 
-struct Stage(PathBuf);
+pub(crate) struct Stage(pub(crate) PathBuf);
 
 impl Stage {
-    fn new(parent: &Path) -> Result<Self> {
+    pub(crate) fn new(parent: &Path) -> Result<Self> {
         for _ in 0..100 {
             let id = STAGE_ID.fetch_add(1, Ordering::Relaxed);
             let path = parent.join(format!(".devkit-{}-{id}", std::process::id()));
@@ -224,7 +257,7 @@ impl Stage {
         bail!("Could not reserve a staging directory")
     }
 
-    fn publish(&self, destination: &Path) -> Result<()> {
+    pub(crate) fn publish(&self, destination: &Path) -> Result<()> {
         rename_exclusive(&self.0, destination)
             .with_context(|| format!("Could not create {}", destination.display()))
     }
@@ -232,12 +265,36 @@ impl Stage {
 
 impl Drop for Stage {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
+        if fs::remove_dir_all(&self.0)
+            .is_err_and(|error| error.kind() == io::ErrorKind::PermissionDenied)
+        {
+            #[cfg(unix)]
+            {
+                fn make_removable(path: &Path) {
+                    use std::os::unix::fs::PermissionsExt;
+                    if let Ok(info) = fs::symlink_metadata(path) {
+                        if info.is_dir() {
+                            let _ = fs::set_permissions(
+                                path,
+                                fs::Permissions::from_mode(info.permissions().mode() | 0o700),
+                            );
+                            if let Ok(children) = fs::read_dir(path) {
+                                for child in children.flatten() {
+                                    make_removable(&child.path());
+                                }
+                            }
+                        }
+                    }
+                }
+                make_removable(&self.0);
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
     }
 }
 
 #[cfg(target_os = "macos")]
-fn rename_exclusive(from: &Path, to: &Path) -> io::Result<()> {
+pub(crate) fn rename_exclusive(from: &Path, to: &Path) -> io::Result<()> {
     use std::ffi::CString;
     use std::os::raw::{c_char, c_int, c_uint};
     use std::os::unix::ffi::OsStrExt;
@@ -255,7 +312,7 @@ fn rename_exclusive(from: &Path, to: &Path) -> io::Result<()> {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn rename_exclusive(from: &Path, to: &Path) -> io::Result<()> {
+pub(crate) fn rename_exclusive(from: &Path, to: &Path) -> io::Result<()> {
     match fs::symlink_metadata(to) {
         Ok(_) => return Err(io::Error::from(io::ErrorKind::AlreadyExists)),
         Err(error) if error.kind() != io::ErrorKind::NotFound => return Err(error),
@@ -277,7 +334,7 @@ fn executable(meta: &fs::Metadata) -> bool {
     }
 }
 
-fn copy_tree(from: &Path, to: &Path, name: Option<&str>) -> Result<()> {
+pub(crate) fn copy_tree(from: &Path, to: &Path, name: Option<&str>) -> Result<()> {
     directory(from)?;
     for entry in fs::read_dir(from)? {
         let entry = entry?;
@@ -319,7 +376,7 @@ fn copy_tree(from: &Path, to: &Path, name: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-fn tree_digest(root: &Path) -> Result<String> {
+pub(crate) fn tree_digest(root: &Path) -> Result<String> {
     fn walk(root: &Path, relative: &Path, hash: &mut Sha256) -> Result<()> {
         let mut entries: Vec<_> = fs::read_dir(root.join(relative))?.collect::<io::Result<_>>()?;
         entries.sort_by_key(fs::DirEntry::file_name);
@@ -361,7 +418,7 @@ fn tree_digest(root: &Path) -> Result<String> {
     Ok(format!("{:x}", hash.finalize()))
 }
 
-fn target_name() -> String {
+pub(crate) fn target_name() -> String {
     let os = match env::consts::OS {
         "macos" => "darwin",
         other => other,
@@ -373,8 +430,63 @@ fn target_name() -> String {
     format!("{os}-{arch}")
 }
 
-fn target_matches(template: &Template) -> bool {
-    template.target == target_name() || template.target == "any"
+pub(crate) fn target_matches(template: &Template) -> bool {
+    (template.target == target_name() || template.target == "any")
+        && template.minimum_macos.as_deref().is_none_or(|minimum| {
+            macos_version()
+                .and_then(os_version)
+                .zip(os_version(minimum))
+                .is_some_and(|(actual, minimum)| actual >= minimum)
+        })
+}
+
+fn os_version(text: &str) -> Option<[u32; 3]> {
+    let mut parsed = [0; 3];
+    let parts: Vec<_> = text.split('.').collect();
+    if parts.len() > parsed.len() {
+        return None;
+    }
+    for (index, part) in parts.iter().enumerate() {
+        if part.is_empty() || !part.bytes().all(|byte| byte.is_ascii_digit()) {
+            return None;
+        }
+        parsed[index] = part.parse().ok()?;
+    }
+    Some(parsed)
+}
+
+fn macos_version() -> Option<&'static str> {
+    static VERSION: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
+    VERSION
+        .get_or_init(|| {
+            if !cfg!(target_os = "macos") {
+                return None;
+            }
+            let output = Command::new("/usr/bin/sw_vers")
+                .arg("-productVersion")
+                .env("SYSTEM_VERSION_COMPAT", "0")
+                .output()
+                .ok()?;
+            let actual = String::from_utf8(output.stdout).ok()?.trim().to_owned();
+            (output.status.success() && os_version(&actual).is_some()).then_some(actual)
+        })
+        .as_deref()
+}
+
+pub(crate) fn target_detail(template: &Template) -> String {
+    let target = target_name();
+    if let Some(minimum) = &template.minimum_macos {
+        format!(
+            "Requires {} and macOS {minimum} or newer. Found {target}, macOS {}.",
+            template.target,
+            macos_version().unwrap_or("version unavailable")
+        )
+    } else {
+        format!(
+            "Bundle targets {}. This app is running on {target}.",
+            template.target
+        )
+    }
 }
 
 pub fn list(ctx: &Context) -> Result<Value> {
@@ -388,8 +500,15 @@ pub fn list(ctx: &Context) -> Result<Value> {
 }
 
 pub fn runtimes(ctx: &Context) -> Result<Value> {
+    runtime_reports(ctx, &[])
+}
+
+pub(crate) fn runtime_reports(ctx: &Context, selected: &[String]) -> Result<Value> {
     let mut stacks = std::collections::BTreeMap::<&str, Vec<&Template>>::new();
     for template in &ctx.catalog.templates {
+        if !selected.is_empty() && !selected.contains(&template.stack) {
+            continue;
+        }
         stacks.entry(&template.stack).or_default().push(template);
     }
     std::thread::scope(|scope| {
@@ -408,6 +527,7 @@ pub fn runtimes(ctx: &Context) -> Result<Value> {
                 "python" => "Python",
                 "ruby" => "Ruby",
                 "rust" => "Rust",
+                "node" => "JavaScript and TypeScript / Node.js",
                 _ => stack,
             };
             let docs: std::collections::BTreeSet<_> = ctx
@@ -423,11 +543,12 @@ pub fn runtimes(ctx: &Context) -> Result<Value> {
                 .map(|release| &release.id)
                 .collect();
             checks.push(scope.spawn(move || {
-                let (path, detail) = toolchain(sample);
+                let report = toolchain_report(sample);
                 json!({
                     "id": stack, "name": name, "toolchain": sample.toolchain,
-                    "minimum_version": sample.minimum_version, "available": path.is_some(),
-                    "path": path, "detail": detail, "docs": docs, "templates": templates,
+                    "minimum_version": sample.minimum_version, "available": report["available"],
+                    "path": report["path"], "detail": report["detail"], "version":report["version"],
+                    "docs": docs, "templates": templates,
                 })
             }));
         }
@@ -447,7 +568,178 @@ fn installation_result(template: &Template, path: &Path) -> Value {
     json!({"id":template.id,"version":template.version,"path":path,"verified":template.verified,"installed":true})
 }
 
-fn publish_release(stage: &Stage, template: Template, destination: &Path) -> Result<Value> {
+fn release_size(path: &Path) -> Result<(u64, u64)> {
+    let mut result = (0, 0);
+    for child in fs::read_dir(path)? {
+        let child = child?;
+        let metadata = child.metadata()?;
+        if child.file_type()?.is_dir() {
+            let (files, bytes) = release_size(&child.path())?;
+            result.0 += files;
+            result.1 += bytes;
+        } else if child.file_type()?.is_file() && child.file_name() != "installed.json" {
+            result.0 += 1;
+            result.1 += metadata.len();
+        }
+    }
+    Ok(result)
+}
+
+fn dependency_inventory(project: &Path, stack: &str) -> Result<Vec<Value>> {
+    let mut dependencies = std::collections::BTreeSet::new();
+    let mut add = |name: &str, version: &str| {
+        if !name.is_empty() && !version.is_empty() {
+            dependencies.insert((name.to_owned(), version.to_owned()));
+        }
+    };
+    let read = |file: &str| fs::read_to_string(project.join(file)).unwrap_or_default();
+    match stack {
+        "node" => {
+            let value =
+                serde_json::from_str::<Value>(&read("package-lock.json")).unwrap_or_default();
+            if let Some(packages) = value["packages"].as_object() {
+                for (path, package) in packages {
+                    if let Some(name) = path.rsplit_once("node_modules/").map(|(_, name)| name) {
+                        add(name, package["version"].as_str().unwrap_or_default());
+                    }
+                }
+            }
+        }
+        "ruby" => {
+            for line in read("Gemfile.lock")
+                .lines()
+                .filter(|line| line.starts_with("    ") && !line.starts_with("     "))
+            {
+                if let Some((name, rest)) = line.trim().split_once(" (") {
+                    if let Some(version) = rest.strip_suffix(')') {
+                        add(name, version);
+                    }
+                }
+            }
+        }
+        "go" => {
+            for line in read("vendor/modules.txt")
+                .lines()
+                .filter_map(|line| line.strip_prefix("# "))
+            {
+                let mut parts = line.split_whitespace();
+                if let (Some(name), Some(version)) = (parts.next(), parts.next()) {
+                    if version.starts_with('v') {
+                        add(name, version);
+                    }
+                }
+            }
+        }
+        "python" => {
+            for line in read("requirements.txt").lines() {
+                if let Some((name, version)) = line.split_once("==") {
+                    add(name, version.split_whitespace().next().unwrap_or_default());
+                }
+            }
+        }
+        "rust" => {
+            for package in read("Cargo.lock")
+                .split("[[package]]")
+                .filter(|entry| entry.contains("source = "))
+            {
+                let field = |key: &str| {
+                    package
+                        .lines()
+                        .find_map(|line| line.strip_prefix(key)?.strip_suffix('"'))
+                        .unwrap_or_default()
+                };
+                add(field("name = \""), field("version = \""));
+            }
+        }
+        "dotnet" => {
+            let value =
+                serde_json::from_str::<Value>(&read("packages.lock.json")).unwrap_or_default();
+            if let Some(frameworks) = value["dependencies"].as_object() {
+                for dependencies in frameworks.values().filter_map(Value::as_object) {
+                    for (name, metadata) in dependencies {
+                        add(name, metadata["resolved"].as_str().unwrap_or_default());
+                    }
+                }
+            }
+        }
+        "elixir" => {
+            for line in read("vendor/upstream-lock.exs")
+                .lines()
+                .filter(|line| line.contains("{:hex,"))
+            {
+                let mut parts = line.split('"');
+                if let (Some(name), Some(version)) = (parts.nth(1), parts.nth(1)) {
+                    add(name, version);
+                }
+            }
+        }
+        "java" => {
+            fn jars(
+                root: &Path,
+                path: &Path,
+                found: &mut std::collections::BTreeSet<(String, String)>,
+            ) -> Result<()> {
+                for child in fs::read_dir(path)? {
+                    let child = child?;
+                    let path = child.path();
+                    if child.file_type()?.is_dir() {
+                        jars(root, &path, found)?;
+                    } else if path.extension().is_some_and(|ext| ext == "jar") {
+                        let components: Vec<_> = path
+                            .strip_prefix(root)?
+                            .iter()
+                            .filter_map(|p| p.to_str())
+                            .collect();
+                        if components.len() >= 4 {
+                            let version = components[components.len() - 2];
+                            let artifact = components[components.len() - 3];
+                            let group = components[..components.len() - 3].join(".");
+                            found.insert((format!("{group}:{artifact}"), version.to_owned()));
+                        }
+                    }
+                }
+                Ok(())
+            }
+            let root = project.join("maven-repository");
+            if root.is_dir() {
+                jars(&root, &root, &mut dependencies)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(dependencies
+        .into_iter()
+        .map(|(name, version)| json!({"name":name,"version":version}))
+        .collect())
+}
+
+pub fn inspect(ctx: &Context, reference: &str) -> Result<Value> {
+    let (marker, path) = bundle_source(ctx, reference)?;
+    let installed = path.starts_with(ctx.home.canonicalize()?);
+    let (file_count, size_bytes) = release_size(&path)?;
+    let project = path.join("project");
+    let mut contents = fs::read_dir(&project)?.map(|entry| {
+        let entry = entry?;
+        Ok(json!({"name":entry.file_name().to_string_lossy(),"kind":if entry.file_type()?.is_dir() { "directory" } else { "file" }}))
+    }).collect::<Result<Vec<_>>>()?;
+    contents.sort_by(|a, b| a["name"].as_str().cmp(&b["name"].as_str()));
+    let dependencies = dependency_inventory(&project, &marker.template.stack)?;
+    let (toolchain, detail) = toolchain(&marker.template);
+    let evidence = load_verification(ctx, &marker.template, &marker.digest, &detail)?;
+    Ok(json!({
+        "template":marker.template, "installed":installed, "digest":marker.digest,
+        "size_bytes":size_bytes, "file_count":file_count, "contents":contents,
+        "dependencies":dependencies, "verified_at":marker.verified_at,
+        "verification":evidence, "ready_offline":installed && toolchain.is_some() && evidence.is_some(),
+    }))
+}
+
+pub(crate) fn publish_release(
+    stage: &Stage,
+    template: Template,
+    destination: &Path,
+    verified_at: Option<u64>,
+) -> Result<Value> {
     directory(&stage.0.join("project"))?;
     if fs::symlink_metadata(stage.0.join("installed.json")).is_ok() {
         bail!("Unexpected installed.json in release input");
@@ -455,6 +747,7 @@ fn publish_release(stage: &Stage, template: Template, destination: &Path) -> Res
     let marker = Installed {
         digest: tree_digest(&stage.0)?,
         template,
+        verified_at,
     };
     fs::write(
         stage.0.join("installed.json"),
@@ -477,7 +770,7 @@ pub fn install(ctx: &Context, reference: &str) -> Result<Value> {
     let destination = base.join(&template.version);
     let stage = Stage::new(&base)?;
     copy_tree(&source, &stage.0, None)?;
-    publish_release(&stage, template, &destination)
+    publish_release(&stage, template, &destination, None)
 }
 
 fn candidate_paths(tool: &str) -> Vec<PathBuf> {
@@ -575,7 +868,7 @@ fn jdk_home() -> Option<PathBuf> {
         .then(|| PathBuf::from(String::from_utf8_lossy(&output.stdout).trim()))
 }
 
-fn tool_environment(command: &mut Command, tool: &str, path: &Path) -> Result<()> {
+pub(crate) fn tool_environment(command: &mut Command, tool: &str, path: &Path) -> Result<()> {
     let mut directories = vec![path
         .parent()
         .context("Invalid toolchain path")?
@@ -770,28 +1063,13 @@ pub fn doctor(ctx: &Context, reference: &str) -> Result<Value> {
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|| format!("Install {}@{}", t.id, t.version)),
         ),
-        check(
-            "Target",
-            target_matches(t),
-            format!(
-                "Bundle targets {}. This app is running on {}.",
-                t.target,
-                target_name()
-            ),
-        ),
-        check("Toolchain", tool.is_some(), detail),
-        check(
-            "Offline verification",
-            t.verified,
-            if t.verified {
-                "Offline test passed with the packaged dependencies and isolated caches."
-            } else {
-                "Offline verification has not been recorded for this release."
-            },
-        ),
+        check("Target", target_matches(t), target_detail(t)),
+        check("Toolchain", tool.is_some(), &detail),
     ];
+    let mut evidence = None;
     if let Some(path) = &entry.installed {
-        let intact = verify_release(path).is_ok();
+        let marker = verify_release(path);
+        let intact = marker.is_ok();
         checks.push(check(
             "Bundle integrity",
             intact,
@@ -801,8 +1079,167 @@ pub fn doctor(ctx: &Context, reference: &str) -> Result<Value> {
                 "Files differ from the installed release digest."
             },
         ));
+        if let Ok(marker) = marker {
+            evidence = load_verification(ctx, t, &marker.digest, &detail)?;
+        }
     }
-    Ok(json!({"ready":checks.iter().all(|c|c["ok"] == true),"checks":checks,"template":t}))
+    checks.push(check(
+        "Offline verification",
+        t.verified || evidence.is_some(),
+        if evidence.is_some() {
+            "The installed release passed network-denied tests with this toolchain."
+        } else if t.verified {
+            "Release qualification passed with isolated caches. Check this Mac to confirm readiness."
+        } else {
+            "Offline verification has not been recorded for this release."
+        },
+    ));
+    let ready = checks.iter().all(|c| c["ok"] == true);
+    let ready_offline = ready && evidence.is_some();
+    Ok(json!({
+        "ready": ready, "ready_offline": ready_offline,
+        "status": if ready_offline { "ready_offline" } else if ready { "verification_required" } else { "blocked" },
+        "checks":checks, "template":t, "verification":evidence
+    }))
+}
+
+fn readiness_file(ctx: &Context, template: &Template, create: bool) -> Result<PathBuf> {
+    let (stack, name) = id_parts(&template.id)?;
+    version(&template.version)?;
+    let path = library(ctx, &Path::new("readiness").join(stack).join(name), create)?;
+    Ok(path.join(format!("{}.json", template.version)))
+}
+
+fn load_verification(
+    ctx: &Context,
+    template: &Template,
+    digest: &str,
+    toolchain: &str,
+) -> Result<Option<Verification>> {
+    let path = readiness_file(ctx, template, false)?;
+    match fs::symlink_metadata(&path) {
+        Ok(metadata) if metadata.is_file() => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        _ => return Ok(None),
+    }
+    let evidence = serde_json::from_slice::<Verification>(&fs::read(path)?).ok();
+    Ok(evidence.filter(|entry| {
+        entry.digest == digest && entry.toolchain == toolchain && entry.target == target_name()
+    }))
+}
+
+fn record_verification(
+    ctx: &Context,
+    template: &Template,
+    digest: String,
+    toolchain: String,
+) -> Result<Verification> {
+    let path = readiness_file(ctx, template, true)?;
+    let evidence = Verification {
+        at: tasks::now(),
+        digest,
+        toolchain,
+        target: target_name(),
+    };
+    let staging = Stage::new(path.parent().context("Invalid verification directory")?)?;
+    let file = staging.0.join("verification");
+    fs::write(&file, serde_json::to_vec(&evidence)?)?;
+    fs::rename(file, path)?;
+    Ok(evidence)
+}
+
+pub(crate) fn bundle_source(ctx: &Context, reference: &str) -> Result<(Installed, PathBuf)> {
+    let entry = select(ctx, reference, true)?;
+    if let Some(path) = entry.installed {
+        return Ok((verify_release(&path)?, path));
+    }
+    let path = source(ctx, &entry.template.path)?;
+    let marker = Installed {
+        template: entry.template,
+        digest: tree_digest(&path)?,
+        verified_at: None,
+    };
+    Ok((marker, path))
+}
+
+pub(crate) fn validate_portable(template: &Template) -> Result<()> {
+    let (stack, _) = id_parts(&template.id)?;
+    version(&template.version)?;
+    let toolchain = match stack {
+        "dotnet" => "dotnet",
+        "elixir" => "elixir",
+        "go" => "go",
+        "java" => "mvn",
+        "python" => "python3",
+        "ruby" => "ruby",
+        "rust" => "cargo",
+        "node" => "node",
+        _ => bail!("Unsupported starter stack {stack}"),
+    };
+    if template.stack != stack
+        || template.toolchain != toolchain
+        || runtime_numbers(&template.minimum_version).is_none()
+        || template
+            .minimum_macos
+            .as_deref()
+            .is_some_and(|value| os_version(value).is_none())
+        || template.test_command != "./test-offline.sh"
+    {
+        bail!("Invalid toolchain requirements for {}", template.id);
+    }
+    Ok(())
+}
+
+pub(crate) fn bundled_digest(ctx: &Context, template: &Template) -> Result<Option<String>> {
+    ctx.catalog
+        .templates
+        .iter()
+        .find(|entry| entry.id == template.id && entry.version == template.version)
+        .map(|entry| tree_digest(&source(ctx, &entry.path)?))
+        .transpose()
+}
+
+pub(crate) fn toolchain_report(template: &Template) -> Value {
+    let (path, detail) = toolchain(template);
+    let observed = path.as_ref().and_then(|_| {
+        let (_, actual) = detail.split_once(" · ")?;
+        let version = match template.toolchain.as_str() {
+            "elixir" => actual.split("Elixir ").nth(1)?,
+            "mvn" => actual.split("Java version: ").nth(1)?,
+            _ => actual,
+        };
+        Some(
+            runtime_numbers(version)?
+                .into_iter()
+                .map(|n| n.to_string())
+                .collect::<Vec<_>>()
+                .join("."),
+        )
+    });
+    json!({"available":path.is_some(),"path":path,"detail":detail,"version":observed})
+}
+
+pub fn remove(ctx: &Context, reference: &str) -> Result<Value> {
+    let (id, label) = reference
+        .split_once('@')
+        .context("Select an exact starter release to remove")?;
+    version(label)?;
+    let _lock = lock_library(ctx)?;
+    let base = installed_base(ctx, id, false)?;
+    let path = base.join(label);
+    match fs::symlink_metadata(&path) {
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(json!({"id":id,"version":label,"removed":false}));
+        }
+        Ok(metadata) if metadata.is_dir() => {}
+        _ => bail!("Expected an installed starter directory"),
+    }
+    let staging = Stage::new(&base)?;
+    fs::rename(&path, staging.0.join("release"))?;
+    let (stack, name) = id_parts(id)?;
+    let readiness = library(ctx, &Path::new("readiness").join(stack).join(name), false)?;
+    let _ = fs::remove_file(readiness.join(format!("{label}.json")));
+    Ok(json!({"id":id,"version":label,"removed":true}))
 }
 
 fn shell_word(path: &Path) -> Result<String> {
@@ -860,21 +1297,25 @@ fn project_test_wrapper(project: &Path, template: &Template, tool: &Path) -> Res
 }
 
 pub fn create(ctx: &Context, reference: &str, destination: &Path, dry_run: bool) -> Result<Value> {
-    let _lock = lock_library(ctx)?;
+    let _lock = if dry_run {
+        None
+    } else {
+        Some(lock_library(ctx)?)
+    };
     let entry = select(ctx, reference, true)?;
     let template = entry.template;
-    let input = entry.installed.with_context(|| {
-        format!(
+    let installed = entry.installed.is_some();
+    let input = match entry.installed {
+        Some(input) => input,
+        None if dry_run => source(ctx, &template.path)?,
+        None => bail!(
             "Install {}@{} before creating a project",
-            template.id, template.version
-        )
-    })?;
+            template.id,
+            template.version
+        ),
+    };
     if !target_matches(&template) {
-        bail!(
-            "Template targets {}. This app is running on {}.",
-            template.target,
-            target_name()
-        );
+        bail!("{}", target_detail(&template));
     }
     let name = destination
         .file_name()
@@ -898,16 +1339,9 @@ pub fn create(ctx: &Context, reference: &str, destination: &Path, dry_run: bool)
     if parent.starts_with(ctx.home.canonicalize()?) {
         bail!("Choose a project directory outside the Devline library");
     }
-    if !template.verified {
-        bail!(
-            "Template {}@{} has not passed offline verification",
-            template.id,
-            template.version
-        );
-    }
     let (tool, detail) = toolchain(&template);
-    let tool = tool.context(detail)?;
-    let marker = verify_release(&input)?;
+    let tool = tool.context(detail.clone())?;
+    let marker = installed.then(|| verify_release(&input)).transpose()?;
     let has_test_script = template.test_command == "./test-offline.sh"
         && regular(&input.join("project/test-offline.sh")).is_ok();
     let test_command = if has_test_script {
@@ -916,6 +1350,7 @@ pub fn create(ctx: &Context, reference: &str, destination: &Path, dry_run: bool)
         &template.test_command
     };
     if !dry_run {
+        let marker = marker.context("Install the selected starter first")?;
         let stage = Stage::new(&parent)?;
         copy_tree(&input.join("project"), &stage.0, Some(name))?;
         if has_test_script {
@@ -930,14 +1365,35 @@ pub fn create(ctx: &Context, reference: &str, destination: &Path, dry_run: bool)
                 "digest": marker.digest,
             }))?,
         )?;
+        drop(_lock);
+        let _project_lock =
+            crate::project_prepare::lock_generated(ctx, &destination, &template.stack)?;
+        if fs::symlink_metadata(&destination).is_ok() {
+            bail!("The destination already exists: {}", destination.display());
+        }
+        crate::project_prepare::verify_generated(
+            ctx,
+            &stage.0,
+            &destination,
+            &template.stack,
+            &template.toolchain,
+            &tool,
+            &detail,
+        )?;
+        {
+            let _lock = lock_library(ctx)?;
+            if verify_release(&input).is_ok_and(|current| current.digest == marker.digest) {
+                record_verification(ctx, &template, marker.digest, detail)?;
+            }
+        }
         stage.publish(&destination)?;
     }
     Ok(
-        json!({"path":destination,"template":template.id,"version":template.version,"test_command":test_command,"toolchain_path":tool,"dry_run":dry_run}),
+        json!({"path":destination,"template":template.id,"version":template.version,"test_command":test_command,"toolchain_path":tool,"services":template.services,"docs":template.docs,"dry_run":dry_run}),
     )
 }
 
-fn verify_release(path: &Path) -> Result<Installed> {
+pub(crate) fn verify_release(path: &Path) -> Result<Installed> {
     let marker = read_marker(path)?;
     if tree_digest(path)? != marker.digest {
         bail!(
@@ -969,7 +1425,28 @@ fn completed(command: &mut Command, stage: &str) -> Result<()> {
     );
 }
 
-fn verify_build(project: &Path, work: &Path, tool: &Path, tool_name: &str) -> Result<()> {
+pub(crate) fn run_command(
+    command: &mut Command,
+    label: &str,
+    job: Option<&mut tasks::Job>,
+) -> Result<()> {
+    if let Some(job) = job {
+        job.command(command, label)
+    } else {
+        completed(command, label)
+    }
+}
+
+pub(crate) fn verify_build_job(
+    project: &Path,
+    work: &Path,
+    tool: &Path,
+    tool_name: &str,
+    mut job: Option<&mut tasks::Job>,
+) -> Result<()> {
+    if let Some(job) = job.as_deref_mut() {
+        job.stage("Preparing isolated offline test")?;
+    }
     let copy = work.join("offline-test");
     fs::create_dir(&copy)?;
     copy_tree(project, &copy, Some("devkit-test"))?;
@@ -981,7 +1458,7 @@ fn verify_build(project: &Path, work: &Path, tool: &Path, tool_name: &str) -> Re
     let mut verifier = Command::new("/usr/bin/sandbox-exec");
     verifier.env_clear();
     tool_environment(&mut verifier, tool_name, tool)?;
-    completed(
+    run_command(
         verifier
             .args(["-p", POLICY, "/bin/sh"])
             .arg(script)
@@ -998,8 +1475,86 @@ fn verify_build(project: &Path, work: &Path, tool: &Path, tool_name: &str) -> Re
             .env("DOTNET_CLI_HOME", &home)
             .env("NUGET_PACKAGES", home.join("nuget"))
             .env("NUGET_HTTP_CACHE_PATH", home.join("nuget-http")),
-        "network-denied verification",
+        "Network-denied verification",
+        job,
     )
+}
+
+pub(crate) fn verify_offline(
+    ctx: &Context,
+    reference: &str,
+    mut job: Option<&mut tasks::Job>,
+) -> Result<Value> {
+    if let Some(job) = job.as_deref_mut() {
+        job.stage("Checking installed starter and toolchain")?;
+    }
+    let (template, source, marker) = {
+        let _lock = lock_library(ctx)?;
+        let entry = select(ctx, reference, true)?;
+        let source = entry
+            .installed
+            .context("Install this starter release before verification")?;
+        let marker = verify_release(&source)?;
+        if !target_matches(&entry.template) {
+            bail!("{}", target_detail(&entry.template));
+        }
+        let file = readiness_file(ctx, &entry.template, false)?;
+        if fs::symlink_metadata(&file).is_ok_and(|m| m.is_file()) {
+            fs::remove_file(file)?;
+        }
+        (entry.template, source, marker)
+    };
+    let (tool, detail) = toolchain(&template);
+    let tool = tool.context(detail.clone())?;
+    let work = library(ctx, Path::new("verification"), true)?;
+    let stage = Stage::new(&work)?;
+    verify_build_job(
+        &source.join("project"),
+        &stage.0,
+        &tool,
+        &template.toolchain,
+        job.as_deref_mut(),
+    )?;
+    if let Some(job) = job {
+        job.stage("Recording offline readiness")?;
+    }
+    let _lock = lock_library(ctx)?;
+    if verify_release(&source)?.digest != marker.digest {
+        bail!("The starter changed while it was being verified");
+    }
+    let evidence = record_verification(ctx, &template, marker.digest, detail)?;
+    Ok(
+        json!({"ready_offline":true,"status":"ready_offline","template":template,"verification":evidence}),
+    )
+}
+
+pub(crate) fn prepare(
+    ctx: &Context,
+    reference: &str,
+    mut job: Option<&mut tasks::Job>,
+) -> Result<Value> {
+    if let Some(job) = job.as_deref_mut() {
+        job.stage("Installing starter release")?;
+    }
+    let installed = install(ctx, reference)?;
+    let label = format!(
+        "{}@{}",
+        text_arg(&installed, "id")?,
+        text_arg(&installed, "version")?
+    );
+    let template = select(ctx, &label, true)?.template;
+    let mut docs = Vec::new();
+    for doc in &template.docs {
+        if let Some(job) = job.as_deref_mut() {
+            job.stage(&format!("Installing {doc} documentation"))?;
+        }
+        let (id, version) = doc
+            .split_once('@')
+            .map_or((doc.as_str(), None), |(id, version)| (id, Some(version)));
+        docs.push(crate::install_docs(ctx, id, version)?);
+    }
+    verify_offline(ctx, &label, job)?;
+    Ok(json!({"template":installed,"docs":docs,"doctor":doctor(ctx,&label)?}))
 }
 
 fn next_release_version(ctx: &Context, template: &Template) -> Result<String> {
@@ -1021,33 +1576,73 @@ fn next_release_version(ctx: &Context, template: &Template) -> Result<String> {
 }
 
 pub fn build_latest(ctx: &Context, reference: &str) -> Result<Value> {
+    build_latest_job(ctx, reference, None)
+}
+
+pub(crate) fn build_latest_job(
+    ctx: &Context,
+    reference: &str,
+    mut job: Option<&mut tasks::Job>,
+) -> Result<Value> {
+    if let Some(job) = job.as_deref_mut() {
+        job.stage("Checking starter recipe and toolchain")?;
+    }
     let entry = select(ctx, reference, false)?;
     let mut template = entry.template;
-    let source = source(ctx, &template.path)?;
-    let recipe = source.join("build-latest.sh");
-    regular(&recipe).context("This template does not provide a latest-version recipe")?;
+    let catalogued = ctx
+        .catalog
+        .templates
+        .iter()
+        .any(|release| release.id == template.id && release.version == template.version);
+    let source = if catalogued {
+        source(ctx, &template.path)?
+    } else if let Some(path) = entry.installed {
+        verify_release(&path)?;
+        path
+    } else {
+        bail!("Starter recipe source is unavailable");
+    };
     if !target_matches(&template) {
-        bail!("The template recipe targets {}", template.target)
+        bail!("{}", target_detail(&template));
     }
     let (tool, detail) = toolchain(&template);
-    let tool = tool.context(detail)?;
+    let tool = tool.context(detail.clone())?;
     let base = installed_base(ctx, &template.id, true)?;
     let stage = Stage::new(&base)?;
     copy_tree(&source, &stage.0, None)?;
+    if !catalogued {
+        fs::remove_file(stage.0.join("installed.json"))?;
+    }
+    let recipe = stage.0.join("build-latest.sh");
+    regular(&recipe).context("This template does not provide a latest-version recipe")?;
     let project = stage.0.join("project");
+    let verification = Stage::new(&base)?;
     let mut builder = Command::new("/bin/sh");
     tool_environment(&mut builder, &template.toolchain, &tool)?;
-    completed(
+    run_command(
         builder
             .arg(&recipe)
             .arg(&project)
             .current_dir(&stage.0)
+            .env("TMPDIR", &verification.0)
             .env("DEVKIT_TOOLCHAIN", &tool),
-        "template dependency refresh",
+        "Refreshing upstream dependencies",
+        job.as_deref_mut(),
     )?;
-    let verification = Stage::new(&base)?;
-    verify_build(&project, &verification.0, &tool, &template.toolchain)?;
+    verify_build_job(
+        &project,
+        &verification.0,
+        &tool,
+        &template.toolchain,
+        job.as_deref_mut(),
+    )?;
+    if let Some(job) = job.as_deref_mut() {
+        job.stage("Publishing verified starter release")?;
+    }
     let _lock = lock_library(ctx)?;
+    if let Some(job) = job {
+        job.checkpoint()?;
+    }
     template.version = next_release_version(ctx, &template)?;
     let output = base.join(&template.version);
     template.verified = true;
@@ -1055,7 +1650,28 @@ pub fn build_latest(ctx: &Context, reference: &str) -> Result<Value> {
         "Locally rebuilt {} with resolved and offline-tested dependencies.",
         template.name
     );
-    publish_release(&stage, template, &output)
+    let coverage_file = project.join("dependency-coverage.json");
+    if regular(&coverage_file).is_ok() {
+        let mut coverage: Value = serde_json::from_slice(&fs::read(&coverage_file)?)?;
+        coverage["starter"] = json!(format!("{}@{}", template.id, template.version));
+        for field in ["vendored_modules", "vendored_crates"] {
+            if coverage.get(field).is_some() {
+                coverage[field] = json!(dependency_inventory(&project, &template.stack)?);
+            }
+        }
+        let vendor = project.join("vendor");
+        if vendor.is_dir() {
+            coverage["vendor_bytes"] = json!(release_size(&vendor)?.1);
+        }
+        fs::write(coverage_file, serde_json::to_vec_pretty(&coverage)?)?;
+    }
+    let digest = tree_digest(&stage.0)?;
+    record_verification(ctx, &template, digest, detail)?;
+    let result = publish_release(&stage, template.clone(), &output, Some(tasks::now()));
+    if result.is_err() {
+        let _ = fs::remove_file(readiness_file(ctx, &template, false)?);
+    }
+    result
 }
 
 #[cfg(test)]
@@ -1083,6 +1699,10 @@ mod tests {
                     project.join("main.txt"),
                     format!("{version} __PROJECT_NAME__"),
                 )?;
+                fs::write(
+                    project.join("test-offline.sh"),
+                    "#!/bin/sh\nset -eu\ntest -s main.txt\n",
+                )?;
                 templates.push(Template {
                     id: "fixture/starter".into(),
                     name: "Starter fixture".into(),
@@ -1093,8 +1713,10 @@ mod tests {
                     path,
                     toolchain: "true".into(),
                     minimum_version: String::new(),
+                    minimum_macos: None,
                     test_command: "./test-offline.sh".into(),
                     docs: Vec::new(),
+                    services: Vec::new(),
                     verified: true,
                     target: target_name(),
                 });
@@ -1235,7 +1857,7 @@ mod tests {
         copy_tree(&input, &stage.0, None)?;
         let mut local = entry.template.clone();
         local.version = "1.0.5".into();
-        publish_release(&stage, local, &base.join("1.0.5"))?;
+        publish_release(&stage, local, &base.join("1.0.5"), None)?;
         assert_eq!(
             next_release_version(&fixture.ctx, &entry.template)?,
             "1.0.6"

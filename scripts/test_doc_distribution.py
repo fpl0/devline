@@ -1,0 +1,89 @@
+"""Regression tests for deterministic docset releases and the corpus audit."""
+
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+
+def script(name):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(name + ".py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+releases = script("doc-release")
+audit = script("check-doc-packs")
+ASSET_BASE = "https://github.com/example/devline/releases/download/docsets-2026.11.07"
+
+
+def fixture(data, markup):
+    pack = {
+        "id": "fixture", "version": "1.0.0+devline.1", "name": "Fixture",
+        "path": "docs/fixture/1.0.0+devline.1", "upstream_version": "1.0.0",
+        "snapshot_date": "2026-11-07", "coverage": ["Fixture"], "omissions": ["Other pages"],
+    }
+    source = data / pack["path"]
+    source.mkdir(parents=True, exist_ok=True)
+    (data / "docs-catalog.json").write_text(json.dumps([pack]))
+    (source / "documents.json").write_text(json.dumps([{
+        "id": "article", "title": "An example", "body": "An example of code",
+        "source_url": "https://example.org/article", "category": "guide", "html": markup,
+    }]))
+    (source / "SOURCES.md").write_text("Official fixture documentation")
+    return source
+
+
+class DocDistributionTests(unittest.TestCase):
+    def test_reproducible_assets_and_immutable_prior_manifest(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            data, first, second = root / "data", root / "first", root / "second"
+            fixture(data, "<p>Test</p>")
+            prior = releases.build(data, first, ASSET_BASE)
+            produced = releases.build(data, second, ASSET_BASE, previous=prior)
+            self.assertEqual(prior.read_bytes(), produced.read_bytes())
+            releases.verify(first)
+            releases.verify(second)
+            file = next(first.glob("*.tar.gz"))
+            original = file.read_bytes()
+            fixture(data, "<p>Changed without revision</p>")
+            with self.assertRaisesRegex(ValueError, "Immutable"):
+                releases.build(data, first, ASSET_BASE, previous=prior)
+            self.assertEqual(file.read_bytes(), original)
+
+    def test_rejects_links_and_mismatched_asset_bytes(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            data, output = root / "data", root / "assets"
+            source = fixture(data, "<p>Test</p>")
+            link = source / "bad"
+            link.symlink_to(root)
+            with self.assertRaisesRegex(ValueError, "Links are unsupported"):
+                releases.build(data, output, ASSET_BASE)
+            link.unlink()
+            releases.build(data, output, ASSET_BASE)
+            next(output.glob("*.tar.gz")).write_bytes(b"tampered")
+            with self.assertRaisesRegex(ValueError, "checksum or size"):
+                releases.verify(output)
+
+    def test_audit_counts_examples_and_regressions_beyond_baseline(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            data = Path(scratch)
+            fixture(data, '<h1 id="api.read">Read</h1><a href="#api.read">Read</a>'
+                    '<a href="#missing">Missing</a><pre><code>read()</code></pre>'
+                    '<img src="https://example.org/img.png"><script>alert(1)</script>')
+            report = audit.audit(data, require_examples=False)
+            self.assertEqual(report["counts"]["examples"], 1)
+            self.assertEqual(report["counts"]["missing_same_page_anchors"], 1)
+            baseline = {"missing_anchors": [["fixture@1.0.0+devline.1", "article", "example.org/article", "missing"]]}
+            errors, anchors = audit.regressions(report, baseline)
+            self.assertEqual(anchors, [])
+            self.assertTrue(any("non-offline image" in error for error in errors))
+            self.assertTrue(any("active markup" in error for error in errors))
+
+
+if __name__ == "__main__":
+    unittest.main()

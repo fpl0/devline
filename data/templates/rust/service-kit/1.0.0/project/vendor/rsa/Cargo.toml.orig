@@ -1,0 +1,121 @@
+[package]
+name = "rsa"
+version = "0.10.0-rc.22"
+authors = ["RustCrypto Developers", "dignifiedquire <dignifiedquire@gmail.com>"]
+edition = "2024"
+description = "Pure Rust RSA implementation"
+license = "MIT OR Apache-2.0"
+documentation = "https://docs.rs/rsa"
+repository = "https://github.com/RustCrypto/RSA"
+keywords = ["rsa", "encryption", "security", "crypto"]
+categories = ["cryptography"]
+readme = "README.md"
+rust-version = "1.87"
+exclude = ["checkct/", "marvin-toolkit/", "thirdparty/"]
+
+[workspace]
+members = ["checkct", "checkct/checkct_macros", "marvin-toolkit"]
+default-members = ["."]
+resolver = "3"
+
+[workspace.dependencies]
+crypto-bigint = { version = "0.7.10", default-features = false, features = ["zeroize", "alloc"] }
+rand = "0.10"
+rand_core = { version = "0.10", default-features = false }
+zeroize = { version = "1.8", default-features = false, features = ["alloc"] }
+
+[dependencies]
+const-oid = { version = "0.10", default-features = false }
+crypto-bigint = { workspace = true }
+crypto-common = { version = "0.2", default-features = false, features = ["rand_core"] }
+crypto-primes = { version = "0.7", default-features = false }
+digest = { version = "0.11", default-features = false, features = ["alloc", "oid"] }
+hmac = { version = "0.13", default-features = false, features = ["zeroize"] }
+rand_core = { workspace = true }
+sha2 = { version = "0.11", default-features = false, features = ["oid", "zeroize"] }
+signature = { version = "3", default-features = false, features = ["alloc", "digest", "rand_core"] }
+zeroize = { workspace = true, default-features = true }
+
+# optional dependencies
+pkcs1 = { version = "0.8", optional = true, default-features = false, features = ["alloc", "pem"] }
+pkcs8 = { version = "0.11", optional = true, default-features = false, features = ["alloc", "pem"] }
+serdect = { version = "0.4", optional = true }
+sha1 = { version = "0.11", optional = true, default-features = false, features = ["oid"] }
+spki = { version = "0.8", optional = true, default-features = false, features = ["alloc"] }
+serde = { version = "1.0.184", optional = true, default-features = false, features = ["derive"] }
+
+[dev-dependencies]
+base64ct = { version = "1", features = ["alloc"] }
+hex-literal = "1"
+proptest = "1"
+serde_test = "1.0.89"
+rand = { workspace = true, features = ["chacha"] }
+rand_core = { workspace = true }
+sha1 = { version = "0.11", default-features = false, features = ["oid"] }
+sha3 = { version = "0.12", default-features = false, features = ["oid"] }
+hex = { version = "0.4.3", features = ["serde"] }
+serde_json = "1.0.138"
+serde = { version = "1.0.184", features = ["derive"] }
+rstest = "0.28"
+
+[[bench]]
+name = "key"
+
+[features]
+default = ["std", "encoding", "getrandom"]
+std = ["pkcs1?/std", "pkcs8?/std"]
+
+encoding = ["dep:pkcs1", "dep:pkcs8", "dep:spki"]
+hazmat = []
+pkcs1v15 = [] # PKCS #1 v1.5 is only supported as opt-in basis for legacy protocols
+getrandom = ["crypto-bigint/getrandom", "crypto-common/getrandom"]
+serde = ["encoding", "dep:serde", "dep:serdect", "crypto-bigint/serde"]
+pkcs5 = ["pkcs8/encryption"]
+
+[lints.clippy]
+borrow_as_ptr = "warn"
+cast_lossless = "warn"
+cast_possible_truncation = "warn"
+cast_possible_wrap = "warn"
+cast_precision_loss = "warn"
+cast_sign_loss = "warn"
+checked_conversions = "warn"
+implicit_saturating_sub = "warn"
+integer_division_remainder_used = "warn"
+manual_assert = "warn"
+map_unwrap_or = "warn"
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+mod_module_files = "warn"
+must_use_candidate = "warn"
+needless_range_loop = "allow"
+ptr_as_ptr = "warn"
+redundant_closure_for_method_calls = "warn"
+ref_as_ptr = "warn"
+return_self_not_must_use = "warn"
+semicolon_if_nothing_returned = "warn"
+trivially_copy_pass_by_ref = "warn"
+std_instead_of_alloc = "warn"
+std_instead_of_core = "warn"
+undocumented_unsafe_blocks = "warn"
+unnecessary_safety_comment = "warn"
+unwrap_in_result = "warn"
+unwrap_used = "warn"
+
+[lints.rust]
+missing_copy_implementations = "warn"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[profile.dev]
+opt-level = 2
+
+[profile.bench]
+debug = true

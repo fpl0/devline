@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Taskboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <p class="eyebrow">WORKSPACE / LOCAL</p>
+      <h1>Taskboard</h1>
+      <p class="subtitle">Keep track of what needs doing.</p>
+    </header>
+    <form action="/tasks" method="post" class="new-task">
+      <label for="new-title">New task</label>
+      <div class="input-row">
+        <input id="new-title" name="title" placeholder="What needs doing?" maxlength="120" required>
+        <button type="submit" class="primary">Add task</button>
+      </div>
+    </form>
+    <section aria-labelledby="tasks-heading">
+      <header class="section-heading">
+        <h2 id="tasks-heading">Tasks</h2>
+        <p>{{.Completed}} of {{len .Tasks}} complete</p>
+      </header>
+      {{if .Tasks}}
+      <ul class="tasks">
+        {{range .Tasks}}
+        <li class="task{{if .Done}} is-done{{end}}">
+          <form action="/tasks/{{.ID}}/toggle" method="post" class="toggle">
+            <button aria-label="{{if .Done}}Reopen{{else}}Complete{{end}}: {{.Title}}" title="{{if .Done}}Reopen task{{else}}Complete task{{end}}"><span aria-hidden="true">{{if .Done}}✓{{end}}</span></button>
+          </form>
+          <div class="task-body">
+            <span class="task-title">{{.Title}}</span>
+            <details>
+              <summary>Edit</summary>
+              <div class="task-edit">
+                <form action="/tasks/{{.ID}}/rename" method="post" class="input-row">
+                  <input name="title" aria-label="Task title" value="{{.Title}}" maxlength="120" required>
+                  <button>Save</button>
+                </form>
+                <form action="/tasks/{{.ID}}/delete" method="post"><button class="danger">Delete task</button></form>
+              </div>
+            </details>
+          </div>
+        </li>
+        {{end}}
+      </ul>
+      {{else}}
+      <div class="empty"><strong>No tasks yet</strong><p>Add your first task to get started.</p></div>
+      {{end}}
+    </section>
+    <footer><span>Stored in PostgreSQL</span><span>Read from {{.Source}}</span></footer>
+  </main>
+</body>
+</html>
