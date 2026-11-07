@@ -1,0 +1,406 @@
+<main><header><h1>Queues</h1></header>
+<h2 id="what-is-a-queue">What is a Queue?</h2>
+<p>A queue in RabbitMQ is an ordered collection of messages. Messages are enqueued and dequeued (delivered to consumers) in a (<a href="https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)">FIFO ("first in, first out")</a> manner.</p>
+<p>To define a <a href="https://en.wikipedia.org/wiki/Queue_(abstract_data_type)">queue</a> in generic terms, it is a sequential data structure with two primary operations: an item can be <strong>enqueued</strong> (added) at the tail and <strong>dequeued</strong> (consumed) from the head.</p>
+<p>Queues play a major role in the messaging technology space. Many messaging protocols and tools assume that <a href="/docs/4.3/publishers">publishers</a> and <a href="/docs/4.3/consumers">consumers</a> communicate using a queue-like storage mechanism.</p>
+<p>Many features in a messaging system are related to queues. Some RabbitMQ queue features such as priorities and <a href="/docs/4.3/confirms">requeueing</a> by consumers can affect the ordering as observed by consumers.</p>
+<p>The information in this topic includes an overview of queues in RabbitMQ and also links out to other topics so you can learn more about using queues in RabbitMQ.</p>
+<div class="admonition info"><div class="admonition-title">info</div><div><p>In addition to queues, modern RabbitMQ versions support two alternative data structures
+called <a href="/docs/4.3/streams">streams and super streams</a>.</p></div></div>
+<p>This guide primarily covers queues in the context of the <a href="/tutorials/amqp-concepts">AMQP 0-9-1</a> protocol, however, much of the content is applicable to other supported protocols.</p>
+<p>Some protocols (for example: STOMP and MQTT) are based around the idea of topics.
+For these protocols, queues act as a data accumulation buffer for consumers.
+However, it is still important to understand the role queues play
+because many features still operate at the queue level, even for those protocols.</p>
+<p><a href="/docs/4.3/streams">Streams</a> is an alternative messaging data structure available in RabbitMQ. Streams provide different features from queues.</p>
+<p>The information about RabbitMQ queues covered in this topic includes:</p>
+<ul>
+<li><a href="#names">Queue Names</a></li>
+<li><a href="#properties">Queue Properties</a></li>
+<li><a href="#message-ordering">Message Ordering</a> in a queue</li>
+<li><a href="#durability">Queue Durability</a> and how it relates to message persistence</li>
+<li><a href="#distributed">Replicated Queue Types</a></li>
+<li><a href="#transparent-operation-routing">Transparent Operation Routing</a> for clients</li>
+<li><a href="#temporary-queues">Temporary</a> and <a href="#exclusive-queues">exclusive</a> queues</li>
+<li><a href="#runtime-characteristics">Runtime Resource</a> usage by queue replicas</li>
+<li><a href="#optional-arguments">Optional Queue Arguments</a> ("x-arguments")</li>
+<li>Declaration and <a href="#property-equivalence">Property Equivalence</a></li>
+<li><a href="#metrics">Queue Metrics</a></li>
+<li><a href="#ttl-and-limits">TTL</a> and length limits</li>
+<li><a href="#priorities">Priority Queues</a></li>
+</ul>
+<p>For topics related to consumers, see the <a href="/docs/4.3/consumers">Consumers guide</a>.
+<a href="/docs/4.3/classic-queues">Classic queues</a>, <a href="/docs/4.3/quorum-queues">quorum queues</a>
+and <a href="/docs/4.3/streams">streams</a> also have dedicated guides.</p>
+<h2 id="names">Queue Names</h2>
+<p>Queues have names so that applications can reference them.</p>
+<p>Applications may pick queue names or ask the broker to <a href="#server-named-queues">generate a name</a>
+for them. Queue names may be up to 255 bytes of UTF-8 characters.</p>
+<p>Queue names starting with "amq." are reserved for internal
+use by the broker. Attempts to declare a queue with a name that
+violates this rule will result in a <a href="/docs/4.3/channels">channel-level exception</a>
+with reply code 403 (<code>ACCESS_REFUSED</code>).</p>
+<h3 id="server-named-queues">Server-named Queues</h3>
+<p>In AMQP 0-9-1, the broker can generate a unique queue name on behalf of
+an app. To use this feature, pass an empty string as the queue name
+argument: the same generated name may be obtained by subsequent
+methods in the same channel by using the empty string where a queue
+name is expected. This works because the channel remembers the last
+server-generated queue name.</p>
+<p>Server-named queues are meant to be used for state that is transient
+in nature and specific to a particular consumer (application instance).
+Applications can share such names in message metadata to let other applications respond
+to them (as demonstrated in <a href="/tutorials">tutorial six</a>).
+Otherwise, the names of server-named queues should be known and used only by the
+declaring application instance. The instance should also set up appropriate
+bindings (routing) for the queue, so that publishers can use well-known
+<a href="/docs/4.3/exchanges">exchanges</a> instead of the server-generated queue name directly.</p>
+<h2 id="properties">Queue Properties</h2>
+<p>Queues have properties that define how they behave. There is a set
+of mandatory properties and a map of optional ones:</p>
+<ul>
+<li>Name</li>
+<li>Durable (the queue will survive a broker restart)</li>
+<li>Exclusive (used by only one connection and the queue will be deleted when that connection closes)</li>
+<li>Auto-delete (queue that has had at least one consumer is deleted when last consumer unsubscribes)</li>
+<li>Arguments (optional; used by plugins and broker-specific features such as message TTL, queue length limit, etc)</li>
+</ul>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>Note that <strong>not all property combination make sense</strong>. For example,
+exclusive queues should almost always be <a href="#server-named-queues">server-named</a>.</p><p>Such queues are supposed to be used for client-specific or connection (session)-specific data.</p></div></div>
+<p>When exclusive queues use well-known (static) names, in case of client disconnection
+and immediate reconnection there will be a natural race condition between RabbitMQ nodes
+that will delete such queues and recovering clients that will try to re-declare them.
+This can result in client-side connection recovery failure or exceptions, and create unnecessary confusion
+or affect application availability.</p>
+<h3 id="property-equivalence">Declaration and Property Equivalence</h3>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>Specifically for the queue type property, the property equivalence
+check can be relaxed. Alternatively, a default queue type (DQT) can be configured.</p></div></div>
+<p>Before a queue can be used it has to be declared. Declaring
+a queue will cause it to be created if it does not already
+exist. The declaration will have no effect if the queue does
+already exist and its attributes are the same as those in the
+declaration. When the existing queue attributes are not the
+same as those in the declaration a channel-level exception
+with code 406 (<code>PRECONDITION_FAILED</code>) will be raised.</p>
+<p>Specifically for the queue type property, the property equivalence
+checks can be relaxed or configured to use a default.</p>
+<p>See the <a href="/docs/4.3/vhosts#default-queue-type">Virtual Hosts guide</a> to learn more.</p>
+<h3 id="optional-arguments">Optional Arguments</h3>
+<p>Optional queue arguments, also known as "x-arguments" because of their
+field name in the AMQP 0-9-1 protocol, is a map (dictionary) of arbitrary key/value
+pairs that can be provided by clients when a queue is declared.</p>
+<p>The map is used by various features and plugins such as</p>
+<ul>
+<li>Queue type (e.g. <a href="/docs/4.3/quorum-queues">quorum</a> or <a href="/docs/4.3/classic-queues">classic</a>)</li>
+<li><a href="/docs/4.3/ttl">Message and queue TTL</a></li>
+<li><a href="/docs/4.3/maxlength">Queue length limit</a></li>
+<li>Quorum queue <a href="/docs/4.3/quorum-queues#poison-message-handling">redelivery limit</a></li>
+<li>Max number of <a href="/docs/4.3/priority">priorities</a> of a classic queue</li>
+</ul>
+<p>and so on.</p>
+<p>The same idea is also used with other protocol operations, for example, when
+registering a consumer:</p>
+<ul>
+<li><a href="/docs/4.3/consumer-priority">Consumer priorities</a></li>
+</ul>
+<p>Some optional arguments are set at queue declaration time and remain immutable over the entire
+lifetime of the queue. Others can be dynamically changed after queue declaration via <a href="/docs/4.3/policies">policies</a>.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>For keys that can be set via <a href="/docs/4.3/policies">policies</a>, always first
+consider using a policy instead of setting these values in application code</p></div></div>
+<p>For example, <a href="/docs/4.3/quorum-queues">queue type</a> (<code>x-queue-type</code>) and max number
+of <a href="/docs/4.3/priority">queue priorities</a> (<code>x-max-priority</code>) must be set at queue declaration time
+and cannot be changed after that.</p>
+<p>Optional queue arguments can be set differently:</p>
+<ul>
+<li>To groups of queues using <a href="/docs/4.3/policies">policies</a> (recommended)</li>
+<li>On a per-queue basis when a queue is declared by a client</li>
+<li>For the <code>x-queue-type</code> argument, <a href="/docs/4.3/vhosts#default-queue-type">using a default queue type</a></li>
+</ul>
+<p>The former option is more flexible, non-intrusive, does not require application
+modifications and redeployments. Therefore it is highly recommended for most users.
+Note that some optional arguments such as queue type or max number of priorities can
+only be provided by clients because they cannot be dynamically changed and must be known
+at declaration time.</p>
+<p>The way optional arguments are provided by clients varies from client library
+to client library but is usually an argument next to the <code>durable</code>,
+<code>auto_delete</code> and other arguments of the function (method) that
+declares queues.</p>
+<h3 id="optional-arguments-precedence">Optional Arguments and Policy-Defined Key Precedence</h3>
+<p>When the same key is provided by both client-provided <code>x-arguments</code> and by a <a href="/docs/4.3/policies">policy</a>,
+the former take precedence.</p>
+<p>However, if an <a href="/docs/4.3/policies#operator-policies">operator policy</a> is also used, that will take precedence over the client-provided
+arguments, too. Operator policies are a protection mechanism and override client-provided values
+and user policy values.</p>
+<p>For numerical values such as <a href="/docs/4.3/maxlength">maximum queue length</a> or <a href="/docs/4.3/ttl">TTL</a>,
+the lower value of the two will be used. If an application needs or chooses to use a lower value,
+that will be allowed by an operator policy. A value higher than that defined in the operator policy,
+however, cannot be used.</p>
+<p>Use operator policies to introduce guardrails for application-controlled parameters related
+to resource use (e.g. peak disk space usage).</p>
+<h2 id="message-ordering">Message ordering</h2>
+<p>Message ordering matters when there are causal dependencies between messages.
+RabbitMQ tries to preserve the order of messages.</p>
+<p>A queue is an ordered collection of messages providing <a href="https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)">FIFO</a> semantics.
+When publishing on a single <a href="/docs/4.3/channels">channel</a>, messages are enqueued in publishing order in every queue they are routed to.
+When publishing happens on multiple connections or channels, their sequences of messages will be routed concurrently and interleaved.
+Delivery from a queue to consumers proceeds in enqueue order (unless below events occur).</p>
+<h3 id="when-messages-can-be-reordered">When messages can be reordered</h3>
+<p>Even if RabbitMQ aims to preserve order, the following will change effective delivery order:</p>
+<ol>
+<li><strong>Message <a href="/docs/4.3/priority">priorities</a></strong>:
+higher-priority messages may be delivered before lower-priority messages.</li>
+<li><strong>Multiple active consumers on the same queue</strong>:
+the broker still dequeues in FIFO, but any redelivery can change order.
+Redelivery happens when consumers <a href="/docs/4.3/confirms#consumer-nacks-requeue">negatively acknowledge</a> with requeue or a channel/session closes with unacked messages.
+Redelivered messages are flagged (AMQP 1.0: <code>first-acquirer=false</code>, AMQP 0-9-1: <code>redelivered=true</code>).</li>
+</ol>
+<h3 id="preserving-message-order">Preserving message order</h3>
+<p>To preserve message order in RabbitMQ you have two options.</p>
+<h4 id="1-use-a-stream"><strong>1.) Use a <a href="/docs/4.3/streams">stream</a></strong></h4>
+<p>A stream is an immutable append-only log. Each message gets its offset assigned at publish-time. This offset never changes.</p>
+<p>Multiple consumers can process messages from the same stream concurrently without affecting ordering.
+With <a href="/docs/4.3/stream-filtering">stream filtering</a>, you can split work so that different consumers process disjoint subsets of the stream while preserving order within each subset.</p>
+<h4 id="2-use-a-queue-with-a-single-active-consumer"><strong>2.) Use a queue with a single active consumer</strong></h4>
+<p>To keep order with queues:</p>
+<ul>
+<li>Enable <a href="/docs/4.3/consumers#single-active-consumer">Single Active Consumer</a> so only one consumer receives messages at a time.
+(Alternatively, run one consumer per queue.)</li>
+<li>If your consumers return messages to the queue, make sure they return those messages in the order they received them.</li>
+<li>For quorum queues, set a <a href="/docs/4.3/quorum-queues#poison-message-handling">delivery limit</a>.
+This ensures messages are requeued at the front of the queue.</li>
+<li>AMQP 0-9-1: don’t use <code>basic.get</code>.  When stopping a consumer, prefer closing the <a href="/docs/4.3/channels">channel</a> over <code>basic.cancel</code>.</li>
+<li>If you need to process messages concurrently while preserving order for each domain entity (e.g. per order ID), you can use the
+<a href="/docs/4.3/modulus-hash-exchange"><code>x-modulus-hash</code> exchange</a> to partition messages across multiple queues, each with a single active consumer.</li>
+</ul>
+<h2 id="durability">Durability</h2>
+<p>Queues can be durable or transient (non-durable). Metadata of a durable queue is stored on disk,
+while metadata of a transient queue is stored in memory when possible.
+The same distinction is made for <a href="/docs/4.3/publishers#message-properties">messages at publishing time</a>
+in some protocols, e.g. AMQP 0-9-1 and MQTT.</p>
+<p>In environments and use cases where durability is important, applications
+must use durable queues <em>and</em> make sure that <a href="https://www.rabbitmq.com/docs/4.3/publishers">publishers</a> mark published messages as persisted.</p>
+<p>Durable queues will be recovered on node boot, including messages in them published as persistent.
+Messages published as transient will be <strong>discarded</strong> during recovery, even if they were stored
+in durable queues.</p>
+<p>Transient queues will be deleted on node boot. They therefore will not survive a node restart,
+by design. Messages in transient queues will also be discarded.</p>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>Transient (non-durable) non-exclusive classic queues are <a href="/release-information/deprecated-features-list">deprecated</a>
+and cannot be declared by default starting with RabbitMQ <code>4.3.0</code>.</p><p>Please use one of the following:</p><ul>
+<li><a href="#durability">durable queues</a></li>
+<li><a href="#exclusive-queues">non-durable exclusive queues</a></li>
+<li>durable queues <a href="/docs/4.3/ttl#queue-ttl">with a queue TTL</a> (a reasonably close equivalent to non-exclusive transient queues)</li>
+</ul><p>To explicitly allow transient non-exclusive queues, add the following
+line to <code>rabbitmq.conf</code>:</p><div><div><pre><code class="language-ini"># Enables deprecated non-durable (transient) non-exclusive queues
+# (disabled by default as of RabbitMQ `4.3.0`, will be removed in a later version)
+deprecated_features.permit.transient_nonexcl_queues = true</code></pre></div></div></div></div>
+<h3 id="how-to-choose">How to Choose</h3>
+<p>In most other cases, durable queues are the recommended option. For <a href="#distributed">replicated queues</a>,
+the only reasonable option is to use durable queues.</p>
+<p>Throughput and latency of a queue is <strong>not affected</strong> by whether a queue is durable or not
+in most cases. Only environments with very high queue or binding churn — that is, where queues are deleted
+and re-declared hundreds or more times a second — will see latency improvements for
+some operations, namely on bindings. The choice between durable and transient queues
+therefore comes down to the semantics of the use case.</p>
+<p>Temporary queues can be a reasonable choice for workloads with transient clients, for example,
+temporary WebSocket connections in user interfaces, mobile applications and devices
+that are expected to go offline or use switch identities. Such clients usually have
+inherently transient state that should be replaced when the client reconnects.</p>
+<p>Some queue types do not support transient queues. <a href="/docs/4.3/quorum-queues">Quorum queues</a> must
+be durable due to the assumptions and requirements of the underlying replication protocol,
+for example.</p>
+<h2 id="temporary-queues">Temporary Queues</h2>
+<p>With some workloads queues are supposed to be short lived. While clients can
+delete the queues they declare before disconnection, this is not always convenient.
+On top of that, client connections can fail, potentially leaving unused
+resources (queues) behind.</p>
+<p>RabbitMQ supports a number of queue properties that make sense for the data that is
+transient or client-specific in nature. Some of these settings can be applied to
+durable queues but not every combination makes sense.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>Consider using <a href="#names">server-generated names</a> for exclusive temporary queues. Since such queues
+are not meant to be shared between N consumers, using unique names makes sense.</p></div></div>
+<p>There are three ways to make queue deleted automatically:</p>
+<ul>
+<li>Exclusive queues (covered below)</li>
+<li>TTLs (also covered below)</li>
+<li>Auto-delete queues</li>
+</ul>
+<p>An auto-delete queue will be deleted when its last consumer
+is cancelled (e.g. using the <code>basic.cancel</code> in AMQP 0-9-1)
+or gone (closed channel or connection, or lost TCP connection with the server).</p>
+<p>If a queue never had any consumers, for instance, when all consumption happens
+<a href="https://www.rabbitmq.com/docs/4.3/consumers#polling">using polling</a>, it won't be automatically
+deleted. For such cases, use exclusive queues or queue TTL.</p>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>Transient (non-durable) non-exclusive classic queues are <a href="/release-information/deprecated-features-list">deprecated</a>
+and cannot be declared by default starting with RabbitMQ <code>4.3.0</code>.</p><p>Please use one of the following:</p><ul>
+<li><a href="#durability">durable queues</a></li>
+<li><a href="#exclusive-queues">non-durable exclusive queues</a></li>
+<li>durable queues <a href="/docs/4.3/ttl#queue-ttl">with a queue TTL</a> (a reasonably close equivalent to non-exclusive transient queues)</li>
+</ul><p>To explicitly allow transient non-exclusive queues, add the following
+line to <code>rabbitmq.conf</code>:</p><div><div><pre><code class="language-ini"># Enables deprecated non-durable (transient) non-exclusive queues
+# (disabled by default as of RabbitMQ `4.3.0`, will be removed in a later version)
+deprecated_features.permit.transient_nonexcl_queues = true</code></pre></div></div><p><a href="https://www.rabbitmq.com/docs/4.3/ttl#queue-ttl">Queue TTL</a> can be used for cleanup of unused durable queues.</p><p>When RabbitMQ detects a non-durable and non-exclusive queue, it will display a deprecation
+warning in the management UI.</p></div></div>
+<h2 id="exclusive-queues">Exclusive (Client Connection-Specific) Queues</h2>
+<p>An exclusive queue can only be used (consumed from, purged, deleted, etc)
+by its declaring connection. Such queues are by definition <a href="#temporary-queues">temporary</a> in nature,
+setting the <code>exclusive</code> property on a durable queue does not make logical sense
+since such queue cannot outlive its declaring connection, and thus cannot satisfy its durability
+property in case of a node restart.</p>
+<p>Queues declared as exclusive will always be declared as classic queues: exclusive <a href="/docs/4.3/quorum-queues">quorum queues</a>
+and <a href="/docs/4.3/streams">streams</a> do not make logical sense as their lifetimes would be bound to the lifetime
+of a specific client connection and thus a single node (or application instance).</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>Consider using <a href="#names">server-generated names</a> for exclusive queues. Since such queues
+cannot be shared between N consumers, using server-generated names makes most sense.</p></div></div>
+<p>An attempt to use an exclusive queue from
+a different connection will result in a channel-level exception
+<code>RESOURCE_LOCKED</code> with an error message that says
+<code>cannot obtain exclusive access to locked queue</code>.</p>
+<p>Exclusive queues are deleted when their declaring connection is closed
+or gone (e.g. due to underlying TCP connection loss). They therefore
+are only suitable for client-specific transient state.</p>
+<p>It is common to make exclusive queues server-named.</p>
+<p>Exclusive queues are declared on the "client-local" node (the node that the client declaring
+the queue is connected to), regardless of the <code>queue_leader_locator</code> value.</p>
+<h2 id="distributed">Replicated and Distributed Queues</h2>
+<p><a href="/docs/4.3/quorum-queues">Quorum queues</a> is replicated, data safety and consistency-oriented queue type.
+Classic queues historically supported replication but this feature was <strong>removed</strong> for RabbitMQ 4.x.</p>
+<p>Any client <a href="/docs/4.3/connections">connection</a> can use any queue, whether it is replicated or not,
+regardless of the node the queue replica is hosted on or the node the client is connected to.
+RabbitMQ will route the operations to the appropriate node transparently for clients.</p>
+<p>For example, in a cluster with nodes A, B and C, a client connected to node A can consume
+from a queue Q hosted on B, while a client connected to node C can publish in a way that routes
+messages to queue Q.</p>
+<p>Client libraries or applications <strong>may</strong> choose to connect to the node that hosts the current leader replica of a specific queue
+for improved data locality.</p>
+<p>This general rule applies to all messaging data types supported by RabbitMQ except for one.
+<a href="/docs/4.3/streams">Streams</a> are an exception to this rule, and require clients, regardless of the protocol they use, to connect to a node
+that hosts a replica (a leader of rollower) of the target stream.
+Consequently, RabbitMQ Stream protocol clients will <a href="/docs/4.3/stream-connections">connect to multiple nodes in parallel</a>.</p>
+<p>Queues can also be <a href="/docs/4.3/federated-queues">federated</a>
+across loosely coupled nodes or clusters.</p>
+<p>Note that intra-cluster replication and federation
+are orthogonal features and should not be considered direct alternatives.</p>
+<p><a href="/docs/4.3/streams">Streams</a> is another replicated data structure supported by RabbitMQ, with a different
+set of supported operations and features.</p>
+<h2 id="transparent-operation-routing">Non-Replicated Queues and Client Operations</h2>
+<p>Any client <a href="/docs/4.3/connections">connection</a> can use any queue, including non-replicated (single replica) queues,
+regardless of the node the queue replica is hosted on or the node the client is connected to.
+RabbitMQ will route the operations to the appropriate node transparently for clients.</p>
+<p>For example, in a cluster with nodes A, B and C, a client connected to node A can consume
+from a queue Q hosted on B, while a client connected to node C can publish in a way that routes
+messages to queue Q.</p>
+<p>Client libraries or applications <strong>may</strong> choose to connect to the node that hosts the current leader replica of a specific queue
+for improved data locality.</p>
+<p>This general rule applies to all messaging data types supported by RabbitMQ except for one.
+<a href="/docs/4.3/streams">Streams</a> are an exception to this rule, and require clients, regardless of the protocol they use, to connect to a node
+that hosts a replica (a leader of rollower) of the target stream.
+Consequently, RabbitMQ Stream protocol clients will <a href="/docs/4.3/stream-connections">connect to multiple nodes in parallel</a>.</p>
+<h2 id="ttl-and-limits">Time-to-Live and Length Limit</h2>
+<p>Queues can have their length <a href="/docs/4.3/maxlength">limited</a>.
+Queues and messages can have a <a href="/docs/4.3/ttl">TTL</a>.</p>
+<p>Both features can be used for data expiration and as a way of limiting
+how many resources (RAM, disk space) a queue can use at most, e.g.
+when consumers go offline or their throughput falls behind publishers.</p>
+<h2 id="storage">In Durable and In-Memory Storage</h2>
+<p>In modern RabbitMQ versions, quorum queues and classic queues v2 alike actively move data to disk and only keep a relatively
+small working set in memory.</p>
+<p>In some protocols (e.g. AMQP 0-9-1) clients can publish messages as persistent or transient. Transient
+messages will still be stored on disk but will be discarded during the next node restart.</p>
+<p>In AMQP 0-9-1, this is done
+via a message property (<code>delivery_mode</code> or, in some clients, <code>persistent</code>).</p>
+<p>Other relevant guides on the topic are <a href="/docs/4.3/quorum-queues#resource-use">Quorum Queues</a>, <a href="/docs/4.3/streams#feature-comparison">Streams</a>,
+<a href="/docs/4.3/memory-use">Reasoning About Memory Usage</a>, <a href="/docs/4.3/alarms">Alarms</a>, <a href="/docs/4.3/memory">Memory Alarms</a>, <a href="/docs/4.3/disk-alarms">Free Disk Space Alarms</a>,
+<a href="/docs/4.3/production-checklist">Deployment Guidelines</a>, and <a href="/docs/4.3/persistence-conf">Message Store Configuration</a>.</p>
+<h2 id="priorities">Priorities</h2>
+<p>Queues can have 0 or more <a href="/docs/4.3/priority">priorities</a>. This feature is opt-in:
+only queues that have maximum number of priorities configured via an optional argument
+(see above) will do prioritisation.</p>
+<p>Publishers specify message priority using the <code>priority</code> field
+in message properties.</p>
+<p>If priority queues are desired, we recommend using between 1 and 10.
+Currently using more priorities will consume more resources (Erlang processes).</p>
+<h2 id="runtime-characteristics">CPU Utilisation and Parallelism Considerations</h2>
+<p>Currently a single queue replica (whether leader or follower) is limited to a single CPU core
+on its hot code path. This design therefore assumes that most systems
+use multiple queues in practice.</p>
+<div class="admonition danger"><div class="admonition-title">danger</div><div><p>A single queue is generally considered to be an anti-pattern, and not just for resource utilisation
+reasons.</p></div></div>
+<p>For workloads that push queue throughput to the limits, consider using <a href="/docs/4.3/streams">streams or partitioned streams</a>
+with a <a href="/client-libraries/devtools">RabbitMQ Stream Protocol client</a>.</p>
+<h2 id="metrics">Metrics and Monitoring</h2>
+<p>RabbitMQ collects multiple metrics about queues. Most of them are available
+via <a href="/docs/4.3/management">RabbitMQ HTTP API and management UI</a>, which is designed for monitoring.
+This includes queue length, ingress and egress rates, number of consumers, number of
+messages in various states (e.g. ready for delivery or <a href="/docs/4.3/confirms">unacknowledged</a>),
+number of messages in RAM vs. on disk, and so on.</p>
+<p><a href="/docs/4.3/man/rabbitmqctl.8">rabbitmqctl</a> can list queues and some basic metrics.</p>
+<p>Runtime metrics such as VM scheduler usage, queue (Erlang) process GC activity, amount of
+RAM used by the queue process, queue process mailbox length can be accessed
+using the <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_top">rabbitmq-top</a> plugin and
+individual queue pages in the management UI.</p>
+<h2 id="consumer-acknowledgement">Consumers and Acknowledgements</h2>
+<p>Messages can be consumed by registering a consumer (subscription),
+which means RabbitMQ will push messages to the client, or fetched
+individually for protocols that support this (e.g. the <code>basic.get</code> AMQP 0-9-1 method),
+similarly to HTTP GET.</p>
+<p>Delivered messages can be <a href="/docs/4.3/confirms">acknowledged by consumer</a> explicitly
+or automatically as soon as a delivery is written to connection socket.</p>
+<p>Automatic acknowledgement mode generally will provide higher throughput
+rate and uses less network bandwidth. However, it offers the least number
+of guarantees when it comes to <a href="/docs/4.3/reliability">failures</a>. As a rule of
+thumb, consider using manual acknowledgement mode first.</p>
+<h3 id="prefetch-consumer-overload">Prefetch and Consumer Overload</h3>
+<p>Automatic acknowledgement mode can also overwhelm
+consumers which cannot process messages as quickly as they are delivered.
+This can result in permanently growing memory usage and/or
+OS swapping for the consumer process.</p>
+<p>Manual acknowledgement mode provides a way to <a href="/docs/4.3/confirms">set a limit on the number
+of outstanding (unconfirmed) deliveries</a>: channel QoS (prefetch).</p>
+<p>Consumers using higher (several thousands or more) prefetch levels can experience
+the same overload problem as consumers using automatic acknowledgements.</p>
+<p>High number of unacknowledged messages will lead to higher memory usage by
+the broker.</p>
+<h3 id="message-states">Message States</h3>
+<p>Enqueued messages therefore can be in one of two states:</p>
+<ul>
+<li>Ready for delivery</li>
+<li>Delivered but not yet <a href="/docs/4.3/confirms">acknowledged by consumer</a></li>
+</ul>
+<p>Message breakdown by state can be found in the management UI.</p>
+<h2 id="queue-length">Determining Queue Length</h2>
+<p>It is possible to determine queue length in a number of ways:</p>
+<ul>
+<li>With AMQP 0-9-1, using a property on the <code>queue.declare</code> method response
+(<code>queue.declare-ok</code>). The field name is <code>message_count</code>. How it is accessed
+varies from client library to client library.</li>
+<li>Using <a href="/docs/4.3/management">RabbitMQ HTTP API</a>.</li>
+<li>Using the <a href="/docs/4.3/man/rabbitmqctl.8">rabbitmqctl</a> <code>list_queues</code> command.</li>
+</ul>
+<p>Queue length is defined as the number of messages ready for delivery.</p>
+<h2 id="shared-temporary-queues">Avoid Temporary Queues with Well-Known Names</h2>
+<p>A <a href="#temporary-queues">temporary queue</a> that is not exclusive can be client named and shared
+between multiple consumers. This, however, is not recommended and can lead to a race condition
+between RabbitMQ node operations and client recovery.</p>
+<p>Consider the following scenario:</p>
+<ul>
+<li>A consumer uses an auto-delete queue with a well-known names</li>
+<li>Client's connection fails</li>
+<li>Client detects it and initiates connection recovery</li>
+</ul>
+<p>As the failed connection which had the only consumer on an auto-delete queue,
+the queue must be deleted by RabbitMQ. This operation will take some time,
+during which the consumer may recover.</p>
+<p>Then depending on the timing of operations, the queue can be</p>
+<ol>
+<li>Declared by the recovering client and then deleted</li>
+<li>Deleted and then re-declared</li>
+</ol>
+<p>In the first case, the client will try to re-register its consumer on a queue that's
+been concurrently deleted, which will lead to a channel exception.</p>
+<p>There are two solutions to this fundamental race condition:</p>
+<ol>
+<li>Introduce a connection recovery delay. For example, several RabbitMQ client libraries
+use a connection recovery delay of 5 seconds by default</li>
+<li>Use server-named queues, which side steps the problem entirely since the new client connection
+will use a different queue name from its predecessor</li>
+</ol></main>

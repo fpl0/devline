@@ -1,0 +1,279 @@
+<main><header><h1>Auth and clustering</h1></header>
+<p>Everything so far ran on one server with no credentials. Acme's sensors
+are about to leave the lab, which raises two questions: how does a device
+prove who it is, and what happens when the fleet outgrows a single
+server.</p>
+<h2 id="restrict-a-user-to-mqtt">Restrict a user to MQTT</h2>
+<p>Users are shared across connection types. A username and password
+defined in <code>authorization</code> works from an MQTT device, a NATS client, or
+a WebSocket browser session, which is usually more access than a sensor
+needs.</p>
+<p><code>allowed_connection_types</code> pins a user to the connection types you
+intend:</p>
+<div><div><pre><code class="language-conf">authorization {
+  users = [
+    { user: order-svc, password: s3cr3t }
+    {
+      user: sensor
+      password: "s3cret"
+      permissions: { publish: { allow: ["sensors.&gt;"] } }
+      allowed_connection_types: ["MQTT"]
+    }
+  ]
+}</code></pre></div></div>
+<p>Now <code>sensor</code> can connect over MQTT and nothing else. See it hold in
+both directions. Over MQTT, the credentials work:</p>
+<div><div><pre><code class="language-bash">mosquitto_pub -h 127.0.0.1 -p 1883 -u sensor -P s3cret \
+  -t "sensors/warehouse/cold-1/temp" -m "4.2"</code></pre></div></div>
+<p>Present the same credentials on port 4222 as a NATS client and the
+connection is refused:</p>
+<div><div><pre><code class="language-bash">nats pub --user sensor --password s3cret sensors.test "4.2"</code></pre></div></div>
+<div><div><pre><code class="language-text">nats: error: nats: Authorization Violation</code></pre></div></div>
+<p>The option accepts a list, so a user that needs two kinds gets both:</p>
+<div><div><pre><code class="language-conf">allowed_connection_types: ["STANDARD", "MQTT"]</code></pre></div></div>
+<p>The full set of values is <code>STANDARD</code>, <code>WEBSOCKET</code>, <code>LEAFNODE</code>,
+<code>LEAFNODE_WS</code>, <code>MQTT</code>, <code>MQTT_WS</code>, and <code>IN_PROCESS</code>. The <code>_WS</code> variants
+cover the same protocol carried over WebSocket, so a browser-based MQTT
+client needs <code>MQTT_WS</code> rather than <code>MQTT</code>. Omit
+<code>allowed_connection_types</code> entirely and every type is allowed, which is
+the default.</p>
+<p><code>allowed_connection_types</code> can also be written <code>connection_types</code> or
+<code>clients</code>; they're aliases for the same option.</p>
+<h2 id="permissions-for-mqtt-users">Permissions for MQTT users</h2>
+<p>Permissions are written against converted subjects, as
+<a href="/learn/mqtt/topics-and-subjects#permissions-apply-to-the-subject">Topics and subjects</a>
+covered. A device publishing <code>sensors/warehouse/cold-1/temp</code> needs
+publish permission on <code>sensors.warehouse.cold-1.temp</code>.</p>
+<p>Here's a complete single-server config with a locked-down MQTT user:</p>
+<div><div><pre><code class="language-conf">listen: 127.0.0.1:4222
+
+jetstream {
+  store_dir: "./js/mqtt-server"
+}
+
+authorization {
+  sensor_perms = {
+    publish:   { allow: ["sensors.&gt;"] }
+    subscribe: { allow: ["fleet.&gt;", "fleet"] }
+  }
+  users = [
+    {
+      user: sensor
+      password: "s3cret"
+      permissions: $sensor_perms
+      allowed_connection_types: ["MQTT"]
+    }
+  ]
+}
+
+mqtt {
+  listen: 127.0.0.1:1883
+}</code></pre></div></div>
+<p>The <code>subscribe</code> list carries both <code>fleet.&gt;</code> and <code>fleet</code> so that a device
+subscribing to the MQTT filter <code>fleet/#</code> gets both subscriptions the
+server creates for it.</p>
+<p>Before this listener faces real devices, put TLS on it. The <code>mqtt {}</code>
+block takes its own <code>tls {}</code> map, separate from the one on the client
+port:</p>
+<div><div><pre><code class="language-conf">mqtt {
+  listen: 127.0.0.1:1883
+  tls {
+    cert_file: "./certs/mqtt-server.pem"
+    key_file:  "./certs/mqtt-server.key"
+  }
+}</code></pre></div></div>
+<p>The options are the same as any other <code>tls {}</code> block — add <code>ca_file</code>
+and <code>verify: true</code> for mutual TLS — and
+<a href="/learn/security/encryption">Security → Encryption</a> covers them.</p>
+<p>The <code>mqtt {}</code> block can also carry its own <code>authorization {}</code> with a
+username, password, or token scoped to the MQTT listener only, and its
+own <code>no_auth_user</code>, which overrides the top-level one for MQTT
+connections. That last one is the answer when device firmware can't
+send credentials at all: it maps credential-less MQTT connections onto
+one of the users defined in the top-level <code>users</code> list, so the fleet
+gets that user's permissions while NATS clients keep their own rules.
+Two limits apply: a listener-scoped username or token can't be combined
+with a top-level <code>users</code> list, and <code>no_auth_user</code> doesn't work in
+operator mode.</p>
+<h3 id="you-dont-need-to-allow-mqttsub">You don't need to allow <code>$MQTT.sub.&gt;</code></h3>
+<p>A QoS 1 or 2 subscription is backed by a JetStream durable, and the
+server delivers to it over an internal subject under <code>$MQTT.sub.</code>.</p>
+<p>You don't have to grant permission for that subject. From server
+2.12.3, an MQTT connection is implicitly allowed to subscribe to
+<code>$MQTT.sub.</code> and <code>$MQTT.deliver.pubrel.</code> subjects: the allow-list check
+is skipped for them. Before 2.12.3 — including 2.10 and 2.11, which this
+chapter otherwise supports — you have to list <code>$MQTT.sub.&gt;</code> in the
+user's subscribe allow list, or every QoS 1 and 2 subscription fails
+with <code>0x80</code> in the SUBACK. Configs written for those servers often still
+carry the entry; on 2.12.3 or later it's harmless, and you can drop it.</p>
+<p>Deny is still enforced. An explicit deny on <code>$MQTT.sub.&gt;</code> stops the
+server from creating the internal subscription, and QoS 1 and 2
+subscriptions fail with a failure code in the SUBACK. So leave those
+subjects out of your permission lists entirely: don't allow them
+(unnecessary) and don't deny them (breaks QoS 1).</p>
+<h2 id="authenticating-devices-in-operator-mode">Authenticating devices in operator mode</h2>
+<p><a href="/learn/security/operator-mode">Operator mode</a> authenticates NATS
+clients with a challenge: the server sends a nonce and the client signs
+it with the private key from its credentials file. MQTT clients can't do
+that. There's nothing in the MQTT protocol that signs a server-supplied
+nonce.</p>
+<p>Operator mode handles this by treating the user JWT itself as the
+credential. The device sends the JWT as the MQTT <strong>password</strong>, with any
+non-empty username, and the server authenticates on the JWT alone.</p>
+<p>Because the JWT travels as a bearer credential with no signature step,
+the user has to be a <strong>bearer</strong> user. That takes two steps, since
+accounts disallow bearer tokens by default. Here the devices live in
+their own account, <code>SENSORS</code>, keeping their subjects separate from the
+ORDERS workload:</p>
+<div><div><pre><code class="language-bash">nats auth account edit SENSORS --bearer
+nats auth user add sensor SENSORS --bearer</code></pre></div></div>
+<p>Miss either one and the connection is refused: the server is waiting for
+a nonce signature that MQTT can't produce, or the account still
+disallows bearer tokens. The device sees a CONNACK with return code 5,
+"not authorized" — MQTT clients get that rather than the
+<code>Authorization Violation</code> error a NATS client would receive, so check
+the CONNACK code rather than looking for that string.</p>
+<p>A bearer credential has two consequences.
+Anyone holding the JWT can connect as that user, since there's no key to
+prove possession, so treat it like a password and put TLS in front of
+it. And <code>no_auth_user</code> isn't compatible with operator mode at all — in
+operator mode every connection needs a JWT.</p>
+<h2 id="mqtt-on-a-cluster">MQTT on a cluster</h2>
+<p>Devices connect to one server, but the fleet needs more than one. MQTT
+runs on the <code>east</code> cluster with two changes to what you've already seen.</p>
+<h3 id="server_name-becomes-required"><code>server_name</code> becomes required</h3>
+<p>A standalone server can go without <code>server_name</code>. Once the server has a
+<code>cluster</code> or <code>gateway</code> block, MQTT requires it, and startup fails
+otherwise:</p>
+<div><div><pre><code class="language-text">mqtt requires server name to be explicitly set</code></pre></div></div>
+<p>Server names have to be unique across the cluster or super-cluster,
+which the <code>east</code> cluster already satisfies with <code>n1-east</code>, <code>n2-east</code>,
+and <code>n3-east</code>. Here's <code>n1-east</code> accepting MQTT connections:</p>
+<div><div><pre><code class="language-conf">server_name: n1-east
+listen: 127.0.0.1:4222
+
+jetstream {
+  store_dir: "./js/n1-east"
+}
+
+cluster {
+  name: east
+  listen: 127.0.0.1:6222
+  routes: [
+    nats://127.0.0.1:6223
+    nats://127.0.0.1:6224
+  ]
+}
+
+mqtt {
+  listen: 127.0.0.1:1883
+}</code></pre></div></div>
+<p>Add the same <code>mqtt {}</code> block to <code>n2-east</code> and <code>n3-east</code>, giving each its
+own MQTT port if they share a machine. A device can then connect to any
+of the three.</p>
+<h3 id="stream-replicas-in-a-cluster">Stream replicas in a cluster</h3>
+<p>The streams holding MQTT state are replicated automatically once
+JetStream is clustered, and you don't create them. The replica count is
+derived from the <code>routes</code> you configured, not from how many servers
+the cluster actually has: the server counts the addresses in its own
+<code>routes</code> list, then clamps the result to between 1 and 3.</p>
+<p>That distinction matters for the config above. <code>n1-east</code> lists two
+routes, so its MQTT streams come up at <code>R=2</code>, not <code>R=3</code> — enough to
+survive one server, but not what you'd guess from a three-node cluster.
+If you want three replicas, either list all the peers in <code>routes</code> or set
+it explicitly:</p>
+<div><div><pre><code class="language-conf">mqtt {
+  listen: 127.0.0.1:1883
+  stream_replicas: 3
+}</code></pre></div></div>
+<p><code>stream_replicas</code> overrides the derived value. Ask for more replicas
+than the cluster can satisfy and the streams fail to create, which
+surfaces as MQTT clients being unable to connect.</p>
+<h3 id="mqtt-on-a-leaf-node">MQTT on a leaf node</h3>
+<p>A leaf node close to the devices — on a factory floor, in a vehicle —
+can serve MQTT too, and it doesn't have to run JetStream itself. The
+standalone JetStream check doesn't apply once the server has a
+<code>leafnodes</code> configuration; the leaf can use JetStream reachable through
+its connection to the hub.</p>
+<p>If the leaf runs its own JetStream under a domain, point MQTT at it:</p>
+<div><div><pre><code class="language-conf">mqtt {
+  listen: 127.0.0.1:1883
+  js_domain: "factory"
+}</code></pre></div></div>
+<p><code>js_domain</code> selects the JetStream domain MQTT stores its state in. Set
+it to the leaf's local domain and sessions and retained messages stay
+on the leaf, so local devices keep working when the link to the hub is
+down. The domain is part of the session's storage identity, which is
+also what keeps sessions in different domains from colliding.</p>
+<h3 id="two-cluster-caveats">Two cluster caveats</h3>
+<p><strong>Retained messages are best-effort in a cluster.</strong> They're stored in a
+replicated stream available cluster-wide, but propagation isn't instant.
+A publisher can retain a message on one server while a subscriber
+connecting to a different server subscribes microseconds later and sees
+nothing, because that server hasn't received it yet. When an
+application depends on reading a retained value immediately, have it
+connect to the server that produced it.</p>
+<p><strong>Client-ID collision detection is slower in a cluster.</strong> On one server,
+a second connection with a live client ID evicts the first immediately.
+Across a cluster the eviction travels between servers, so both
+connections can be briefly alive at once. The detection still works;
+it's just not instantaneous. Unique client IDs per device remain the
+answer.</p>
+<h2 id="seeing-your-devices">Seeing your devices</h2>
+<p>The monitoring port knows about MQTT. With <code>http: 8222</code> in the config,
+<code>/connz</code> can filter connections by MQTT client ID:</p>
+<div><div><pre><code class="language-bash">curl -s "http://127.0.0.1:8222/connz?mqtt_client=truck-17"</code></pre></div></div>
+<p>Each MQTT connection's record carries its client ID in the
+<code>mqtt_client</code> field, and <code>/varz</code> has an <code>mqtt</code> section showing the
+listener's resolved settings, including the JetStream domain in use.
+This is the tool for the client-ID collision from the
+<a href="/learn/mqtt/qos-sessions-and-retained#two-devices-one-client-id">previous page</a>:
+filter on the suspect client ID and watch which remote address holds
+the session between drops.
+<a href="/learn/monitoring/monitoring-endpoints">Monitoring endpoints</a> covers
+the port itself.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>Leaving credentials off the MQTT listener.</strong> With no <code>authorization</code>
+block, any device that can reach port 1883 connects. Devices sit on
+networks you control least, so put credentials and TLS on the MQTT
+listener before it leaves a lab.</p>
+<p><strong>Denying <code>$MQTT.sub.&gt;</code>.</strong> A permission set written to be restrictive
+sometimes denies everything under <code>$MQTT.</code>, which silently breaks QoS 1
+and 2 subscriptions — they fail in the SUBACK while QoS 0 keeps working,
+so the fleet looks half-broken. Leave those subjects out of the list.</p>
+<p><strong>Forgetting <code>--bearer</code> in operator mode.</strong> The device presents a
+perfectly valid JWT and is still refused with CONNACK return code 5.
+The credential is fine; either the user isn't marked as a bearer or the
+account still disallows bearer tokens. Both have to be set. Don't go
+looking for an <code>Authorization Violation</code> in the client's output — MQTT
+clients never receive that message, only the CONNACK code.</p>
+<p><strong>Adding a cluster block without <code>server_name</code>.</strong> The server starts fine
+as a standalone and then refuses to start the moment you add clustering.
+Set <code>server_name</code> on every server from the beginning and the problem
+never appears.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>Acme's fleet is now ready for production:</p>
+<ul>
+<li>a <code>sensor</code> user restricted to MQTT connections, with permissions
+written against converted subjects</li>
+<li>no <code>$MQTT.sub.&gt;</code> entry needed, and none denied</li>
+<li>devices in operator mode authenticating with a bearer JWT sent as the
+MQTT password</li>
+<li>MQTT enabled on <code>n1-east</code>, <code>n2-east</code>, and <code>n3-east</code>, each with
+<code>server_name</code> set</li>
+<li>MQTT state replicated across the cluster, with retained messages
+best-effort and client-ID eviction slightly delayed</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>That's the whole of MQTT support.
+<a href="/learn/mqtt/where-next">Where to go next</a> collects the model into one place and
+points at the chapters that take each piece further.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/security/authorization">Security → Authorization</a> — how
+publish and subscribe permissions are evaluated</li>
+<li><a href="/learn/topologies/your-first-cluster">Topologies → Your first cluster</a>
+— building the <code>east</code> cluster this page enables MQTT on</li>
+<li><a href="/reference/config/mqtt/">Reference → mqtt</a> — <code>stream_replicas</code> and
+the rest of the block</li>
+</ul></main>

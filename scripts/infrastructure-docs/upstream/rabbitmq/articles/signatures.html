@@ -1,0 +1,78 @@
+<main><header><h1>Package Signatures</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide covers RabbitMQ release packages signing and how to verify the signatures on
+downloaded release artifacts.</p>
+<p>Release signing allows users to verify that the artifacts they have downloaded
+were published by a trusted party (such as a team or package distribution
+service). This can be done using GPG command line tools. Package management tools such as <code>apt</code> and <code>yum</code>
+also verify repository signatures.</p>
+<h2 id="signing-keys">Signing Keys</h2>
+<p>RabbitMQ release artifacts, both binary and source,
+are signed using <a href="http://www.gnupg.org/">GnuPG</a> and <a href="https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc">our release signing key</a>.</p>
+<p>In addition, the contents of the <a href="/docs/4.3/install-debian">Debian</a> repositories maintained by Team RabbitMQ
+are signed using the same key.</p>
+<h2 id="importing-gpg-keys">Importing Signing Keys</h2>
+<h3 id="importing-gpg">With GPG</h3>
+<p>Before signatures can be verified, RabbitMQ <a href="https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc">signing key</a>
+must be downloaded. The key can be obtained directly or using <a href="https://keys.openpgp.org/">keys.openpgp.org</a>.
+The direct download method is recommended because most key servers are prone to overload, abuse and attacks.</p>
+<h4 id="direct-download">Direct Download</h4>
+<p>The key is distributed via <a href="https://github.com/rabbitmq/signing-keys/releases/">GitHub</a> and
+<a href="https://www.rabbitmq.com/rabbitmq-release-signing-key.asc">rabbitmq.com</a>:</p>
+<div><div><pre><code class="language-bash">curl -L https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc --output rabbitmq-release-signing-key.asc
+gpg --import rabbitmq-release-signing-key.asc</code></pre></div></div>
+<h4 id="using-a-key-server">Using a Key Server</h4>
+<p>The key can be imported from <a href="https://keys.openpgp.org/">keys.openpgp.org</a>:</p>
+<div><div><pre><code class="language-bash">gpg --keyserver "hkps://keys.openpgp.org" --recv-keys "0x0A9AF2115F4687BD29803A206B73A36E6026DFCA"</code></pre></div></div>
+<p>Alternative keyservers:</p>
+<div><div><pre><code class="language-bash">gpg --keyserver "keyserver.ubuntu.com" --recv-keys "0x0A9AF2115F4687BD29803A206B73A36E6026DFCA"</code></pre></div></div>
+<div><div><pre><code class="language-bash">gpg --keyserver "pgp.surfnet.nl" --recv-keys "0x0A9AF2115F4687BD29803A206B73A36E6026DFCA"</code></pre></div></div>
+<div><div><pre><code class="language-bash">gpg --keyserver "pgp.mit.edu" --recv-keys "0x0A9AF2115F4687BD29803A206B73A36E6026DFCA"</code></pre></div></div>
+<h3 id="importing-apt">With apt</h3>
+<p>On Debian and Ubuntu systems, assuming that <a href="/docs/4.3/install-debian">apt repositories</a> are used for installation,
+trusted repository signing keys must be added to the system before any packages can be installed.</p>
+<p>This can be done using key servers or (for the RabbitMQ main signing key) a direct download.</p>
+<h4 id="direct-download-1">Direct Download</h4>
+<p>Main RabbitMQ signing key is distributed via <a href="https://github.com/rabbitmq/signing-keys/releases/">GitHub</a> and
+<a href="https://www.rabbitmq.com/rabbitmq-release-signing-key.asc">rabbitmq.com</a>:</p>
+<div><div><pre><code class="language-bash">curl -1sLf https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc | sudo gpg --dearmor &gt; /usr/share/keyrings/com.rabbitmq.team.gpg</code></pre></div></div>
+<h4 id="using-a-key-server-1">Using a Key Server</h4>
+<p>The same main RabbitMQ signing key can be imported from <a href="https://keys.openpgp.org/">keys.openpgp.org</a>:</p>
+<div><div><pre><code class="language-bash">curl -1sLf "https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA" | sudo gpg --dearmor &gt; /usr/share/keyrings/com.rabbitmq.team.gpg</code></pre></div></div>
+<p>When using the <a href="https://launchpad.net/~rabbitmq/+archive/ubuntu/rabbitmq-erlang">Team RabbitMQ modern Erlang PPA</a>,
+one more key needs to be added:</p>
+<div><div><pre><code class="language-bash">## Team RabbitMQ's signing key
+curl -1sLf "https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA" | sudo gpg --dearmor &gt; /usr/share/keyrings/com.rabbitmq.team.gpg</code></pre></div></div>
+<h3 id="importing-rpm">With RPM</h3>
+<p>On RPM-based systems (RHEL, Fedora, CentOS), assuming that <a href="/docs/4.3/install-rpm">yum repositories</a> are used for installation,
+<code>rpm --import</code> should be used to import the key.</p>
+<h4 id="direct-download-2">Direct Download</h4>
+<p>The key is distributed via <a href="https://github.com/rabbitmq/signing-keys/releases/">GitHub</a> and
+<a href="https://www.rabbitmq.com/rabbitmq-release-signing-key.asc">rabbitmq.com</a>:</p>
+<div><div><pre><code class="language-bash">rpm --import https://github.com/rabbitmq/signing-keys/releases/download/3.0/rabbitmq-release-signing-key.asc</code></pre></div></div>
+<h2 id="checking-signatures">Verifying Signatures</h2>
+<p>To check signatures for the packages, download the RabbitMQ signing key
+and a signature file. Signature files use the <code>.asc</code> extension that follows their artifact filename,
+e.g. the signature file of <code>rabbitmq-server-generic-unix-4.0.4.tar.xz</code> would be <code>rabbitmq-server-generic-unix-4.0.4.tar.xz.asc</code>.</p>
+<p>Then use <code>gpg --verify</code>:</p>
+<div><div><pre><code class="language-bash">gpg --verify [filename].asc [filename]</code></pre></div></div>
+<p>Here's an example session, after having retrieved a RabbitMQ
+source archive and its associated detached signature from
+the download area:</p>
+<div><div><pre><code class="language-bash">gpg --verify rabbitmq-server_4.3.1-1_all.deb.asc rabbitmq-server_4.3.1-1_all.deb
+# =&gt; gpg: Signature made (date elided)
+# =&gt; gpg:                using RSA key 0A9AF2115F4687BD29803A206B73A36E6026DFCA
+# =&gt; gpg: Good signature from "RabbitMQ Release Signing Key &lt;info@rabbitmq.com&gt;" [unknown]
+# (elided)
+# =&gt; Primary key fingerprint: 0A9A F211 5F46 87BD 2980  3A20 6B73 A36E 6026 DFCA</code></pre></div></div>
+<p>If the signature is invalid, a "BAD signature"
+message will be emitted. If that's the case the origin of the package,
+the signature file and the signing key should be carefully verified.
+Packages that fail signature verification must not be used.</p>
+<p>If the signature is valid, you should expect a "Good
+signature" message; if you've not signed our key, you will
+see a "Good signature" message along with a warning about
+our key being untrusted.</p>
+<p>If you trust the RabbitMQ signing key you avoid the warning output by
+GnuPG by signing it using your own key (to create your private key run <code>gpg --gen-key</code>):</p>
+<div><div><pre><code class="language-bash">gpg --sign-key 0x0A9AF2115F4687BD29803A206B73A36E6026DFCA</code></pre></div></div></main>

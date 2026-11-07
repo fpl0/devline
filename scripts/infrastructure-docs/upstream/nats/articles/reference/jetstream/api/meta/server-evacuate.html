@@ -1,0 +1,10 @@
+<main><header><h1>Server Evacuate</h1></header>
+<p>Moves every stream and consumer off one server, so it can be taken out of the cluster. Each asset keeps its replica count and the server picks the replacement peers. Replacement is best effort: an asset with no qualifying peer is moved off the server anyway and runs under-replicated until one becomes available. The evacuated server is excluded from placement for those assets so they are not handed straight back to it.</p>
+<!-- -->
+<h2 id="subject">Subject</h2>
+<p><code>$JS.API.SERVER.EVACUATE</code></p>
+<p>Only works from the system account.</p>
+<h2 id="request">Request</h2>
+<div><p>A request to the JetStream $JS.API.SERVER.EVACUATE API</p><div><div><div><span>peer</span><span>string</span></div><div>The Name of the server to evacuate from the meta group</div></div><div><div><span>peer_id</span><span>string</span></div><div>Peer ID of the peer to be evacuated. If specified this is used instead of the server name</div></div></div></div>
+<h2 id="response">Response</h2>
+<div><p>A response from the JetStream $JS.API.SERVER.EVACUATE API</p><div></div><div><div><div>One of the following:</div><div><div>Option <!-- -->1<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>error</span><span>object</span><span>required</span></div></div></div><div><div>Option <!-- -->2<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>success</span><span>boolean</span><span>required</span></div><div>If the server evacuation was successfully started</div><div><span>Default:</span><code>false</code></div></div></div></div><div><div><span>type</span><span>const: "io.nats.jetstream.api.v1.meta_server_evacuate_response"</span></div></div></div></div></main>

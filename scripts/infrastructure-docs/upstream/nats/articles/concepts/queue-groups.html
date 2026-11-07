@@ -1,0 +1,1007 @@
+<main><header><h1>Queue Groups</h1></header>
+<p>In standard publish-subscribe, every subscriber receives every message. Queue groups change this: when subscribers share a <strong>queue name</strong>, NATS delivers each message to only <strong>one randomly chosen member</strong> of that group.</p>
+<div></div>
+<p>Watch how each message (animated dot) flows to only one worker, even though all three are subscribed. NATS automatically distributes the load.</p>
+<p>For a runnable, step-by-step treatment, see the <a href="/learn/core-nats/queue-groups">Queue groups in the Core NATS deep dive</a>.</p>
+<h2 id="how-it-works">How It Works</h2>
+<p>Queue groups operate at the subject level - subscribers still filter messages by subject, but NATS adds distribution logic:</p>
+<ol>
+<li><strong>Single member</strong>: A lone subscriber in a queue group receives all messages for that subject</li>
+<li><strong>Multiple members</strong>: NATS randomly selects one member for each message</li>
+<li><strong>Member joins/leaves</strong>: Distribution automatically adjusts without configuration</li>
+</ol>
+<p>The queue name is application-defined, not server-configured. Subscribers specify it when subscribing, and NATS handles the rest. Selection is random per message and does not account for how busy a member is. A member stops receiving messages only when its subscription or connection goes away, including when the server disconnects it as a slow consumer; the server then picks among the remaining members.</p>
+<h2 id="basic-queue-groups">Basic Queue Groups</h2>
+<p>Multiple subscribers use the same queue group name when subscribing to a subject. NATS ensures each message is delivered to only one member of that group, chosen randomly.</p>
+<p>Common use cases: background job processing, API request handling across service instances, event processing pipelines, batch operations.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash"># Terminal 1: First worker in queue group
+nats sub orders.new --queue workers
+
+# Terminal 2: Second worker in same queue group
+nats sub orders.new --queue workers
+
+# Terminal 3: Third worker in same queue group
+nats sub orders.new --queue workers
+
+# Terminal 4: Publish messages (distributed across workers)
+nats pub orders.new "Order 1"
+nats pub orders.new "Order 2"
+nats pub orders.new "Order 3"
+nats pub orders.new "Order 4"
+
+# Each message goes to exactly one worker</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Create three workers in the same queue group
+async function process(label: string) {
+  const sub = nc.subscribe("orders.new", { queue: "workers" });
+  for await (const msg of sub) {
+    console.log(`Worker ${label} processed: ${msg.string()}`);
+  }
+}
+
+process("A").catch(console.error);
+process("B").catch(console.error);
+process("C").catch(console.error);
+
+// Publish messages - automatically load balanced
+for (let i = 1; i &lt;= 10; i++) {
+  nc.publish("orders.new", `Order ${i}`);
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Create three workers in the same queue group
+nc.QueueSubscribe("orders.new", "workers", func(m *nats.Msg) {
+	fmt.Printf("Worker A processed: %s\n", string(m.Data))
+})
+
+nc.QueueSubscribe("orders.new", "workers", func(m *nats.Msg) {
+	fmt.Printf("Worker B processed: %s\n", string(m.Data))
+})
+
+nc.QueueSubscribe("orders.new", "workers", func(m *nats.Msg) {
+	fmt.Printf("Worker C processed: %s\n", string(m.Data))
+})
+
+// Publish messages - automatically load balanced
+for i := 1; i &lt;= 10; i++ {
+	nc.Publish("orders.new", []byte(fmt.Sprintf("Order %d", i)))
+}</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">async def worker(sub, name):
+    async for msg in sub:
+        print(f"Worker {name} Received: {msg.data.decode()}")
+
+sub_a = await nc.subscribe("orders.new", queue="new-orders-queue")
+sub_b = await nc.subscribe("orders.new", queue="new-orders-queue")
+sub_c = await nc.subscribe("orders.new", queue="new-orders-queue")
+
+asyncio.create_task(worker(sub_a, "A"))
+asyncio.create_task(worker(sub_b, "B"))
+asyncio.create_task(worker(sub_c, "C"))
+
+# flush() waits for the server to acknowledge all pending commands.
+# This ensures all subscriptions are at the server before publish starts.
+await nc.flush(timeout=1)
+
+for i in range(1, 11):
+    await nc.publish("orders.new", f"Order {i}".encode())</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Worker A
+Dispatcher workerA = nc.createDispatcher(msg -&gt; {
+    System.out.println("Worker A Received: " +
+        new String(msg.getData(), StandardCharsets.UTF_8));
+});
+workerA.subscribe("orders.new", "new-orders-queue");
+
+// Worker B
+Dispatcher workerB = nc.createDispatcher(msg -&gt; {
+    System.out.println("Worker B Received: " +
+        new String(msg.getData(), StandardCharsets.UTF_8));
+});
+workerB.subscribe("orders.new", "new-orders-queue");
+
+// Worker C
+Dispatcher workerC = nc.createDispatcher(msg -&gt; {
+    System.out.println("Worker C Received: " +
+        new String(msg.getData(), StandardCharsets.UTF_8));
+});
+workerC.subscribe("orders.new", "new-orders-queue");
+
+try {
+    // flush() queues a ping message and waits for a pong
+    // response. This ensures that all the subscriptions
+    // are at the server before publish starts
+    nc.flush(Duration.ofSeconds(1));
+}
+catch (TimeoutException e) {
+    throw new RuntimeException(e);
+}
+
+for (int i = 1; i &lt;= 10; i++) {
+    byte[] data = ("Order " + i).getBytes(StandardCharsets.UTF_8);
+    nc.publish("orders.new", data);
+}</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Create three workers in the same queue group
+let mut worker_a = client
+    .queue_subscribe("orders.new", "workers".to_string())
+    .await?;
+
+let mut worker_b = client
+    .queue_subscribe("orders.new", "workers".to_string())
+    .await?;
+
+let mut worker_c = client
+    .queue_subscribe("orders.new", "workers".to_string())
+    .await?;
+
+// Spawn tasks to process messages
+tokio::spawn(async move {
+    while let Some(msg) = worker_a.next().await {
+        println!(
+            "Worker A processed: {}",
+            String::from_utf8_lossy(&amp;msg.payload)
+        );
+    }
+});
+
+tokio::spawn(async move {
+    while let Some(msg) = worker_b.next().await {
+        println!(
+            "Worker B processed: {}",
+            String::from_utf8_lossy(&amp;msg.payload)
+        );
+    }
+});
+
+tokio::spawn(async move {
+    while let Some(msg) = worker_c.next().await {
+        println!(
+            "Worker C processed: {}",
+            String::from_utf8_lossy(&amp;msg.payload)
+        );
+    }
+});
+
+// Publish messages - automatically load balanced
+for i in 1..=10 {
+    client
+        .publish("orders.new", format!("Order {}", i).into())
+        .await?;
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Create three workers in the same queue group
+_ = Task.Run(async () =&gt;
+{
+    await foreach (var msg in client.SubscribeAsync&lt;string&gt;("orders.new", queueGroup: "new-orders-queue"))
+    {
+        output.WriteLine($"Worker A processed: {msg.Data}");
+    }
+});
+
+_ = Task.Run(async () =&gt;
+{
+    await foreach (var msg in client.SubscribeAsync&lt;string&gt;("orders.new", queueGroup: "new-orders-queue"))
+    {
+        output.WriteLine($"Worker B processed: {msg.Data}");
+    }
+});
+
+_ = Task.Run(async () =&gt;
+{
+    await foreach (var msg in client.SubscribeAsync&lt;string&gt;("orders.new", queueGroup: "new-orders-queue"))
+    {
+        output.WriteLine($"Worker C processed: {msg.Data}");
+    }
+});
+
+// Give the subscription tasks time to start before publishing
+await Task.Delay(1000);
+
+// Publish messages once all subscriptions are set up
+for (var i = 1; i &lt;= 10; i++)
+{
+    await client.PublishAsync("orders.new", $"Order Number: {i}");
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Each worker prints its own name; the closure carries it.
+static void
+onOrder(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("Worker %s processed: %.*s\n", (const char *) closure,
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+
+    natsMsg_Destroy(msg);
+}
+    // Create three workers in the same queue group
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;subA, conn, "orders.new",
+                                          "workers", onOrder, (void *) "A");
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;subB, conn, "orders.new",
+                                          "workers", onOrder, (void *) "B");
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;subC, conn, "orders.new",
+                                          "workers", onOrder, (void *) "C");
+
+    // Publish messages - automatically load balanced
+    for (int i = 1; (s == NATS_OK) &amp;&amp; (i &lt;= 10); i++)
+    {
+        char order[32];
+
+        snprintf(order, sizeof(order), "Order %d", i);
+        s = natsConnection_PublishString(conn, "orders.new", order);
+    }</code></pre></div></div>
+<h2 id="dynamic-scaling">Dynamic Scaling</h2>
+<p>Add or remove workers at any time and NATS automatically adjusts distribution. When a worker joins, it immediately starts receiving messages. When it leaves, NATS stops routing to it within milliseconds.</p>
+<p>Perfect for auto-scaling scenarios where orchestration systems (Kubernetes, ECS) spin up new workers based on metrics. Supports gradual rollouts, traffic spike handling, and cost optimization.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash"># Start with one worker
+nats sub tasks --queue workers
+
+# Load increases - add more workers (in new terminals)
+nats sub tasks --queue workers
+nats sub tasks --queue workers
+
+# Load decreases - stop workers with Ctrl+C
+# Remaining workers automatically take over</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Worker that can be dynamically added/removed
+function process(id: string): Promise&lt;{id: string, sub: Subscription}&gt; {
+  const sub = nc.subscribe("tasks", { queue: "workers" });
+  (async () =&gt; {
+    for await (const msg of sub) {
+      console.log(`Worker ${id} processing: ${msg.string()}`);
+      // Simulate work
+      await delay(100);
+    }
+  })().catch(console.error);
+  return Promise.resolve({ id, sub });
+}
+
+setInterval(() =&gt; {
+  nc.publish("tasks", new Date().toISOString());
+}, 50)
+
+// Dynamic scaling
+const workers: { id: string, sub: Subscription }[] = [];
+
+// Scale up
+for (let i = 1; i &lt;= 5; i++) {
+  workers.push(await process(`${i}`));
+}
+
+// Scale down
+await delay(1000);
+const removed = workers.pop();
+if (removed) {
+  removed.sub.unsubscribe();
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Worker that can be dynamically added/removed
+type Worker struct {
+	ID   string
+	sub  *nats.Subscription
+	done chan bool
+}
+
+NewWorker := func(nc *nats.Conn, id string) *Worker {
+	w := &amp;Worker{ID: id, done: make(chan bool)}
+
+	w.sub, _ = nc.QueueSubscribe("tasks", "workers", func(m *nats.Msg) {
+		fmt.Printf("Worker %s processing: %s\n", id, string(m.Data))
+		// Simulate work
+		time.Sleep(100 * time.Millisecond)
+	})
+
+	return w
+}
+
+Stop := func(w *Worker) {
+	w.sub.Unsubscribe()
+	close(w.done)
+}
+
+// Dynamic scaling
+workers := make([]*Worker, 0)
+
+// Scale up
+for i := 1; i &lt;= 5; i++ {
+	worker := NewWorker(nc, fmt.Sprintf("%d", i))
+	workers = append(workers, worker)
+}
+
+// Scale down
+for i := 0; i &lt; 5; i++ {
+	Stop(workers[i])
+}</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">class Worker:
+    def __init__(self, worker_id):
+        self.id = worker_id
+        self.subscription = None
+        self.task = None
+
+    async def start(self, nc, subject, queue):
+        self.subscription = await nc.subscribe(subject, queue=queue)
+        self.task = asyncio.create_task(self._run())
+
+    async def _run(self):
+        async for msg in self.subscription:
+            print(f"Worker {self.id} processing: {msg.data.decode()}")
+
+    async def stop(self):
+        await self.subscription.unsubscribe()
+
+
+async def main():
+    nc = await client.connect("nats://demo.nats.io")
+
+    workers = []
+    subject = "tasks"
+    queue = "workers"
+
+    # Scale up
+    for i in range(1, 6):
+        w = Worker(i)
+        await w.start(nc, subject, queue)
+        workers.append(w)
+
+    # Scale down
+    for w in workers:
+        await w.stop()
+
+    await nc.close()</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">static class Worker implements MessageHandler {
+    final int id;
+    Dispatcher dispatcher;
+
+    public Worker(int id, Connection nc, String subject, String queueName) {
+        this.id = id;
+        dispatcher = nc.createDispatcher(this); // this is a MessageHandler
+        dispatcher.subscribe(subject, queueName);
+    }
+
+    @Override
+    public void onMessage(Message msg) throws InterruptedException {
+        System.out.println("Worker " + id + " processing: " +
+            new String(msg.getData(), StandardCharsets.UTF_8));
+    }
+}
+
+public static void main(String[] args) {
+    try (Connection nc = Nats.connect("nats://localhost:4222")) {
+        List&lt;Worker&gt; workers = new ArrayList&lt;Worker&gt;();
+
+        String subject = "tasks";
+        String queueName = "workers";
+
+        // Scale up
+        for (int i = 1; i &lt;= 5; i++) {
+            workers.add(new Worker(i, nc, subject, queueName));
+        }
+
+        // Scale down
+        for (Worker w : workers) {
+            w.dispatcher.unsubscribe(subject);
+        }
+    }
+    catch (InterruptedException e) {
+        // can be thrown by connect
+        Thread.currentThread().interrupt();
+    }
+    catch (IOException e) {
+        // can be thrown by connect
+    }
+}</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Worker that can be dynamically added/removed
+struct Worker {
+    handle: tokio::task::JoinHandle&lt;()&gt;,
+}
+
+let new_worker = |client: async_nats::Client, id: i32| async move {
+    let mut sub = client
+        .queue_subscribe("tasks", "workers".to_string())
+        .await?;
+
+    let handle = tokio::spawn(async move {
+        while let Some(msg) = sub.next().await {
+            println!(
+                "Worker {} processing: {}",
+                id,
+                String::from_utf8_lossy(&amp;msg.payload)
+            );
+        }
+    });
+
+    Ok::&lt;Worker, async_nats::Error&gt;(Worker { handle })
+};
+
+let mut workers: Vec&lt;Worker&gt; = Vec::new();
+
+// Scale up
+for i in 1..=5 {
+    workers.push(new_worker(client.clone(), i).await?);
+}
+
+// Scale down: drop one worker
+if let Some(worker) = workers.pop() {
+    worker.handle.abort();
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Start workers in the same queue group; track them so we can scale down later
+var workers = new List&lt;INatsSub&lt;string&gt;&gt;();
+
+for (var i = 1; i &lt;= 5; i++)
+{
+    var id = i;
+    var sub = await client.Connection.SubscribeCoreAsync&lt;string&gt;("tasks", queueGroup: "workers");
+    _ = Task.Run(async () =&gt;
+    {
+        await foreach (var msg in sub.Msgs.ReadAllAsync())
+        {
+            output.WriteLine($"Worker {id} processing: {msg.Data}");
+        }
+    });
+    workers.Add(sub);
+}
+
+// Scale down: drop the first worker
+await workers[0].DisposeAsync();
+workers.RemoveAt(0);</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// A worker is a queue subscription plus an ID for logging.
+typedef struct
+{
+    char                id[16];
+    natsSubscription    *sub;
+} Worker;
+
+static void
+onTask(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    Worker *w = (Worker *) closure;
+
+    printf("Worker %s processing: %.*s\n", w-&gt;id,
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+    // Simulate work
+    nats_Sleep(100);
+
+    natsMsg_Destroy(msg);
+}
+
+static natsStatus
+startWorker(Worker *w, natsConnection *nc, int id)
+{
+    snprintf(w-&gt;id, sizeof(w-&gt;id), "%d", id);
+    return natsConnection_QueueSubscribe(&amp;(w-&gt;sub), nc, "tasks",
+                                         "workers", onTask, (void *) w);
+}
+
+static void
+stopWorker(Worker *w)
+{
+    // Leaving the queue group: remaining members keep sharing the load.
+    natsSubscription_Unsubscribe(w-&gt;sub);
+}
+    // Scale up: add five workers to the group
+    for (int i = 0; (s == NATS_OK) &amp;&amp; (i &lt; 5); i++)
+        s = startWorker(&amp;workers[i], conn, i + 1);
+
+    // Scale down: remove them again
+    if (s == NATS_OK)
+    {
+        for (int i = 0; i &lt; 5; i++)
+            stopWorker(&amp;workers[i]);
+    }</code></pre></div></div>
+<h2 id="queue-groups-with-request-reply">Queue Groups with Request-Reply</h2>
+<p>Queue groups enable horizontally scalable services without a service mesh or API gateway. Each request goes to exactly one service instance, providing automatic load balancing.</p>
+<p>Your service code doesn't need to know about other instances, handle leader election, or coordinate work. Just subscribe with a queue group name and respond to requests.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash"># Terminal 1: Service instance 1
+nats reply api.calculate --queue api-workers "Result from instance 1"
+
+# Terminal 2: Service instance 2
+nats reply api.calculate --queue api-workers "Result from instance 2"
+
+# Terminal 3: Service instance 3
+nats reply api.calculate --queue api-workers "Result from instance 3"
+
+# Terminal 4: Make requests (load balanced across instances)
+nats request api.calculate ""
+nats request api.calculate ""
+nats request api.calculate ""</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Service instance with queue group for load balancing
+function createServiceInstance(instanceId: string) {
+  const sub = nc.subscribe("api.calculate", { queue: "api-workers" });
+  (async () =&gt; {
+    for await (const msg of sub) {
+      const data = msg.string().split(",");
+      const result = parseInt(data[0], 10) + parseInt(data[1], 10);
+      const response =
+        `Result: ${result}, processed by: instance-${instanceId}`;
+      msg.respond(response);
+      console.log(`Instance ${instanceId} processed request`);
+    }
+  })().catch(console.error);
+}
+
+// Start multiple service instances
+for (let i = 1; i &lt;= 3; i++) {
+  createServiceInstance(`instance-${i}`);
+}
+
+// Make requests - automatically load balanced
+for (let i = 0; i &lt; 10; i++) {
+  try {
+    const response = await nc.request("api.calculate", `${i},${i * 2}`, {
+      timeout: 1000,
+    });
+    console.log(`Response: ${response.string()}`);
+  } catch (e) {
+    console.error(`Request failed: ${(e as Error).message}`);
+  }
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Service instance with queue group for load balancing
+createServiceInstance := func(nc *nats.Conn, instanceID string) {
+	nc.QueueSubscribe("api.calculate", "api-workers", func(m *nats.Msg) {
+		// Parse request
+		var request map[string]int
+		json.Unmarshal(m.Data, &amp;request)
+
+		// Process request
+		result := request["a"] + request["b"]
+
+		// Send response
+		response := map[string]interface{}{
+			"result":      result,
+			"processedBy": instanceID,
+		}
+		responseData, _ := json.Marshal(response)
+		m.Respond(responseData)
+
+		fmt.Printf("Instance %s processed request\n", instanceID)
+	})
+}
+
+// Start multiple service instances
+for i := 1; i &lt;= 3; i++ {
+	createServiceInstance(nc, fmt.Sprintf("instance-%d", i))
+}
+
+// Make requests - automatically load balanced
+for i := 0; i &lt; 10; i++ {
+	request := map[string]int{"a": i, "b": i * 2}
+	requestData, _ := json.Marshal(request)
+
+	msg, _ := nc.Request("api.calculate", requestData, time.Second)
+
+	var response map[string]interface{}
+	json.Unmarshal(msg.Data, &amp;response)
+	fmt.Printf("Result: %v, processed by: %s\n",
+		response["result"], response["processedBy"])
+}</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">async def service_instance(sub, instance_id):
+    async for msg in sub:
+        parts = msg.data.decode().split(",")
+        result = int(parts[0]) + int(parts[1])
+        response = f"Result: {result}, processed by: instance-{instance_id}"
+        if msg.reply:
+            await nc.publish(msg.reply, response.encode())
+        print(f"Instance instance-{instance_id} processed request")
+
+# Set up 3 instances of the service
+for i in range(1, 4):
+    sub = await nc.subscribe("api.calculate", queue="api-workers-queue")
+    asyncio.create_task(service_instance(sub, i))
+
+await nc.flush()
+
+# Make requests - messages are balanced among the subscribers in the queue
+for i in range(10):
+    data = f"{i},{i * 2}"
+    try:
+        m = await nc.request("api.calculate", data.encode(), timeout=0.5)
+        print(m.data.decode())
+    except (TimeoutError, NoRespondersError):
+        print(f"{i}) No Response")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">List&lt;Dispatcher&gt; dispatchers = new ArrayList&lt;&gt;();
+// Set up 3 instances of the service
+for (int i = 1; i &lt;= 3; i++) {
+    final int instanceID = i;
+    Dispatcher d = nc.createDispatcher(msg -&gt; {
+        String[] data = new String(msg.getData()).split(",");
+        int result = Integer.parseInt(data[0]) + Integer.parseInt(data[1]);
+        String response = String.format("Result: %d, processed by: instance-%d", result, instanceID);
+        nc.publish(msg.getReplyTo(), response.getBytes(StandardCharsets.ISO_8859_1));
+        System.out.printf("Instance instance-%d processed request\n", instanceID);
+    });
+    d.subscribe("api.calculate", "api-workers-queue");
+    dispatchers.add(d);
+}
+
+// Make requests - messages are balanced among the subscribers in the queue
+for (int i = 0; i &lt; 10; i++) {
+    String data = String.format("%d,%d", i, i * 2);
+    Message m = nc.request("api.calculate", data.getBytes(StandardCharsets.ISO_8859_1), Duration.ofMillis(500));
+    if (m == null) {
+        System.out.println(i + ") No Response");
+    }
+    else {
+        System.out.println(new String(m.getData()));
+    }
+}</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Start multiple service instances with queue group for load balancing
+for i in 1..=3 {
+    let client = client.clone();
+    let instance_id = format!("instance-{}", i);
+    let mut sub = client
+        .queue_subscribe("api.calculate", "api-workers".to_string())
+        .await?;
+
+    tokio::spawn(async move {
+        while let Some(msg) = sub.next().await {
+            let response = format!("handled by {}", instance_id);
+
+            if let Some(reply) = msg.reply {
+                client.publish(reply, response.into()).await.ok();
+            }
+
+            println!("Instance {} processed request", instance_id);
+        }
+    });
+}
+
+// Make requests - automatically load balanced
+for i in 0..10 {
+    let response = client
+        .request("api.calculate", format!("request {}", i).into())
+        .await?;
+    println!("Response: {}", String::from_utf8_lossy(&amp;response.payload));
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Start three service instances sharing the same queue group
+for (var i = 1; i &lt;= 3; i++)
+{
+    var id = i;
+    _ = Task.Run(async () =&gt;
+    {
+        await foreach (var msg in client.SubscribeAsync&lt;string&gt;("api.calculate", queueGroup: "api-workers"))
+        {
+            await msg.ReplyAsync($"Result from instance {id}");
+        }
+    });
+}
+
+// Give the subscription tasks time to start before publishing
+await Task.Delay(1000);
+
+// Make 10 requests; the queue group balances them across instances
+var replyOpts = new NatsSubOpts { Timeout = TimeSpan.FromSeconds(1) };
+for (var i = 0; i &lt; 10; i++)
+{
+    var reply = await client.RequestAsync&lt;string&gt;("api.calculate", replyOpts: replyOpts);
+    output.WriteLine($"{i}) {reply.Data}");
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Service instance: parse the request, compute, reply with the result
+// and the instance that handled it.
+static void
+onCalculate(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    const char  *instanceID = (const char *) closure;
+    int         a = 0;
+    int         b = 0;
+    char        response[128];
+
+    // Parse request
+    sscanf(natsMsg_GetData(msg), "{\"a\":%d,\"b\":%d}", &amp;a, &amp;b);
+
+    // Process request and send response
+    snprintf(response, sizeof(response),
+             "{\"result\":%d,\"processedBy\":\"%s\"}", a + b, instanceID);
+    if (natsMsg_GetReply(msg) != NULL)
+        natsConnection_PublishString(nc, natsMsg_GetReply(msg), response);
+
+    printf("Instance %s processed request\n", instanceID);
+
+    natsMsg_Destroy(msg);
+}
+    // Start multiple service instances in the same queue group
+    for (int i = 0; (s == NATS_OK) &amp;&amp; (i &lt; 3); i++)
+        s = natsConnection_QueueSubscribe(&amp;subs[i], conn, "api.calculate",
+                                          "api-workers", onCalculate,
+                                          (void *) ids[i]);
+
+    // Make requests - automatically load balanced
+    for (int i = 0; (s == NATS_OK) &amp;&amp; (i &lt; 10); i++)
+    {
+        natsMsg *reply = NULL;
+        char    request[64];
+
+        snprintf(request, sizeof(request), "{\"a\":%d,\"b\":%d}", i, i * 2);
+        s = natsConnection_RequestString(&amp;reply, conn, "api.calculate",
+                                         request, 1000);
+        if (s == NATS_OK)
+        {
+            printf("Reply: %.*s\n",
+                   natsMsg_GetDataLength(reply), natsMsg_GetData(reply));
+            natsMsg_Destroy(reply);
+        }
+    }</code></pre></div></div>
+<h2 id="mixed-subscribers">Mixed Subscribers</h2>
+<p>Queue groups coexist with regular subscribers on the same subject. Regular subscribers receive every message (pub-sub), while queue group members share the load (work distribution).</p>
+<p>Use queue groups for operational work that needs to happen exactly once, and regular subscribers for observational tasks (audit logging, monitoring, analytics).</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Terminal 1: Audit logger (sees all messages)
+nats sub "orders.&gt;"
+
+# Terminal 2: Worker 1 in queue group
+nats sub "orders.new" --queue workers
+
+# Terminal 3: Worker 2 in queue group
+nats sub "orders.new" --queue workers
+
+# Terminal 4: Publish messages
+nats pub orders.new "Order 123"
+# Audit logger sees it
+# One worker processes it</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// add a function that creates a subscription and optionally processes messages
+// in a queue group
+function addWorker(label: string, queue = "") {
+  const sub = nc.subscribe("orders.new", { queue });
+  (async () =&gt; {
+    for await (const msg of sub) {
+      console.log(`[WORKER ${label}] Processing: ${msg.string()}`);
+    }
+  })().catch(console.error);
+}
+
+// Audit logger - receives all messages
+addWorker("AUDIT");
+// Metrics collector - receives all messages
+addWorker("METRICS");
+
+// Workers in queue group - load balanced
+addWorker("A", "q");
+addWorker("B", "q");
+
+// Publish order
+nc.publish("orders.new", "Order 123");
+nc.publish("orders.new", "Order 124");
+nc.publish("orders.new", "Order 125");</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Audit logger - receives all messages
+nc.Subscribe("orders.&gt;", func(m *nats.Msg) {
+	log.Printf("[AUDIT] %s: %s", m.Subject, string(m.Data))
+})
+
+// Metrics collector - receives all messages
+nc.Subscribe("orders.&gt;", func(m *nats.Msg) {
+	log.Printf("[METRICS] %s: %s", m.Subject, string(m.Data))
+})
+
+// Workers in queue group - load balanced
+nc.QueueSubscribe("orders.new", "workers", func(m *nats.Msg) {
+	fmt.Printf("[WORKER A] Processing: %s\n", string(m.Data))
+	processOrder(m.Data)
+})
+
+nc.QueueSubscribe("orders.new", "workers", func(m *nats.Msg) {
+	fmt.Printf("[WORKER B] Processing: %s\n", string(m.Data))
+	processOrder(m.Data)
+})
+
+// Publish orders
+nc.Publish("orders.new", []byte("Order 123"))
+nc.Publish("orders.new", []byte("Order 124"))
+// Audit and metrics see them, one worker processes each</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">async def reader(sub, label):
+    async for msg in sub:
+        print(f"[{label}] {msg.subject}: {msg.data.decode()}")
+
+# Audit logger - receives all messages
+audit_sub = await nc.subscribe("orders.&gt;")
+asyncio.create_task(reader(audit_sub, "AUDIT"))
+
+# Metrics collector - receives all messages
+metrics_sub = await nc.subscribe("orders.&gt;")
+asyncio.create_task(reader(metrics_sub, "METRICS"))
+
+# Workers in queue group - load balanced
+worker_a_sub = await nc.subscribe("orders.new", queue="new-orders-queue")
+asyncio.create_task(reader(worker_a_sub, "WORKER A"))
+
+worker_b_sub = await nc.subscribe("orders.new", queue="new-orders-queue")
+asyncio.create_task(reader(worker_b_sub, "WORKER B"))
+
+await nc.flush()
+
+# Publish order
+await nc.publish("orders.new", b"Order 123")
+await nc.publish("orders.new", b"Order 124")
+# Audit and metrics see them, one worker processes each</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Audit logger - receives all messages
+Dispatcher dAudit = nc.createDispatcher(msg -&gt; {
+    System.out.printf("[AUDIT] %s: %s\n", msg.getSubject(), new String(msg.getData(), StandardCharsets.UTF_8));
+});
+dAudit.subscribe("orders.&gt;");
+
+Dispatcher dMetrics = nc.createDispatcher(msg -&gt; {
+    System.out.printf("[METRICS] %s: %s\n", msg.getSubject(), new String(msg.getData(), StandardCharsets.UTF_8));
+});
+dMetrics.subscribe("orders.&gt;");
+
+Dispatcher dNewOrderWorker1 = nc.createDispatcher(msg -&gt; {
+    System.out.printf("[WORKER A] %s: %s\n", msg.getSubject(), new String(msg.getData(), StandardCharsets.UTF_8));
+});
+dNewOrderWorker1.subscribe("orders.new", "new-orders-queue");
+
+Dispatcher dNewOrderWorker2 = nc.createDispatcher(msg -&gt; {
+    System.out.printf("[WORKER B] %s: %s\n", msg.getSubject(), new String(msg.getData(), StandardCharsets.UTF_8));
+});
+dNewOrderWorker2.subscribe("orders.new", "new-orders-queue");
+
+// Publish order
+nc.publish("orders.new", "Order 123".getBytes(StandardCharsets.ISO_8859_1));
+nc.publish("orders.new", "Order 124".getBytes(StandardCharsets.ISO_8859_1));
+// Audit and metrics see them, one worker processes each</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Audit logger - receives all messages
+let mut audit_sub = client.subscribe("orders.&gt;").await?;
+tokio::spawn(async move {
+    while let Some(msg) = audit_sub.next().await {
+        println!(
+            "[AUDIT] {}: {}",
+            msg.subject,
+            String::from_utf8_lossy(&amp;msg.payload)
+        );
+    }
+});
+
+// Metrics collector - receives all messages
+let mut metrics_sub = client.subscribe("orders.&gt;").await?;
+tokio::spawn(async move {
+    while let Some(msg) = metrics_sub.next().await {
+        println!(
+            "[METRICS] {}: {}",
+            msg.subject,
+            String::from_utf8_lossy(&amp;msg.payload)
+        );
+    }
+});
+
+// Workers in queue group - load balanced
+let mut worker_a = client
+    .queue_subscribe("orders.new", "workers".to_string())
+    .await?;
+tokio::spawn(async move {
+    while let Some(msg) = worker_a.next().await {
+        println!(
+            "[WORKER A] Processing: {}",
+            String::from_utf8_lossy(&amp;msg.payload)
+        );
+    }
+});
+
+let mut worker_b = client
+    .queue_subscribe("orders.new", "workers".to_string())
+    .await?;
+tokio::spawn(async move {
+    while let Some(msg) = worker_b.next().await {
+        println!(
+            "[WORKER B] Processing: {}",
+            String::from_utf8_lossy(&amp;msg.payload)
+        );
+    }
+});
+
+// Publish order
+client.publish("orders.new", "Order 123".into()).await?;
+client.publish("orders.new", "Order 124".into()).await?;
+// Audit and metrics see them, one worker processes each</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Audit logger - receives all order messages
+_ = Task.Run(async () =&gt;
+{
+    await foreach (var msg in client.SubscribeAsync&lt;string&gt;("orders.&gt;"))
+    {
+        output.WriteLine($"[AUDIT] {msg.Subject}: {msg.Data}");
+    }
+});
+
+// Metrics collector - receives all order messages
+_ = Task.Run(async () =&gt;
+{
+    await foreach (var msg in client.SubscribeAsync&lt;string&gt;("orders.&gt;"))
+    {
+        output.WriteLine($"[METRICS] {msg.Subject}: {msg.Data}");
+    }
+});
+
+// Workers - share load via a queue group
+_ = Task.Run(async () =&gt;
+{
+    await foreach (var msg in client.SubscribeAsync&lt;string&gt;("orders.new", queueGroup: "workers"))
+    {
+        output.WriteLine($"[WORKER A] Processing: {msg.Data}");
+    }
+});
+
+_ = Task.Run(async () =&gt;
+{
+    await foreach (var msg in client.SubscribeAsync&lt;string&gt;("orders.new", queueGroup: "workers"))
+    {
+        output.WriteLine($"[WORKER B] Processing: {msg.Data}");
+    }
+});
+
+// Give the subscription tasks time to start before publishing
+await Task.Delay(1000);
+
+// Audit and metrics see every message; one worker processes each
+await client.PublishAsync("orders.new", "Order 123");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Regular subscribers receive every message; the closure names them.
+static void
+onAll(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("[%s] %s: %.*s\n", (const char *) closure,
+           natsMsg_GetSubject(msg),
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+
+    natsMsg_Destroy(msg);
+}
+
+// Queue group members share the load: one worker per message.
+static void
+onWork(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("[WORKER %s] Processing: %.*s\n", (const char *) closure,
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+
+    natsMsg_Destroy(msg);
+}
+    // Audit logger - receives all messages
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;audit, conn, "orders.&gt;",
+                                     onAll, (void *) "AUDIT");
+
+    // Metrics collector - receives all messages
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;metrics, conn, "orders.&gt;",
+                                     onAll, (void *) "METRICS");
+
+    // Workers in queue group - load balanced
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;workA, conn, "orders.new",
+                                          "workers", onWork, (void *) "A");
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;workB, conn, "orders.new",
+                                          "workers", onWork, (void *) "B");
+
+    // Publish orders
+    if (s == NATS_OK)
+        s = natsConnection_PublishString(conn, "orders.new", "Order 123");
+    if (s == NATS_OK)
+        s = natsConnection_PublishString(conn, "orders.new", "Order 124");
+    // Audit and metrics see them, one worker processes each</code></pre></div></div>
+<h2 id="geo-affinity-in-super-clusters">Geo-Affinity in Super-Clusters</h2>
+<p>In globally distributed NATS super-clusters, queue groups exhibit <strong>geo-affinity</strong> - automatically preferring local workers when available.</p>
+<h3 id="how-it-works-1">How It Works</h3>
+<p>When you have queue group subscribers distributed across multiple regions:</p>
+<ol>
+<li><strong>Local preference</strong>: Messages are delivered to workers in the same cluster/region as the publisher</li>
+<li><strong>Automatic failover</strong>: If no local workers are available, NATS routes to workers in other regions</li>
+<li><strong>No configuration needed</strong>: This happens automatically based on network topology</li>
+</ol>
+<h3 id="example-scenario">Example Scenario</h3>
+<p>Consider a queue group named <code>"order-processors"</code> with workers in three regions:</p>
+<table><thead><tr><th>Region</th><th>Workers</th><th>Publisher Location</th></tr></thead><tbody><tr><td><strong>US-East</strong></td><td>3 workers</td><td>✅ Publisher here</td></tr><tr><td><strong>US-West</strong></td><td>2 workers</td><td>-</td></tr><tr><td><strong>EU-West</strong></td><td>2 workers</td><td>-</td></tr></tbody></table>
+<p><strong>Result</strong>: Messages from the US-East publisher are preferentially delivered to the 3 US-East workers. Only if all US-East workers are unavailable will messages route to US-West or EU-West workers.</p>
+<h3 id="benefits">Benefits</h3>
+<ul>
+<li><strong>Lower latency</strong>: Local processing is faster</li>
+<li><strong>Reduced bandwidth</strong>: Fewer cross-region transfers</li>
+<li><strong>Natural failover</strong>: Automatic global distribution if local workers fail</li>
+<li><strong>No configuration</strong>: Works out of the box in super-clusters</li>
+</ul>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="naming-conventions">Naming Conventions</h3>
+<p>Queue groups follow similar naming conventions as subjects. Here are some common patterns:</p>
+<div><div><pre><code class="language-text"># Service-based naming
+api.auth.workers
+api.payments.workers
+api.notifications.workers
+
+# Environment-based naming
+prod.order-processors
+staging.order-processors
+dev.order-processors
+
+# Version-based naming
+service.v1.workers
+service.v2.workers</code></pre></div></div>
+<h3 id="worker-design">Worker Design</h3>
+<ol>
+<li><strong>At-most-once delivery</strong>: Core queue groups never redeliver — a message sent to a worker that crashes mid-processing is lost. For redelivery and durability, use <a href="/learn/jetstream/worker-pool">JetStream worker pools</a>. Duplicates come only from publisher retries, so make processing idempotent if the publisher may resend.</li>
+<li><strong>Graceful shutdown</strong>: Drain messages before stopping</li>
+<li><strong>Error handling</strong>: Failed messages should be handled appropriately</li>
+<li><strong>Health checks</strong>: Monitor worker health and availability</li>
+</ol>
+<h3 id="scaling-strategy">Scaling Strategy</h3>
+<ol>
+<li><strong>Start small</strong>: Begin with few workers</li>
+<li><strong>Monitor metrics</strong>: Track queue depth and processing time</li>
+<li><strong>Scale based on load</strong>: Add workers when queue grows</li>
+<li><strong>Auto-scaling</strong>: Use metrics to automatically scale</li>
+</ol>
+<h3 id="monitoring">Monitoring</h3>
+<p>Track these metrics for queue groups:</p>
+<ul>
+<li>Message processing rate</li>
+<li>Queue depth (with JetStream)</li>
+<li>Worker count</li>
+<li>Processing latency</li>
+<li>Error rates</li>
+</ul>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li><a href="/learn/core-nats/queue-groups">Queue groups in the Core NATS deep dive</a> — runnable, step-by-step walkthrough</li>
+<li><a href="/learn/services">Services</a> — queue-group load balancing for services</li>
+<li><a href="/learn/jetstream/worker-pool">JetStream worker pools</a> — durable work distribution at scale</li>
+<li><a href="/concepts/request-reply">Request-Reply</a> — synchronous communication patterns</li>
+<li><a href="/concepts/pub-sub-basics">Publish-Subscribe</a> — one-to-many messaging</li>
+</ul></main>

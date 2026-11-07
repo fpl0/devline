@@ -1,0 +1,159 @@
+<main><header><h1>Runtime Parameters</h1></header>
+<h2 id="overview">Overview</h2>
+<p>While much of the configuration for RabbitMQ lives in
+the <a href="/docs/4.3/configure">configuration file</a>, some things
+do not mesh well with the use of a configuration file:</p>
+<ul>
+<li>If they need to be the same across all nodes in a cluster</li>
+<li>If they are likely to change at run time</li>
+</ul>
+<p>RabbitMQ calls these items <em>parameters</em>. Parameters can be
+set by invoking <a href="/docs/4.3/man/rabbitmqctl.8"><code>rabbitmqctl</code></a>
+or through <a href="/docs/4.3/management">the HTTP API</a>.</p>
+<p>There are two kinds of parameters: virtual host-scoped parameters and global parameters.
+The former, as the name suggests, are tied to a virtual host and consist
+of a component name, a name and a value.</p>
+<p>For example, a dynamic <a href="/docs/4.3/shovel">shovel</a> is definened using runtime parameters.
+It belongs to a virtual host, has a name and its component type is set to <code>"shovel"</code>.</p>
+<p>Global parameters are not tied to a particular virtual host and they consist
+of a name and value.</p>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>One important example of parameters usage is <a href="/docs/4.3/policies">policies</a></p></div></div>
+<h2 id="per-vhost">Per-virtual host Parameters</h2>
+<p>As stated above, there are vhost-scoped parameters and global parameters.
+An example of vhost-scoped
+parameter is a federation upstream: it targets a component
+(<code>federation-upstream</code>), it has a name that identifies
+it, it's tied to a virtual host (federation links will target
+some resources of this virtual host), and its value defines connection
+parameters to an upstream broker.</p>
+<p>Virtual host-scoped parameters can be set, cleared and listed:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># sets a runtime parameter in a virtual host
+rabbitmqctl set_parameter [-p vhost] &lt;component_name&gt; &lt;name&gt; &lt;value&gt;
+
+# lists runtime parameters in a virtual host
+rabbitmqctl list_parameters [-p vhost]
+
+# clears (unsets) a runtime parameter in a virtual host
+rabbitmqctl clear_parameter [-p vhost] &lt;component_name&gt; &lt;name&gt;</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># Note: for federation upstreams and shovels, use the dedicated 'federation' and 'shovels' command groups instead
+
+# sets a runtime parameter in a virtual host
+rabbitmqadmin --vhost "vhost-1" parameters set \
+        --name "upstream-1" \
+        --component "federation-upstream" \
+        --value '{"uri": "amqp://target.hostname/vhost"}'
+
+# lists runtime parameters in a virtual host
+rabbitmqadmin --vhost "vhost-1" parameters list
+
+# clears (unsets) a runtime parameter in a virtual host
+rabbitmqadmin --vhost "vhost-1" parameters clear \
+    --name "upstream-1" \
+    --component "federation-upstream"</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell"># sets a runtime parameter in a virtual host
+rabbitmqctl.bat set_parameter [-p vhost] &lt;component_name&gt; &lt;name&gt; &lt;value&gt;
+
+# lists runtime parameters in a virtual host
+rabbitmqctl.bat list_parameters [-p vhost]
+
+# clears (unsets) a runtime parameter in a virtual host
+rabbitmqctl.bat clear_parameter [-p vhost] &lt;component_name&gt; &lt;name&gt;</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell"># Note: for federation upstreams and shovels, use the dedicated 'federation' and 'shovels' command groups instead
+
+# sets a runtime parameter in a virtual host
+rabbitmqadmin.exe --vhost "vhost-1" parameters set ^
+        --name "upstream-1" ^
+        --component "federation-upstream" ^
+        --value "{""uri"": ""amqp://target.hostname/vhost""}"
+
+# lists runtime parameters in a virtual host
+rabbitmqadmin.exe --vhost "vhost-1" parameters list
+
+# clears (unsets) a runtime parameter in a virtual host
+rabbitmqadmin.exe --vhost "vhost-1" parameters clear ^
+    --name "upstream-1" ^
+    --component "federation-upstream"</code></pre></div></div><h4>HTTP API</h4><div><div><pre><code class="language-ini">PUT /api/parameters/{component_name}/{vhost}/{name}
+GET /api/parameters
+DELETE /api/parameters/{component_name}/{vhost}/{name}</code></pre></div></div>
+<h2 id="global">Global Parameters</h2>
+<p>Global parameters is the other kind of parameters.
+An example of a global parameter is the name of the cluster.
+Global parameters can be set, cleared and listed:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># sets a global (virtual-host-independent) runtime parameter
+rabbitmqctl set_global_parameter &lt;name&gt; &lt;value&gt;
+
+# lists global (virtual-host-independent) runtime parameters
+rabbitmqctl list_global_parameters
+
+# clears (unsets) a global (virtual-host-independent) runtime parameter
+rabbitmqctl clear_global_parameter &lt;name&gt;</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># sets a global (virtual-host-independent) runtime parameter
+rabbitmqadmin global_parameters set --name "cluster_tags" --value '{"region": "ca-central-1"}'
+
+# lists global (virtual-host-independent) runtime parameters
+rabbitmqadmin global_parameters list
+
+# clears (unsets) a global (virtual-host-independent) runtime parameter
+rabbitmqadmin global_parameters clear --name "cluster_tags"</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell"># sets a global (virtual-host-independent) runtime parameter
+rabbitmqctl.bat set_global_parameter &lt;name&gt; &lt;value&gt;
+
+# lists global (virtual-host-independent) runtime parameters
+rabbitmqctl.bat list_global_parameters
+
+# clears (unsets) a global (virtual-host-independent) runtime parameter
+rabbitmqctl.bat clear_global_parameter &lt;name&gt;</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell"># sets a global (virtual-host-independent) runtime parameter
+rabbitmqadmin.exe global_parameters set --name "cluster_tags" --value "{""region"": ""ca-central-1""}"
+
+# lists global (virtual-host-independent) runtime parameters
+rabbitmqadmin.exe global_parameters list
+
+# clears (unsets) a global (virtual-host-independent) runtime parameter
+rabbitmqadmin.exe global_parameters clear --name "cluster_tags"</code></pre></div></div><h4>HTTP API</h4><div><div><pre><code class="language-ini">PUT /api/global-parameters/name
+GET /api/global-parameters
+DELETE /api/global-parameters/name</code></pre></div></div>
+<p>Since a parameter value is a JSON document, you will usually
+need to quote it when creating one on the command line
+with <code>rabbitmqctl</code>. On Unix it is usually easiest to
+quote the whole document with single quotes, and use double
+quotes within it. On Windows you will have to escape every
+double quote. We give examples for both Unix and Windows for
+this reason.</p>
+<p>Parameters reside in the database used by RabbitMQ for
+definitions of virtual hosts, exchanges, queues, bindings, users
+and permissions. Parameters are exported along with other object
+definitions by the management plugin's export feature.</p>
+<p>Virtual-scoped parameters are used by the federation and shovel plugins.</p>
+<p>Global parameters are used to store various cluster-level metadata,
+for example, cluster name, cluster tags, as well as internal
+node metada such as imported <a href="/docs/4.3/definitions">definitions</a> hash.</p>
+<h3 id="cluster-name">Cluster Name</h3>
+<p>Cluster name stored using global runtime parameters. It can be
+updated using a dedicated CLI command.</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl set_cluster_name rabbit@id-3942837</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat set_cluster_name rabbit@id-3942837</code></pre></div></div>
+<h3 id="cluster-tags">Cluster Tags</h3>
+<p>Cluster tags are arbitrary key-value pairs that describe a cluster. They can be used by
+operators to attach deployment-specific information.</p>
+<p>Cluster tags are stored in a global parameter named <code>cluster_tags</code>.
+They can also be preconfigured using <code>rabbitmq.conf</code>:</p>
+<div><div><pre><code class="language-ini">cluster_tags.series = 4.1.x
+
+cluster_tags.purpose = iot_ingress
+cluster_tags.region = ca-central-1
+cluster_tags.environment = production</code></pre></div></div>
+<p>To retrieve a list of tags, list global runtime parametersor fetch a global runtime parameter
+named <code>cluster_tags</code>, or use <a href="/docs/4.3/management-cli"><code>rabbitmqadmin</code> v2</a>'s <code>snow overview</code> command.</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># lists global (virtual-host-independent) runtime parameters
+rabbitmqctl list_global_parameters</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># lists global (virtual-host-independent) runtime parameters
+rabbitmqadmin global_parameters list
+
+# another command that includes certain global parameters in its
+# output, namely node and cluster tags
+rabbitmqadmin show overview</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell"># lists global (virtual-host-independent) runtime parameters
+rabbitmqctl.bat list_global_parameters</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-bash"># lists global (virtual-host-independent) runtime parameters
+rabbitmqadmin.exe global_parameters list
+
+# another command that includes certain global parameters in its
+# output, namely node and cluster tags
+rabbitmqadmin.exe show overview</code></pre></div></div><h4>HTTP API</h4><div><div><pre><code class="language-ini">GET /api/global-parameters
+
+GET /api/global-parameters/cluster_tags</code></pre></div></div>
+<h2 id="policies">Policies</h2>
+<p><a href="/docs/4.3/policies">Policies</a> are now documented in a dedicated guide.</p>
+<h2 id="operator-policies">Operator Policies</h2>
+<p><a href="/docs/4.3/policies#operator-policies">Operator policies</a> are now documented in the policies guide.</p></main>

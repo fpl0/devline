@@ -1,0 +1,94 @@
+# List or filter existing rules
+
+> Browse, paginate, and filter your stored search rules to audit campaigns or prepare bulk edits.
+
+As your rule set grows, you need to know what is running. Before launching a new campaign, for example, you want to check which rules from the previous one are still active. The dashboard shows every rule in a table, and the API returns the same list with pagination and filters, so you can audit your rules from a script.
+
+## Browse rules from the Meilisearch Cloud dashboard
+
+Open your project in the [Meilisearch Cloud dashboard](https://cloud.meilisearch.com) and select the **Search rules** tab. The table lists every rule with its conditions, its actions, its rank, its last update, and its state.
+
+Search the list by rule ID or description, or use **Filters** to narrow it down. The row toggle pauses a rule, and the icons on the right edit or delete it.
+
+![Search rules list with the search field, the filters, and three rules](https://mintcdn.com/meilisearch-6b28dec2/pjgozmedxQwKwpe_/assets/images/cloud-search-rules/rules-list-with-actions.png?fit=max\&auto=format\&n=pjgozmedxQwKwpe_\&q=85\&s=052fd419dbd20c88b7aec4cebebe4264)
+
+## List rules on a self-hosted instance
+
+> [!WARNING]
+>
+> Search rules must be turned on before you call the `/dynamic-search-rules` routes, otherwise Meilisearch returns an error. See [Create your first rule](https://www.meilisearch.com/docs/capabilities/search_rules/create_your_first_rule#turn-on-search-rules-1).
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/dynamic-search-rules' \
+  -H 'Authorization: Bearer API_KEY' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{
+    "offset": 0,
+    "limit": 20,
+    "filter": {
+      "query": "summer",
+      "active": true
+    }
+  }'
+```
+
+* `offset` and `limit` paginate the list. The defaults are `0` and `20`.
+* `filter.query` matches the rules whose ID or description contains the words you send.
+* `filter.active` returns only the active rules with `true`, or only the paused ones with `false`. Omit it to return both.
+
+Meilisearch returns the matching rules, sorted by `lastUpdatedAt` in descending order, so the rules changed most recently come first:
+
+```json
+{
+  "results": [
+    {
+      "uid": "summer-sale",
+      "description": "Boost the products on sale during the summer sale",
+      "lastUpdatedAt": "2026-05-28T09:25:53.295494760Z",
+      "active": true,
+      "conditions": {
+        "time": {
+          "start": "2026-06-01T00:00:00Z",
+          "end": "2026-06-30T23:59:59Z"
+        }
+      },
+      "actions": {
+        "scale": [
+          {
+            "indexUid": "products",
+            "filter": "on_sale = true",
+            "weight": 1.5
+          }
+        ]
+      }
+    }
+  ],
+  "offset": 0,
+  "limit": 20,
+  "total": 1
+}
+```
+
+To read a single rule you already know by name, send `GET /dynamic-search-rules/{uid}` instead. The rule comes back in the same format, ready to be edited and sent back to `PATCH /dynamic-search-rules/{uid}`.
+
+## Next steps
+
+> [card] [Pause a rule](https://www.meilisearch.com/docs/capabilities/search_rules/how_to/pause_a_rule)
+>
+> Stop a rule without deleting it
+
+> [card] [Boost documents](https://www.meilisearch.com/docs/capabilities/search_rules/how_to/boost_documents)
+>
+> Rank a selection of documents higher during a campaign
+
+> [card] [Specific behaviors](https://www.meilisearch.com/docs/capabilities/search_rules/advanced/specific_behaviors)
+>
+> See how actions interact with filters and with each other
+
+> [card] [API reference](https://www.meilisearch.com/docs/reference/api/search-rules/list-search-rules)
+>
+> Full request and response shapes
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

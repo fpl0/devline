@@ -526,6 +526,7 @@ pub(super) fn import(
     store: &Store,
     services: &[Service],
     request: &Value,
+    ctx: &Context,
     mut job: Option<&mut Job>,
 ) -> Result<Value> {
     stage(&mut job, "Reading portable infrastructure archive")?;
@@ -580,12 +581,15 @@ pub(super) fn import(
     }
     checkpoint(&job)?;
     let mut installed = Vec::new();
+    let mut keys = Vec::new();
     for (position, (service, mut receipt, _)) in releases.into_iter().enumerate() {
         let stamp = store.publish_blob(&staging.0.join(format!("{position}.tar.gz")), &receipt)?;
         receipt.verified_at = crate::tasks::now();
         installed.push(receipt.clone());
+        let key = service.key();
+        keys.push(key.clone());
         index.insert(
-            service.key(),
+            key,
             Stored {
                 service,
                 receipt,
@@ -594,6 +598,7 @@ pub(super) fn import(
         );
     }
     store.write_index(&index)?;
+    store.prune_after_install(ctx, &mut index, &keys)?;
     Ok(json!({"images":installed,"imported":true}))
 }
 
@@ -681,6 +686,7 @@ mod tests {
             &imported,
             std::slice::from_ref(&service),
             &json!({"path":file}),
+            &destination,
             None,
         )?;
         assert_eq!(
@@ -688,6 +694,63 @@ mod tests {
             receipt.archive_sha256
         );
         verify_checksum(&imported.blob(&receipt), &receipt, &mut None)?;
+        Ok(())
+    }
+
+    #[test]
+    fn archive_purge_keeps_the_newest_release_and_preserves_shared_blobs() -> Result<()> {
+        let root = templates::Stage::new(&std::env::temp_dir())?;
+        let (mut service, config, layer) = fixture()?;
+        let source = image(Vec::new(), &config, &layer,
+            br#"[{"Config":"config.json","Layers":["layer.tar"],"RepoTags":["user/existing:latest"]}]"#)?;
+        let ctx = Context {
+            home: root.0.clone(),
+            catalog_dir: root.0.clone(),
+            catalog: crate::Catalog {
+                schema_version: 1,
+                docs: vec![],
+                templates: vec![],
+            },
+        };
+        let store = Store::open(&ctx)?;
+        let temporary = root.0.join("save.gz");
+        let (hash, bytes) = save_tar(source.as_slice(), &temporary)?;
+        service.version = "1.9".to_owned();
+        let old = Receipt::from(&service, hash.clone(), bytes);
+        let stamp = store.publish_blob(&temporary, &old)?;
+        let old_key = service.key();
+        let mut index = Index::from([(
+            old_key.clone(),
+            Stored {
+                service: service.clone(),
+                receipt: old.clone(),
+                stamp: stamp.clone(),
+            },
+        )]);
+        service.version = "1.10".to_owned();
+        let newest = Receipt::from(&service, hash, bytes);
+        let new_key = service.key();
+        index.insert(
+            new_key.clone(),
+            Stored {
+                service,
+                receipt: newest,
+                stamp,
+            },
+        );
+        store.write_index(&index)?;
+
+        crate::updates::retention(&ctx, &json!({"keep_latest":true}))?;
+        store.prune_after_install(&ctx, &mut index, std::slice::from_ref(&old_key))?;
+        assert_eq!(store.index()?.len(), 2);
+        store.prune_after_install(&ctx, &mut index, std::slice::from_ref(&new_key))?;
+        assert_eq!(store.index()?.into_keys().collect::<Vec<_>>(), [new_key]);
+        verify_checksum(&store.blob(&old), &old, &mut None)?;
+
+        let orphan = store.images.join(format!("{}.tar.gz", "a".repeat(64)));
+        fs::write(&orphan, b"unreferenced archive")?;
+        assert_eq!(prune(&ctx)?, 0);
+        assert!(!orphan.exists());
         Ok(())
     }
 
@@ -723,7 +786,7 @@ mod tests {
             },
         };
         let store = Store::open(&ctx)?;
-        let error = import(&store, &[service], &json!({"path":file}), None).unwrap_err();
+        let error = import(&store, &[service], &json!({"path":file}), &ctx, None).unwrap_err();
         assert!(
             error.to_string().contains("Noncanonical Docker manifest"),
             "{error:#}"
@@ -791,11 +854,19 @@ mod tests {
         let preview = inspect(supported, &json!({"path":path}))?;
         assert_eq!(preview["requires_trust"], true);
         assert_eq!(preview["images"][0]["known"], false);
-        assert!(import(&target_store, supported, &json!({"path":path}), None).is_err());
+        assert!(import(
+            &target_store,
+            supported,
+            &json!({"path":path}),
+            &target,
+            None
+        )
+        .is_err());
         assert!(import(
             &target_store,
             supported,
             &json!({"path":path,"trust_images":true,"manifest_sha256":"changed"}),
+            &target,
             None
         )
         .is_err());
@@ -804,6 +875,7 @@ mod tests {
             &target_store,
             supported,
             &json!({"path":path,"trust_images":true,"manifest_sha256":preview["manifest_sha256"]}),
+            &target,
             None,
         )?;
         assert_eq!(

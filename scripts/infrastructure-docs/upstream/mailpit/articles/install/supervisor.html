@@ -1,0 +1,36 @@
+<main>
+		
+		<h1>Supervisor integration</h1>
+		<p>Mailpit can be easily configured via supervisor to automatically start when your computer starts.
+There are a few points worth noting before you do:</p>
+<ol>
+<li>It is advisable not to run the service as “root” for security purposes. For this example, we will use a user and group called “mailpit”, but this could be any existing user on your machine.</li>
+<li>The database store must be readable and writable by this user; otherwise, Mailpit will fail to start. For this example, we use <code>/var/lib/mailpit/mailpit.db</code>.</li>
+</ol>
+<p>Create a supervisor service configuration file in <code>/path/to/your/supervisor-configs/mailpit.ini</code>:</p>
+<div><pre><code class="language-shell"><span><span><span>[</span>program:mailpit<span>]</span>
+</span></span><span><span>
+</span></span><span><span><span>[</span>Service<span>]</span>
+</span></span><span><span><span>command</span><span>=</span>/usr/local/bin/mailpit -d /var/lib/mailpit/mailpit.db
+</span></span><span><span><span>user</span><span>=</span>mailpit
+</span></span><span><span><span>numprocs</span><span>=</span><span>1</span>
+</span></span><span><span><span>startsecs</span><span>=</span><span>0</span>
+</span></span><span><span><span>autostart</span><span>=</span><span>true</span>
+</span></span><span><span><span>autorestart</span><span>=</span><span>true</span>
+</span></span><span><span><span>startretries</span><span>=</span><span>10</span>
+</span></span><span><span><span>process_name</span><span>=</span>%<span>(</span>program_name<span>)</span>s_%<span>(</span>process_num<span>)</span>02d
+</span></span><span><span>
+</span></span><span><span><span># define your environments</span>
+</span></span><span><span><span># environment=MP_SMTP_RELAY_HOST="/path/to/your/smtp-relay.conf",MP_SMTP_RELAY_PORT="587"</span>
+</span></span></code></pre></div><h2 id="enable-the-service">Enable the service</h2>
+<div><pre><code class="language-shell"><span><span>supervisorctl reread
+</span></span></code></pre></div><h2 id="start-the-service">Start the service</h2>
+<div><pre><code class="language-shell"><span><span>supervisorctl update
+</span></span></code></pre></div><h2 id="verify-mailpit-is-running">Verify Mailpit is running</h2>
+<div><pre><code class="language-shell"><span><span>supervisorctl status
+</span></span></code></pre></div>
+
+		
+		
+		
+	</main>

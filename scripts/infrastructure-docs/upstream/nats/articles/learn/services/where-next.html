@@ -1,0 +1,122 @@
+<main><header><h1>Where to go next</h1></header>
+<p>You started this chapter with a hand-rolled request-reply responder: a
+subscriber on <code>orders.inventory.check</code> that read a request and published a
+reply. You end it with <code>OrderInventory</code>, a named, versioned service that
+answers the same subject, announces itself on <code>$SRV</code>, counts every request,
+and load-balances across as many instances as you start. The behavior on the
+wire never changed; the framework added everything around it.</p>
+<p>This page doesn't teach anything new. It collects the model you built into
+one place and points you at the chapters and Reference that take it further.</p>
+<h2 id="the-core-idea">The core idea</h2>
+<p>Every page in this chapter circled the same idea, which is worth restating on
+its own.</p>
+<p>A <strong>service</strong> is a request-reply responder the framework formalizes. You
+hand it a name and a version, and it auto-generates a unique service ID,
+subscribes the discovery verbs, and tracks stats for you. The responder you
+already knew how to write now has an identity.</p>
+<p>An <strong>endpoint</strong> is a named handler on a subject, and a <strong>group</strong> is a
+subject-prefix namespace that organizes endpoints. One service can expose
+many endpoints; a group makes them answer on <code>{prefix}.{endpoint}</code>. This is
+how one running service covers more than one subject.</p>
+<p>The three <strong>discovery verbs</strong> on <code>$SRV</code> (PING, INFO, and STATS) make a
+service discoverable and observable without extra wiring. Ask <code>$SRV.INFO</code>
+and every matching instance tells you its endpoints; ask <code>$SRV.STATS</code> and it
+tells you its counters.</p>
+<p>The default <strong>queue group</strong> <code>"q"</code> scales the service. Run more instances with
+the same name and version, and the server delivers each request to exactly
+one of them. There's no coordinator and no config; you scale by running more
+instances.</p>
+<p>Those four pieces are the service, the endpoint and group, discovery, and the
+queue group. Everything else in this chapter is a refinement of them.</p>
+<h2 id="where-the-reference-details-live">Where the reference details live</h2>
+<p>This chapter is unversioned and concept-first. The exact config fields, their
+valid ranges, and the wire format of the discovery verbs live in
+<strong>Reference</strong>, which is versioned and exhaustive. When you need the precise
+type of a service config field, the full endpoint option list, or the JSON
+schema of an INFO response, that's where to look.</p>
+<p>The <a href="/reference/">Reference root</a> is the entry point. The handoff phrases
+throughout this chapter ("the full set of service configuration fields is
+documented in Reference") all point into it. The <code>$SRV</code> wire format and its
+PING, INFO, and STATS response schemas live under
+<a href="/reference/services/">the services reference</a>.</p>
+<h2 id="sibling-deep-dives">Sibling deep dives</h2>
+<p>A service is built on top of pieces other chapters teach in full, and it
+leaves gaps that other chapters fill. Follow whichever one matches the
+question you're asking now.</p>
+<p>The <a href="/learn/core-nats">Core NATS deep dive</a> covers the lower layer this one
+builds on. <a href="/learn/core-nats/request-reply">Request-reply</a> is the mechanism
+every endpoint uses, and <a href="/learn/core-nats/queue-groups">queue groups</a> are
+exactly the load balancing that the default group <code>"q"</code> gives you. If anything
+in this chapter seemed to skip a step, that step is covered there.</p>
+<p>The <a href="/learn/jetstream">JetStream deep dive</a> is where you go when a service
+needs to remember something. A service is at-most-once request-reply: it
+stores nothing, and when an instance stops, its in-flight work is gone. The
+moment your handler needs durable state, say an order that must survive a
+restart, that state belongs in a stream, not in the service.</p>
+<p>The <a href="/learn/resilient-clients">Resilient Clients deep dive</a> covers the
+connection underneath every instance: reconnect, drain beyond the framework's
+<code>Stop()</code>, slow-consumer handling, and error callbacks. This chapter assumed a
+healthy local connection; production connections aren't always healthy.</p>
+<p>The <a href="/learn/security">Security deep dive</a> covers subject isolation for <code>$SRV</code>
+subjects, account access control, and cross-account service placement.</p>
+<p>The <a href="/learn/monitoring">Monitoring deep dive</a> goes past per-endpoint stats to
+the server-side view: exporting metrics to Prometheus and building the
+dashboards that tell you a service is slow before a caller complains. The
+service-latency advisory schema itself lives in
+<a href="/reference/services/">Reference</a>.</p>
+<p>The <a href="/learn/topologies">Topologies deep dive</a> covers running services across
+more than one server: how <code>$SRV</code> and service subjects propagate across leaf
+nodes and gateways, and how to place instances in more than one region.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>This is the end of the chapter. The whole arc is complete, and no new
+scenario state is introduced here. Your <code>OrderInventory</code> service (with its
+<code>check</code> endpoint on <code>orders.inventory.check</code>) and your <code>ShippingQuote</code>
+service (with its <code>quote</code> endpoint on <code>shipping.quote</code>) are still running in
+your session exactly as you left them on the previous page, load-balancing
+across whatever instances you started. You can keep experimenting, or stop
+them gracefully when you're done; each <code>Stop()</code> drains in-flight requests
+and unsubscribes the discovery verbs.</p>
+<p>You hold the core model: a service is a named, versioned, discoverable
+request-reply responder; endpoints and groups organize it; the <code>$SRV</code> verbs
+make it discoverable and observable; and the queue group scales it. That model
+is the foundation for everything else you'll build on the framework.</p>
+<h2 id="production-checklist">Production checklist</h2>
+<p>Every page in this chapter closed with a Pitfalls section. This collects the
+action items from all of them in one place: a last pass before you trust a
+service with real orders. Each group links back to the page that explains the
+why.</p>
+<h3 id="your-first-service--see-pitfalls">Your first service — see <a href="/learn/services/your-first-service#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Unmarshal <code>req.Data()</code> inside the handler and respond with a service error on bad input, rather than letting a malformed request crash the handler.</li>
+<li><input/> <!-- -->Pick a <code>Name</code> that matches the allowed character set and a <code>Version</code> that's valid SemVer; an invalid value fails service creation outright.</li>
+</ul>
+<h3 id="endpoints-and-groups--see-pitfalls">Endpoints and groups — see <a href="/learn/services/endpoints-and-groups#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Override an endpoint's queue group only when you mean to change who load-balances with whom; the change is silent and easy to get wrong.</li>
+<li><input/> <!-- -->Remember that disabling the queue group turns an endpoint into broadcast (every instance answers) instead of load balancing.</li>
+<li><input/> <!-- -->Treat endpoints and metadata as immutable once added; there's no remove, so name and shape them deliberately the first time.</li>
+</ul>
+<h3 id="discovery--see-pitfalls">Discovery — see <a href="/learn/services/discovery#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Collect discovery responses with a deadline-or-count loop; discovery is broadcast, so a single request returns only one instance, not all of them.</li>
+<li><input/> <!-- -->Treat <code>$SRV</code> as a reserved subject prefix; never publish to it yourself, or you collide with the framework's control plane.</li>
+</ul>
+<h3 id="observability--see-pitfalls">Observability — see <a href="/learn/services/observability#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Check <code>Nats-Service-Error-Code</code> on every reply; a service error rides in headers, not as a transport failure, so an unchecked failed call looks like success.</li>
+<li><input/> <!-- -->Aggregate stats across instance IDs yourself; counters are per-instance, and <code>Reset()</code> zeroes them.</li>
+</ul>
+<h3 id="scaling--see-pitfalls">Scaling — see <a href="/learn/services/scaling#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Protect any external state your instances share (a database or a stream) rather than assuming a single instance; the framework holds no shared memory across instances.</li>
+<li><input/> <!-- -->Keep handlers non-blocking, or run more instances; a blocking handler stalls every other request on that instance.</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/">Reference</a> — every service config field, endpoint option,
+and <code>$SRV</code> wire schema, versioned and exhaustive.</li>
+<li><a href="/learn/core-nats">Core NATS deep dive</a> — the request-reply and queue-group
+foundation this chapter is built on.</li>
+<li><a href="/learn/jetstream">JetStream deep dive</a> — where service state goes when it
+has to survive a restart.</li>
+</ul></main>

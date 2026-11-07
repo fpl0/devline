@@ -1,0 +1,382 @@
+<main><header><h1>Virtual Hosts</h1></header>
+<h2 id="introduction">Introduction</h2>
+<p>RabbitMQ is a multi-tenant system: connections, exchanges, queues, bindings, user permissions,
+policies and some other things belong to <strong>virtual hosts</strong>, logical groups of
+entities. If you are familiar with <a href="https://httpd.apache.org/docs/2.4/vhosts/">virtual hosts in Apache</a>
+or <a href="https://www.nginx.com/resources/wiki/start/topics/examples/server_blocks/">server blocks in Nginx</a>, the idea is similar.</p>
+<p>There is, however, one important difference: virtual hosts in Apache are defined
+in the configuration file; that's not the case with RabbitMQ: virtual hosts are
+<a href="#creating">created</a> and <a href="#deleting">deleted</a> using <code>rabbitmqctl</code> or the HTTP API instead.</p>
+<h2 id="logical-separation">Logical and Physical Separation</h2>
+<p>Virtual hosts provide logical grouping and separation of
+resources. Separation of physical resources is not a goal of virtual
+hosts, although <a href="#limits">certain resources can be limited</a> for individual virtual hosts.</p>
+<p>For example, <a href="/docs/4.3/access-control">resource permissions</a> in RabbitMQ are
+scoped per virtual host. A user doesn't have global permissions, only
+permissions in one or more virtual hosts. User tags can be considered
+global permissions but they are an exception to the rule.</p>
+<p>Therefore when talking about user permissions it is very important
+to clarify what virtual host(s) they apply to.</p>
+<h2 id="client-connections">Virtual Hosts and Client Connections</h2>
+<p>A virtual host has a name. When an AMQP 0-9-1 client connects to
+RabbitMQ, it specifies a vhost name to connect to. If authentication
+succeeds and the username provided was <a href="/docs/4.3/access-control">granted permissions</a> to the
+vhost, connection is established.</p>
+<p>Connections to a vhost can only operate on exchanges, queues, bindings, and so on in
+that vhost. "Interconnection" of e.g. a queue and an exchange in different vhosts is only possible
+when an application connects to two vhosts at the same time. For example, an
+application can consume from one vhost then republishes into the other. This scenario
+can involve vhosts in different clusters or the same cluster (or a single node).
+<a href="/docs/4.3/shovel">RabbitMQ Shovel plugin</a> is one example of such application.</p>
+<h2 id="creating">Creating a Virtual Host</h2>
+<p>A virtual host can be created using CLI tools or an <a href="/docs/4.3/management">HTTP API</a> endpoint.</p>
+<p>A newly created vhost will have a default set of <a href="/tutorials/amqp-concepts">exchanges</a>
+but no other entities and no <a href="/docs/4.3/access-control">user permissions</a>. For a user to be able to connect
+and use the virtual host, permissions to it must be <a href="/docs/4.3/access-control">granted</a> to every user that will use the vhost,
+e.g. using <a href="/docs/4.3/man/rabbitmqctl.8#set_permissions">rabbitmqctl set_permissions</a>.</p>
+<h3 id="using-cli-tools">Using CLI Tools</h3>
+<p>A virtual host can be created using <a href="/docs/4.3/cli">rabbitmqctl</a>'s <code>add_vhost</code> command
+which accepts virtual host name as the only mandatory argument.</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl add_vhost qa1</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin vhosts declare --name qa1</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat add_vhost qa1</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe vhosts declare --name qa1</code></pre></div></div>
+<h3 id="using-http-api">Using HTTP API</h3>
+<p>A virtual host can be created using the <code>PUT /api/vhosts/{name}</code> <a href="/docs/4.3/management">HTTP API</a> endpoint
+where <code>{name}</code> is the name of the virtual host</p>
+<p>Here's an example that uses <a href="https://curl.haxx.se/">curl</a> to create a virtual host <code>vh1</code> by contacting
+a node at <code>rabbitmq.local:15672</code>:</p>
+<div><div><pre><code class="language-bash">curl -u userename:pa$sw0rD -X PUT http://rabbitmq.local:15672/api/vhosts/vh1</code></pre></div></div>
+<h3 id="preprovisioning">Bulk Creation and Pre-provisioning</h3>
+<p>Virtual host creation involves a blocking cluster-wide transaction. Each node has to perform
+a number of setup steps which are moderately expensive. In practice it can take up to a few seconds
+for a virtual host to be created.</p>
+<p>When a number of virtual hosts is created in a loop, CLI and HTTP API clients can outpace the actual
+rate of virtual host creation and experience timeouts. If that's the case operation timeout should be increased
+and delays should be introduced between operations.</p>
+<p><a href="/docs/4.3/definitions">Definition export and import</a> is the recommended
+way of pre-configuring many virtual hosts at deployment time.</p>
+<h2 id="metadata">Virtual Host Metadata</h2>
+<p>Virtual hosts can have metadata associated with them:</p>
+<ul>
+<li>A description</li>
+<li>A set of tags</li>
+<li>Default queue type configured for the virtual host</li>
+</ul>
+<p>All these settings are optional. They can be provided at virtual host creation time
+or updated later.</p>
+<h3 id="using-cli-tools-1">Using CLI Tools</h3>
+<p>Virtual host metadata can be set at creation time or updated later:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># Create a virtual host with metadata
+rabbitmqctl add_vhost qa1 --description "QA env 1" --default-queue-type quorum --tags qa,project-a
+
+# Update virtual host metadata
+
+rabbitmqctl update_vhost_metadata qa1 --description "QA environment for issue 1662" --default-queue-type quorum --tags qa,project-a,qa-1662
+
+# List virtual hosts with metadata
+
+rabbitmqctl -q --formatter=pretty_table list_vhosts name description tags default_queue_type
+</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># Create a virtual host with metadata
+rabbitmqadmin vhosts declare --name qa1 \
+    --description "QA environment 1" \
+    --default-queue-type quorum
+
+# Create a virtual host with tracing enabled
+rabbitmqadmin vhosts declare --name qa-tracing \
+    --description "QA environment with tracing" \
+    --default-queue-type quorum \
+    --tracing
+
+rabbitmqadmin vhosts list</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell"># Create a virtual host with metadata
+rabbitmqctl.bat add_vhost qa1 --description "QA env 1" --default-queue-type quorum
+
+# Update virtual host metadata
+
+rabbitmqctl.bat update_vhost_metadata qa1 --description "QA environment for issue 1662" --default-queue-type quorum --tags qa,project-a,qa-1662
+
+# List virtual hosts with metadata
+
+rabbitmqctl.bat -q --formatter=pretty_table list_vhosts name description tags default_queue_type
+</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell"># Create a virtual host with metadata
+rabbitmqadmin.exe vhosts declare --name qa1 ^
+    --description "QA environment 1" ^
+    --default-queue-type quorum
+
+# Create a virtual host with tracing enabled
+rabbitmqadmin.exe vhosts declare --name qa-tracing ^
+    --description "QA environment with tracing" ^
+    --default-queue-type quorum ^
+    --tracing
+
+rabbitmqadmin.exe vhosts list</code></pre></div></div>
+<h3 id="using-http-api-1">Using HTTP API</h3>
+<p>The <code>PUT /api/vhosts/{name}</code> <a href="/docs/4.3/management">HTTP API</a> endpoint
+accepts a number of optional keys.</p>
+<p>Here's an example that uses <a href="https://curl.haxx.se/">curl</a> to create a virtual host <code>qa1</code> by contacting
+a node at <code>rabbitmq.local:15672</code>. <a href="/docs/4.3/quorum-queues">Quorum queues</a> will be used for default queue type,
+a description and two tags:</p>
+<div><div><pre><code class="language-bash">curl -u userename:pa$sw0rD -X PUT http://rabbitmq.local:15672/api/vhosts/qa1 \
+                           -H "content-type: application/json" \
+                           --data-raw '{"description": "QA environment 1", "tags": "qa,project-a", "default_queue_type": "quorum"}'</code></pre></div></div>
+<p>The same endpoint can be used to update all or some of the metadata values
+demonstrated above:</p>
+<div><div><pre><code class="language-bash">curl -u userename:pa$sw0rD -X PUT http://rabbitmq.local:15672/api/vhosts/qa1 \
+                           -H "content-type: application/json" \
+                           --data-raw '{"description": "QA environment for issue 1662", "tags": "qa,project-a,qa-1662", "default_queue_type": "quorum"}'</code></pre></div></div>
+<p>Virtual host metadata is returned by the <code>GET /api/vhosts/{name}</code> endpoint:</p>
+<div><div><pre><code class="language-bash">curl -u userename:pa$sw0rD -X GET http://rabbitmq.local:15672/api/vhosts/qa1</code></pre></div></div>
+<h2 id="default-queue-type">Default Queue Type (DQT)</h2>
+<p>When a client declares a queue without explicitly specifying its type using the <code>x-queue-type</code> header,
+a configurable default type is used. The default can be overridden by specifying it in virtual host metadata (see above):</p>
+<div><div><pre><code class="language-bash">rabbitmqctl add_vhost qa1 --description "QA environment 1" --default-queue-type quorum --tags qa,project-a</code></pre></div></div>
+<p>Supported queue types are:</p>
+<ul>
+<li>"quorum"</li>
+<li>"stream"</li>
+<li>"classic"</li>
+</ul>
+<p>The default is only effective for new queue declarations; updating the default will not affect
+queue type of any existing queues or streams because queue type is immutable and cannot
+be changed after declaration.</p>
+<p>For queues that were declared without an explicitly set
+queue type, the effective virtual host default will be injected into the queue properties
+at <a href="/docs/4.3/definitions">definition export time</a>.</p>
+<h3 id="node-wide-default-queue-type-node-wide-dqt">Node-wide Default Queue Type (Node-wide DQT)</h3>
+<p>Instead of configuring the same default queue type for every virtual host
+in the cluster, a node-wide default can be set using <code>rabbitmq.conf</code>:</p>
+<div><div><pre><code class="language-ini"># supported values are: quorum, stream, classic, or a custom queue type module name
+default_queue_type = quorum</code></pre></div></div>
+<p>When both the virtual host DQT and the node-wide DQT are set, the virtual host one will take
+precedence.</p>
+<h3 id="migration-to-quorum-queues-a-way-to-relax-queue-property-equivalence-checks">Migration to Quorum Queues: a Way to Relax Queue Property Equivalence Checks</h3>
+<p><a href="/docs/4.3/queues#property-equivalence">Queue property equivalence check</a> for queue type can be relaxed
+using a boolean setting, <code>quorum_queue.property_equivalence.relaxed_checks_on_redeclaration</code>,
+makes it possible to relax queue property equivalence checks
+for quorum queues.</p>
+<p>Specifically, when a quorum queue is redeclared and the client-provided
+type is set to "classic", this setting will help avoid a channel exception, making it
+easier to migrate to quorum queues step by step, without upgrading all applications in a short
+period of time.</p>
+<div><div><pre><code class="language-ini"># this setting is meant to be used during transitionary periods when
+# RabbitMQ default queue type is changed but not all applications have been
+# updated yet
+quorum_queue.property_equivalence.relaxed_checks_on_redeclaration = true</code></pre></div></div>
+<h2 id="deleting">Deleting a Virtual Host</h2>
+<p>A virtual host can be deleted using CLI tools or an <a href="/docs/4.3/management">HTTP API</a> endpoint.</p>
+<p>Deleting a virtual host will permanently delete all entities (queues, exchanges, bindings, policies, permissions, etc) in it.</p>
+<h3 id="using-cli-tools-2">Using CLI Tools</h3>
+<p>A virtual host can be deleted using <a href="/docs/4.3/cli">rabbitmqctl</a>'s <code>delete_vhost</code> command
+which accepts virtual host name as the only mandatory argument.</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl delete_vhost qa1</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin vhosts delete --name qa1</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat delete_vhost qa1</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe vhosts delete --name qa1</code></pre></div></div>
+<h3 id="using-http-api-2">Using HTTP API</h3>
+<p>A virtual host can be deleted using the <code>DELETE /api/vhosts/{name}</code> <a href="/docs/4.3/management">HTTP API</a> endpoint
+where <code>{name}</code> is the name of the virtual host.</p>
+<p>Here's an example that uses <a href="https://curl.haxx.se/">curl</a> to delete a virtual host <code>vh1</code> by contacting
+a node at <code>rabbitmq.local:15672</code>:</p>
+<div><div><pre><code class="language-bash">curl -u userename:pa$sw0rD -X DELETE http://rabbitmq.local:15672/api/vhosts/vh1</code></pre></div></div>
+<h3 id="deleting-multiple-virtual-hosts">Deleting Multiple Virtual Hosts</h3>
+<p><code>rabbitmqadmin</code> supports deleting multiple virtual hosts at once using a name matching pattern.</p>
+<div class="admonition danger"><div class="admonition-title">danger</div><div><p><strong>This is an extremely destructive operation and must be used with great care.</strong></p><p>This command will delete all virtual hosts matching the provided regular expression pattern.
+All data in those virtual hosts will be permanently lost, including:</p><ul>
+<li>Queues, streams, and partitioned streams</li>
+<li>Exchanges and bindings</li>
+<li>Messages</li>
+<li>User permissions</li>
+<li>Federation upstreams and links</li>
+<li>Shovels</li>
+<li>Policies and operator policies</li>
+<li>Runtime parameters</li>
+</ul><p><strong>Always use <code>--dry-run</code> first to verify what will be deleted before running the actual deletion.</strong></p></div></div>
+<h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># ALWAYS run with --dry-run first to see what would be deleted
+rabbitmqadmin vhosts delete_multiple --name-pattern "^test-.*" --dry-run
+
+# After verifying with --dry-run, use --approve to perform the actual deletion
+
+# This will delete ALL virtual hosts whose names start with "test-"
+
+rabbitmqadmin vhosts delete_multiple --name-pattern "^test-.\*" --approve
+</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell"># ALWAYS run with --dry-run first to see what would be deleted
+rabbitmqadmin.exe vhosts delete_multiple --name-pattern "^test-.*" --dry-run
+
+# After verifying with --dry-run, use --approve to perform the actual deletion
+# This will delete ALL virtual hosts whose names start with "test-"
+rabbitmqadmin.exe vhosts delete_multiple --name-pattern "^test-.*" --approve</code></pre></div></div>
+<div class="admonition note"><div class="admonition-title">note</div><div><p>The default virtual host (<code>/</code>) is always preserved and will never be deleted by this command, even if it matches the pattern.</p></div></div>
+<h2 id="deletion-protection">Deletion Protection</h2>
+<p>A virtual host can be protected from deletion. Protected virtual hosts cannot be deleted
+until the protection is removed.</p>
+<h3 id="using-cli-tools-3">Using CLI Tools</h3>
+<p>A virtual host can be protected from deletion using <code>rabbitmqctl</code> or <code>rabbitmqadmin</code>.</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl enable_vhost_protection_from_deletion "vhost-name"</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin vhosts enable_deletion_protection --name "vhost-name"</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat enable_vhost_protection_from_deletion "vhost-name"</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe vhosts enable_deletion_protection --name "vhost-name"</code></pre></div></div>
+<p>An attempt to delete the virtual host then will fail with a specific message:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl delete_vhost "vhost-name"
+# ...
+# =&gt; Error:
+# =&gt; Cannot delete this virtual host: it is protected from deletion. To lift the protection, inspect and update its metadata</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin vhosts delete --name "vhost-name"
+# =&gt; Error: HTTP request failed with status 412: Precondition Failed
+# =&gt; Refusing to delete virtual host 'vhost-name' because it is protected from deletion</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat delete_vhost "vhost-name"
+# ...
+# =&gt; Error:
+# =&gt; Cannot delete this virtual host: it is protected from deletion. To lift the protection, inspect and update its metadata</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe vhosts delete --name "vhost-name"
+# =&gt; Error: HTTP request failed with status 412: Precondition Failed
+# =&gt; Refusing to delete virtual host 'vhost-name' because it is protected from deletion</code></pre></div></div>
+<p>To remove the protection:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl disable_vhost_protection_from_deletion "vhost-name"</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin vhosts disable_deletion_protection --name "vhost-name"</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat disable_vhost_protection_from_deletion "vhost-name"</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe vhosts disable_deletion_protection --name "vhost-name"</code></pre></div></div>
+<p>with the protection removed, the virtual host can be deleted again:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl delete_vhost "vhost-name"
+# =&gt; Deleting vhost "vhost-name" ...</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin vhosts delete --name "vhost-name"
+# =&gt; (No output on success)</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat delete_vhost "vhost-name"
+# =&gt; Deleting vhost "vhost-name" ...</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe vhosts delete --name "vhost-name"
+# =&gt; (No output on success)</code></pre></div></div>
+<p>To see whether a virtual host is protected from deletion, use <code>list_vhosts</code> command with
+an extra column, <code>protected_from_deletion</code>:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl list_vhosts name tags default_queue_type metadata protected_from_deletion --formatter=pretty_table
+# =&gt; Listing vhosts ...
+# =&gt; ┌───────────────────────────┬─────────────────────────┐
+# =&gt; │ name                      │ protected_from_deletion │
+# =&gt; ├───────────────────────────┼─────────────────────────┤
+# =&gt; │ /                         │ false                   │
+# =&gt; ├───────────────────────────┼─────────────────────────┤
+# =&gt; │ vh1                       │ true                    │
+# =&gt; ├───────────────────────────┼─────────────────────────┤
+# =&gt; │ vh2                       │ false                   │
+# =&gt; └───────────────────────────┴─────────────────────────┘</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin vhosts list
+# Shows all virtual hosts (protection status not displayed in list view)</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat list_vhosts name tags default_queue_type metadata protected_from_deletion --formatter=pretty_table
+# =&gt; Listing vhosts ...
+# =&gt; ┌───────────────────────────┬─────────────────────────┐
+# =&gt; │ name                      │ protected_from_deletion │
+# =&gt; ├───────────────────────────┼─────────────────────────┤
+# =&gt; │ /                         │ false                   │
+# =&gt; ├───────────────────────────┼─────────────────────────┤
+# =&gt; │ vh1                       │ true                    │
+# =&gt; ├───────────────────────────┼─────────────────────────┤
+# =&gt; │ vh2                       │ false                   │
+# =&gt; └───────────────────────────┴─────────────────────────┘</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe vhosts list
+# Shows all virtual hosts (protection status not displayed in list view)</code></pre></div></div>
+<h3 id="using-http-api-3">Using HTTP API</h3>
+<p>A virtual host can be protected from deletion using the <code>POST /api/vhosts/{name}/deletion/protection</code> <a href="/docs/4.3/management">HTTP API</a> endpoint
+where <code>{name}</code> is the name of the virtual host.</p>
+<p>Here's an example that uses <a href="https://curl.haxx.se/">curl</a> to protect a virtual host <code>vh1</code> from deletion by contacting
+a node at <code>rabbitmq.local:15672</code>:</p>
+<div><div><pre><code class="language-bash">curl -u userename:pa$sw0rD -X POST http://rabbitmq.local:15672/api/vhosts/vh1/deletion/protection</code></pre></div></div>
+<p>An attempt to delete the virtual host then will fail with a <code>412 Precondition Failed</code> status:</p>
+<div><div><pre><code class="language-bash">curl -sL -u guest:guest -X DELETE http://localhost:15672/api/vhosts/vh1/
+# =&gt; &lt; HTTP/1.1 412 Precondition Failed</code></pre></div></div>
+<p>The body will include a specific error, similar to what CLI tools output:</p>
+<div><div><pre><code class="language-json">{
+  "error": "precondition_failed",
+  "reason": "Refusing to delete virtual host 'vh1' because it is protected from deletion"
+}</code></pre></div></div>
+<p>To remove the protection, use <code>DELETE /api/vhosts/{name}/deletion/protection</code>:</p>
+<div><div><pre><code class="language-bash">curl -u userename:pa$sw0rD -X DELETE http://rabbitmq.local:15672/api/vhosts/vh1/deletion/protection</code></pre></div></div>
+<p>with the protection removed, the virtual host can be deleted again:</p>
+<div><div><pre><code class="language-bash">curl -vv -sL -u guest:guest -X DELETE http://localhost:15672/api/vhosts/
+# ...
+# =&gt; &lt; HTTP/1.1 204 No Content</code></pre></div></div>
+<p>To see whether a virtual host is protected from deletion, use the <code>GET /api/vhosts</code> or <code>GET /api/vhosts/{vhost}</code>
+endpoints and then inspect the <code>metadata.protected_from_deletion</code> response body field:</p>
+<div><div><pre><code class="language-bash">curl -sL -u guest:guest -X GET http://localhost:15672/api/vhosts/vh1
+# =&gt; {
+# =&gt;   "name": "vh1",
+# =&gt;   "description": "",
+# =&gt;   "tags": [],
+# =&gt;   "default_queue_type": "classic",
+# =&gt;   "protected_from_deletion": true,
+# =&gt;   "metadata": {
+# =&gt;     "description": "",
+# =&gt;     "tags": [],
+# =&gt;     "default_queue_type": "classic",
+# =&gt;     "protected_from_deletion": true
+# =&gt;   },
+# =&gt;   "tracing": false,
+# =&gt;   "cluster_state": {
+# =&gt;     "rabbit@sunnyside": "running"
+# =&gt;   }
+# =&gt; }</code></pre></div></div>
+<h3 id="definition-imports">Definition Imports</h3>
+<p>If a virtual host is created via a <a href="/docs/4.3/definitions">definition file</a>, adding a new metadata key, <code>"protected_from_deletion"</code>,
+that is set to <code>true</code>, will mark the virtual host as protected when it is created:</p>
+<div><div><pre><code class="language-json">{
+  "name": "protected",
+  "description": "",
+  "metadata": {
+    "description": "This virtual host is protected from deletion with a special metadata key",
+    "tags": [],
+    "default_queue_type": "classic",
+    "protected_from_deletion": true
+  },
+  "tags": [],
+  "default_queue_type": "classic"
+}</code></pre></div></div>
+<h2 id="limits">Limits</h2>
+<p>In some cases it is desirable to limit the maximum allowed number of queues
+or concurrent client connections in a vhost.
+Per-virtual host limits exist exactly for such cases.</p>
+<p>These limits can be configured using <code>rabbitmqctl</code> or <a href="/docs/4.3/http-api-reference">HTTP API</a>.</p>
+<h3 id="configuring-limits">Configuring Limits</h3>
+<p>Virtual host limits can be configured using <code>rabbitmqctl</code> or <code>rabbitmqadmin</code>.</p>
+<h4 id="configuring-max-connection-limit">Configuring Max Connection Limit</h4>
+<p>To limit the total number of concurrent client connections in virtual host
+<code>vhost_name</code>, use the following limit definition:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl set_vhost_limits -p vhost_name '{"max-connections": 256}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin --vhost vhost_name vhost_limits declare --name max-connections --value 256</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat set_vhost_limits -p vhost_name "{""max-connections"": 256}"</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe --vhost vhost_name vhost_limits declare --name max-connections --value 256</code></pre></div></div>
+<p>To block client connections to a vhost, set the limit to a zero:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl set_vhost_limits -p vhost_name '{"max-connections": 0}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin --vhost vhost_name vhost_limits declare --name max-connections --value 0</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat set_vhost_limits -p vhost_name "{""max-connections"": 0}"</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe --vhost vhost_name vhost_limits declare --name max-connections --value 0</code></pre></div></div>
+<h4 id="configuring-max-number-of-queues">Configuring Max Number of Queues</h4>
+<p>To limit the total number of queues in vhost
+<code>vhost_name</code>, use the following limit definition:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl set_vhost_limits -p vhost_name '{"max-queues": 1024}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin --vhost vhost_name vhost_limits declare --name max-queues --value 1024</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat set_vhost_limits -p vhost_name "{""max-queues"": 1024}"</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe --vhost vhost_name vhost_limits declare --name max-queues --value 1024</code></pre></div></div>
+<h3 id="listing-virtual-host-limits">Listing Virtual Host Limits</h3>
+<p>To list limits for a virtual host:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># uses the default virtual host (/)
+rabbitmqctl list_vhost_limits
+
+# or for a specific virtual host
+
+rabbitmqctl list_vhost_limits -p vhost_name
+</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># uses the default virtual host (/)
+rabbitmqadmin vhost_limits list
+
+# or for a specific virtual host
+rabbitmqadmin --vhost vhost_name vhost_limits list</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell"># uses the default virtual host (/)
+rabbitmqctl.bat list_vhost_limits
+
+# or for a specific virtual host
+
+rabbitmqctl.bat list_vhost_limits -p vhost_name
+</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell"># uses the default virtual host (/)
+rabbitmqadmin.exe vhost_limits list
+
+# or for a specific virtual host
+rabbitmqadmin.exe --vhost vhost_name vhost_limits list</code></pre></div></div>
+<h3 id="clearing-virtual-host-limits">Clearing Virtual Host Limits</h3>
+<p>To clear a virtual host limit:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl clear_vhost_limits -p vhost_name '{"max-connections": 256}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin --vhost vhost_name vhost_limits delete --name max-connections</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat clear_vhost_limits -p vhost_name "{""max-connections"": 256}"</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe --vhost vhost_name vhost_limits delete --name max-connections</code></pre></div></div>
+<h2 id="pre-configuring-virtual-host-limits">Pre-configuring Virtual Host Limits</h2>
+<p>Virtual host limits can be pre-configured in <code>rabbitmq.conf</code> for groups of virtual hosts.
+This is useful when virtual hosts are created dynamically by cluster users
+(for example, a RabbitMQ cluster is offered as a service) but all newly created virtual hosts
+must use a consistent set of limits.</p>
+<p>Multiple limit sets can be defined, each with a pattern that matches virtual host names
+and a set of limits to set:</p>
+<div><div><pre><code class="language-ini"># Default limits for virtual hosts starting with "pipelines"
+default_limits.vhosts.1.pattern = ^pipelines
+default_limits.vhosts.1.max_connections = 10
+default_limits.vhosts.1.max_queues = 1000
+
+# Default limits for virtual hosts starting with "telemetry"
+default_limits.vhosts.2.pattern = ^telemetry
+default_limits.vhosts.2.max_connections = 10000
+default_limits.vhosts.2.max_queues = 10000
+
+# Default limits for all other virtual hosts
+default_limits.vhosts.3.pattern = .*
+default_limits.vhosts.3.max_connections = 20
+default_limits.vhosts.3.max_queues = 20</code></pre></div></div>
+<p>Use <code>-1</code> to indicate unlimited for a specific limit.</p>
+<h2 id="virtual-hosts-and-stomp">Virtual Hosts and STOMP</h2>
+<p>Like AMQP 0-9-1, STOMP includes the <a href="https://stomp.github.io/stomp-specification-1.2.html#CONNECT_or_STOMP_Frame">concept of virtual hosts</a>. See
+the <a href="/docs/4.3/stomp">STOMP guide</a> for details.</p>
+<h2 id="virtual-hosts-and-mqtt">Virtual Hosts and MQTT</h2>
+<p>Unlike AMQP 0-9-1 and STOMP, MQTT doesn't have the concept of virtual
+hosts. MQTT connections use a single RabbitMQ host by default. There
+are MQTT-specific convention and features that make it possible for
+clients to connect to a specific vhosts without any client library
+modifications. See the <a href="/docs/4.3/mqtt">MQTT guide</a> for details.</p></main>

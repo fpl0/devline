@@ -1,0 +1,105 @@
+<main><header><h1>Resilient Clients Deep Dive</h1></header>
+<p>Core NATS taught you to publish and subscribe on a single server running
+on your laptop. This chapter takes those same publishers and subscribers
+and asks the harder question: what happens when the server goes away, the
+network stalls, or the handler can't keep up?</p>
+<p>The answer isn't new application code but the <strong>connection</strong>, the live
+link from your client to a server, configured to survive faults. A
+resilient client detects when its connection breaks, buffers work while
+it's broken, recovers without losing the application's place, and shuts
+down without losing in-flight work.</p>
+<p>One idea holds the whole chapter together: the connection is a <strong>state
+machine</strong>. It moves through a small set of states (DISCONNECTED,
+CONNECTING, CONNECTED, RECONNECTING, DRAINING, CLOSED), and every fault
+is just a transition between them. A server dying moves a
+CONNECTED client to RECONNECTING. A clean shutdown moves it to DRAINING
+and then CLOSED. Once you can picture that machine, each mechanism in this
+chapter is one well-defined edge on it.</p>
+<p>We harden one running system: the Acme <code>ORDERS</code> app you already know.
+The <code>order-svc</code> publisher and the <code>warehouse</code>, <code>notifications</code>, and
+<code>analytics</code> subscribers keep their code; what changes is the connection
+each one opens. Every example uses the same order event:</p>
+<div><div><pre><code class="language-json">{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}</code></pre></div></div>
+<h2 id="by-the-end-youll-have">By the end you'll have</h2>
+<ul>
+<li>An <code>order-svc</code> connection that opens with a name, a <strong>server pool</strong>
+(the list of server URLs the client may connect to), and a sane connect
+timeout, instead of a bare default connection.</li>
+<li>A connection that reconnects with backoff and jitter when a server
+goes away, cycling the <code>n1</code>/<code>n2</code>/<code>n3</code> pool and flushing buffered
+publishes the moment it rejoins.</li>
+<li>A connection whose events are all wired to one place and whose state
+feeds a readiness probe, so a recoverable disconnect and a permanent
+close each get the right response instead of going unnoticed.</li>
+<li>A clean shutdown that drains in-flight work instead of dropping it,
+triggered on a SIGTERM.</li>
+<li>Subscribers that bound their memory with pending limits and surface
+a backlog through the async error callback instead of growing until the
+process is killed.</li>
+<li>A request-reply call that tells "the responder is absent" apart from
+"the responder is slow" and retries each one differently and safely.</li>
+<li>A connection that presents the <code>order-svc</code> credentials over a
+CA-validated TLS link.</li>
+</ul>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You've read the <a href="/learn/core-nats">Core NATS deep dive</a>, so publish,
+subscribe, and request-reply are familiar, and ideally the
+<a href="/learn/jetstream">JetStream deep dive</a>, so you know what a stream and a
+consumer are. This chapter reuses the <code>ORDERS</code> stream and its consumers
+rather than re-introducing them.</p>
+<p>You don't need to have run NATS clients in production before. We start
+from "open a connection the right way" and grow one fault at a time.</p>
+<p>Unlike the other Learn chapters, this one has no Core Concepts primer to
+read first. <a href="/learn/core-nats/connection-lifecycle">Core NATS → Connection lifecycle</a>
+introduces the model — what a drop does to your client, the reconnect
+callbacks, and the buffer that holds your publishes through the gap — and
+this chapter takes it to production depth. Every term still gets defined
+in the page that first uses it: RECONNECTING, drain, slow consumer, no
+responders, and the rest.</p>
+<h2 id="how-to-read-it">How to read it</h2>
+<p>Each page introduces at most two new concepts and carries the same
+<code>order-svc</code> connection forward. You <a href="/learn/resilient-clients/connecting">open the connection</a>,
+<a href="/learn/resilient-clients/reconnection">make it reconnect</a>,
+<a href="/learn/resilient-clients/connection-events">watch its events</a>,
+<a href="/learn/resilient-clients/drain-and-shutdown">drain it</a>, and so on: one
+resilience option per page, never a fresh example.</p>
+<p>This chapter only ever talks about what the client does. When a page
+reaches the edge of the client (<em>why</em> a server went away, <em>how</em> a
+credential was issued, what happens to a JetStream consumer's
+acknowledgment position across a reconnect), it names the gap in one
+sentence and links out rather than re-explaining it here. Server-side
+faults live in <a href="/learn/topologies">Topologies</a>; consumer acknowledgment
+lives in <a href="/learn/jetstream/acknowledgment">JetStream → Acknowledgment</a>;
+issuing credentials lives in <a href="/learn/security">Security</a>.</p>
+<p>Where a feature has a long list of options, the page covers only the ones
+that change how a connection behaves under fault. The exact option names
+and defaults live in your client's API reference, while
+<a href="/reference/">Reference</a> covers the wire protocol and server configuration.</p>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td>Resilient Clients Deep Dive</td><td>The connection as a state machine, and the faults this chapter survives</td></tr><tr><td><a href="/learn/resilient-clients/connecting">Connecting</a></td><td>Open <code>order-svc</code> with a name, a server pool, and a connect timeout, and read the connect handshake</td></tr><tr><td><a href="/learn/resilient-clients/reconnection">Reconnection</a></td><td>Reconnect with backoff and jitter, retry the first connect, cycle the pool, and buffer publishes while disconnected</td></tr><tr><td><a href="/learn/resilient-clients/connection-events">Connection Events</a></td><td>Wire every connection event and poll the connection state for a health check</td></tr><tr><td><a href="/learn/resilient-clients/drain-and-shutdown">Drain &amp; Shutdown</a></td><td>Drain in-flight work on shutdown, drain one subscription on its own, and flush pending publishes</td></tr><tr><td><a href="/learn/resilient-clients/slow-consumers">Slow Consumers</a></td><td>Bound a subscription's pending buffer and detect overflow before it OOMs</td></tr><tr><td><a href="/learn/resilient-clients/request-reply-resilience">Request-Reply Resilience</a></td><td>Tell no-responders apart from a timeout, and retry each one safely</td></tr><tr><td><a href="/learn/resilient-clients/tls-and-auth">TLS &amp; Auth</a></td><td>Consume a credentials file, trust a CA, and stop retrying on a repeated auth error</td></tr><tr><td><a href="/learn/resilient-clients/where-next">Where Next</a></td><td>A production checklist and a map of what's beyond the client</td></tr></tbody></table>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need:</p>
+<ul>
+<li>A working <code>nats-server</code>. The early pages use a single
+<code>nats-server</code>; once reconnection enters, the pages point the client at
+the three-server cluster from the
+<a href="/learn/topologies">Topologies deep dive</a> (built there as
+<code>n1-east</code>/<code>n2-east</code>/<code>n3-east</code>; this chapter shortens the names to
+<code>n1</code>/<code>n2</code>/<code>n3</code>), used only as a server pool the client connects to.</li>
+<li>The <code>nats</code> CLI installed and pointed at your server. The examples run
+in the CLI; client options the CLI can't express, such as pending
+limits and the reconnect callbacks, appear in the text as the named
+client-library calls.</li>
+</ul>
+<p>Open a terminal, start your server, and turn to
+<a href="/learn/resilient-clients/connecting">Connecting</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/core-nats">Core NATS deep dive</a> — the publishers, subscribers,
+and request-reply calls this chapter hardens.</li>
+<li><a href="/learn/jetstream">JetStream deep dive</a> — the <code>ORDERS</code> stream and
+consumers whose connections this chapter makes resilient.</li>
+<li><a href="/learn/topologies">Topologies deep dive</a> — how to build the
+three-server cluster this chapter treats only as a server pool
+(<code>n1</code>/<code>n2</code>/<code>n3</code> here, <code>n1-east</code>/<code>n2-east</code>/<code>n3-east</code> there).</li>
+</ul></main>

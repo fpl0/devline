@@ -1,0 +1,316 @@
+<main><header><h1>Watching</h1></header>
+<p>You have the <code>INVENTORY</code> bucket from the last page, with <code>widget-blue</code>
+at <code>42</code>. Reading it with get tells you the count <em>now</em>. The warehouse
+dashboard needs the count the moment it changes, without polling get in
+a loop.</p>
+<p>A watch does that. This page runs the warehouse dashboard
+watching <code>INVENTORY</code>, shows you the two things a watch always delivers in
+order, and ends with a wildcard watch over a subset of keys.</p>
+<h2 id="what-a-watch-delivers">What a watch delivers</h2>
+<p>A <strong>watch</strong> delivers the current value of every matching key as an
+initial snapshot, and then streams every later change as it happens. One
+call gives you both halves: the state of the bucket now, and the changes
+from now on.</p>
+<p>Start the warehouse dashboard watching the whole bucket. Run this in its
+own terminal and leave it running:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Watch the whole INVENTORY bucket. This is the warehouse dashboard:
+# it wants every stock change as it happens, with no polling.
+#
+# On start, watch first replays the current value of every key in the
+# bucket as an initial snapshot, then blocks and streams live changes
+# until you stop it (Ctrl-C). Run this in its own terminal.
+nats kv watch INVENTORY
+
+# Expected output: one line per existing key (the snapshot), e.g.
+#
+#   [2026-05-22 10:14:22] PUT INVENTORY &gt; widget-blue: 42
+#
+# then it waits. Leave it running and put a new count from another
+# terminal:
+#
+#   nats kv put INVENTORY widget-blue 41
+#
+# The watch prints the live update the moment it lands:
+#
+#   [2026-05-22 10:15:03] PUT INVENTORY &gt; widget-blue: 41</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Watch the whole INVENTORY bucket. The watch first delivers the
+// current value of every key (the snapshot), then streams every
+// later change as it lands.
+kvEntry *e = NULL;
+
+s = kvStore_WatchAll(&amp;w, kv, NULL);
+while (s == NATS_OK)
+{
+    s = kvWatcher_Next(&amp;e, w, 60000);
+    if (s != NATS_OK)
+        break;
+    // A NULL entry marks the end of the snapshot. Skip it and
+    // keep reading: everything after it is a live change.
+    if (e == NULL)
+        continue;
+    printf("%s: %.*s\n", kvEntry_Key(e),
+           kvEntry_ValueLen(e), (const char*) kvEntry_Value(e));
+    kvEntry_Destroy(e);
+    e = NULL;
+}</code></pre></div></div>
+<p>The snapshot comes first. The watch immediately prints the current value
+of every key already in the bucket; right now that's one line for
+<code>widget-blue</code> at <code>42</code>. Then it blocks, waiting.</p>
+<p>Now, from another terminal, change a count:</p>
+<div><div><pre><code class="language-bash">nats kv put INVENTORY widget-blue 41</code></pre></div></div>
+<p>The line appears in the watching terminal the instant the put lands,
+without polling and without delay. The dashboard receives the change as
+soon as the inventory service records it.</p>
+<p>The inventory service also stocks two more SKUs, so the bucket holds more
+than one key from here on:</p>
+<div><div><pre><code class="language-bash">nats kv put INVENTORY widget-red 17
+nats kv put INVENTORY gadget-pro 5</code></pre></div></div>
+<p>Each put appears in the watching terminal the moment it lands, the same as
+the change to <code>widget-blue</code>.</p>
+<p>The snapshot-then-live shape matters here. A new dashboard that
+connects mid-day doesn't start without data: it gets the full current
+picture first, then keeps up with every change after. A watch covers
+both reading the state and watching for changes, so you don't have to
+choose between them.</p>
+<div></div>
+<p>Underneath, a watch is an ephemeral ordered consumer on the backing
+stream, replaying the last value per key and then following new writes.
+You don't configure or manage it: opening the watch creates it, and
+closing the watch removes it. How consumers track position and deliver messages
+is the JetStream chapter's job; see
+<a href="/learn/jetstream/your-first-stream#why-a-stream">Why a stream</a> if you want the layer
+below. Here, the behavior is what matters: snapshot, then live.</p>
+<h2 id="the-end-of-initial-data-signal">The end-of-initial-data signal</h2>
+<p>There's a boundary between the snapshot and the live stream, and the
+watch marks it for you. After the last snapshot entry and before the
+first live change, the watch delivers one <strong>end-of-initial-data signal</strong>:
+a single nil entry. It carries no key and no value. It indicates only
+that the snapshot is complete and everything after it is a live change.</p>
+<p>The CLI consumes that signal silently and keeps printing, so you never
+see it on the command line. In client code you handle the boundary
+explicitly, but how it reaches you depends on the client. Go and Python
+deliver a nil/None entry in the same stream as your real entries: read it,
+recognize it as the boundary, and keep reading. JavaScript sets an
+<code>isUpdate</code> flag on each entry, Java calls an <code>endOfData()</code> callback, C#
+takes an <code>OnNoData</code> option, and Rust has no marker at all — you pick
+snapshot-plus-live or live-only when you open the watch. The idea is the
+same everywhere, a boundary between the snapshot and the live changes; only
+the signal differs. The example below shows the nil-entry form:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# The end-of-initial-data signal in practice.
+#
+# A client watch delivers the snapshot, then ONE nil entry to mark the
+# snapshot/live boundary, then live updates. A program that reads the
+# watch must consume that nil entry and keep going, not treat it as the
+# end of the stream. The CLI consumes it for you and keeps printing;
+# the comment below shows what a client loop must do.
+#
+# Run the watch and confirm it does not stop after the snapshot:
+nats kv watch INVENTORY
+
+# The CLI prints the snapshot, silently steps over the nil end-of-initial
+# -data entry, and keeps waiting for live changes. In client code the
+# equivalent loop is:
+#
+#   for entry in watcher:
+#       if entry is None:        # end-of-initial-data marker
+#           continue             # snapshot done; keep reading live updates
+#       handle(entry.key, entry.value, entry.revision)
+#
+# Stopping the loop on the nil entry would miss every live change. Keep
+# reading.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Watch the whole bucket: the snapshot comes first, then live
+// changes.
+s = kvStore_Watch(&amp;w, kv, "&gt;", NULL);
+while (s == NATS_OK)
+{
+    kvEntry *e = NULL;
+
+    s = kvWatcher_Next(&amp;e, w, 5000);
+    if (s != NATS_OK)
+        break;
+
+    // A NULL entry is the end-of-initial-data signal: the snapshot
+    // is complete and everything after it is a live change. Consume
+    // it and keep reading — breaking here would miss every live
+    // update, which is the reason to watch.
+    if (e == NULL)
+    {
+        printf("snapshot complete, now live\n");
+        continue;
+    }
+
+    printf("%s @ rev %" PRIu64 ": %s\n",
+           kvEntry_Key(e), kvEntry_Revision(e), kvEntry_ValueString(e));
+    kvEntry_Destroy(e);
+}</code></pre></div></div>
+<p>The signal is useful beyond bookkeeping. A dashboard can
+hold its "loading" state until the nil entry arrives, then flip to "live"
+knowing it has the complete current picture. A cache-warming job can
+populate from the snapshot, treat the nil entry as "warm," and switch to
+incremental updates. The boundary carries information you can act on.</p>
+<p>It's also the most common watch bug, and the Pitfalls section below
+includes a runnable version.</p>
+<h2 id="watching-a-subset">Watching a subset</h2>
+<p>Watching the whole bucket gives you every key. Often you want fewer. A
+watch takes an optional key filter, matched against the key the same way
+NATS matches a subject: a key is a sequence of dot-separated tokens, <code>*</code>
+stands for exactly one whole token, and <code>&gt;</code> for one or more tokens at the
+end. (Keys map to subject tokens; that's the
+<a href="/concepts/subjects">subjects</a> model the backing stream is built on.)</p>
+<p>The SKU keys here are single tokens: <code>widget-blue</code> is one token, and the
+hyphen is an ordinary character, not a separator. So a filter like
+<code>widget-*</code> is not a wildcard at all — <code>*</code> is only special as a whole
+token — and it matches nothing. To split keys with a wildcard you'd design
+them with dots, such as <code>widget.blue</code> and <code>widget.red</code>, so that <code>widget.*</code>
+matches both.</p>
+<p>With flat SKU names, watch a subset by naming an exact key. The dashboard
+for the blue widget watches just <code>widget-blue</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Watch a subset of the bucket, not every key.
+#
+# A watch filter is matched against the key the same way a subject is:
+# '*' stands for exactly one whole token and '&gt;' for the rest. The SKU
+# keys here are single tokens (widget-blue is one token; the hyphen is an
+# ordinary character), so a prefix like 'widget-*' is NOT a wildcard and
+# matches nothing. To watch a subset of flat keys, name an exact key:
+nats kv watch INVENTORY widget-blue
+
+# Expected: the snapshot shows only widget-blue at its current value, then
+# it waits. A later put to gadget-pro or widget-red never reaches this
+# watcher; a put to widget-blue does:
+#
+#   [2026-05-22 10:16:40] PUT INVENTORY &gt; widget-blue: 41</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Watch a subset of the bucket. The filter is matched like a
+// subject: '*' stands for a whole dot-separated token, so
+// "widget-*" is not a wildcard and matches nothing. With flat
+// SKU keys, name an exact key instead.
+kvEntry *e = NULL;
+
+s = kvStore_Watch(&amp;w, kv, "widget-blue", NULL);
+while (s == NATS_OK)
+{
+    s = kvWatcher_Next(&amp;e, w, 60000);
+    if (s != NATS_OK)
+        break;
+    // NULL marks the end of the snapshot; keep reading.
+    if (e == NULL)
+        continue;
+    // Only widget-blue arrives here: the filter applies to both
+    // the snapshot and the live changes.
+    printf("%s: %.*s\n", kvEntry_Key(e),
+           kvEntry_ValueLen(e), (const char*) kvEntry_Value(e));
+    kvEntry_Destroy(e);
+    e = NULL;
+}</code></pre></div></div>
+<p>The snapshot now lists only <code>widget-blue</code>, and the live stream only
+carries changes to it. A put to <code>gadget-pro</code> or <code>widget-red</code> never reaches
+this watcher; a put to <code>widget-blue</code> does. The filter applies to both
+halves, snapshot and live, so a filtered watch is a smaller, cheaper view
+of the bucket rather than every change for you to filter afterward.</p>
+<p>A watch supports a few more options, each tuning the same two halves you
+just saw: <code>IncludeHistory</code> replays the full history of every key instead
+of just the current snapshot, <code>IgnoreDeletes</code> skips deleted keys,
+<code>UpdatesOnly</code> drops the snapshot so you see only live changes, and
+<code>MetaOnly</code> sends each entry's metadata without its value. You can combine
+them, with one exception: <code>IncludeHistory</code> and <code>UpdatesOnly</code> conflict —
+one asks for the full snapshot with history, the other for no snapshot at
+all — and a client rejects the pair. These are client-side watch options,
+implemented as settings on the ephemeral consumer the watch opens; the
+<a href="/reference/jetstream/api/consumer/create">Reference → Create Consumer</a>
+page documents that consumer configuration.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two mistakes are common the first time you watch a bucket. Both come
+from the two concepts above: the snapshot/live boundary, and
+what a watch actually is.</p>
+<p><strong>Don't stop reading at the boundary signal.</strong> In the clients that deliver
+it as a nil/None entry (Go and Python), that entry rides the same stream
+as your real ones. A loop that treats nil as "the stream ended" and breaks
+will read the snapshot and see the boundary marker, then quit before every
+live change that was the reason to watch. The fix is one line: when an
+entry is nil, skip it and keep looping. Do not break. In the clients that
+signal the boundary with a flag or a callback instead, the same mistake is
+treating the end of the snapshot as the end of the watch.</p>
+<p>The handling example above doubles as the demo: the loop continues past
+the nil entry instead of stopping on it.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# The end-of-initial-data signal in practice.
+#
+# A client watch delivers the snapshot, then ONE nil entry to mark the
+# snapshot/live boundary, then live updates. A program that reads the
+# watch must consume that nil entry and keep going, not treat it as the
+# end of the stream. The CLI consumes it for you and keeps printing;
+# the comment below shows what a client loop must do.
+#
+# Run the watch and confirm it does not stop after the snapshot:
+nats kv watch INVENTORY
+
+# The CLI prints the snapshot, silently steps over the nil end-of-initial
+# -data entry, and keeps waiting for live changes. In client code the
+# equivalent loop is:
+#
+#   for entry in watcher:
+#       if entry is None:        # end-of-initial-data marker
+#           continue             # snapshot done; keep reading live updates
+#       handle(entry.key, entry.value, entry.revision)
+#
+# Stopping the loop on the nil entry would miss every live change. Keep
+# reading.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Watch the whole bucket: the snapshot comes first, then live
+// changes.
+s = kvStore_Watch(&amp;w, kv, "&gt;", NULL);
+while (s == NATS_OK)
+{
+    kvEntry *e = NULL;
+
+    s = kvWatcher_Next(&amp;e, w, 5000);
+    if (s != NATS_OK)
+        break;
+
+    // A NULL entry is the end-of-initial-data signal: the snapshot
+    // is complete and everything after it is a live change. Consume
+    // it and keep reading — breaking here would miss every live
+    // update, which is the reason to watch.
+    if (e == NULL)
+    {
+        printf("snapshot complete, now live\n");
+        continue;
+    }
+
+    printf("%s @ rev %" PRIu64 ": %s\n",
+           kvEntry_Key(e), kvEntry_Revision(e), kvEntry_ValueString(e));
+    kvEntry_Destroy(e);
+}</code></pre></div></div>
+<p><strong>A watch is live state, not a point read.</strong> A watch is an ephemeral
+ordered consumer: it exists only while your process holds it open, and it
+goes away when the process ends. It's the right tool when you want to
+<em>keep up</em> with a bucket, and the wrong tool when you want a single
+current value once. For that, reach for get, which you saw on the last
+page, or history, which the next page covers. Don't open a watch, read
+the first entry, and close it to fake a point read; you pay for a
+consumer and a snapshot to get one value get would have handed you
+directly.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have:</p>
+<ul>
+<li>The <code>INVENTORY</code> bucket with <code>widget-blue</code> at <code>41</code> (a put landed during
+the watch demo), plus <code>widget-red</code> and <code>gadget-pro</code> now stocked.</li>
+<li>A working warehouse dashboard: a watch that delivered the snapshot,
+then a live update.</li>
+<li>The end-of-initial-data signal in hand: you know it marks the
+snapshot/live boundary and must be consumed, not treated as the end.</li>
+<li>A filtered watch that views a single key (<code>widget-blue</code>), and the rule
+that a key filter's <code>*</code> matches a whole token, not a prefix.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>The next page reads the history each put creates and uses revisions to
+make safe, concurrent updates:
+<a href="/learn/key-value/history-and-revisions">History and revisions</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/jetstream/your-first-stream#why-a-stream">Why a stream</a> — the consumer model a
+watch is built on.</li>
+<li><a href="/reference/jetstream/api/consumer/create">Reference → Create Consumer</a> —
+the consumer configuration a watch's options map onto.</li>
+</ul></main>

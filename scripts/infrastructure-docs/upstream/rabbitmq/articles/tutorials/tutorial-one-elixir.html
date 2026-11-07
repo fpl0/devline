@@ -1,0 +1,221 @@
+<main><header><h1>RabbitMQ tutorial - "Hello world!"</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<p>RabbitMQ is a message broker: it accepts and forwards messages. You can think
+about it as a post office: when you put the mail that you want posting in a
+post box, you can be sure that the letter carrier will eventually deliver the
+mail to your recipient. In this analogy, RabbitMQ is a post box, a post
+office, and a letter carrier.</p>
+<p>The major difference between RabbitMQ and the post office is that it doesn't
+deal with paper, instead it accepts, stores, and forwards binary blobs of data
+‒ <em>messages</em>.</p>
+<p>RabbitMQ, and messaging in general, uses some jargon.</p>
+<ul>
+<li>
+<p><em>Producing</em> means nothing more than sending. A program that sends messages
+is a <em>producer</em> :</p>
+<!-- -->
+</li>
+<li>
+<p><em>A queue</em> is the name for the post box in RabbitMQ. Although messages flow
+through RabbitMQ and your applications, they can only be stored inside a
+<em>queue</em>. A <em>queue</em> is only bound by the host's memory &amp; disk limits, it's
+essentially a large message buffer.</p>
+<p>Many <em>producers</em> can send messages that go to one queue, and many
+<em>consumers</em> can try to receive data from one <em>queue</em>.</p>
+<p>This is how we represent a queue:</p>
+<!-- -->
+</li>
+<li>
+<p><em>Consuming</em> has a similar meaning to receiving. A <em>consumer</em> is a program
+that mostly waits to receive messages:</p>
+<!-- -->
+</li>
+</ul>
+<p>Note that the producer, consumer, and broker do not have to reside on the same
+host; indeed in most applications they don't. An application can be both a
+producer and consumer, too.</p>
+<h2 id="hello-world">Hello World!</h2>
+<h3 id="using-the-amqp-elixir-library">(using the amqp Elixir library)</h3>
+<p>In this part of the tutorial we'll write two small programs in Elixir; a
+producer (sender) that sends a single message, and a consumer (receiver) that receives
+messages and prints them out. It's the "Hello World" of messaging.</p>
+<p>In the diagram below, "P" is our producer and "C" is our consumer. The
+box in the middle is a queue - a message buffer that RabbitMQ keeps
+on behalf of the consumer.</p>
+<p>Our overall design will look like:</p>
+<!-- -->
+<blockquote>
+<h4 id="rabbitmq-libraries">RabbitMQ libraries</h4>
+<p>RabbitMQ speaks multiple protocols. This tutorial uses AMQP 0-9-1, which is an open, general-purpose
+protocol for messaging. There are a number of clients for RabbitMQ
+in <a href="/client-libraries/devtools">many different languages</a>.  In this tutorial
+series we're going to use <a href="http://github.com/pma/amqp">amqp</a>.</p>
+<p>To install it you can use the <a href="http://hex.pm/"><code>hex</code></a> package
+management tool. Let's make a new project.</p>
+<div><div><pre><code class="language-bash">mix new rabbitmq_tutorials
+cd rabbitmq_tutorials</code></pre></div></div>
+<p>Now let's add the dependency on the <code>amqp</code> library. Please modify the <code>applications</code> and <code>deps</code>
+sections of your <code>mix.exs</code> file to match below:</p>
+<div><div><pre><code class="language-elixir">def application do
+  [applications: [:amqp]]
+end
+defp deps() do
+  [
+    {:amqp, "~&gt; 3.3"},
+  ]
+end</code></pre></div></div>
+<p>The <code>application</code> section of <code>mix.exs</code> will ensure that the <code>amqp</code> dependency will
+be loaded and started when your project runs. The <code>deps</code> section declares which external
+libraries your project needs. We will now use <code>mix</code> to retrieve and compile the <code>amqp</code> library.</p>
+<div><div><pre><code class="language-bash">mix deps.get
+mix deps.compile</code></pre></div></div>
+<p>The <code>amqp</code> library will now be loaded and available to your project when executed via <code>mix run</code>.</p>
+</blockquote>
+<h3 id="sending">Sending</h3>
+<!-- -->
+<p>Our first program <code>send.exs</code> will send a single message to a queue. The first thing we need to do is to establish a connection with RabbitMQ server.</p>
+<div><div><pre><code class="language-elixir">{:ok, connection} = AMQP.Connection.open
+{:ok, channel} = AMQP.Channel.open(connection)</code></pre></div></div>
+<p>We're connected now, to a broker on the local machine. By default, <a href="http://hexdocs.pm/amqp/AMQP.Connection.html#open/1">AMQP.Connection.open</a>
+connects to <em>localhost</em>. If we wanted to connect to a broker on a different
+machine we'd simply specify its name or IP address as the <code>host: </code> option.</p>
+<p>Next, before sending we need to make sure the recipient queue
+exists. If we send a message to non-existing location, RabbitMQ will
+just trash the message. Let's create a queue to which the message will
+be delivered, let's name it <em>hello</em>:</p>
+<div><div><pre><code class="language-elixir">AMQP.Queue.declare(channel, "hello", durable: true, arguments: [{"x-queue-type", :longstr, "quorum"}])</code></pre></div></div>
+<p>At that point we're ready to send a message. Our first message will
+just contain a string <em>Hello World!</em> and we want to send it to our
+<em>hello</em> queue.</p>
+<p>In RabbitMQ a message can never be sent directly to the queue, it always
+needs to go through an <em>exchange</em>. But let's not get dragged down by the
+details ‒ you can read more about <em>exchanges</em> in <a href="/tutorials/tutorial-three-elixir">the third part of this
+tutorial</a>. All we need to know now is how to use a default exchange
+identified by an empty string. This exchange is special ‒ it
+allows us to specify exactly to which queue the message should go.
+The queue name needs to be specified in the <code>routing_key</code> parameter:</p>
+<div><div><pre><code class="language-elixir">AMQP.Basic.publish(channel, "", "hello", "Hello World!")
+IO.puts " [x] Sent 'Hello World!'"</code></pre></div></div>
+<p>Before exiting the program we need to make sure the network buffers
+were flushed and our message was actually delivered to RabbitMQ. We
+can do it by gently closing the connection.</p>
+<div><div><pre><code class="language-elixir">AMQP.Connection.close(connection)</code></pre></div></div>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/elixir/send.exs">Here's the whole send.exs script</a>.</p>
+<blockquote>
+<h4 id="sending-doesnt-work">Sending doesn't work!</h4>
+<p>If this is your first time using RabbitMQ and you don't see the "Sent"
+message then you may be left scratching your head wondering what could
+be wrong. Maybe the broker was started without enough free disk space
+(by default it needs at least 50 MB free) and is therefore refusing to
+accept messages. Check the broker <a href="https://www.rabbitmq.com/docs/4.3/logging">log file</a> to see if there
+is a <a href="https://www.rabbitmq.com/docs/4.3/alarms">resource alarm</a> logged and reduce the
+free disk space threshold if necessary.
+The <a href="https://www.rabbitmq.com/docs/4.3/configure#config-items">Configuration guide</a>
+will show you how to set <code>disk_free_limit</code>.</p>
+</blockquote>
+<h3 id="receiving">Receiving</h3>
+<p>That's it for our producer. Our consumer listens for messages from
+RabbitMQ, so unlike the producer which publishes a single message,
+we'll keep the consumer running to listen for messages and print them out.</p>
+<!-- -->
+<p>Our second program <code>receive.exs</code> will receive messages from the queue
+and print them on the screen.</p>
+<p>Again, first we need to connect to RabbitMQ server. The code
+responsible for connecting to Rabbit is the same as previously.</p>
+<p>The next step, just like before, is to make sure that the queue
+exists. Creating a queue using <code>AMQP.Queue.declare</code> is idempotent ‒ we
+can run the command as many times as we like, and only one will be
+created.</p>
+<div><div><pre><code class="language-elixir">AMQP.Queue.declare(channel, "hello", durable: true, arguments: [{"x-queue-type", :longstr, "quorum"}])</code></pre></div></div>
+<p>You may ask why we declare the queue again ‒ we have already declared it
+in our previous code. We could avoid that if we were sure
+that the queue already exists. For example if <code>send.exs</code> program was
+run before. But we're not yet sure which
+program to run first. In such cases it's a good practice to repeat
+declaring the queue in both programs.</p>
+<p>Receiving messages from the queue is more complex. It works by sending
+Elixir messages to an Elixir process. Whenever the client library
+receives a delivery from RabbitMQ, a <code>{:basic_deliver, payload, metadata}</code>
+Elixir message is sent to the specified Elixir process. We can then
+handle the payload and metadata any way we like.  In our case we will
+print on the screen the contents of the message.</p>
+<div><div><pre><code class="language-elixir">defmodule Receive do
+  def wait_for_messages do
+    receive do
+      {:basic_deliver, payload, _meta} -&gt;
+        IO.puts " [x] Received #{payload}"
+        wait_for_messages()
+    end
+  end
+end</code></pre></div></div>
+<p>Next, we need to tell RabbitMQ that this particular process should
+receive messages from our <em>hello</em> queue:</p>
+<div><div><pre><code class="language-elixir">AMQP.Basic.consume(channel,
+                   "hello",
+                   nil, # consumer process, defaults to self()
+                   no_ack: true)</code></pre></div></div>
+<p>For that command to succeed we must be sure that a queue which we want
+to subscribe to exists. Fortunately we're confident about that ‒ we've
+created a queue above ‒ using <code>AMQP.Queue.declare</code>.</p>
+<blockquote>
+<h4 id="listing-queues">Listing queues</h4>
+<p>You may wish to see what queues RabbitMQ has and how many
+messages are in them. You can do it (as a privileged user) using the <code>rabbitmqctl</code> tool:</p>
+<div><div><pre><code class="language-bash">sudo rabbitmqctl list_queues</code></pre></div></div>
+<p>On Windows, omit the sudo:</p>
+<div><div><pre><code class="language-powershell">rabbitmqctl.bat list_queues</code></pre></div></div>
+</blockquote>
+<p>The <code>no_ack</code> parameter will be described <a href="/tutorials/tutorial-two-elixir">later on</a>.</p>
+<p>And finally, we enter a never-ending recursion that waits for data and displays messages
+whenever necessary.</p>
+<div><div><pre><code class="language-elixir">IO.puts " [*] Waiting for messages. To exit press CTRL+C, CTRL+C"
+Receive.wait_for_messages()</code></pre></div></div>
+<h3 id="putting-it-all-together">Putting it all together</h3>
+<p>Full code for <code>send.exs</code>:</p>
+<div><div><pre><code class="language-elixir">{:ok, connection} = AMQP.Connection.open
+{:ok, channel} = AMQP.Channel.open(connection)
+AMQP.Queue.declare(channel, "hello", durable: true, arguments: [{"x-queue-type", :longstr, "quorum"}])
+AMQP.Basic.publish(channel, "", "hello", "Hello World!")
+IO.puts " [x] Sent 'Hello World!'"
+AMQP.Connection.close(connection)</code></pre></div></div>
+<p><a href="http://github.com/rabbitmq/rabbitmq-tutorials/blob/main/elixir/send.exs">(send.exs source)</a></p>
+<p>Full <code>receive.exs</code> code:</p>
+<div><div><pre><code class="language-elixir">defmodule Receive do
+  def wait_for_messages do
+    receive do
+      {:basic_deliver, payload, _meta} -&gt;
+        IO.puts " [x] Received #{payload}"
+        wait_for_messages()
+    end
+  end
+end
+
+{:ok, connection} = AMQP.Connection.open
+{:ok, channel} = AMQP.Channel.open(connection)
+AMQP.Queue.declare(channel, "hello", durable: true, arguments: [{"x-queue-type", :longstr, "quorum"}])
+AMQP.Basic.consume(channel, "hello", nil, no_ack: true)
+IO.puts " [*] Waiting for messages. To exit press CTRL+C, CTRL+C"
+
+Receive.wait_for_messages()</code></pre></div></div>
+<p><a href="http://github.com/rabbitmq/rabbitmq-tutorials/blob/main/elixir/receive.exs">(receive.exs source)</a></p>
+<p>Now we can try out our programs in a terminal. First, let's start
+a consumer, which will run continuously waiting for deliveries:</p>
+<div><div><pre><code class="language-bash">mix run receive.exs
+# =&gt; [*] Waiting for messages. To exit press CTRL+C, CTRL+C
+# ...
+# =&gt; [x] Received Hello World!</code></pre></div></div>
+<p>Now start the producer. The producer program will stop after every run:</p>
+<div><div><pre><code class="language-bash">mix run send.exs
+# =&gt; [x] Sent 'Hello World!'</code></pre></div></div>
+<p>Hurray! We were able to send our first message through RabbitMQ. As you might
+have noticed, the <code>receive.exs</code> program doesn't exit. It will stay ready to
+receive further messages, and may be interrupted with Ctrl-C, Ctrl-C.</p>
+<p>Try to run <code>send.exs</code> again in a new terminal.</p>
+<p>We've learned how to send and receive a message from a named
+queue. It's time to move on to <a href="/tutorials/tutorial-two-elixir">part 2</a>
+and build a simple <em>work queue</em>.</p></main>

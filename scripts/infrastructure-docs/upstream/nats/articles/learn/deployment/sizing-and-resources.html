@@ -1,0 +1,281 @@
+<main><header><h1>Sizing &amp; resources</h1></header>
+<p>Topologies decided the shape: a three-node cluster called <code>east</code>
+(<code>n1-east</code>, <code>n2-east</code>, <code>n3-east</code>) carrying the R3 <code>ORDERS</code> stream. This
+chapter runs that shape for real, and running it starts with the question
+of how much of each resource this cluster needs.</p>
+<p>A node spends a small, fixed set of resources, the JetStream defaults are
+knowable numbers, and the account limits the server enforces are readable
+with one command. This page turns those into a baseline for the ORDERS
+workload.</p>
+<p>You'll learn two things here: the four resources a node spends (and their
+JetStream defaults), and how account limits count R3 replication
+against the storage ceiling.</p>
+<h2 id="the-four-resources-a-node-spends">The four resources a node spends</h2>
+<p>Every NATS node spends the same four resources. Once you size each one,
+you've sized the node.</p>
+<p><strong>CPU</strong> handles moving messages. Core NATS routing is cheap; TLS
+handshakes and JetStream replication are where cycles go. There's no hard
+CPU limit to set, so the rule is headroom: overprovision CPU by 20–30%
+above steady state so a node has cycles spare for a rebalance when a peer
+leaves.</p>
+<p><strong>Memory</strong> holds connections, subscriptions, and (for memory-storage
+streams) message data. The ORDERS stream uses file storage, so its
+messages live on disk, not in RAM. The <code>order-svc</code> publisher and the
+<code>warehouse</code>, <code>notifications</code>, and <code>analytics</code> subscribers are light
+clients; a few hundred connections fit comfortably in a few hundred
+megabytes. Budget <code>order-svc</code> at roughly 128 MiB.</p>
+<p><strong>Disk</strong> holds file-storage streams. This is the resource the ORDERS
+stream actually spends, and the one most likely to run out. We'll size it
+below.</p>
+<p><strong>File descriptors (FDs)</strong> are the per-process limit on open files and
+sockets. Connections, routes, and streams each consume FDs. JetStream
+spends roughly two FDs per stream. On a small cluster the
+default per-process limit is plenty; on a large one it isn't, which is
+why the hardened service unit on the <a href="/learn/deployment/hardening">hardening</a>
+page raises it to <code>LimitNOFILE=800000</code>.</p>
+<h3 id="the-jetstream-defaults">The JetStream defaults</h3>
+<p>Left unset, JetStream sizes its limits from the system it's on. <strong>Memory
+storage</strong> defaults to 75% of system RAM (capped by <code>GOMEMLIMIT</code> if set),
+falling back to <strong>256 MB</strong> only when the server can't read system memory.
+<strong>File storage</strong> defaults to 75% of the disk space actually available
+under <code>store_dir</code>, falling back to <strong>1 TB</strong> only when the platform can't
+report disk size (Windows and a few others, or a failed <code>statfs</code>). On a
+Linux container with a 10 GiB volume the file-storage default is therefore
+about 7.5 GiB, not 1 TB.</p>
+<p>Because the default tracks the real disk, the container hazard isn't the
+default itself — it's setting <code>max_file_store</code> <em>larger</em> than the volume,
+or running on a shared or thin-provisioned volume where "available" disk
+overstates what this stream may safely use. Either way the node accepts
+writes it can't ultimately store, and the publish that crosses the real
+boundary fails. Pin <code>max_file_store</code> to what the volume can actually hold:</p>
+<div><div><pre><code class="language-conf"># n1-east.conf — pin JetStream storage to the real volume size
+jetstream {
+  store_dir:      "/var/lib/nats/jetstream"
+  max_memory_store: 256MB
+  max_file_store:   10GB
+}</code></pre></div></div>
+<p>The ORDERS stream is an R3 file stream. At R3 it keeps three copies, one
+per node, so each node stores the full stream once. A 10 GiB
+<code>max_file_store</code> per node leaves ample room for an ORDERS stream sized to
+fit the default 10 GiB volume the Kubernetes chapter provisions. The Helm
+chart already defaults <code>max_file_store</code> to the PVC size, so on Kubernetes
+this pin is usually set for you.</p>
+<p>The full set of JetStream limit keys is documented in
+<a href="/reference/config/jetstream">Reference → Configuration</a>. We only cover
+<code>max_memory_store</code> and <code>max_file_store</code> here.</p>
+<h2 id="account-limits-and-how-replication-counts">Account limits and how replication counts</h2>
+<p>The server config sizes the <em>node</em>, while <strong>account limits</strong> size the
+<em>tenant</em>. The ORDERS account has its own ceilings (<code>MaxMemory</code>,
+<code>MaxStore</code>, <code>MaxStreams</code>, <code>MaxConsumers</code>), and the server enforces them
+no matter how much disk the node has. Read them live before you size:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Read the LIVE account limits for the ORDERS account before you size anything.
+# This is the source of truth: it shows the tier and the ceilings the server
+# will actually enforce, not what you hope the config says.
+#
+# Connect as order-svc in the ORDERS account, then ask the server.
+nats account info \
+  --server tls://nats.acme.internal:4222 \
+  --creds /etc/nats/creds/order-svc.creds
+
+# Look for these rows in the output:
+#   Memory:    the MaxMemory ceiling for the account
+#   Storage:   the MaxStore ceiling (file storage) for the account
+#   Streams:   MaxStreams — how many streams the account may create
+#   Consumers: MaxConsumers — how many consumers per stream
+#
+# Sizing rule: on an UN-tiered account an R3 stream counts as
+# replicas x bytes against MaxStore, so a 10 GiB ORDERS stream at R3
+# spends 30 GiB of the account's storage limit. A tiered account bakes
+# replication into the tier, so the number you see is the usable bytes.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the LIVE account limits for the ORDERS account before you
+// size anything. This is the source of truth: the ceilings the
+// server will actually enforce, not what you hope the config says.
+if (s == NATS_OK)
+    s = js_GetAccountInfo(&amp;ai, js, NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    // Current usage, then the ceilings. A value of -1 means
+    // unlimited.
+    printf("memory used:    %" PRIu64 " bytes\n", ai-&gt;Memory);
+    printf("storage used:   %" PRIu64 " bytes\n", ai-&gt;Store);
+    printf("streams:        %" PRId64 "\n", ai-&gt;Streams);
+    printf("consumers:      %" PRId64 "\n", ai-&gt;Consumers);
+    printf("max memory:     %" PRId64 "\n", ai-&gt;Limits.MaxMemory);
+    printf("max storage:    %" PRId64 "\n", ai-&gt;Limits.MaxStore);
+    printf("max streams:    %" PRId64 "\n", ai-&gt;Limits.MaxStreams);
+    printf("max consumers:  %" PRId64 "\n", ai-&gt;Limits.MaxConsumers);
+
+    // Sizing rule: on an UN-tiered account an R3 stream counts as
+    // replicas x bytes against max storage, so a 10 GiB ORDERS
+    // stream at R3 spends 30 GiB of the account's limit. A tiered
+    // account bakes replication in, so its number is usable bytes.
+    if (ai-&gt;TiersLen &gt; 0)
+        printf("tiered account: %d tier(s), limits are per tier\n",
+               ai-&gt;TiersLen);
+}</code></pre></div></div>
+<p>One subtlety in that output decides your storage math: how replication
+counts against <code>MaxStore</code>. There are two cases.</p>
+<p>On an <strong>un-tiered</strong> account, an R3 stream counts as <code>replicas × bytes</code>.
+A 10 GiB ORDERS stream at R3 spends 30 GiB of the account's
+<code>MaxStore</code>, because the limit measures total bytes stored across all
+replicas. Forget the multiplier and the third replica fails to place
+when the account hits its ceiling.</p>
+<p>On a <strong>tiered</strong> account, replication is baked into the tier. The bytes
+the limit reports are the usable bytes: the R3 multiplier is already
+accounted for, so a 10 GiB tier holds a 10 GiB R3 stream.</p>
+<p>The durability R3 buys (surviving the loss of a node) is the
+JetStream chapter's subject, covered on
+<a href="/learn/jetstream/surviving-node-loss">Surviving node loss</a>. Here you only
+need the cost: on an un-tiered account, three copies cost three times the
+bytes.</p>
+<h2 id="connection-subscription-and-payload-limits">Connection, subscription, and payload limits</h2>
+<p>Three more limits round out the node, and one command reads them all:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Read the LIVE server limits for one node of the east cluster.
+# These are per-server ceilings: payload size, connection cap, and the
+# JetStream memory/store limits the node was started with.
+#
+# `nats server info` is a system-account request, so authenticate with the
+# system account's creds, not the ORDERS-account user creds.
+nats server info n1-east \
+  --server tls://nats.acme.internal:4222 \
+  --creds /etc/nats/creds/sys.creds
+
+# Look for these in the output:
+#   Maximum Payload:     max_payload (default 1.0 MiB) — the largest single message
+#   Maximum Connections: max_connections (default 64K, i.e. 65,536)
+#   JetStream:           Max Memory and Max Storage configured on this node
+#
+# Sizing rule: max_payload must be &lt;= max_pending. Keep max_pending at
+# &gt;= 10x your peak message size so a burst of large orders does not stall
+# the connection. The ORDERS payload is well under 1 KiB, so the 1 MiB
+# default has ample headroom here.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the LIVE server limits for one node of the east cluster.
+// There is no dedicated client API for this: it is a plain
+// request on the system account's $SYS.REQ.SERVER.PING.VARZ
+// subject, filtered to the n1-east node by name. The VARZ reply
+// carries the per-server ceilings: max_payload (default 1 MiB),
+// max_connections (default 64K), and the JetStream memory/store
+// limits the node was started with.
+if (s == NATS_OK)
+    s = natsConnection_RequestString(&amp;reply, conn,
+            "$SYS.REQ.SERVER.PING.VARZ",
+            "{\"server_name\":\"n1-east\"}", 2000);
+if (s == NATS_OK)
+    printf("%.*s\n",
+           natsMsg_GetDataLength(reply), natsMsg_GetData(reply));</code></pre></div></div>
+<p><code>max_connections</code> caps how many clients a node accepts (default 64K, i.e.
+65,536; it's reloadable, and overflow disconnects immediately).
+<code>max_subscriptions</code> caps subscriptions per connection (default
+unlimited). <code>max_payload</code> caps a single message at 1 MB by default,
+and it must stay <code>≤ max_pending</code>. The ORDERS payload is well under a
+kilobyte, so the defaults have room to spare:</p>
+<div><div><pre><code class="language-json">{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}</code></pre></div></div>
+<p>The full set of connection and payload keys is documented in
+<a href="/reference/config/max_payload">Reference → Configuration</a>. We only name
+the ones a sizing baseline needs here.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A few sizing mistakes only surface in production under load, where
+they're expensive to fix. Each is scoped to this page's two concepts: the
+node's resources and the account's limits.</p>
+<p><strong>Setting <code>max_file_store</code> beyond the real disk.</strong> A <code>max_file_store</code>
+larger than the mounted volume — or a shared or thin-provisioned volume
+whose "available" space the default over-reads — lets the node accept
+writes it can't store. The failure is a publish error mid-stream, not a
+startup warning. Set <code>max_file_store</code> to the volume size, test small with
+a <code>10GB</code> value, and watch the real disk with <code>df -h</code>. Don't trust the
+config number over what the device reports.</p>
+<p><strong><code>max_payload</code> larger than <code>max_pending</code>.</strong> If <code>max_payload</code> exceeds
+<code>max_pending</code>, the server refuses to start. Keep <code>max_pending</code> at
+<code>≥ 10× peak message size</code> so a burst of large messages can't stall a
+connection. Don't raise <code>max_payload</code> in isolation.</p>
+<p><strong>File-descriptor exhaustion on a big cluster.</strong> Each stream costs about
+two FDs, and routes and gossip add more. On a large cluster the default
+per-process FD limit runs out, and the symptom is connection refusals
+that look like a network fault. Raise the limit (<code>ulimit -n 800000</code>)
+before the process starts; the hardened unit on the
+<a href="/learn/deployment/hardening">hardening</a> page does exactly this.</p>
+<p><strong>JWT account limits change only when the account JWT does.</strong> Operator-mode
+accounts enforce their limits through the account JWT the resolver holds,
+not through server config, so raising <code>MaxStore</code> or <code>MaxStreams</code> means
+editing and pushing the JWT — a server reload or restart won't move them.
+Keep the cluster's server versions aligned as you roll upgrades so every
+node reads the same JWT limit fields (tiered R1/R3 limits, for instance,
+need servers new enough to understand them). Read the active tier with
+<code>nats account info</code> before you size, so you plan against the limits the
+cluster actually applies.</p>
+<p>The runnable fix for all four is the same first step: read the live
+limits before you size, so the numbers you plan against are the numbers
+the server enforces.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Read the LIVE account limits for the ORDERS account before you size anything.
+# This is the source of truth: it shows the tier and the ceilings the server
+# will actually enforce, not what you hope the config says.
+#
+# Connect as order-svc in the ORDERS account, then ask the server.
+nats account info \
+  --server tls://nats.acme.internal:4222 \
+  --creds /etc/nats/creds/order-svc.creds
+
+# Look for these rows in the output:
+#   Memory:    the MaxMemory ceiling for the account
+#   Storage:   the MaxStore ceiling (file storage) for the account
+#   Streams:   MaxStreams — how many streams the account may create
+#   Consumers: MaxConsumers — how many consumers per stream
+#
+# Sizing rule: on an UN-tiered account an R3 stream counts as
+# replicas x bytes against MaxStore, so a 10 GiB ORDERS stream at R3
+# spends 30 GiB of the account's storage limit. A tiered account bakes
+# replication into the tier, so the number you see is the usable bytes.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the LIVE account limits for the ORDERS account before you
+// size anything. This is the source of truth: the ceilings the
+// server will actually enforce, not what you hope the config says.
+if (s == NATS_OK)
+    s = js_GetAccountInfo(&amp;ai, js, NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    // Current usage, then the ceilings. A value of -1 means
+    // unlimited.
+    printf("memory used:    %" PRIu64 " bytes\n", ai-&gt;Memory);
+    printf("storage used:   %" PRIu64 " bytes\n", ai-&gt;Store);
+    printf("streams:        %" PRId64 "\n", ai-&gt;Streams);
+    printf("consumers:      %" PRId64 "\n", ai-&gt;Consumers);
+    printf("max memory:     %" PRId64 "\n", ai-&gt;Limits.MaxMemory);
+    printf("max storage:    %" PRId64 "\n", ai-&gt;Limits.MaxStore);
+    printf("max streams:    %" PRId64 "\n", ai-&gt;Limits.MaxStreams);
+    printf("max consumers:  %" PRId64 "\n", ai-&gt;Limits.MaxConsumers);
+
+    // Sizing rule: on an UN-tiered account an R3 stream counts as
+    // replicas x bytes against max storage, so a 10 GiB ORDERS
+    // stream at R3 spends 30 GiB of the account's limit. A tiered
+    // account bakes replication in, so its number is usable bytes.
+    if (ai-&gt;TiersLen &gt; 0)
+        printf("tiered account: %d tier(s), limits are per tier\n",
+               ai-&gt;TiersLen);
+}</code></pre></div></div>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have a sizing baseline for the ORDERS cluster:</p>
+<ul>
+<li>The four resources a node spends: CPU (20–30% headroom), memory
+(<code>order-svc</code> ~128 MiB), disk (<code>max_file_store</code> pinned to the volume),
+and FDs (two per stream).</li>
+<li>The JetStream defaults named (memory and file storage both default to
+75% of RAM and disk; 256 MB / 1 TB are only the can't-read fallbacks) and
+<code>max_file_store</code> pinned to the real 10 GiB volume.</li>
+<li>The account limits read live with <code>nats account info</code>, and the rule
+that an un-tiered R3 stream costs <code>replicas × bytes</code>.</li>
+</ul>
+<p>The ORDERS R3 file stream fits the default 10 GiB volume, and <code>order-svc</code>
+fits in ~128 MiB. That baseline is what the next page deploys.</p>
+<h2 id="whats-next">What's next</h2>
+<p>With the resources sized, the next page stands the cluster up: the NATS
+Helm chart, the StatefulSet that maps <code>nats-0..2</code> to <code>n1-east..n3-east</code>,
+and the NACK controller that declares the <code>ORDERS</code> stream as a CRD.</p>
+<p>Continue to <a href="/learn/deployment/kubernetes">Kubernetes</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/jetstream">Reference → Configuration</a> — every
+JetStream limit key and its default.</li>
+<li><a href="/reference/config/max_payload">Reference → max_payload</a> — the payload
+and pending limits in full.</li>
+<li><a href="/learn/jetstream/surviving-node-loss">Surviving node loss</a> — what R3
+durability buys for the bytes it costs.</li>
+</ul></main>

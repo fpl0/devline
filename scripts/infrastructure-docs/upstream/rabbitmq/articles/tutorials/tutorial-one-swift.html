@@ -1,0 +1,205 @@
+<main><header><h1>RabbitMQ tutorial - "Hello World!"</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<p>RabbitMQ is a message broker: it accepts and forwards messages. You can think
+about it as a post office: when you put the mail that you want posting in a
+post box, you can be sure that the letter carrier will eventually deliver the
+mail to your recipient. In this analogy, RabbitMQ is a post box, a post
+office, and a letter carrier.</p>
+<p>The major difference between RabbitMQ and the post office is that it doesn't
+deal with paper, instead it accepts, stores, and forwards binary blobs of data
+‒ <em>messages</em>.</p>
+<p>RabbitMQ, and messaging in general, uses some jargon.</p>
+<ul>
+<li>
+<p><em>Producing</em> means nothing more than sending. A program that sends messages
+is a <em>producer</em> :</p>
+<!-- -->
+</li>
+<li>
+<p><em>A queue</em> is the name for the post box in RabbitMQ. Although messages flow
+through RabbitMQ and your applications, they can only be stored inside a
+<em>queue</em>. A <em>queue</em> is only bound by the host's memory &amp; disk limits, it's
+essentially a large message buffer.</p>
+<p>Many <em>producers</em> can send messages that go to one queue, and many
+<em>consumers</em> can try to receive data from one <em>queue</em>.</p>
+<p>This is how we represent a queue:</p>
+<!-- -->
+</li>
+<li>
+<p><em>Consuming</em> has a similar meaning to receiving. A <em>consumer</em> is a program
+that mostly waits to receive messages:</p>
+<!-- -->
+</li>
+</ul>
+<p>Note that the producer, consumer, and broker do not have to reside on the same
+host; indeed in most applications they don't. An application can be both a
+producer and consumer, too.</p>
+<h2 id="hello-world">"Hello World"</h2>
+<h3 id="using-bunnyswift">(using BunnySwift)</h3>
+<p>In this part of the tutorial we'll write two small programs in Swift: a
+producer that sends a single message, and a consumer that receives
+messages and prints them out. We'll gloss over some of the details in
+the BunnySwift API, concentrating on this very simple thing just to get
+started. It's the "Hello World" of messaging.</p>
+<p>In the diagram below, "P" is our producer and "C" is our consumer. The box in
+the middle is a queue - a message buffer that RabbitMQ keeps on behalf of the
+consumer.</p>
+<!-- -->
+<blockquote>
+<h4 id="the-bunnyswift-client-library">The BunnySwift client library</h4>
+<p>RabbitMQ speaks multiple protocols. This tutorial uses AMQP 0-9-1, which is an open,
+general-purpose protocol for messaging. There are a number of clients
+for RabbitMQ in <a href="/client-libraries/devtools">many different
+languages</a>. We'll
+use <a href="https://github.com/michaelklishin/bunny-swift">BunnySwift</a> in this tutorial, a modern Swift client
+that leverages Swift concurrency with async/await.</p>
+</blockquote>
+<h3 id="setup">Setup</h3>
+<p>First, make sure you have RabbitMQ installed and running.</p>
+<p>BunnySwift requires Swift 6.0 or later. Create a new directory for your
+project and initialize it with Swift Package Manager:</p>
+<div><div><pre><code class="language-bash">mkdir rabbitmq-swift-tutorial
+cd rabbitmq-swift-tutorial
+swift package init --type executable --name Send</code></pre></div></div>
+<p>Edit <code>Package.swift</code> to add the BunnySwift dependency:</p>
+<div><div><pre><code class="language-swift">// swift-tools-version: 6.0
+import PackageDescription
+
+let package = Package(
+    name: "RabbitMQTutorials",
+    platforms: [.macOS(.v14)],
+    dependencies: [
+        .package(url: "https://github.com/michaelklishin/bunny-swift", from: "0.13.0")
+    ],
+    targets: [
+        .executableTarget(
+            name: "Send",
+            dependencies: [.product(name: "BunnySwift", package: "bunny-swift")]
+        ),
+        .executableTarget(
+            name: "Receive",
+            dependencies: [.product(name: "BunnySwift", package: "bunny-swift")]
+        )
+    ]
+)</code></pre></div></div>
+<p>Create the source directories:</p>
+<div><div><pre><code class="language-bash">mkdir -p Sources/Send Sources/Receive</code></pre></div></div>
+<p>Now we have Swift Package Manager set up with the BunnySwift dependency.</p>
+<h3 id="sending">Sending</h3>
+<!-- -->
+<p>We'll call our message publisher (sender) <code>Send</code> and our message receiver
+<code>Receive</code>. The publisher will connect to RabbitMQ, send a single message,
+then exit.</p>
+<p>In
+<a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/swift/Sources/Send/main.swift"><code>Sources/Send/main.swift</code></a>,
+we need to import the library first:</p>
+<div><div><pre><code class="language-swift">import BunnySwift
+import Foundation</code></pre></div></div>
+<p>then we can create a connection to the server:</p>
+<div><div><pre><code class="language-swift">@main
+struct Send {
+    static func main() async throws {
+        let connection = try await Connection.open()</code></pre></div></div>
+<p>The connection abstracts the socket connection, and takes care of
+protocol version negotiation and authentication and so on for us. Here
+we connect to a RabbitMQ node on the local machine with all default settings.</p>
+<p>If we wanted to connect to a node on a different machine or configure
+other connection parameters, we would use:</p>
+<div><div><pre><code class="language-swift">let connection = try await Connection.open(
+    host: "some-host.example.com",
+    port: 5672,
+    username: "guest",
+    password: "guest"
+)</code></pre></div></div>
+<p>or specify a URI:</p>
+<div><div><pre><code class="language-swift">let connection = try await Connection.open(uri: "amqp://user:password@host:5672/vhost")</code></pre></div></div>
+<p>Next we create a channel, which is where most of the API for getting
+things done resides:</p>
+<div><div><pre><code class="language-swift">        let channel = try await connection.openChannel()</code></pre></div></div>
+<p>To send, we must declare a queue for us to send to; then we can publish a message
+to the queue:</p>
+<div><div><pre><code class="language-swift">        let queue = try await channel.queue("hello", type: .quorum, durable: true)
+
+        try await channel.basicPublish(
+            body: Data("Hello World!".utf8),
+            routingKey: queue.name
+        )
+        print(" [x] Sent 'Hello World!'")</code></pre></div></div>
+<p>Declaring a queue is idempotent - it will only be created if it doesn't
+exist already. The message content is a byte array, so you can encode
+whatever you like there.</p>
+<p>Lastly, we close the connection:</p>
+<div><div><pre><code class="language-swift">        try await connection.close()
+    }
+}</code></pre></div></div>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/swift/Sources/Send/main.swift">Here's the complete Send.swift file</a>.</p>
+<blockquote>
+<h4 id="sending-doesnt-work">Sending doesn't work!</h4>
+<p>If this is your first time using RabbitMQ and you don't see the "Sent"
+message then you may be left scratching your head wondering what could
+be wrong. Maybe the broker was started without enough free disk space
+(by default it needs at least 50 MB free) and is therefore refusing to
+accept messages. Check the broker <a href="https://www.rabbitmq.com/docs/4.3/logging">log file</a> to see if there
+is a <a href="https://www.rabbitmq.com/docs/4.3/alarms">resource alarm</a> logged and reduce the
+free disk space threshold if necessary.
+The <a href="https://www.rabbitmq.com/docs/4.3/configure#config-items">Configuration guide</a>
+will show you how to set <code>disk_free_limit</code>.</p>
+</blockquote>
+<h3 id="receiving">Receiving</h3>
+<p>That's it for our publisher. Our consumer listens for messages from
+RabbitMQ, so unlike the publisher which publishes a single message, we'll
+keep the consumer running to listen for messages and print them out.</p>
+<!-- -->
+<p>The code in
+<a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/swift/Sources/Receive/main.swift"><code>Sources/Receive/main.swift</code></a>
+has the same imports as <code>Send</code>:</p>
+<div><div><pre><code class="language-swift">import BunnySwift</code></pre></div></div>
+<p>Setting up is the same as the publisher; we open a connection and a
+channel, and declare the queue from which we're going to consume.
+Note this matches up with the queue that <code>Send</code> publishes to.</p>
+<div><div><pre><code class="language-swift">@main
+struct Receive {
+    static func main() async throws {
+        let connection = try await Connection.open()
+        let channel = try await connection.openChannel()
+        let queue = try await channel.queue("hello", type: .quorum, durable: true)</code></pre></div></div>
+<p>Note that we declare the queue here as well. Because we might start
+the consumer before the publisher, we want to make sure the queue exists
+before we try to consume messages from it.</p>
+<p>We're about to tell the server to deliver us the messages from the
+queue. BunnySwift returns a consumer that we can iterate over using Swift concurrency.
+We call <code>basicConsume</code> and iterate over the messages:</p>
+<div><div><pre><code class="language-swift">        print(" [*] Waiting for messages. To exit press CTRL+C")
+
+        let consumer = try await channel.basicConsume(
+            queue: queue.name,
+            acknowledgementMode: .automatic
+        )
+        for try await message in consumer {
+            print(" [x] Received '\(message.bodyString ?? "")'")
+        }
+    }
+}</code></pre></div></div>
+<p>The consumer will continue running, waiting for messages. Use Ctrl-C to stop it.</p>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/swift/Sources/Receive/main.swift">Here's the complete Receive.swift file</a>.</p>
+<h3 id="putting-it-all-together">Putting it all together</h3>
+<p>Build both programs:</p>
+<div><div><pre><code class="language-bash">swift build</code></pre></div></div>
+<p>In one terminal, run the consumer:</p>
+<div><div><pre><code class="language-bash">swift run Receive
+# =&gt; [*] Waiting for messages. To exit press CTRL+C</code></pre></div></div>
+<p>Then, in another terminal, run the publisher:</p>
+<div><div><pre><code class="language-bash">swift run Send
+# =&gt; [x] Sent 'Hello World!'</code></pre></div></div>
+<p>The consumer will print the message it gets from the publisher via RabbitMQ.</p>
+<div><div><pre><code class="language-bash"># =&gt; [x] Received 'Hello World!'</code></pre></div></div>
+<p>The consumer will keep running, waiting for messages, so try running the
+publisher again in another terminal.</p>
+<p>Congrats! You were able to send and receive a message through RabbitMQ.</p>
+<p>If you want to check on the queue, try using <code>rabbitmqctl list_queues</code>.</p>
+<p>Time to move on to <a href="/tutorials/tutorial-two-swift">part 2</a> and build a simple <em>work queue</em>.</p></main>

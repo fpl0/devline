@@ -1,0 +1,258 @@
+<main><header><h1>Upgrading RabbitMQ</h1></header>
+<h2 id="strategies">Upgrade Strategies</h2>
+<p>There are three major upgrade strategies that can be used with RabbitMQ. Below you'll find a brief overview
+of all of them. Each strategy has a dedicated page with more detailed information.</p>
+<h3 id="rolling-upgrade">Rolling (in-place) Upgrade</h3>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>This upgrade strategy is recommended</p></div></div>
+<p>A rolling upgrade (also referred to as in-place upgrade) is an upgrade process where nodes are upgraded one by one.
+Refer to the <a href="/docs/4.3/rolling-upgrade">rolling upgrade guide</a> page for more details, but here are the main steps:</p>
+<ul>
+<li>Investigate if the current and target versions have a rolling upgrade path<!-- -->
+<ul>
+<li>check <a href="#rabbitmq-version-upgradability">version upgradability</a></li>
+<li>check <a href="#rabbitmq-erlang-version-requirement">Erlang version requirements</a></li>
+<li>check <a href="https://github.com/rabbitmq/rabbitmq-server/releases/tag/v4.0.0">the release notes</a></li>
+<li>verify that all <a href="/docs/4.3/feature-flags#how-to-enable-feature-flags">stable feature flags are enabled</a></li>
+</ul>
+</li>
+<li>Check that the node or cluster is in a good state in order to be upgraded<!-- -->
+<ul>
+<li>no <a href="/docs/4.3/alarms">alarms</a> are in effect</li>
+<li>no ongoing queue or stream replica sync operations</li>
+<li>the system is otherwise under a reasonable load</li>
+</ul>
+</li>
+<li>For each node<!-- -->
+<ul>
+<li>stop the node</li>
+<li>upgrade RabbitMQ and, if applicable, Erlang</li>
+<li>start the node</li>
+<li>watch <a href="/docs/4.3/monitoring">monitoring and health check</a> data to assess the health and recovery of the upgraded node and cluster</li>
+</ul>
+</li>
+<li>Once all nodes are upgraded, <a href="/docs/4.3/feature-flags#how-to-enable-feature-flags">enable stable feature flags</a> introduced in the new version</li>
+</ul>
+<h3 id="blue-green-deployment">Blue-Green Deployment</h3>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>This upgrade strategy is the safest option. It is recommended
+for environments where a rolling upgrade is not an option
+for any reason, or extra safety is particularly important</p></div></div>
+<p><a href="/docs/4.3/blue-green-upgrade">The Blue/Green deployment</a> strategy offers the benefit of making the upgrade process safer at the cost of
+temporary increasing infrastructure footprint. The safety aspect comes from the fact that the operator
+can abort an upgrade by switching applications back to the old cluster.</p>
+<p>A blue-green upgrade usually involves the following steps performed by a deployment tool or manually
+by an operator. Refer to the <a href="/docs/4.3/blue-green-upgrade">blue-green deployment guide</a> for more details about these steps:</p>
+<ul>
+<li>Deploy a new cluster with the desired version</li>
+<li>Synchronize metadata between the old and the new cluster (unless applications can declare their own metadata)</li>
+<li>Set up federation</li>
+<li>Switch consumers to the new cluster</li>
+<li>Drain messages</li>
+<li>Switch publishers to the new cluster</li>
+<li>Decommission the old cluster</li>
+</ul>
+<p>There's also a simplfied version of the blue-green strategy, if some downtime is acceptable:</p>
+<ul>
+<li>Deploy a new cluster with the target version</li>
+<li>Stop the applications</li>
+<li>Synchronize metadata between the old and new clusters</li>
+<li>Move all messages from the old cluster to the new one (e.g. using <a href="/docs/4.3/shovel">Shovel</a>)</li>
+<li>Reconfigure applications to use the new cluster</li>
+<li>Start publishers and consumers</li>
+</ul>
+<h3 id="grow-then-shrink-upgrade">Grow-then-Shrink Upgrade</h3>
+<div class="admonition danger"><div class="admonition-title">danger</div><div><p>This upgrade strategy changes replica identities, can result in massive
+unnecessary data transfers between nodes, and is only safe with important
+precautions. Therefore, it is <strong>highly recommended against</strong> for cluster-wide upgrades.</p></div></div>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>This strategy, however, can be a reasonable choice for replacing a single cluster node.</p></div></div>
+<p>A grow-and-shrink upgrade usually involves the
+following steps. Consider a three node cluster with nodes A, B, and C:</p>
+<ul>
+<li>Investigate if the current and target versions can be clustered together<!-- -->
+<ul>
+<li>check <a href="#rabbitmq-version-upgradability">version upgradability</a>; if a rolling upgrade between the old and new version is not supported,
+that also means that these two versions cannot coexist in a single cluster</li>
+<li>check <a href="#rabbitmq-erlang-version-requirement">Erlang version requirements</a></li>
+<li>check <a href="https://github.com/rabbitmq/rabbitmq-server/releases/tag/v4.3.0">the release notes</a></li>
+</ul>
+</li>
+<li>Add a new node, node D, to the cluster
+for node D to be able to join the cluster)</li>
+<li>Place a new replica of every quorum queue and every stream on the new node</li>
+<li>Check that the node or cluster is in a good state<!-- -->
+<ul>
+<li>no <a href="/docs/4.3/alarms">alarms</a> are in effect</li>
+<li>no ongoing queue or stream replica sync operations</li>
+<li>the system is otherwise under a reasonable load</li>
+</ul>
+</li>
+<li>Remove node A from the cluster using <code>rabbitmqctl forget_cluster_node</code></li>
+<li>Repeat the steps above for the other nodes; in a 3-node cluster example, the cluster should now consist of nodes D, E and F</li>
+<li><a href="/docs/4.3/feature-flags#how-to-enable-feature-flags">Enable stable feature flags</a> introduced in the new version</li>
+</ul>
+<p>This strategy is only recommended for replacing one node that must be decomissioned, not upgrading multiple nodes.</p>
+<h2 id="rabbitmq-version-upgradability">RabbitMQ Version Upgradability</h2>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>RabbitMQ <code>3.13.x</code> users must first upgrade to <code>4.2.x</code>, then to <code>4.3.x</code>.</p></div></div>
+<p>Upgrading to <code>4.3.x</code> is only possible from <code>4.2.x</code>.</p>
+<p>All <a href="/docs/4.3/feature-flags#how-to-enable-feature-flags">stable feature flags must be enabled</a>,
+<strong>before</strong> an upgrade, or the upgrade may fail.</p>
+<p>Refer to the table below to understand your upgrade path.</p>
+<details><summary>Release Series Upgradeability</summary><div><div><p>The following shows the supported upgrade paths.</p><table><thead><tr><th>From</th><th>To</th></tr></thead><tbody><tr><td>4.2.x</td><td>4.3.x</td></tr><tr><td>4.1.x</td><td>4.2.x</td></tr><tr><td>4.0.x</td><td>4.2.x</td></tr><tr><td>4.0.x</td><td>4.1.x</td></tr><tr><td>3.13.x</td><td>4.2.x</td></tr><tr><td>3.13.x</td><td>4.1.x</td></tr><tr><td>3.13.x</td><td>4.0.x</td></tr><tr><td>3.12.x</td><td>3.13.x</td></tr><tr><td>3.11.18</td><td>3.12.x</td></tr><tr><td>3.10.x</td><td>3.11.x</td></tr><tr><td>3.9.x</td><td>3.10.x</td></tr><tr><td>3.8.x</td><td>3.9.x</td></tr><tr><td>3.7.18</td><td>3.8.x</td></tr></tbody></table></div></div></details>
+<div class="admonition note"><div class="admonition-title">note</div><div><p>RabbitMQ 3.13 included experimental support for Khepri. However, major changes
+had to be introduced since then, leading to incompatibilities between Khepri support
+in 3.13 and 4.x. Therefore, RabbitMQ 3.13 with Khepri enabled <strong>cannot</strong> be upgraded
+to 4.x. <a href="/docs/4.3/blue-green-upgrade">Blue-Green Deployment</a> can still be used in this situation,
+since technically it is not an upgrade, but rather a migration to a fresh cluster.</p></div></div>
+<h2 id="rabbitmq-erlang-version-requirement">Erlang Version Requirements</h2>
+<p>Please refer to the <a href="/docs/4.3/which-erlang">Erlang Version Requirements</a> guide
+to learn the minimum required and maximum supported version of Erlang for a given RabbitMQ version.</p>
+<p>It's generally recommended to use the latest Erlang version supported by the target RabbitMQ version.</p>
+<p>We recommend that you upgrade Erlang together with RabbitMQ.</p>
+<h2 id="rabbitmq-plugins-compatibility">Plugin Compatibility Between Versions</h2>
+<p>Plugins included in the RabbitMQ distribution are guaranteed to be compatible with the
+version they are distributed with. If <a href="/community-plugins">community plugins</a> are used,
+they need to be verified separately.</p>
+<h3 id="management-ui">Management Plugin Upgrades</h3>
+<p>RabbitMQ management plugin comes with a Web application that runs in the browser.</p>
+<p>After upgrading a cluster, it is highly recommended to clear browser cache,
+local storage, session storage and cookies for the domain(s) used to access the management UI.
+Otherwise, you may experience JavaScript errors.</p>
+<h2 id="upgrade-considerations">Upgrade Considerations</h2>
+<h3 id="system-resource-usage">Changes in System Resource Usage</h3>
+<p>During and after the upgrade, connections and queues will be balanced
+differently between the nodes: as nodes go down, connections
+will be reestablished on the remaining nodes and queue leaders will be reelected.
+It is important to make sure your cluster can sustain the workload while some,
+usually one, node is down for the upgrade. Performing the upgrade during low
+traffic hours is recommended.</p>
+<p>Additionally, different versions of RabbitMQ can have different resource usage. That
+should be taken into account before upgrading: make sure there's enough
+capacity to run the workload with the new version. Always consult with
+the release notes of all versions between the one currently deployed and the
+target one in order to find out about changes which could impact
+your workload and resource usage.</p>
+<h3 id="single-node-upgrade">Upgrading a Single Node Installation</h3>
+<p>There are no fundamental differences between upgrading a single node installation compared
+to upgrading a multi-node cluster.</p>
+<h4 id="upgrading-dev-environments">Upgrading Development Environments</h4>
+<p>Single node deployments are often local development or test environments. In such cases, if
+the messages stored in RabbitMQ are not important, it may be easier to simply
+delete everything in the data directory and start a fresh node of the new version. Effectively,
+it's no longer an upgrade but a fresh installation of the new version.</p>
+<p>Please note that this process will <strong>delete all data</strong> in your RabbitMQ (definitions and messages), but this is usually
+not a problem in a development/test environment. The definitions can be preserved using <a href="/docs/4.3/definitions">export/import</a>.
+The benefit of this approach is that you can easily jump from any version to any other version without worrying
+about compatibility and feature flags.</p>
+<h3 id="downgrades">Downgrades</h3>
+<p>RabbitMQ does not officially support downgrades - they are not tested and should not be relied upon.
+Users who want extra safety can use <a href="/docs/4.3/blue-green-upgrade">blue-green deployment</a> approach,
+which allows switching back to the old environment.</p>
+<p>Having said that, downgrades technically work between some versions, especially if they only differ by a patch release.
+It is not guaranteed however: there have been patch releases that could not be downgraded even to the immediately
+preceding patch release.</p>
+<h3 id="backup">Backup</h3>
+<p>It's strongly advised to back node's data directory up before upgrading.</p>
+<h3 id="maintaining-quorum">When to Restart Nodes</h3>
+<p>Multiple components and features depend on the availability of a quorum of nodes. In the most common
+case of a 3-node cluster, this means that 2 nodes should always be available during the upgrade.</p>
+<p>RabbitMQ provides a <a href="/docs/4.3/monitoring#health-checks">health check</a> command that would fail
+should any quorum queues, stream queues or other internal components on the target node lose their quorum, if that node was to be shut down:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash"># exits with a non-zero code if any of the internal components, quorum queues or stream queues
+# will lose online quorum should the target node be shut down;
+# additionally, it will print which components and/or queues are affected
+rabbitmq-diagnostics check_if_node_is_quorum_critical</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell"># exits with a non-zero code if any of the internal components, quorum queues or stream queues
+# will lose online quorum should the target node be shut down;
+# additionally, it will print which components and/or queues are affected
+rabbitmq-diagnostics.bat check_if_node_is_quorum_critical</code></pre></div></div>
+<p>For example, consider a three node cluster with nodes A, B, and C and some quorum queues. If node B is currently down,
+this check will fail if executed against node A or C, because if A or C went down, there would only be one node running
+(and therefore, there would be no quorum). When node B comes back online, the same check would succeed.</p>
+<p>When automating the upgrade process, you can use <code>rabbitmq-upgrade await_online_quorum_plus_one</code> command
+to block the node shutdown process until there is enough nodes running to maintain quorum. Note that
+some deployment options already incorporate this check - for example, when running RabbitMQ on Kubernetes
+using the <a href="/kubernetes/operator/operator-overview">Cluster Operator</a>, this is already a part of the <code>preStop</code> hook.</p>
+<h3 id="rebalance">Rebalancing Queue Leaders</h3>
+<p>If either the rolling or grown-then-shrink upgrade strategy is used, queue leaders will not be evenly distributed
+between the nodes after the upgrade. Rebalancing of queue and stream leaders helps spread the load across all cluster nodes.</p>
+<p>To rebalance all queue and stream leader replicas, run:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmq-queues rebalance all</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmq-queues.bat rebalance all</code></pre></div></div>
+<h3 id="full-stop-upgrades">Full-Stop Upgrades</h3>
+<p>There is no need to stop all nodes in a cluster to perform an upgrade.</p>
+<h2 id="maintenance-mode">Maintenance Mode</h2>
+<p>Maintenance mode is a special node operation mode that can be useful during upgrades.
+The mode is explicitly turned on and off by the operator using a bunch of new CLI commands covered below.</p>
+<p>When a node is in maintenance mode, it <strong>will not be available for serving client traffic</strong>
+and will try to transfer as many of its responsibilities as practically possible and safe.</p>
+<p>Currently this involves the following steps:</p>
+<ul>
+<li>Suspend all client connection listeners (no new client connections will be accepted)</li>
+<li>Close all existing client connections: applications are expected to reconnect to other nodes and recover</li>
+<li>Transfer primary replicas of all quorum queues hosted on the target node, and prevent them from participating
+in the subsequently triggered Raft elections</li>
+<li>Mark the node as down for maintenance</li>
+<li>At this point, a node shutdown will be least disruptive as the node has already transferred most of its
+responsibilities</li>
+</ul>
+<p>A node in maintenance mode will not be considered for new primary queue replica placement, regardless
+of queue type and whether the queue type supports replication.</p>
+<p>This feature is expected to evolve based on the feedback from RabbitMQ operators, users,
+and RabbitMQ core team's own experience with it.</p>
+<p>A node in maintenance mode is expected to be shut down, upgraded or reconfigured, and restarted in a short
+time window (say, 5-30 minutes). Nodes are not expected to be running in this mode permanently or
+for long periods of time.</p>
+<h3 id="enabling-maintenance-mode">Enabling Maintenance Mode</h3>
+<p>To put a node into maintenance, use <code>rabbitmq-upgrade drain</code>:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmq-upgrade drain</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmq-upgrade.bat drain</code></pre></div></div>
+<h3 id="disabling-maintenance-mode">Disabling Maintenance Mode</h3>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>A restart takes the node out of maintenance mode automatically.</p></div></div>
+<p>A node in maintenance mode can be <em>revived</em>, that is, <strong>brought back into its regular operational state</strong>,
+using <code>rabbitmq-upgrade revive</code>:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmq-upgrade revive</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmq-upgrade.bat revive</code></pre></div></div>
+<p>The command exists to roll back (to the extent possible) the effects of the <code>drain</code> command.
+It is only necessary to run this command if you decided you can't restart the node as planned.</p>
+<p>It is <strong>not</strong> necessary to revive a node after it was restarted/upgraded, because the restart
+automatically takes the node out of maintenance mode.</p>
+<h3 id="checking-maintenance-status">Checking Maintenance Status</h3>
+<p>You can check whether any of the nodes in the cluster is in the maintenance mode
+by running <code>rabbitmqctl cluster_status</code>. You can also check the status of a specific
+node by running <code>rabbitmqctl status</code>.</p>
+<h2 id="rabbitmq-restart-handling">Handling Node Restarts in Applications</h2>
+<p>In order to reduce or eliminate the downtime, applications (both producers
+and consumers) should be able to cope with a server-initiated connection
+close. Some client libraries offer automatic connection recovery
+to help with this:</p>
+<ul>
+<li><a href="/client-libraries/java-api-guide#recovery">Java client</a></li>
+<li><a href="/client-libraries/dotnet-api-guide#connection-recovery">.NET client</a></li>
+<li><a href="http://rubybunny.info/articles/error_handling.html#network_connection_failures">Bunny</a> (Ruby)</li>
+</ul>
+<p>In most client libraries there is a way to react to a connection closure, for example:</p>
+<ul>
+<li><a href="https://pika.readthedocs.io/en/stable/modules/connection.html#pika.connection.Connection.add_on_close_callback">Pika</a> (Python)</li>
+<li><a href="https://pkg.go.dev/github.com/rabbitmq/amqp091-go#Connection.NotifyClose">Go</a></li>
+</ul>
+<p>The recovery procedure for many applications follows the same steps:</p>
+<ol>
+<li>Reconnect</li>
+<li>Re-open channels</li>
+<li>Restore channel settings (e.g. the <a href="/docs/4.3/confirms"><code>basic.qos</code> setting</a>, publisher confirms)</li>
+<li>Recover topology</li>
+</ol>
+<p>Topology recovery includes the following actions, performed for every channel:</p>
+<ol>
+<li>Re-declare exchanges declared by the application</li>
+<li>Re-declare queues</li>
+<li>Recover bindings (both queue and <a href="/docs/4.3/e2e">exchange-to-exchange</a> ones)</li>
+<li>Recover consumers</li>
+</ol>
+<p>This algorithm covers the majority of use cases and is what the
+aforementioned automatic recovery feature implements.</p>
+<p>During a rolling upgrade when a node is stopped, clients connected to this node
+will be disconnected using a server-sent <code>connection.close</code> method and should reconnect to a different node.
+This can be achieved by using a load balancer or proxy in front of the cluster
+or by specifying multiple server hosts if client library supports this feature.</p>
+<p>Many client libraries libraries support host lists, for example:</p>
+<ul>
+<li><a href="https://rabbitmq.github.io/rabbitmq-java-client/api/current/com/rabbitmq/client/ConnectionFactory.html#newConnection%28com.rabbitmq.client.Address%5B%5D%29">Java client</a></li>
+<li><a href="https://github.com/rabbitmq/rabbitmq-dotnet-client/blob/main/projects/RabbitMQ.Client/client/api/ConnectionFactory.cs#L392">.NET client</a></li>
+<li><a href="http://api.rubybunny.info/Bunny/Session.html#constructor_details">Bunny</a></li>
+</ul></main>

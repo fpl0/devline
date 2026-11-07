@@ -1,0 +1,350 @@
+<main><header><h1>Getting Started with NATS</h1></header>
+<p>Get up and running with NATS in minutes. This guide will walk you through installation, basic setup, and your first NATS application.</p>
+<h2 id="installation">Installation</h2>
+<h3 id="quick-start-with-docker">Quick Start with Docker</h3>
+<p>The fastest way to get NATS running:</p>
+<div><div><pre><code class="language-text">docker run -p 4222:4222 -p 8222:8222 nats:latest</code></pre></div></div>
+<p>This starts NATS Server with:</p>
+<ul>
+<li>Client connections on port 4222</li>
+<li>HTTP monitoring on port 8222</li>
+</ul>
+<h3 id="install-nats-server">Install NATS Server</h3>
+<h4 id="macos">macOS</h4>
+<div><div><pre><code class="language-text">brew install nats-server</code></pre></div></div>
+<h4 id="linux">Linux</h4>
+<div><div><pre><code class="language-text">curl -sf https://binaries.nats.dev/nats-io/nats-server/v2@latest | sh
+sudo mv nats-server /usr/local/bin/</code></pre></div></div>
+<h4 id="windows">Windows</h4>
+<p>Download the latest release from <a href="https://github.com/nats-io/nats-server/releases">GitHub Releases</a>.</p>
+<h3 id="verify-installation">Verify Installation</h3>
+<div><div><pre><code class="language-text">nats-server --version</code></pre></div></div>
+<h2 id="start-nats-server">Start NATS Server</h2>
+<h3 id="basic-server">Basic Server</h3>
+<div><div><pre><code class="language-text">nats-server</code></pre></div></div>
+<h3 id="with-monitoring">With Monitoring</h3>
+<div><div><pre><code class="language-text">nats-server -m 8222</code></pre></div></div>
+<p>Visit <a href="http://localhost:8222">http://localhost:8222</a> to see server metrics.</p>
+<h3 id="with-jetstream-persistence">With JetStream (Persistence)</h3>
+<div><div><pre><code class="language-text">nats-server -js</code></pre></div></div>
+<h2 id="install-nats-cli">Install NATS CLI</h2>
+<p>The NATS CLI tool helps you interact with NATS:</p>
+<div><div><pre><code class="language-text"># macOS
+brew install nats-io/nats-tools/nats
+
+# Linux
+curl -sf https://binaries.nats.dev/nats-io/natscli/nats@latest | sh
+sudo mv nats /usr/local/bin/</code></pre></div></div>
+<h2 id="your-first-nats-application">Your First NATS Application</h2>
+<h3 id="using-the-cli">Using the CLI</h3>
+<div><div><pre><code class="language-text"># Subscribe to a subject
+nats sub hello &amp;
+
+# Publish a message
+nats pub hello "Hello NATS!"</code></pre></div></div>
+<h3 id="install-client-libraries">Install Client Libraries</h3>
+<h4>CLI</h4><div><div><pre><code class="language-bash"># The NATS CLI is already installed (see above)
+# You can use it directly for pub/sub operations</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-bash">npm install nats</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-bash">go get github.com/nats-io/nats.go</code></pre></div></div><h4>Java</h4><p>Gradle</p><div><div><pre><code class="language-groovy">dependencies {
+  implementation 'io.nats:jnats:2.25.2'
+}</code></pre></div></div><p>Maven</p><div><div><pre><code class="language-xml">&lt;dependency&gt;
+    &lt;groupId&gt;io.nats&lt;/groupId&gt;
+    &lt;artifactId&gt;jnats&lt;/artifactId&gt;
+    &lt;version&gt;2.25.2&lt;/version&gt;
+&lt;/dependency&gt;</code></pre></div></div><h4>Rust</h4><div><div>Cargo.toml</div><div><pre><code class="language-toml">[dependencies]
+async-nats = "0.47.0"
+tokio = { version = "1", features = ["full"] }</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-bash">dotnet add package NATS.Net</code></pre></div></div><p>See <a href="https://www.nuget.org/packages/NATS.Net">NATS.Net on NuGet</a> for the latest version.</p>
+<h3 id="publisher-example">Publisher Example</h3>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Publish a message to demo.nats.io
+nats pub --server=demo.nats.io hello "Hello NATS!"</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">/*
+ * Copyright 2026 The NATS Authors
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// import the connect function from a transport
+import { connect } from "@nats-io/transport-deno";
+
+// connect to NATS demo server
+const nc = await connect();
+
+// publish a message to the 'hello' subject
+nc.publish("hello", "Hello NATS!");
+console.log("Message published to hello");
+
+// drain the connection (flushes and closes)
+await nc.drain();</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">package main
+
+import (
+	"log"
+
+	"github.com/nats-io/nats.go"
+)
+
+func main() {
+	// Connect to NATS demo server
+	nc, err := nats.Connect("demo.nats.io")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nc.Close()
+
+	// Publish a message
+	err = nc.Publish("hello", []byte("Hello NATS!"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Message published to hello")
+}</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">async def main():
+    # Connect to NATS demo server
+    nc = await client.connect("nats://demo.nats.io")
+
+    # Publish a message to the subject "hello"
+    await nc.publish("hello", b"Hello NATS!")
+    await nc.flush()
+
+    print("Message published to hello")
+
+    await nc.close()</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">public static void main(String[] args) {
+    try (Connection nc = Nats.connect("nats://localhost:4222")) {
+        // Publish a message to the subject "hello"
+        byte[] data = "Hello NATS!".getBytes(StandardCharsets.UTF_8);
+        nc.publish("hello", data);
+        System.out.println("Message published to hello");
+    }
+    catch (InterruptedException e) {
+        // can be thrown by connect
+        Thread.currentThread().interrupt();
+    }
+    catch (IOException e) {
+        // can be thrown by connect
+    }
+}</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Connect to NATS demo server
+let client = async_nats::connect("demo.nats.io").await?;
+
+// Publish a message to the subject "hello"
+client.publish("hello", "Hello NATS!".into()).await?;
+client.flush().await?;
+
+println!("Message published to hello");</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">await using var client = new NatsClient("demo.nats.io");
+
+// Publish a message to the subject "hello"
+await client.PublishAsync("hello", "Hello NATS!");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Connect to the NATS server
+const char *url = getenv("NATS_URL");
+
+s = natsConnection_ConnectTo(&amp;conn, (url == NULL) ? NATS_DEFAULT_URL : url);
+
+// Publish a message
+if (s == NATS_OK)
+    s = natsConnection_PublishString(conn, "hello", "Hello NATS!");
+
+if (s == NATS_OK)
+    printf("Message published to hello\n");</code></pre></div></div>
+<h3 id="subscriber-example">Subscriber Example</h3>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Subscribe to messages from demo.nats.io
+nats sub --server=demo.nats.io hello</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Subscribe to the "weather.updates" subject; auto-close after 1 message
+const sub = nc.subscribe("weather.updates");
+
+// iterate over messages received (sub will end after the first message)
+for await (const msg of sub) {
+  console.log(`Received: ${msg.string()}`);
+  break;
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">package main
+
+import (
+	"log"
+
+	"github.com/nats-io/nats.go"
+)
+
+func main() {
+	// Connect to NATS demo server
+	nc, err := nats.Connect("demo.nats.io")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nc.Close()
+
+	// Subscribe to 'hello'
+	_, err = nc.Subscribe("hello", func(msg *nats.Msg) {
+		log.Printf("Received: %s", string(msg.Data))
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println("Listening for messages on 'hello'...")
+
+	// Keep the process running
+	select {}
+}</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">async def main():
+    nc = await client.connect("nats://demo.nats.io")
+
+    # Asynchronous subscriber - iterate messages in a background task
+    async_sub = await nc.subscribe("hello")
+
+    async def async_handler():
+        async for msg in async_sub:
+            print(f"Asynchronous Subscriber Received: {msg.data.decode()}")
+
+    asyncio.create_task(async_handler())
+
+    # Synchronous subscription
+    sync_sub = await nc.subscribe("hello")
+
+    print("Waiting for message on 'hello'")
+
+    # Process messages synchronously
+    while True:
+        try:
+            msg = await sync_sub.next(timeout=1)
+            print(f"Synchronous Subscriber Received: {msg.data.decode()}")
+        except TimeoutError:
+            break
+
+    await nc.close()</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">public static void main(String[] args) {
+    try (Connection nc = Nats.connect("nats://localhost:4222")) {
+        // Asynchronous Subscriber requires a dispatcher
+        // Dispatchers can be shared
+        Dispatcher d = nc.createDispatcher(msg -&gt; {
+            System.out.println("Asynchronous Subscriber Received: " +
+                new String(msg.getData(), StandardCharsets.UTF_8));
+        });
+
+        // Subscribe to 'hello' subject
+        d.subscribe("hello");
+
+        // Subscribe to 'hello' synchronously
+        Subscription syncSub = nc.subscribe("hello");
+
+        System.out.println("Waiting for message on 'hello'");
+
+        // Process messages
+        Message m = syncSub.nextMessage(1000);
+        while (m != null) {
+            System.out.println("Synchronous Subscriber Received: " +
+                new String(m.getData(), StandardCharsets.UTF_8));
+            m = syncSub.nextMessage(1000);
+        }
+    }
+    catch (InterruptedException e) {
+        // can be thrown by connect
+        Thread.currentThread().interrupt();
+    }
+    catch (IOException e) {
+        // can be thrown by connect
+    }
+}</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Connect to NATS demo server
+let client = async_nats::connect("demo.nats.io").await?;
+
+// Subscribe to the 'hello' subject
+let mut subscriber = client.subscribe("hello").await?;
+println!("Listening for messages on 'hello'...");
+
+// Process messages
+while let Some(msg) = subscriber.next().await {
+    println!("Received: {}", String::from_utf8_lossy(&amp;msg.payload));
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">await using var client = new NatsClient("demo.nats.io");
+
+// Subscribe to 'hello' and process messages
+await foreach (var msg in client.SubscribeAsync&lt;string&gt;("hello"))
+{
+    output.WriteLine($"Received: {msg.Data}");
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The callback runs for each message received on 'hello'.
+static void
+onMsg(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("Received: %.*s\n",
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+
+    natsMsg_Destroy(msg);
+}
+    // Connect to the NATS server
+    const char *url = getenv("NATS_URL");
+
+    s = natsConnection_ConnectTo(&amp;conn, (url == NULL) ? NATS_DEFAULT_URL : url);
+
+    // Subscribe to 'hello'
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "hello", onMsg, NULL);
+
+    if (s == NATS_OK)
+        printf("Listening for messages on 'hello'...\n");</code></pre></div></div>
+<h3 id="running-the-examples">Running the Examples</h3>
+<h4>CLI</h4><div><div><pre><code class="language-bash"># Terminal 1 - Start subscriber
+nats sub hello
+
+# Terminal 2 - Publish messages
+nats pub hello "Hello NATS!"
+nats pub hello "Welcome to messaging"
+
+# Request-Reply pattern
+# Terminal 1 - Start replier
+nats reply hello "Hi there!"
+
+# Terminal 2 - Send request
+nats request hello "Anyone there?" --timeout=2s</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-bash"># Terminal 1 - Start subscriber
+node subscribe.js
+
+# Terminal 2 - Run publisher
+node publish.js</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-bash"># Terminal 1 - Start subscriber
+go run subscribe.go
+
+# Terminal 2 - Run publisher
+go run publish.go</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-text">It's best to run the examples from your IDE or 
+command line where Java is installed.
+
+Clone https://github.com/nats-io/nats.java
+and navigate to src/main/java/io/nats/examples/natsIoDoc</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-bash"># Terminal 1 - Start subscriber
+cargo run --bin subscribe
+
+# Terminal 2 - Run publisher
+cargo run --bin publish</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-text">It's best to run the examples from your IDE or
+command line where the .NET SDK is installed.
+
+Clone https://github.com/nats-io/nats.net
+and navigate to examples/Example.NatsIODocs</code></pre></div></div>
+<h2 id="next-steps">Next Steps</h2>
+<p>Congratulations! You've successfully:</p>
+<ul>
+<li>✅ Installed NATS Server</li>
+<li>✅ Published and subscribed to messages</li>
+<li>✅ Built your first NATS application</li>
+</ul>
+<h3 id="what-to-explore-next">What to explore next:</h3>
+<ul>
+<li><a href="/learn/core-nats">Core NATS deep dive</a> — hands-on path through the fundamentals</li>
+<li><a href="/learn/jetstream">JetStream deep dive</a> — persistence and streaming</li>
+<li><a href="/learn">The full Learn section</a> — guided, runnable chapters</li>
+<li><a href="/concepts/request-reply">Request-Reply Pattern</a> — synchronous communication</li>
+<li><a href="/concepts/subjects">Subjects</a> — understanding subject-based messaging</li>
+</ul>
+<h3 id="client-libraries">Client Libraries</h3>
+<p>NATS has official clients for:</p>
+<ul>
+<li><a href="https://github.com/nats-io/nats.go">Go</a></li>
+<li><a href="https://github.com/nats-io/nats.java">Java</a></li>
+<li><a href="https://github.com/nats-io/nats.js">JavaScript/TypeScript</a></li>
+<li><a href="https://github.com/nats-io/nats.py">Python</a></li>
+<li><a href="https://github.com/nats-io/nats.rs">Rust</a></li>
+<li><a href="https://github.com/nats-io/nats.c">C</a></li>
+<li><a href="https://github.com/nats-io/nats.net">.NET</a></li>
+</ul>
+<h3 id="resources">Resources</h3>
+<ul>
+<li><a href="https://natsbyexample.com">NATS by Example</a> - Interactive examples</li>
+<li><a href="https://slack.nats.io">Slack Community</a> - Get help from the community</li>
+</ul></main>

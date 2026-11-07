@@ -1,0 +1,492 @@
+<main><header><h1>Command Line Tools</h1></header>
+<h2 id="table-of-contents">Table of Contents</h2>
+<p>This guide covers a number of topics related to RabbitMQ CLI tools usage:</p>
+<ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#installation">Installation</a> and <a href="#requirements">requirements</a> for running CLI tools</li>
+<li>How <a href="#erlang-cookie">CLI tools authenticate to RabbitMQ nodes</a> and how to <a href="#cli-authentication-failures">troubleshoote authentication failures</a></li>
+<li><a href="#passing-arguments">Command line usage</a></li>
+<li><a href="#cli-and-clustering">CLI tools and clustering</a></li>
+<li>How to <a href="#node-names">address a specific node</a></li>
+<li>Caveats around CLI tools <a href="#containers">usage in containerized environments</a></li>
+</ul>
+<h2 id="overview">Overview</h2>
+<h3 id="standard-rabbitmq-cli-tools">Standard RabbitMQ CLI Tools</h3>
+<p>RabbitMQ ships with multiple command line tools, each with a set of related commands:</p>
+<ul>
+<li><a href="/docs/4.3/man/rabbitmqctl.8"><code>rabbitmqctl</code></a> for service management and general operator tasks</li>
+<li><a href="/docs/4.3/man/rabbitmq-diagnostics.8"><code>rabbitmq-diagnostics</code></a> for diagnostics <a href="/docs/4.3/monitoring">monitoring and health checking</a></li>
+<li><a href="/docs/4.3/man/rabbitmq-plugins.8"><code>rabbitmq-plugins</code></a> for <a href="/docs/4.3/plugins">plugin management</a></li>
+<li><a href="/docs/4.3/man/rabbitmq-queues.8"><code>rabbitmq-queues</code></a> for maintenance tasks on <a href="/docs/4.3/queues">queues</a>, in particular <a href="/docs/4.3/quorum-queues">quorum queues</a></li>
+<li><a href="/docs/4.3/man/rabbitmq-streams.8"><code>rabbitmq-streams</code></a> for maintenance tasks on <a href="/docs/4.3/streams">streams</a></li>
+<li><a href="/docs/4.3/man/rabbitmq-upgrade.8"><code>rabbitmq-upgrade</code></a> for maintenance tasks related to <a href="/docs/4.3/upgrade">upgrades</a></li>
+</ul>
+<p>On Windows, the above tool names will end with <code>.bat</code>, e.g. <code>rabbitmqctl</code> in a Windows installation will
+be named <code>rabbitmqctl.bat</code>.</p>
+<h3 id="additional-tools">Additional Tools</h3>
+<p>Additional tools are optional and can be obtained from GitHub:</p>
+<ul>
+<li><a href="/docs/4.3/management-cli"><code>rabbitmqadmin</code> v2</a> for operator tasks over the <a href="/docs/4.3/management#http-api">HTTP API</a></li>
+<li><a href="https://github.com/rabbitmq/support-tools"><code>rabbitmq-collect-env</code></a> which collects relevant cluster and environment information
+as well as server logs. This tool is specific to Linux and UNIX-like operating systems.</li>
+</ul>
+<p>Different tools cover different usage scenarios. For example, <code>rabbitmqctl</code> is usually
+only available to RabbitMQ administrator given that it provides full control over a node,
+including virtual host, user and permission management, destructive operations
+on node's data and so on.</p>
+<p><code>rabbitmqadmin</code> is built on top of the HTTP API and uses a different mechanism, and only
+requires that the <a href="/docs/4.3/management#http-api">HTTP API</a> port is open for outside connections.</p>
+<p>Even though CLI tools ship with the server, most commands <a href="#remote-nodes">can be used to operate on remote nodes</a>.
+Plugins can <a href="#command-discovery">provide CLI commands</a> that will be discovered by CLI tools for explicitly enabled plugins.</p>
+<h2 id="requirements">System and Environment Requirements</h2>
+<p>RabbitMQ CLI tools require a <a href="/docs/4.3/which-erlang">compatible Erlang/OTP</a> version to be installed.</p>
+<p>The tools assume that system locale is a UTF-8 one (e.g. <code>en_GB.UTF-8</code> or <code>en_US.UTF-8</code>). If that's
+not the case, the tools may still function correctly but it cannot be guaranteed.
+A warning will be emitted in non-UTF-8 locales.</p>
+<h2 id="installation">Installation</h2>
+<p>Except for <code>rabbitmqadmin</code>, all of the tools above ship with RabbitMQ and can be found under the <code>sbin</code>
+directory in installation root. With most package types that directory is added to <code>PATH</code> at installation time.
+This means that core tools such as <code>rabbitmq-diagnostics</code> and <code>rabbitmqctl</code> are available on every node
+that has RabbitMQ installed.</p>
+<p><a href="/docs/4.3/install-generic-unix">Generic UNIX package</a> users have to make sure that the <code>sbin</code> directory under installation
+root is added to <code>PATH</code> for simpler interactive use. Non-interactive use cases can use full or relative paths without
+modifications to the <code>PATH</code> environment variable.</p>
+<p><a href="/docs/4.3/management-cli"><code>rabbitmqadmin</code></a> is a standalone tool
+that is <a href="https://github.com/rabbitmq/rabbitmqadmin-ng/releases">distributed via GitHub releases</a>.</p>
+<p>If interaction from a remote node is required, download and extract the <a href="/docs/4.3/install-generic-unix">generic UNIX package</a>
+or use the <a href="/docs/4.3/install-windows">Windows installer</a>.</p>
+<p>Besides <a href="#authentication">authentication</a>, all configuration for core CLI tools is optional.</p>
+<p>Commands that require specific arguments list them in the usage section and will report
+any missing arguments when executed.</p>
+<h2 id="help">Discovering Commands Using the Help Command</h2>
+<p>To find out what commands are available, use the <code>help</code> command:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmqctl help
+
+rabbitmq-diagnostics help</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat help
+
+rabbitmq-diagnostics.bat help</code></pre></div></div>
+<p>The command can display usage information for a particular command:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmq-diagnostics help status</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat help add_vhost
+
+rabbitmq-diagnostics.bat help status</code></pre></div></div>
+<p>Alternatively, the <code>--help</code> option can be used:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmqctl --help
+
+rabbitmq-diagnostics --help</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat --help
+
+rabbitmq-diagnostics.bat --help</code></pre></div></div>
+<p>including for individual commands:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmq-diagnostics status --help</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmq-diagnostics.bat status --help</code></pre></div></div>
+<h2 id="rabbitmqctl">rabbitmqctl</h2>
+<p><a href="/docs/4.3/man/rabbitmqctl.8">rabbitmqctl</a> is the original CLI tool that ships with RabbitMQ.
+It supports a wide range of operations, mostly administrative (operational) in nature.</p>
+<p>This includes</p>
+<ul>
+<li>Stopping node</li>
+<li>Access to node status, effective configuration, health checks</li>
+<li>Virtual host management</li>
+<li>User and permission management</li>
+<li>Policy management</li>
+<li>Listing queues, connections, channels, exchanges, consumers</li>
+<li>Cluster membership management</li>
+</ul>
+<p>and more.</p>
+<p><code>rabbitmqctl</code> uses a <a href="#erlang-cookie">shared secret authentication mechanism</a> (described below) with server nodes.</p>
+<h2 id="rabbitmq-queues">rabbitmq-queues</h2>
+<p><a href="/docs/4.3/man/rabbitmq-queues.8">rabbitmq-queues</a> allows the operator to manage replicas of <a href="/docs/4.3/quorum-queues">replicated queues</a>.
+It ships with RabbitMQ.</p>
+<p>Most commands only support the online mode (when target node is running).</p>
+<p><code>rabbitmq-queues</code> uses a <a href="#erlang-cookie">shared secret authentication mechanism</a> (described below) with server nodes.</p>
+<h2 id="rabbitmq-streams">rabbitmq-streams</h2>
+<p><a href="/docs/4.3/man/rabbitmq-streams.8">rabbitmq-streams</a> allows the operator to manage replicas of <a href="/docs/4.3/streams">streams</a>.
+It ships with RabbitMQ.</p>
+<p>Most commands only support the online mode (when target node is running).</p>
+<p><code>rabbitmq-streams</code> uses a <a href="#erlang-cookie">shared secret authentication mechanism</a> (described below) with server nodes.</p>
+<h2 id="rabbitmq-diagnostics">rabbitmq-diagnostics</h2>
+<p><a href="/docs/4.3/man/rabbitmq-diagnostics.8">rabbitmq-diagnostics</a> is the primary tool for inspecting node state.
+It has many commands that allow the operator to study various aspects of the system.
+It ships with RabbitMQ.</p>
+<p>It supports both online (when target node is running) and offline mode (changes
+take effect on node restart).</p>
+<p><code>rabbitmq-diagnostics</code> uses a <a href="#erlang-cookie">shared secret authentication mechanism</a> (described below) with server nodes.</p>
+<h2 id="rabbitmq-plugins">rabbitmq-plugins</h2>
+<p><a href="/docs/4.3/man/rabbitmq-plugins.8">rabbitmq-plugins</a> is a tool that manages plugins:
+lists, enables and disables them. It ships with RabbitMQ.</p>
+<p>It supports both online (when target node is running) and offline mode (changes
+take effect on node restart).</p>
+<p><code>rabbitmq-plugins</code> uses a <a href="#erlang-cookie">shared secret authentication mechanism</a> (described below) with server nodes.</p>
+<h2 id="rabbitmq-upgrade">rabbitmq-upgrade</h2>
+<p><a href="/docs/4.3/man/rabbitmq-upgrade.8">rabbitmq-upgrade</a> is a tool dedicated to pre-upgrade, upgrade and post-upgrade operations.
+It ships with RabbitMQ.</p>
+<p>Most commands only support the online mode (when target node is running).</p>
+<p><code>rabbitmq-upgrade</code> uses a <a href="#erlang-cookie">shared secret authentication mechanism</a> (described below) with server nodes.</p>
+<h2 id="offline-mode">Offline Mode</h2>
+<p><code>--offline</code> is a flag supported by <code>rabbitmq-plugins</code> commands. When provided, the tool will avoid
+contacting the target node and instead operate on plugin files directly.</p>
+<p>When the <code>--offline</code> flag is used, the command will rely on <a href="/docs/4.3/configure#customise-environment">environment variables</a>
+to determine where to find the plugins directory of the local node.</p>
+<p>For example, it will respect and use the <code>RABBITMQ_PLUGINS_DIR</code> environment variable value
+just like a RabbitMQ node would. When <code>RABBITMQ_PLUGINS_DIR</code> is overridden for server nodes,
+it must also be set identically for the local OS user that invokes CLI tools.</p>
+<h2 id="authentication">Authentication</h2>
+<p>With the exception of <code>rabbitmqadmin</code>, RabbitMQ tools use a <a href="#erlang-cookie">shared secret authentication mechanism</a>.
+This requires that <a href="/docs/4.3/networking">inter-node and CLI communication ports</a> (by default)
+is open for external connections on the target node.</p>
+<h2 id="remote-nodes">Using CLI Tools against Remote Server Nodes</h2>
+<p>CLI tools can be used to talk to remote nodes as well as the local ones. Nodes are identified by <a href="#node-names">node names</a>.
+If no node name is specified, <code>rabbit@{local hostname}</code> is assumed to be the target. When contacting remote nodes,
+the same <a href="#authentication">authentication requirements</a> apply.</p>
+<p>To contact a remote node, use the <code>--node</code> (<code>-n</code>) option that <code>rabbitmqctl</code>, <code>rabbitmq-diagnostics</code> and other core CLI tools
+accept. The following example contact the node <code>rabbit@remote-host.local</code> to find out its status:</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics status -n rabbit@remote-host.local</code></pre></div></div>
+<p>Some commands, such as</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics status</code></pre></div></div>
+<p>can be used against any node. Others, such as</p>
+<div><div><pre><code class="language-bash">rabbitmqctl shutdown</code></pre></div></div>
+<p>or</p>
+<div><div><pre><code class="language-bash">rabbitmqctl wait</code></pre></div></div>
+<p>can only be run on the same host or in the same container as their target node. These commands typically
+rely on or modify something in the local environment, e.g. the local <a href="/docs/4.3/plugins">enabled plugins file</a>.</p>
+<h3 id="node-names">Node Names</h3>
+<p>RabbitMQ nodes are identified by node names. A node name consists of two parts,
+a prefix (usually <code>rabbit</code>) and hostname. For example, <code>rabbit@node1.messaging.svc.local</code>
+is a node name with the prefix of <code>rabbit</code> and hostname of <code>node1.messaging.svc.local</code>.</p>
+<p>Node names in a cluster must be unique. If more than one node is running on a given host
+(this is usually the case in development and QA environments), they must use
+different prefixes, e.g. <code>rabbit1@hostname</code> and <code>rabbit2@hostname</code>.</p>
+<p>CLI tools identify and address server nodes using node names.
+Most CLI commands are invoked against a node called target node. To specify a target node,
+use the <code>--node</code> (<code>-n</code>) option. For example, to run a <a href="/docs/4.3/monitoring">health check</a>
+on node <code>rabbit@warp10.local</code>:</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics -n rabbit@warp10 check_alarms</code></pre></div></div>
+<p>Some commands accept both a target node and another node name. For example,
+<code>rabbitmqctl forget_cluster_node</code> accepts both a target node (that will perform the action)
+and a name of the node to be removed.</p>
+<p>In a cluster, nodes identify and contact each other using node names. See <a href="/docs/4.3/clustering#node-names">Clustering guide</a>
+for details.</p>
+<p>When a node starts up, it checks whether it has been assigned a node name. This is done
+via the <code>RABBITMQ_NODENAME</code> <a href="/docs/4.3/configure#supported-environment-variables">environment variable</a>.
+If no value was explicitly configured, the node resolves its hostname and prepends <code>rabbit</code> to it to compute its node name.</p>
+<p>If a system uses fully qualified domain names (FQDNs) for hostnames, RabbitMQ nodes
+and CLI tools must be configured to use so called long node names.
+For server nodes this is done by setting the <code>RABBITMQ_USE_LONGNAME</code> <a href="/docs/4.3/configure#supported-environment-variables">environment variable</a>
+to <code>true</code>.</p>
+<p>For CLI tools, either <code>RABBITMQ_USE_LONGNAME</code> must be set or the <code>--longnames</code> option
+must be specified:</p>
+<div><div><pre><code class="language-bash"># this example assumes that host1.messaging.eng.coolcorporation.banana is a hostname
+# that successfully resolves
+rabbitmq-diagnostics -n rabbit@host1.messaging.eng.coolcorporation.banana check_alarms --longnames</code></pre></div></div>
+<h3 id="containers">Caveats in Containerized Environments</h3>
+<p>When RabbitMQ is running in a container, there are two common ways of running CLI tools:</p>
+<ol>
+<li>Do it within the container itself, using <a href="https://docs.docker.com/reference/cli/docker/container/exec/"><code>docker exec</code></a> and similar
+tooling</li>
+<li>Forward the <a href="/docs/4.3/networking#ports">relevant inter-node communication ports</a> and do it from the host</li>
+</ol>
+<p>There are two common problems that may arise with this approach.</p>
+<h4 id="shared-secret-mismatch-between-the-host-and-the-container">Shared Secret Mismatch Between The Host and the Container</h4>
+<p>When CLI tools are run in the host, the local <a href="#erlang-cookie">shared secret</a> must
+match that in the container. When this is not the case, CLI tools will fail
+to authenticate and won't be able to perform any operation on the target node.</p>
+<h4 id="shared-secret-seeding-race-condition">Shared Secret Seeding Race Condition</h4>
+<div class="admonition danger"><div class="admonition-title">danger</div><div><p>If the <a href="#erlang-cookie">shared secret</a> used by the container is not pre-seeded, the node
+must be allowed to boot before CLI commands can be run against it</p></div></div>
+<p>When a CLI tool runs on a host where the <a href="#erlang-cookie">shared secret</a> is not pre-seeded
+and before the local booting RabbitMQ node has a chance to create the cookie file, it
+will create a confusing situation where the secret seeded may be overwritten
+during node boot.</p>
+<p>As a result, CLI tools may fail to authenticate, RabbitMQ node may fail to access the created file
+and thus stop with an error, and other problematic scenarios that stem from the fact that
+the secret does not match.</p>
+<h2 id="passing-arguments">Options and Positional Arguments</h2>
+<p>RabbitMQ CLI tools largely follow existing, long established command line argument parsing conventions.
+This section provides some examples and focuses on edge cases and lesser known features.</p>
+<p>Different commands take different arguments. Some are named options such as <code>--node</code> (aliased as <code>-n</code>),
+others are positional arguments, such as the username and password arguments in</p>
+<div><div><pre><code class="language-bash">rabbitmqctl add_user &lt;username&gt; &lt;password&gt;</code></pre></div></div>
+<p>A specific example:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl add_user "a-user" "a-pa$$w0rd"</code></pre></div></div>
+<p>Options can be provided before or after positional arguments with one exception: anything
+that follows a double hyphen (<code>--</code>) will be treated as positional arguments:</p>
+<div><div><pre><code class="language-bash"># all values after the double hyphen (--) will be treated as positional arguments,
+# even if they begin with a hyphen or a double hyphen
+rabbitmqctl add_user --node rabbit@host1.messaging.eng.coolcorporation.banana -- "a-user" "a-pa$$w0rd"</code></pre></div></div>
+<p>The explicit positional argument separator must be used when positional arguments begin with a hyphen or a double
+hyphen (such as generated passwords), to make sure they are not parsed as options:</p>
+<div><div><pre><code class="language-bash"># Since "--!a-pa$$w0rd" is explicitly provided as a positional argument, it won't
+# be mistakenly considered for an unsupported option, even though it starts with a double hyphen
+rabbitmqctl add_user --node rabbit@host1.messaging.eng.coolcorporation.banana -- "a-user" "--!a-pa$$w0rd"</code></pre></div></div>
+<p>Option values can be passed as <code>--option &lt;value&gt;</code> or <code>--option=&lt;value&gt;</code>. The latter variant must be used
+when the value begins with a hyphen (<code>-</code>), otherwise it would be treated as an option:</p>
+<div><div><pre><code class="language-bash"># an alternative way of providing an option value
+rabbitmqctl add_user --node=rabbit@host1.messaging.eng.coolcorporation.banana -- "a-user" "a-pa$$w0rd"</code></pre></div></div>
+<p><code>rabbitmqctl</code>, <code>rabbitmq-diagnostics</code>, <code>rabbitmq-plugins</code>, and <code>rabbitmq-queues</code> support <a href="#aliases">command aliases</a>.</p>
+<h2 id="erlang-cookie">How CLI Tools Authenticate to Nodes (and Nodes to Each Other): the Erlang Cookie</h2>
+<p>RabbitMQ nodes and CLI tools (with the exception of <code>rabbitmqadmin</code>) use a
+cookie to determine whether they are allowed to communicate with
+each other. For a CLI tool and a node to be able to communicate they must have
+the same shared secret called the Erlang cookie. The cookie is
+just a string of alphanumeric characters up to 255 characters in size.
+It is usually stored in a local file. The file
+must be only accessible to the owner (e.g. have UNIX permissions of <code>600</code> or similar).
+Every cluster node must have the same cookie.</p>
+<p>If the file does not exist, Erlang VM will automatically create
+one with a randomly generated value when the RabbitMQ server
+starts up.</p>
+<p>Erlang cookie generation should be done at cluster deployment stage, ideally using automation
+and orchestration tools.</p>
+<h3 id="cookie-file-locations">Cookie File Locations</h3>
+<h4 id="linux-macos-bsd">Linux, MacOS, *BSD</h4>
+<p>On UNIX systems, the cookie will be typically
+located in <code>/var/lib/rabbitmq/.erlang.cookie</code> (used by the server)
+and <code>$HOME/.erlang.cookie</code> (used by CLI tools). Note that since the value
+of <code>$HOME</code> varies from user to user, it's necessary to place a copy of
+the cookie file for each user that will be using the CLI tools.
+This applies to both non-privileged users and <code>root</code>.</p>
+<p>RabbitMQ nodes will log its effective user's home directory location early on boot.</p>
+<h4 id="community-docker-image-and-kubernetes">Community Docker Image and Kubernetes</h4>
+<p><a href="https://github.com/docker-library/rabbitmq/">Docker community RabbitMQ image</a> uses <code>RABBITMQ_ERLANG_COOKIE</code> environment variable value
+to populate the cookie file.</p>
+<p>Configuration management and container orchestration tools that use this image
+must make sure that every RabbitMQ node container in a cluster uses the same value.</p>
+<p>In the context of Kubernetes, the value must be specified in the
+<a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">deployment file</a>.
+For instance, this can be seen in the <a href="https://github.com/rabbitmq/diy-kubernetes-examples">RabbitMQ on Kubernetes examples repository</a>.</p>
+<h4 id="windows">Windows</h4>
+<p>On Windows, the cookie location depends on a few factors:</p>
+<ul>
+<li>Whether the <code>HOMEDRIVE</code> and <code>HOMEPATH</code> environment variables are both set</li>
+<li>Erlang version: prior to 20.2 (these are no longer supported by any <a href="/release-information">maintained release series of RabbitMQ</a>) or 20.2 and later</li>
+</ul>
+<h5 id="erlang-202-or-later">Erlang 20.2 or later</h5>
+<p>With Erlang versions starting with 20.2, the cookie file locations are:</p>
+<ul>
+<li><code>%HOMEDRIVE%%HOMEPATH%\.erlang.cookie</code> (usually <code>C:\Users\%USERNAME%\.erlang.cookie</code> for user <code>%USERNAME%</code>) if both the <code>HOMEDRIVE</code> and <code>HOMEPATH</code> environment variables are set</li>
+<li><code>%USERPROFILE%\.erlang.cookie</code> (usually <code>C:\Users\%USERNAME%\.erlang.cookie</code>) if <code>HOMEDRIVE</code> and <code>HOMEPATH</code> are not both set</li>
+<li>For the RabbitMQ Windows service - <code>%USERPROFILE%\.erlang.cookie</code> (usually <code>C:\WINDOWS\system32\config\systemprofile</code>)</li>
+</ul>
+<p>If the Windows service is used, the cookie should be copied from
+<code>C:\Windows\system32\config\systemprofile\.erlang.cookie</code> to the expected
+location for users running commands like <code>rabbitmqctl.bat</code>.</p>
+<h3 id="overriding-using-cli-and-runtime-command-line-arguments">Overriding Using CLI and Runtime Command Line Arguments</h3>
+<p>As an alternative, the option "<code>-setcookie &lt;value&gt;</code>" can be added
+to <code>RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS</code> <a href="./configure">environment variable value</a>
+to override the cookie value used by a RabbitMQ node:</p>
+<div><div><pre><code class="language-bash">RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS="-setcookie cookie-value"</code></pre></div></div>
+<p>CLI tools can take a cookie value using a command line flag:</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics status --erlang-cookie "cookie-value"</code></pre></div></div>
+<p>Both are <strong>the least secure options</strong> and generally <strong>not recommended</strong>.</p>
+<h3 id="cookie-file-troubleshooting">Troubleshooting</h3>
+<h4 id="cli-tools">CLI Tools</h4>
+<p>Starting with <a href="/release-information">version <code>3.8.6</code></a>, <code>rabbitmq-diagnostics</code> includes a command
+that provides relevant information on the Erlang cookie file used by CLI tools:</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics erlang_cookie_sources</code></pre></div></div>
+<p>The command will report on the effective user, user home directory and the expected location
+of the cookie file:</p>
+<div><div><pre><code class="language-text">Cookie File
+
+Effective user: antares
+Effective home directory: /home/cli-user
+Cookie file path: /home/cli-user/.erlang.cookie
+Cookie file exists? true
+Cookie file type: regular
+Cookie file access: read
+Cookie file size: 20
+
+Cookie CLI Switch
+
+--erlang-cookie value set? false
+--erlang-cookie value length: 0
+
+Env variable
+
+RABBITMQ_ERLANG_COOKIE value set? false
+RABBITMQ_ERLANG_COOKIE value length: 0</code></pre></div></div>
+<h4 id="server-nodes">Server Nodes</h4>
+<p>When a node starts, it will <a href="/docs/4.3/logging">log</a> the home directory location of its effective user:</p>
+<div><div><pre><code class="language-text">node           : rabbit@cdbf4de5f22d
+home dir       : /var/lib/rabbitmq</code></pre></div></div>
+<p>Unless any <a href="/docs/4.3/relocate">server directories</a> were overridden, that's the directory where
+the cookie file will be looked for, and created by the node on first boot if it does not already exist.</p>
+<p>In the example above, the cookie file location will be <code>/var/lib/rabbitmq/.erlang.cookie</code>.</p>
+<h4 id="hostname-resolution">Hostname Resolution</h4>
+<p>Starting with <a href="/release-information">RabbitMQ <code>3.8.6</code></a>, CLI tools provide two commands that help verify
+that hostname resolution on a node works as expected. The commands are not meant to replace
+<a href="https://en.wikipedia.org/wiki/Dig_(command)"><code>dig</code></a> and other specialised DNS tools but rather
+provide a way to perform most basic checks while taking <a href="https://erlang.org/doc/apps/erts/inet_cfg.html">Erlang runtime hostname resolver features</a>
+into account.</p>
+<p>The commands are covered in the <a href="/docs/4.3/networking#dns-verify-resolution">Networking guide</a>.</p>
+<h2 id="cli-authentication-failures">Authentication Failures</h2>
+<p>When the cookie is misconfigured (for example, not identical), RabbitMQ nodes will log errors
+such as "Connection attempt from disallowed node", "", "Could not auto-cluster".</p>
+<p>For example, when a CLI tool connects and tries to authenticate using a mismatching secret value:</p>
+<div><div><pre><code class="language-text">2020-06-15 13:03:33 [error] &lt;0.1187.0&gt; ** Connection attempt from node 'rabbitmqcli-99391-rabbit@warp10' rejected. Invalid challenge reply. **</code></pre></div></div>
+<p>When a CLI tool such as <code>rabbitmqctl</code> fails to authenticate with RabbitMQ,
+the message usually says</p>
+<div><div><pre><code class="language-text">* epmd reports node 'rabbit' running on port 25672
+* TCP connection succeeded but Erlang distribution failed
+* suggestion: hostname mismatch?
+* suggestion: is the cookie set correctly?
+* suggestion: is the Erlang distribution using TLS?</code></pre></div></div>
+<p>This means that TCP connection from a CLI tool to a RabbitMQ node
+succeeded but authentication attempt was rejected by the server. The
+message also mentions several most common reasons for that, which are
+covered next.</p>
+<h4 id="possible-reason-1-misplaced-or-missing-cookie-file">Possible Reason 1: Misplaced or Missing Cookie File</h4>
+<p>An incorrectly placed cookie file or cookie value mismatch are most
+common scenarios for such failures.</p>
+<p>RabbitMQ node logs its cookie hash on start. CLI tools print their
+cookie hash value when they fail to authenticate with the target node.</p>
+<p>When a recent Erlang/OTP version is used, authentication failures contain
+more information and cookie mismatches can be identified better:</p>
+<div><div><pre><code class="language-text">rabbit@warp10:
+  * connected to epmd (port 4369) on warp10
+  * epmd reports node 'rabbit' running on port 25672
+  * TCP connection succeeded but Erlang distribution failed
+
+  * Authentication failed (rejected by the remote node), please check the Erlang cookie
+
+current node details:
+- node name: 'rabbitmq-cli-63@warp10'
+- home dir: /home/username
+- cookie hash: Sg08R8+G85EYHZ3H/9NUfg==</code></pre></div></div>
+<h4 id="possible-reason-2-node-name-type-mismatch">Possible Reason 2: Node Name Type Mismatch</h4>
+<p>If RabbitMQ nodes are configured to use long node names (<code>RABBITMQ_USE_LONGNAME</code> is exported to <code>true</code>),
+so should CLI tools via the same environment variable or the <code>--longnames</code> command line flag introduced in 3.7.0.</p>
+<h4 id="possible-reason-3-inter-node-connections-require-tls">Possible Reason 3: Inter-node Connections Require TLS</h4>
+<p>If RabbitMQ is set up to <a href="/docs/4.3/clustering-ssl">encrypt inter-node and CLI connections using TLS</a>,
+CLI tools also must use TLS and therefore require additional options.
+Non-TLS connections from other nodes and CLI tools will fail.</p>
+<h4 id="possible-reason-4-hostname-mismatch">Possible Reason 4: Hostname Mismatch</h4>
+<p>Other reasons include a hostname mismatch in node name used by the target RabbitMQ node and that provided
+to the CLI tool (e.g. via the <code>-n</code> flag). For example, if a node runs using <code>rabbit@rmq1.eng.megacorp.local</code>
+as its name but <code>rabbitmqctl</code> is invoked as</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics status -n rabbit@rmq-dev.eng.megacorp.local</code></pre></div></div>
+<p>then even if <code>rmq-dev.eng.megacorp.local</code> and <code>rmq1.eng.megacorp.local</code> resolve to the same IP address,
+the server will reject <code>rabbitmqctl</code>'s authentication attempt. This scenario is relatively
+rare.</p>
+<p>When a recent Erlang/OTP version is used, authentication failures contain
+more information and hostname mismatches can be identified better:</p>
+<div><div><pre><code class="language-text">rabbit@localhost:
+  * connected to epmd (port 4369) on localhost
+  * epmd reports node 'rabbit' running on port 25672
+  * TCP connection succeeded but Erlang distribution failed
+
+  * Hostname mismatch: node "rabbit@warp10" believes its host is different. Please ensure that hostnames resolve the same way locally and on "rabbit@warp10"
+
+
+current node details:
+- node name: 'rabbitmq-cli-30@warp10'
+- home dir: /Users/antares
+- cookie hash: Sg08R8+G85EYHZ3H/9NUfg==</code></pre></div></div>
+<h4 id="other-possible-reasons">Other Possible Reasons</h4>
+<p>Just like with any network connection, CLI-to-node connections can fail due to</p>
+<ul>
+<li>Hostname resolution failures</li>
+<li>Incorrect IP routing</li>
+<li>TCP port access blocked (firewalls, etc)</li>
+</ul>
+<p>and so on.</p>
+<p><a href="/docs/4.3/networking">RabbitMQ Networking guide</a> contains a section on troubleshooting of networking-related issues.</p>
+<h2 id="managing-nodes">Managing Nodes</h2>
+<h3 id="getting-node-status">Getting node status</h3>
+<p>To retrieve node status, use <code>rabbitmq-diagnostics status</code> or <code>rabbitmq-diagnostics.bat status</code>
+with an optional <code>--node</code> target:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmq-diagnostics  status
+
+rabbitmq-diagnostics  status --node rabbit@target-hostname.local</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmq-diagnostics .bat status
+
+rabbitmq-diagnostics .bat status --node rabbit@target-hostname.local</code></pre></div></div>
+<h3 id="starting-a-node">Starting a node</h3>
+<p>How RabbitMQ nodes are started depends on the package type used:</p>
+<ul>
+<li>When using Debian and RPM packages on modern Linux distributions, nodes are <a href="/docs/4.3/install-debian#managing-service">managed using <code>systemd</code></a></li>
+<li>When using Windows installer, nodes are usually <a href="/docs/4.3/install-windows#managing">managed by the Windows service manager</a></li>
+<li>When using Homebrew formula, nodes are managed using <code>brew services</code></li>
+<li>When using generic UNIX build or binary Windows build, nodes are started using <code>sbin/rabbitmq-server</code> and <code>sbin/rabbitmq-server.bat</code>, respectively, in the installation root</li>
+</ul>
+<h3 id="stopping-a-node">Stopping a node</h3>
+<p>To stop a node, consider using the same service management tooling used when starting
+the node, which depends on the package typed used when RabbitMQ was installed.</p>
+<p>To stop a node using RabbitMQ CLI tools, use
+<code>rabbitmqctl shutdown</code> or <code>rabbitmqctl.bat shutdown</code> with an optional <code>--node</code> target:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmqctl shutdown
+rabbitmqctl shutdown --node rabbit@target-hostname.local</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat shutdown
+rabbitmqctl.bat shutdown --node rabbit@target-hostname.local</code></pre></div></div>
+<h2 id="http-api-cli">rabbitmqadmin</h2>
+<p><a href="/docs/4.3/management-cli">rabbitmqadmin</a> is a command line tool that's built on top of <a href="/docs/4.3/management">RabbitMQ HTTP API</a>.
+It is not a replacement for <code>rabbitmqctl</code> and provides access to a subset of most commonly
+performed operations provided by the <a href="/docs/4.3/management">management UI</a>.</p>
+<p><code>rabbitmqadmin</code> uses HTTP API authentication mechanism (basic HTTP authentication).</p>
+<p>It is a native binary and must be <a href="https://github.com/rabbitmq/rabbitmqadmin-ng/releases">downloaded separately</a> from the RabbitMQ
+distribution.</p>
+<h2 id="cli-and-clustering">"Node-local" and "Clusterwide" Commands</h2>
+<p>Client connections, channels and queues will be distributed across cluster nodes.
+Operators need to be able to inspect and <a href="/docs/4.3/monitoring">monitor</a> such resources
+across all cluster nodes.</p>
+<p>CLI tools such as <a href="/docs/4.3/man/rabbitmqctl.8">rabbitmqctl</a> and
+<code>rabbitmq-diagnostics</code> provide commands that inspect resources and
+cluster-wide state. Some commands focus on the state of a single node
+(e.g. <code>rabbitmq-diagnostics environment</code> and <code>rabbitmq-diagnostics status</code>), others inspect cluster-wide state. Some examples of the
+latter include <code>rabbitmqctl list_connections</code>, <code>rabbitmqctl list_mqtt_connections</code>, <code>rabbitmqctl list_stomp_connections</code>,
+<code>rabbitmqctl list_users</code>, <code>rabbitmqctl list_vhosts</code> and so on.</p>
+<p>Such "cluster-wide" commands will often contact one node
+first, discover cluster members and contact them all to
+retrieve and combine their respective state. For example,
+<code>rabbitmqctl list_connections</code> will contact all
+nodes, retrieve their AMQP 0-9-1 and AMQP 1.0 connections,
+and display them all to the user. The user doesn't have
+to manually contact all nodes.</p>
+<p>Assuming a non-changing
+state of the cluster (e.g. no connections are closed or
+opened), two CLI commands executed against two different
+nodes one after another will produce identical or
+semantically identical results. "Node-local" commands, however, likely will not produce
+identical results since two nodes rarely have entirely identical state.</p>
+<h2 id="command-discovery">Commands Provided by Plugins</h2>
+<p>A RabbitMQ plugin can provide CLI commands that will be discovered by tools such as <code>rabbitmq-diagnostics</code>,
+<code>rabbitmq-queues</code>, <code>rabbitmqctl</code>, and others. For plugin commands to be discoverable, the plugin
+<strong>must be explicitly enabled</strong>.</p>
+<p>When performing command discovery, CLI tools will consult the <a href="/docs/4.3/plugins#enabled-plugins-file">Enabled Plugins File</a> to determine
+what plugins to scan for commands. If a plugin is not included into that file, e.g. because it was enabled implicitly as
+a dependency, it won't be listed in the enabled plugins file and thus its CLI commands <strong>will not be discovered</strong>
+and will not be available.</p>
+<p>Use the <code>help</code> command to see what commands are available, both core and provided by plugins.</p>
+<h2 id="aliases">Command Aliases</h2>
+<p><code>rabbitmqctl</code>, <code>rabbitmq-diagnostics</code> and <code>rabbitmq-plugins</code> support command aliases. Aliases provide
+a way to define abbreviated versions of certain commands and their arguments. For example,
+instead of typing <code>rabbitmqctl environment</code> it may be more convenient to define an alias,
+<code>rabbitmqctl env</code>, that would expand to <code>rabbitmqctl environment</code>.</p>
+<p>Aliases are loaded from a file specified via the <code>RABBITMQ_CLI_ALIASES_FILE</code> environment
+variable:</p>
+<div><div><pre><code class="language-bash">export RABBITMQ_CLI_ALIASES_FILE=/path/to/cli_aliases.conf</code></pre></div></div>
+<p>The aliases file uses a very minimalistic ini-style <code>alias = command</code> format, for
+example:</p>
+<div><div><pre><code class="language-ini">env = environment
+st  = status --quiet
+
+lp  = list_parameters --quiet
+lq  = list_queues --quiet
+lu  = list_users --quiet
+
+cs  = cipher_suites --openssl-format --quiet</code></pre></div></div>
+<p>With this alias file in place it will be possible to use</p>
+<div><div><pre><code class="language-bash">rabbitmqctl env</code></pre></div></div>
+<p>which would expand to</p>
+<div><div><pre><code class="language-bash">rabbitmqctl environment</code></pre></div></div>
+<p>or</p>
+<div><div><pre><code class="language-bash">rabbitmqctl lq</code></pre></div></div>
+<p>which would expand to</p>
+<div><div><pre><code class="language-bash">rabbitmqctl list_queues --quiet</code></pre></div></div>
+<p>The last alias in the example above configures a <code>rabbitmq-diagnostics</code> command:</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics cs</code></pre></div></div>
+<p>would expand to</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics cipher_suites --openssl-format --quiet</code></pre></div></div>
+<p>All tools process aliases the same way. As long as the expanded command is recognized,
+aliases can be used with any tool or even more than one. For example,
+both <code>rabbitmqctl</code> and <code>rabbitmq-diagnostics</code> provide the <code>environment</code> command
+so the <code>env</code> alias works for both of them exactly the same way:</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics env</code></pre></div></div>
+<p>would expand to</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics environment</code></pre></div></div>
+<p>The file will be consulted only if the command invoked is not provided by the tool.</p></main>

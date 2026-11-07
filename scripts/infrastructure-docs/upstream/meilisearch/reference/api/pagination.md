@@ -1,0 +1,20 @@
+# Pagination
+
+> How Meilisearch paginates GET routes and the structure of paginated responses.
+
+Meilisearch paginates all GET routes that return multiple resources, for example, GET `/indexes`, GET `/documents`, GET `/keys`, etc. This allows you to work with manageable chunks of data. All these routes return 20 results per page, but you can configure it using the `limit` query parameter. You can move between pages using `offset`.
+
+All paginated responses contain the following fields:
+
+| Name | Type | Description |
+| :- | :- | :- |
+| **`offset`** | Integer | Number of resources skipped |
+| **`limit`** | Integer | Number of resources returned |
+| **`total`** | Integer | Total number of resources |
+
+## `/tasks` endpoint
+
+Since the `/tasks` endpoint uses a different type of pagination, the response contains different fields. You can read more about it in the [tasks API reference](https://www.meilisearch.com/docs/reference/api/tasks/list-tasks).
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

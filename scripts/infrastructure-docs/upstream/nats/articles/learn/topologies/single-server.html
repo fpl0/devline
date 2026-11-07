@@ -1,0 +1,148 @@
+<main><header><h1>Single server</h1></header>
+<p>Every topology in this chapter is built from a set of <code>nats-server</code>
+processes connected to each other. Before connecting anything, it's
+worth looking at the building block on its own: one server.</p>
+<p>A <strong>server</strong> is one <code>nats-server</code> process. It accepts client connections, routes
+messages between subjects, and, if you turn JetStream on, can store them in
+streams. One process is all you need to run the entire ORDERS workload while you
+build it.</p>
+<p>This page stands up a development server, <code>n1</code>, on your machine. Then it
+covers when one server is enough and the limits that eventually lead Acme to
+add more servers.</p>
+<h2 id="the-simplest-deployment">The simplest deployment</h2>
+<p>There's no wiring to draw yet. There is one server in the middle, and each
+client opens a connection straight to it. Here that's two: <code>order-svc</code>, which
+publishes orders, and the <code>warehouse</code> service, which subscribes to them.</p>
+<div></div>
+<p>The clients don't know about each other. They know one address. A
+publisher sends <code>orders.created</code> to the server; the server hands it to
+whoever subscribed to a matching subject, and that is the whole topology.</p>
+<p>This is the deployment you've been using throughout the JetStream and
+Security chapters without naming it. It's the
+single-server topology, and it's a real, valid way to run NATS.</p>
+<h2 id="start-the-dev-server">Start the dev server</h2>
+<p>Give the server a config file. A single server needs almost nothing in
+it, but a few settings earn their place from day one.</p>
+<div><div><pre><code class="language-conf"># n1.conf — the development server
+server_name: n1
+port: 4222
+http_port: 8222
+
+jetstream {
+  store_dir: "./js/n1"
+}</code></pre></div></div>
+<p><code>server_name</code> is a human-readable name for this server. Set it to <code>n1</code>,
+so that the logs and monitoring endpoints identify it clearly.</p>
+<p><code>port</code> is where clients connect. <code>4222</code> is the NATS default; it's written
+out here so the client address is explicit. Clients use
+<code>nats://localhost:4222</code>.</p>
+<p><code>http_port</code> turns on the monitoring endpoint, as it's
+off by default. Enable it at <code>8222</code> from the start so <code>n1</code> is
+observable; the <a href="/learn/monitoring">Monitoring deep dive</a> covers what to
+watch on it.</p>
+<p><a href="/reference/config/jetstream"><code>jetstream</code></a> turns JetStream on and gives it a <code>store_dir</code> to
+write to. Enable it so <code>n1</code> can hold the same ORDERS stream it
+carried through the JetStream chapter.</p>
+<p>Start <code>n1</code> with the config:</p>
+<div><div><pre><code class="language-bash">nats-server -c n1.conf</code></pre></div></div>
+<p>The server logs that it's listening on <code>4222</code> for clients and <code>8222</code>
+for monitoring. <code>n1</code> is up. Nothing else is deployed; this one process
+is the entire system.</p>
+<p>Confirm it's reachable:</p>
+<div><div><pre><code class="language-bash">nats server check connection --server nats://localhost:4222</code></pre></div></div>
+<p>A healthy server answers, and the check reports OK.</p>
+<h2 id="connect-and-publish-an-order">Connect and publish an order</h2>
+<p>With <code>n1</code> running, subscribe to <code>orders.&gt;</code> in one terminal:</p>
+<div><div><pre><code class="language-bash">nats sub "orders.&gt;" --server nats://localhost:4222</code></pre></div></div>
+<p>In another, connect and publish an ORDERS order:</p>
+<div><div><pre><code class="language-bash">nats pub orders.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' --server nats://localhost:4222</code></pre></div></div>
+<p>The subscriber prints the order:</p>
+<div><div><pre><code class="language-text">[#1] Received on "orders.created"
+{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}</code></pre></div></div>
+<p>There's nothing topology-specific here. The client names one server URL and
+publishes; the same kind of publish runs unchanged against the cluster, the
+super-cluster, and the leaf node in the pages ahead.</p>
+<p>For the wire-level detail of how a client connects and authenticates,
+see <a href="/reference/protocols/client">Reference → Client protocol</a>.
+We only need the connect URL here.</p>
+<h2 id="when-one-server-is-enough">When one server is enough</h2>
+<p>A single server is the right tool for a real set of
+jobs.</p>
+<p>Reach for one server in <strong>development</strong>: a laptop or a CI run. There's
+nothing to coordinate and nothing to wait for.</p>
+<p>One server also fits when NATS runs <strong>on the device itself</strong>. The
+<code>nats-server</code> binary is one small, self-contained process, so it can run
+on edge hardware — a car, a factory machine, a point-of-sale terminal —
+or embedded in-process inside another application. Each gets a full local
+NATS with no fleet to operate. A device server like this often later dials
+out to a central system as a <a href="/learn/topologies/leaf-nodes">leaf node</a>,
+but on its own it's still a single server.</p>
+<p>A <strong>small, single-instance service</strong> is the third fit — an internal
+dashboard or a nightly job that already runs as one process.
+That service is the least available part of the feature, so clustering
+NATS behind it raises the broker's uptime but not the feature's: the
+service still fails first. Lifting the feature's availability means a second copy of
+the service too, which a small feature rarely earns.</p>
+<p>In all of these, one server is the correct amount of infrastructure
+rather than a compromise.</p>
+<h2 id="the-limits-of-one-server">The limits of one server</h2>
+<p>Two limits eventually push Acme past <code>n1</code>. The first is <strong>availability</strong>:
+a single server can fail. The second is <strong>capacity</strong>: a single server can
+only grow so far.</p>
+<p>A single server is a <strong>single point of failure</strong>. If that process dies,
+or the machine it runs on reboots, every client loses its connection at
+once. There's no server to fail over to, because there is no
+second server. Message routing stops until <code>n1</code> comes back.</p>
+<p>That's fine for the use-cases described above. It isn't fine for production
+deployments, where a reboot during a deploy would drop every order in flight.</p>
+<p>Durability is a separate question with the same answer. Because <code>n1</code>
+has JetStream enabled, it stores the ORDERS stream on disk so messages
+survive a restart of the process, but they still live on one machine.
+Lose that disk and you lose the stream. One server gives you durability against a
+crash, never against the loss of the server itself.</p>
+<p>Capacity is the second limit. A single server scales <strong>vertically</strong> — a
+bigger CPU, more RAM, a faster disk — which is sometimes the right fix,
+but every machine has a ceiling. Past it, the way forward is more servers,
+not a bigger one.</p>
+<p>The fix for both limits is a <strong>cluster</strong>: more than one server, so a
+client can fail over and a stream can keep copies on more than one machine.
+The next page stands up Acme's first cluster, <code>east</code>, and shows how it
+lifts both limits at once.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A single server has one trap worth seeing up close — the one that turns
+the availability limit above from theory into an error message.</p>
+<p><strong>Reaching for redundancy too late.</strong> It's tempting to assume durability
+is something you switch on when you need it. But a single server can't
+hold a replicated stream. Ask the ORDERS stream for three replicas
+on <code>n1</code> and the server refuses, because three replicas need three servers
+to live on:</p>
+<div><div><pre><code class="language-bash">nats stream add ORDERS --subjects 'orders.*' --storage file --replicas 3 --defaults</code></pre></div></div>
+<p>The server answers <code>replicas &gt; 1 not supported in non-clustered mode</code>.
+Don't treat that error as a config typo to override. It reflects how the
+topology works: redundancy is a cluster's job. On one server, ask
+for <code>--replicas 1</code> and accept that R1 survives a process restart but
+never the loss of <code>n1</code>. When orders must survive that, grow to <a href="/learn/topologies/your-first-cluster">Your
+first cluster</a>. The quorum and
+replication mechanics behind R3 live in
+<a href="/learn/clustering">Clustering &amp; Replication</a>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>Acme's deployment right now:</p>
+<ul>
+<li>One development server, <code>n1</code>, listening on <code>4222</code> with monitoring on
+<code>8222</code>.</li>
+<li>The ORDERS workload running against it directly: <code>order-svc</code> publishing
+<code>orders.*</code>, with the <code>ORDERS</code> stream stored on <code>n1</code> now that JetStream
+is enabled.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>The next page joins three servers (<code>n1-east</code>, <code>n2-east</code>, <code>n3-east</code>)
+into Acme's first cluster, so a client whose server dies reconnects
+to another and keeps working: <a href="/learn/topologies/your-first-cluster">Your first
+cluster</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/concepts/topologies">Core Concepts → Topologies</a> — the
+five-minute overview of all four shapes.</li>
+<li><a href="/reference/protocols/client">Reference → Client protocol</a> — how a
+client connects, the connect URL, and the full set of options.</li>
+</ul></main>

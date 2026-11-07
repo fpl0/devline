@@ -1,0 +1,123 @@
+<main><header><h1>Where to go next</h1></header>
+<p>You started this chapter with a deployment you knew how to build but not
+how to watch. You end it able to read the <code>shipping</code> consumer falling
+behind four different ways: as a number on an endpoint, as lag computed
+from consumer state, as an advisory you subscribed to, and as a line
+climbing on a Grafana panel. That covers the full chapter.</p>
+<p>This page doesn't teach anything new. It collects the model you built
+into one place and points you at the chapters and Reference that take it
+further.</p>
+<h2 id="the-four-monitoring-lenses">The four monitoring lenses</h2>
+<p>Every page in this chapter watched the same Acme ORDERS deployment from
+one more angle. If you remember nothing else, remember where each number
+comes from.</p>
+<p>The <strong>numbers come from endpoints.</strong> The monitoring port <code>:8222</code> serves
+on-demand JSON: <code>/varz</code> for the server, <code>/connz</code> for clients, <code>/routez</code>
+for cluster routes, and <code>/jsz</code> for JetStream. When you request an
+endpoint, the node returns its current state with no history and no
+subscription.</p>
+<p><strong>Lag comes from consumer state.</strong> The stream's <code>LastSeq</code> and the
+consumer's <code>delivered.stream_seq</code> give you lag as a single number, and
+<code>num_ack_pending</code> and <code>num_redelivered</code> tell you what's in-flight and
+what keeps coming back. The pinned snapshot (20 waiting, 5 in-flight, 3
+redelivered) is consumer health expressed as three numbers.</p>
+<p><strong>Surprises come from advisories.</strong> Events you never polled for arrive as
+transient JSON on <code>$JS.EVENT.ADVISORY.&gt;</code> and <code>$SYS.*</code>. A poison order
+exhausting its deliveries publishes one <code>max_deliver</code> advisory. You learn
+it only if you're subscribed when it fires; otherwise it's gone.</p>
+<p><strong>History comes from the exporter.</strong> prometheus-nats-exporter scrapes
+<code>:8222</code> and re-exposes the numbers as time series on <code>:7777</code>. Prometheus
+stores them, Grafana charts them, and <code>nats server check</code> raises an alert
+when lag crosses a threshold you set.</p>
+<p>Everything else in this chapter is a refinement of those four lenses:
+endpoints, consumer state, advisories, and the exporter.</p>
+<h2 id="where-the-details-live-now">Where the details live now</h2>
+<p>The chapter is unversioned and concept-first. The exact field types,
+defaults, and full endpoint field lists live in <strong>Reference</strong>, which is
+versioned and exhaustive. When you need the precise type of a <code>/jsz</code>
+field or the complete list of <code>/connz</code> query params, that's where to
+look.</p>
+<p>The <a href="/reference/">Reference root</a> is the entry point. The handoff
+phrases throughout this chapter ("the full set of fields is documented
+in Reference") all point into it. The
+<a href="/reference/system/monitor">monitoring endpoints reference</a> and the
+<a href="/reference/system/advisory">advisory reference</a> are the two you'll
+reach for most.</p>
+<h2 id="sibling-deep-dives">Sibling deep dives</h2>
+<p>This chapter sits in the Operate half alongside its siblings. The others
+pick up exactly where a metric stops: this chapter names the symptom,
+and the Operate siblings cover the fix.</p>
+<p>The <a href="/learn/backup-recovery">Backup &amp; Recovery deep dive</a> is what you
+reach for when the lag you measured here won't drain on its own. It
+covers snapshotting a stream and restoring it, the repair this chapter
+deliberately never prescribes.</p>
+<p>The <a href="/learn/deployment">Deployment deep dive</a> covers running the things
+you watched: sizing and running the exporter and Prometheus, and scaling
+the <code>shipping</code> consumer pool when its lag climbs for real.</p>
+<p>The <a href="/learn/clustering">Clustering &amp; Replication deep dive</a> explains the
+mechanics behind the events you only <em>observed</em> here. When a
+leader-elected advisory reports a flap, the <em>why</em> lives in that chapter's
+<a href="/learn/clustering/raft-and-leaders">raft-and-leaders</a> page.</p>
+<p>The <a href="/learn/services">Services deep dive</a> and its
+<a href="/learn/services/observability">observability</a> page extend the metric
+picture to request/reply: service latency and error counts, the one
+metric family this chapter pointed at but didn't cover.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>This is the end of the chapter. This page adds no new scenario state.
+The <code>east</code> cluster, the <code>ORDERS</code> stream, and the <code>shipping</code> and
+<code>analytics</code> consumers are still running in your session exactly as you
+left them, now with an exporter scraping <code>:8222</code> and Grafana charting
+the result. You can keep watching, or tear the observation stack down and
+leave the deployment running.</p>
+<p>You hold the core model: the live numbers come from the monitoring
+endpoints, lag comes from consumer state, the events you didn't poll for
+come from advisories, and the history that turns a number into an alert
+comes from the exporter. Those four sources together are how you keep a
+NATS deployment observable in production. When all four say a node is
+unhealthy and none says why, a
+<a href="/learn/monitoring/profiling">profile</a> is what you take next.</p>
+<h2 id="production-checklist">Production checklist</h2>
+<p>Every page in this chapter closed with a Pitfalls section. This collects
+the action items from all of them in one place: a last pass before you
+trust this deployment to tell you when it's unhealthy. Each group links
+back to the page that explains the why.</p>
+<h3 id="monitoring-endpoints--see-pitfalls">Monitoring endpoints — see <a href="/learn/monitoring/monitoring-endpoints#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Alert on <code>connections</code> (active), not <code>total_connections</code> (lifetime); connection flapping inflates the lifetime count without anything being wrong.</li>
+<li><input/> <!-- -->Watch <code>slow_consumers</code> on <code>/varz</code>; a rising count is a reader that can't keep up.</li>
+<li><input/> <!-- -->Scope a <code>/jsz</code> scrape with <code>?acc=ORDERS</code> and page it with <code>offset</code>/<code>limit</code>; the full <code>?accounts=true&amp;streams=true&amp;consumers=true</code> query is slow at scale and will time out.</li>
+<li><input/> <!-- -->Restrict the monitoring port; it's unauthenticated by default (see <a href="/learn/security">Security</a>).</li>
+</ul>
+<h3 id="jetstream-health--see-pitfalls">JetStream health — see <a href="/learn/monitoring/jetstream-health#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Read crashed workers as rising <code>num_pending</code> with <code>num_waiting</code> at <code>0</code> and <code>delivered.stream_seq</code> stalled; <code>num_pending</code> keeps climbing whether or not a client is fetching, so watch those three fields together.</li>
+<li><input/> <!-- -->Read in-flight (<code>num_ack_pending</code>) and lag (<code>num_pending</code>) as two separate numbers; confusing the two hides a stuck handler.</li>
+<li><input/> <!-- -->Remember a filtered consumer's <code>num_pending</code> counts only matching subjects; empty pending does not mean an empty stream.</li>
+</ul>
+<h3 id="advisories-and-events--see-pitfalls">Advisories and events — see <a href="/learn/monitoring/advisories-and-events#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Persist advisories to a stream subscribed to <code>$JS.EVENT.ADVISORY.&gt;</code>; advisories are transient, so if nothing durable is listening when the event fires, you never learn it happened.</li>
+<li><input/> <!-- -->Treat the <code>max_deliver</code> advisory as the only built-in signal a message was dropped; JetStream has no dead-letter queue, so subscribe or lose poison orders silently.</li>
+<li><input/> <!-- -->Read a leader-elected advisory as a flap report only; the <em>why</em> behind the election is <a href="/learn/clustering">Clustering</a>.</li>
+</ul>
+<h3 id="prometheus-and-dashboards--see-pitfalls">Prometheus and dashboards — see <a href="/learn/monitoring/prometheus-and-dashboards#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Use <code>/healthz?js-meta-only=true</code> to check cluster quorum; <code>?js-enabled-only=true</code> checks only whether the local node's JetStream is running and returns 200 even with no quorum.</li>
+<li><input/> <!-- -->Set explicit <code>nats server check</code> thresholds like <code>--unprocessed-critical</code>; defaults don't know your SLA, and a check with no threshold never fires.</li>
+<li><input/> <!-- -->Put Prometheus behind the exporter; the exporter stores no history, so on its own you only ever see "now."</li>
+</ul>
+<h3 id="profiling--see-pitfalls">Profiling — see <a href="/learn/monitoring/profiling#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Leave <code>prof_port</code> unset in production, or restrict it with firewall rules; it has no authentication and binds to the same interfaces as the client port.</li>
+<li><input/> <!-- -->Reach for <code>nats server request profile</code> before <code>prof_port</code>; it needs no config change and no restart, and <code>prof_port</code> isn't reloadable.</li>
+<li><input/> <!-- -->Set <code>prof_block_rate</code> above zero before asking for a <code>block</code> profile, and drop it back to zero afterwards; the profile is empty without it and the sampling slows the server down.</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/system/monitor">Reference → monitoring endpoints</a> — every
+endpoint field, type, and query param, versioned and exhaustive.</li>
+<li><a href="/learn/backup-recovery">Backup &amp; Recovery deep dive</a> — the fix for a
+lag this chapter only measured.</li>
+<li><a href="/learn/clustering">Clustering &amp; Replication deep dive</a> — the mechanics
+behind the leader-elected advisories you observed.</li>
+</ul></main>

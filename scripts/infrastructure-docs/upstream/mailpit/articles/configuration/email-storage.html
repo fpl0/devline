@@ -1,0 +1,63 @@
+<main>
+		
+		<h1>Email storage</h1>
+		<p>By default, Mailpit stores all email data in a <strong>local</strong> SQLite database. This provides an embedded, low-memory, and fast storage mechanism for writing (SMTP) and reading (API).</p>
+<p>Mailpit can alternatively use <a href="#remote-storage-rqlite">rqlite</a> if you require a distributed network database.</p>
+<h2 id="local-storage-sqlite">Local storage (SQLite)</h2>
+
+<div>
+	<p>Please be aware that Mailpit, by default, activates <a href="https://sqlite.org/wal.html">Write-Ahead Logging</a> (WAL) in SQLite.
+This feature may not function reliably with some filesystems like <strong>mergerfs</strong>, or network file systems like <strong>NFS</strong> or <strong>Samba</strong>.
+If you plan to use these, you should include the <code>--disable-wal</code> flag (or set the environment variable <code>MP_DISABLE_WAL=true</code>).
+Additionally, it’s important to consider the <a href="https://sqlite.org/useovernet.html">caveats and considerations</a>
+associated with using network file systems with SQLite.</p>
+<p>Samba/CIFS clients should include the <code>nobrl</code> mount option to prevent the client from sending byte range lock requests to the server,
+which can lead to SQLite locking errors.</p>
+
+</div>
+
+<h3 id="performance">Performance</h3>
+<p>Testing has shown that Mailpit can store between 200-300 emails per second over SMTP, depending on CPU, disk speed, network speed, and email size.
+The database has been tested with over 135,000 emails and still performs well.</p>
+<p>By default, raw messages are stored compressed (zstd) in the database to conserve space, but this comes at the cost of additional RAM and CPU usage to process the data.
+The level of compression can be adjusted, including an option to disable message compression altogether (<a href="../compression/">see docs</a>).</p>
+<h3 id="temporary-vs-persistent-storage">Temporary vs. persistent storage</h3>
+<p>Mailpit stores both an email summary and the raw email (compressed with zstd) in the database, and has two storage options:</p>
+<h4 id="temporary-storage-default">Temporary storage (default)</h4>
+<p>By default, Mailpit creates a temporary database to store its data. When the application exits, the temporary database is deleted from disk.</p>
+<h4 id="persistent-storage">Persistent storage</h4>
+<p>Mailpit allows you to provide a path to a file for persistent database storage, for example <code>--database /path/to/database.db</code> (or environment variable <code>MP_DATABASE=/path/to/database.db</code>).
+This file will not be deleted when the application terminates, and restarting Mailpit with the same <code>--database</code> will reload previously stored messages.</p>
+
+<div>
+	In Mailpit versions older than v0.16.0, the database flag and environment variable were <code>--db-file</code> and <code>MP_DATA_FILE</code>. These were renamed to be more consistent with their purpose.
+</div>
+
+<h3 id="automated-message-pruning">Automated message pruning</h3>
+<p>Although Mailpit can easily handle tens of thousands of emails, it will by default automatically prune old messages, keeping the most recent 500 emails.
+This value can be adjusted using the <code>--max &lt;value&gt;</code> flag (or environment variable <code>MP_MAX_MESSAGES=&lt;value&gt;</code>), or set to <code>0</code> to disable this entirely.</p>
+<p>Another option is to automatically delete messages after a certain time using the <code>--max-age &lt;value&gt;</code> flag (or environment variable <code>MP_MAX_AGE=&lt;value&gt;</code>), where <code>&lt;value&gt;</code> is either a value in hours (e.g., <code>36h</code>) or days (e.g., <code>14d</code>). The <code>h</code> or <code>d</code> is required in the value.
+This option can be used together with, or instead of, the <code>--max</code> option.</p>
+<p>Mailpit will by default automatically VACUUM your database when required; after 5 minutes of database inactivity and when at least 1% of the total storage size has been deleted. A database VACUUM is a CPU-intensive operation, and rebuilds the entire database file. Auto VACUUMing can be disabled using the <code>--disable-auto-vacuum</code> flag (or environment variable <code>MP_DISABLE_AUTO_VACUUM=true</code>), however this is not recommended as it will lead to increased database file size over time (unless of course you have an external process to run a VACUUM).</p>
+<h2 id="remote-storage-rqlite">Remote storage (rqlite)</h2>
+<div>
+	<a href="https://rqlite.io/"><strong>rqlite</strong></a> is a distributed relational database that combines the simplicity of SQLite with the robustness of a fault-tolerant, highly available cluster.
+</div>
+
+<p>To use rqlite for database storage, you must have a connectable rqlite database already running, and connect to it by specifying the HTTP address and port of the server (e.g., <code>--database http://localhost:4001</code>). If you use authentication, this can be set using the <code>http://&lt;user&gt;:&lt;password&gt;@&lt;host&gt;:&lt;port&gt;</code> syntax.</p>
+<p>If you plan to run <strong>rqlite behind a load balancer, or on Kubernetes in particular</strong>, you must also disable <em>Cluster Discovery</em> using the <code>http://localhost:4001?disableClusterDiscovery=true</code> syntax. This will instruct Mailpit to leave cluster-connection control to the load balancer.</p>
+<p>When sharing the same rqlite database between different Mailpit instances, you may wish to set a unique <a href="#tenant-id">tenant ID</a> to isolate data.</p>
+<h3 id="rqlite-performance">rqlite performance</h3>
+<p>Performance of rqlite is generally very good, although database writes (storing messages received via SMTP) are slower compared to local SQLite storage (see above). This is in part due to the <a href="https://raft.github.io/">raft</a> protocol used by rqlite to ensure consistency between rqlite nodes (even if you are just using a single node).</p>
+<p>Performance should not be an issue with regular use of Mailpit, but may be a factor when dealing with large volumes of SMTP messages where you wish to maximize input speeds.</p>
+<h3 id="database-maintenance">Database maintenance</h3>
+<p>Unlike local storage (see above), the rqlite database is <strong>not</strong> automatically VACUUMED by Mailpit. However, rqlite does have a startup flag to run this automatically at fixed intervals (<a href="https://rqlite.io/docs/guides/performance/#vacuum">see docs</a>).</p>
+<h2 id="tenant-id">Tenant ID</h2>
+<p>SQLite (both local storage and rqlite) does not support the concept of multiple databases; it is just one database containing tables. In order to share a database between different Mailpit instances, each having their own data, you must specify a tenant ID using the <code>--tenant-id &lt;value&gt;</code> flag (or environment variable <code>MP_TENANT_ID=&lt;value&gt;</code>). This will prefix all Mailpit tables, isolating all data from other Mailpit instances.</p>
+<p>This tenant ID could, for instance, be the hostname of the Mailpit server or some other unique identifier. Mailpit will not remove or alter any data created by other tenants.</p>
+
+
+		
+		
+		
+	</main>

@@ -1,0 +1,146 @@
+# Search with snippets
+
+> Return highlighted and cropped result snippets to show users exactly where their query matched in each document.
+
+Search snippets let you display the portion of a document that matches a user's query, with matched terms highlighted. This helps users quickly evaluate whether a result is relevant without reading the full document content.
+
+Meilisearch provides two complementary features for this: **highlighting** wraps matched terms in tags, and **cropping** trims long text fields to show only the relevant portion around matched terms.
+
+## Highlighting matched terms
+
+Use `attributesToHighlight` to specify which fields should have matched terms wrapped in highlight tags. Set it to `["*"]` to highlight all [displayed attributes](https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_displayed_attributes).
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/movies/search' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY' \
+  --data-binary '{
+    "q": "american hero",
+    "attributesToHighlight": ["title", "overview"]
+  }'
+```
+
+The response includes a `_formatted` object in each hit. Inside `_formatted`, matched terms are wrapped in `<em>` tags by default:
+
+```json
+{
+  "hits": [
+    {
+      "title": "Captain America: The First Avenger",
+      "overview": "An American hero rises during World War II...",
+      "_formatted": {
+        "title": "Captain <em>America</em>: The First Avenger",
+        "overview": "An <em>American</em> <em>hero</em> rises during World War II..."
+      }
+    }
+  ]
+}
+```
+
+### Custom highlight tags
+
+Use `highlightPreTag` and `highlightPostTag` to replace the default `<em>` tags with custom markup:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/movies/search' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY' \
+  --data-binary '{
+    "q": "american hero",
+    "attributesToHighlight": ["title", "overview"],
+    "highlightPreTag": "<mark>",
+    "highlightPostTag": "</mark>"
+  }'
+```
+
+## Cropping long text fields
+
+Use `attributesToCrop` to trim long text fields so only the portion around matched terms is returned. This is especially useful for fields like descriptions or article bodies.
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/movies/search' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY' \
+  --data-binary '{
+    "q": "romance",
+    "attributesToCrop": ["overview"],
+    "cropLength": 20
+  }'
+```
+
+The `_formatted` object contains the cropped text:
+
+```json
+{
+  "_formatted": {
+    "overview": "...a sweeping romance set in the heart of..."
+  }
+}
+```
+
+### Crop parameters
+
+| Parameter | Default | Description |
+| - | - | - |
+| `attributesToCrop` | `null` | Array of attributes to crop. Use `["*"]` for all displayed attributes. |
+| `cropLength` | `10` | Maximum number of words in the cropped text. |
+| `cropMarker` | `"..."` | String placed at the beginning or end of cropped text to indicate truncation. |
+
+### Custom crop length per attribute
+
+You can set a specific crop length for individual attributes by appending `:length` to the attribute name:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/movies/search' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY' \
+  --data-binary '{
+    "q": "adventure",
+    "attributesToCrop": ["overview:30", "tagline:10"]
+  }'
+```
+
+## Combining highlighting and cropping
+
+For the best user experience, use both features together. This gives you a short, relevant snippet with matched terms visually emphasized:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/movies/search' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY' \
+  --data-binary '{
+    "q": "space adventure",
+    "attributesToHighlight": ["title", "overview"],
+    "attributesToCrop": ["overview"],
+    "cropLength": 30,
+    "highlightPreTag": "<mark>",
+    "highlightPostTag": "</mark>"
+  }'
+```
+
+The `_formatted` response combines both:
+
+```json
+{
+  "_formatted": {
+    "title": "<mark>Space</mark> Odyssey",
+    "overview": "...embark on a daring <mark>space</mark> <mark>adventure</mark> to save humanity from..."
+  }
+}
+```
+
+> [!TIP]
+>
+> Fields listed in `attributesToCrop` are automatically highlighted if they also appear in `attributesToHighlight` or if `attributesToHighlight` is set to `["*"]`.
+
+> [!NOTE]
+>
+> For the full parameter reference, see the [search API reference](https://www.meilisearch.com/docs/reference/api/search/search-with-post).
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

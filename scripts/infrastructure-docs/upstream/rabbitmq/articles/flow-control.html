@@ -1,0 +1,27 @@
+<main><header><h1>Flow Control</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide covers a back pressure mechanism applied by RabbitMQ nodes
+to publishing connections in order to avoid runaway <a href="/docs/4.3/memory-use">memory usage</a> growth.
+It is necessary because some components in a node can fall behind particularly fast publishers
+as they have to do significantly more work than publishing clients (e.g. replicate data to N
+peer nodes or store it on disk).</p>
+<h2 id="flow-control">How Does Flow Control Work</h2>
+<p>RabbitMQ will reduce the speed of connections which are
+publishing too quickly for queues to keep up. No configuration
+is required.</p>
+<p>A flow-controlled connection will show a state of <code>flow</code> in <code>rabbitmqctl</code>, management UI
+and HTTP API responses. This means the connection is experiencing
+blocking and unblocking several times a second, in order to keep the rate of
+message ingress at one that the rest of the server (e.g. queues those messages are route to)
+can handle.</p>
+<p>In general, a connection which is in flow control should not see
+any difference from normal running; the <code>flow</code> state
+is there to inform the sysadmin that the publishing rate is
+restricted, but from the client's perspective it should just
+look like the network bandwidth to the server is lower than it actually is.</p>
+<p>Other components than connections can be in the
+<code>flow</code> state. Channels, queues and other parts of the system
+can apply flow control that eventually propagates back to publishing connections.</p>
+<p>To find out if consumers and <a href="/docs/4.3/confirms">prefetch settings</a>
+can be key limiting factors, <a href="/blog/2014/04/14/finding-bottlenecks-with-rabbitmq-3-3">take a look at relevant metrics</a>.
+See <a href="/docs/4.3/monitoring">Monitoring and Health Checks</a> guide to learn more.</p></main>

@@ -1,0 +1,416 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This is part of the <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting">Troubleshooting using metrics</a> guide.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Metrics need to be enabled for Keycloak. Follow the <a href="https://www.keycloak.org/observability/configuration-metrics">Gaining insights with metrics</a> guide for more details.</p>
+</li>
+<li>
+<p>A monitoring system collecting the metrics.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_metrics"><a class="anchor" href="#_metrics"></a>Metrics</h2>
+<div class="sectionbody">
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Global tags</strong></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>cache=&lt;name&gt;</code></dt>
+<dd>
+<p>The cache name.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_size"><a class="anchor" href="#_size"></a>Size</h3>
+<div class="paragraph">
+<p>Monitor the number of entries in your cache using these two metrics.
+If the cache is clustered, each entry has an owner node and zero or more backup copies of different nodes.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+Sum the unique entry size metric to get a cluster total number of entries.
+</td>
+</tr>
+</table>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_approximate_entries</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The approximate number of entries stored by the node, including backup copies.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_approximate_entries_unique</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The approximate number of entries stored by the node, excluding backup copies.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_data_access"><a class="anchor" href="#_data_access"></a>Data Access</h3>
+<div class="paragraph">
+<p>The following metrics monitor the cache accesses, such as the reads, writes and their duration.</p>
+</div>
+<div class="sect3">
+<h4 id="_stores"><a class="anchor" href="#_stores"></a>Stores</h4>
+<div class="paragraph">
+<p>A store operation is a write operation that writes or updates a value stored in the cache.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_store_times_seconds_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of store requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_store_times_seconds_sum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total duration of all store requests.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+When histogram is enabled, the percentile buckets are available.
+Those are useful to create heat maps but, collecting and exposing the percentile buckets may have a negative impact on the deployment performance.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_reads"><a class="anchor" href="#_reads"></a>Reads</h4>
+<div class="paragraph">
+<p>A read operation reads a value from the cache.
+It divides into two groups, a hit if a value is found, and a miss if not found.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_hit_times_seconds_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of read hits requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_hit_times_seconds_sum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total duration of all read hits requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_miss_times_seconds_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of read misses requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_miss_times_seconds_sum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total duration of all read misses requests.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+When histogram is enabled, the percentile buckets are available.
+Those are useful to create heat maps but, collecting and exposing the percentile buckets may have a negative impact on the deployment performance.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_removes"><a class="anchor" href="#_removes"></a>Removes</h4>
+<div class="paragraph">
+<p>A remove operation removes a value from the cache.
+It divides in two groups, a hit if a value exists, and a miss if the value does not exist.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_remove_hit_times_seconds_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of remove hits requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_remove_hit_times_seconds_sum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total duration of all remove hits requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_remove_miss_times_seconds_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of remove misses requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_remove_miss_times_seconds_sum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total duration of all remove misses requests.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+When histogram is enabled, the percentile buckets are available.
+Those are useful to create heat maps but, collecting and exposing the percentile buckets may have a negative impact on the deployment performance.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For <code>users</code> and <code>realms</code> cache, the database invalidation translates into a remove operation.
+These metrics are a good indicator of how frequent the database entities are modified and therefore removed from the cache.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Hit Ratio for read and remove operations</strong></p>
+</div>
+<div class="paragraph">
+<p>An expression can be used to compute the hit ratio for a cache in systems such as Prometheus.
+As an example, the hit ratio for read operations can be expressed as:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>vendor_statistics_hit_times_seconds_count
+/
+(vendor_statistics_hit_times_seconds_count
+ + vendor_statistics_miss_times_seconds_count)</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Read/Write ratio</strong></p>
+</div>
+<div class="paragraph">
+<p>An expression can be used to compute the read-write ratio for a cache, using the metrics above:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>(vendor_statistics_hit_times_seconds_count
+ + vendor_statistics_miss_times_seconds_count)
+/
+(vendor_statistics_hit_times_seconds_count
+ + vendor_statistics_miss_times_seconds_count
+ + vendor_statistics_remove_hit_times_seconds_count
+ + vendor_statistics_remove_miss_times_seconds_count
+ + vendor_statistics_store_times_seconds_count)</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_eviction"><a class="anchor" href="#_eviction"></a>Eviction</h4>
+<div class="paragraph">
+<p>Eviction is the process to limit the cache size and, when full, an entry is removed to make room for a new entry to be cached.
+As Keycloak caches the database entities in the <code>users</code>, <code>realms</code> and <code>authorization</code>, database access always proceeds with an eviction event.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_statistics_evictions</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of eviction events.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Eviction rate</strong></p>
+</div>
+<div class="paragraph">
+<p>A rapid increase of eviction and very high database CPU usage means the <code>users</code> or <code>realms</code> cache is too small for smooth Keycloak operation, as data needs to be re-loaded very often from the database which slows down responses.
+If enough memory is available, consider increasing the max cache size using the CLI options <code>cache-embedded-users-max-count</code> or <code>cache-embedded-realms-max-count</code></p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_transactions"><a class="anchor" href="#_transactions"></a>Transactions</h3>
+<div class="paragraph">
+<p>Transactional caches use both One-Phase-Commit and Two-Phase-Commit protocols to complete a transaction.
+These metrics keep track of the operation duration.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The <code>PESSMISTIC</code> locking mode uses One-Phase-Commit and does not create commit requests.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+In a healthy cluster, the number of rollbacks should remain zero.
+Deadlocks should be rare, but they increase the number of rollbacks.
+</td>
+</tr>
+</table>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_transactions_prepare_times_seconds_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of prepare requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_transactions_prepare_times_seconds_sum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total duration of all prepare requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_transactions_rollback_times_seconds_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of rollback requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_transactions_rollback_times_seconds_sum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total duration of all rollback requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_transactions_commit_times_seconds_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of commit requests.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vendor_transactions_commit_times_seconds_sum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total duration of all commit requests.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+When histogram is enabled, the percentile buckets are available.
+Those are useful to create heat maps but, collecting and exposing the percentile buckets may have a negative impact on the deployment performance.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_next_steps"><a class="anchor" href="#_next_steps"></a>Next steps</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Return back to the <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting">Troubleshooting using metrics</a> or proceed to <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-external-infinispan-multi-cluster">External Infinispan metrics</a>.</p>
+</div>
+</div>
+</div> </div>
+</main>

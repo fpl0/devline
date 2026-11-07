@@ -1,0 +1,380 @@
+<main><header><h1>Production Deployment Guidelines</h1></header>
+<h2 id="overview">Overview</h2>
+<p>Data services such as RabbitMQ often have many tunable
+parameters. Some configurations or practices make a lot of sense for
+development but are not really suitable for production.  No
+single configuration fits every use case. It is, therefore,
+important to assess system configuration and have a plan for "day two operations"
+activities such as <a href="/docs/4.3/upgrade">upgrades</a> before going into production.</p>
+<h2 id="toc">Table of Contents</h2>
+<p>Production systems have concerns that go beyond configuration: system observability,
+security, application development practices, resource usage, <a href="/release-information">release support timeline</a>, and more.</p>
+<p><a href="/docs/4.3/monitoring">Monitoring</a> and metrics are the foundation of a production-grade system.
+Besides helping detect issues, it provides the operator data that can be used
+to size and configure both RabbitMQ nodes and applications.</p>
+<p>This guide provides recommendations in a few areas:</p>
+<ul>
+<li><a href="#storage">Storage</a> considerations for node data directories</li>
+<li><a href="#networking">Networking</a>-related recommendations</li>
+<li>Recommendations related to <a href="#users-and-permissions">virtual hosts, users and permissions</a></li>
+<li><a href="#monitoring-and-resource-usage">Monitoring and resource usage</a></li>
+<li><a href="#limits">Configurable limits</a></li>
+<li><a href="#security">Security</a></li>
+<li><a href="#clustering">Clustering</a> and multi-node deployments</li>
+<li><a href="#apps">Application-level</a> practices and considerations</li>
+</ul>
+<p>and more.</p>
+<h2 id="minimum-hardware">Minimum Hardware Requirements</h2>
+<p>RabbitMQ can used with a broad range of workloads. Some may be very I/O heavy
+(streams), others can require more CPU resources (large number of concurrent connections and queues).
+Those workloads may require a different mix of CPU, storage and network resources.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>This section describes a recommended minimum of resources for production systems.</p></div></div>
+<p>Below is a minimum system requirements for production deployments, per node:</p>
+<ul>
+<li>No colocation with other data services (e.g. data stores) or disk, network I/O heavy applications</li>
+<li>4 CPU cores</li>
+<li>4 GiB of RAM</li>
+<li>See <a href="#storage">Storage</a> below for storage</li>
+</ul>
+<p>Lower-spec environments can be acceptable for certain less loaded environments, for quality assurance and development
+environments.</p>
+<div class="admonition danger"><div class="admonition-title">danger</div><div><p>RabbitMQ was not designed to run in environments with a single CPU core, or being colocated with
+other disk and network I/O-heavy tools.</p></div></div>
+<h2 id="storage">Storage Considerations</h2>
+<h3 id="storage-durability">Use Durable Storage</h3>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>Modern RabbitMQ features, such as <a href="/docs/4.3/metadata-store">Khepri</a>, <a href="/docs/4.3/quorum-queues">quorum queues</a> and <a href="/docs/4.3/streams">streams</a>,
+are designed for durable storage only.</p></div></div>
+<p>Data safety features of <a href="/docs/4.3/quorum-queues">quorum queues</a> and <a href="/docs/4.3/streams">streams</a> expect
+node data storage to be durable. Both data structures also assume reasonably stable latency of I/O
+operations, something that network-attached storage will not be always ready to provide in practice.</p>
+<p>Quorum queue and stream replicas hosted on restarted nodes that use transient storage will have
+to perform a full sync of the entire data set on the leader replica. This can result in massive
+data transfers and network link overload that could have been avoided by using durable storage.</p>
+<p>When nodes are restarted, the rest of the cluster expects them to retain the information
+about their cluster peers. When this is not the case, restarted nodes may be able to rejoin
+as new nodes but a <a href="/docs/4.3/cluster-formation#node-health-checks-and-cleanup">special peer clean up mechanism</a>
+would have to be enabled to remove their prior identities.</p>
+<p>Use durable queues or exclusive queues. Non-durable, non-exclusive queues
+are deprecated and disabled by default starting with RabbitMQ 4.3.</p>
+<h3 id="overprovision-disk-space">Overprovision Disk Space</h3>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>The rule of thumb is: when in doubt, overprovision the disks that RabbitMQ nodes will use.
+Quorum queues and streams can have substantial on-disk footprint.</p></div></div>
+<p>Quorum queues and streams can have substantial on-disk footprint. Depending on the workload
+and settings, they may or may not reclaim disk space of consumed and confirmed or expired
+messages quickly.</p>
+<p><a href="#resource-limits-disk-space">Disk space to RAM ratio recommendations</a> are listed below.
+The rule of thumb is: when in doubt, overprovision the disks that RabbitMQ nodes will use.</p>
+<h3 id="storage-nas">Network-attached Storage (NAS)</h3>
+<p>Network-attached storage (NAS) can be used for RabbitMQ node data directories, provided that
+the NAS volume</p>
+<ul>
+<li>It offers low I/O latency</li>
+<li>It can guarantee no significant latency spikes (for example, due to sharing with other I/O-heavy services)</li>
+</ul>
+<p>Quorum queues, streams, and other RabbitMQ features will benefit from fast local SSD and NVMe storage.
+When possible, prefer local storage to NAS.</p>
+<h3 id="storage-isolation">Storage Isolation</h3>
+<p>RabbitMQ nodes must never share their data directories. Ideally, should not share their
+disk I/O with other services for most predictable latency and throughput.</p>
+<h3 id="storage-filesystems">Choice of a Filesystem</h3>
+<p>RabbitMQ nodes can use most widely used local filesystems: ext4, btfs, and so on.</p>
+<p>Avoid using distributed filesystems for node data directories:</p>
+<ul>
+<li>RabbitMQ's storage subsystem assumes the standard local filesystem semantics for <code>fsync(2)</code>
+and other key operations. Distributed filesystems often <a href="https://docs.ceph.com/en/latest/cephfs/posix/">deviate from these standard guarantees</a></li>
+<li>Distributed filesystems are usually designed for shared access to a subset of directories.
+Sharing a data directory between RabbitMQ nodes is <strong>an absolute no-no</strong> and
+is guaranteed to result in data corruption since nodes will not coordinate their writes</li>
+</ul>
+<h2 id="users-and-permissions">Virtual Hosts, Users, Permissions</h2>
+<p>It is often necessary to seed a cluster with virtual hosts, users, permissions, topologies, policies
+and so on. The recommended way of doing this at deployment time is <a href="/docs/4.3/definitions">via definition import</a>.
+Definitions can be imported on node boot or at any point after cluster deployment
+using <code>rabbitmqadmin</code> or the <code>POST /api/definitions</code> <a href="/docs/4.3/management">HTTP API endpoint</a>.</p>
+<h3 id="virtual-hosts">Virtual Hosts</h3>
+<p>In a single-tenant environment, for example, when your RabbitMQ
+cluster is dedicated to power a single system in production,
+using default virtual host (<code>/</code>) is perfectly fine.</p>
+<p>In multi-tenant environments, use a separate vhost for
+each tenant/environment, e.g. <code>project1_development</code>,
+<code>project1_production</code>, <code>project2_development</code>,
+<code>project2_production</code>, and so on.</p>
+<h3 id="users">Users</h3>
+<p>For production environments, delete the default user (<code>guest</code>).
+Default user only can connect from localhost by default, because it has well-known
+credentials. Instead of enabling remote connections, consider creating a separate user
+with administrative permissions and a generated password.</p>
+<p>It is recommended to use a separate user per application. For example, if you
+have a mobile app, a Web app, and a data aggregation system, you'd have 3
+separate users. This makes a number of things easier:</p>
+<ul>
+<li>Correlating client connections with applications</li>
+<li>Using <a href="/docs/4.3/access-control">fine-grained permissions</a></li>
+<li>Credentials roll-over (e.g. periodically or in case of a breach)</li>
+</ul>
+<p>In case there are many instances of the same application, there's a trade-off
+between better security (having a set of credentials per instance) and convenience
+of provisioning (sharing a set of credentials between some or all instances).</p>
+<p>For IoT applications that involve many clients performing the same or similar
+function and having fixed IP addresses, it may make sense to <a href="/docs/4.3/ssl">authenticate using x509 certificates</a> or
+<a href="https://github.com/gotthardp/rabbitmq-auth-backend-ip-range">source IP address ranges</a>.</p>
+<h3 id="anonymous-login">Anonymous Login</h3>
+<p>For production environments, it is almost always a good idea to disable anonymous logins.</p>
+<p>You can disable the <code>ANONYMOUS</code> <a href="/docs/4.3/access-control#mechanisms">SASL mechansim</a> in <a href="/docs/4.3/configure#config-file">rabbitmq.conf</a> as follows:</p>
+<div><div><pre><code class="language-ini">auth_mechanisms.1 = PLAIN
+auth_mechanisms.2 = AMQPLAIN
+# note: the ANONYMOUS mechanism is not listed
+
+# Value none has a special meaning that no user is configured for anonymous logins.
+anonymous_login_user = none</code></pre></div></div>
+<h2 id="monitoring-and-resource-usage">Monitoring and Resource Limits</h2>
+<p>RabbitMQ nodes are limited by various resources, both physical
+(e.g. the amount of RAM available) as well as software (e.g. max number of file handles a process can open).
+It is important to evaluate resource limit configurations before
+going into production and continuously monitor resource usage after that.</p>
+<h3 id="monitoring">Monitoring</h3>
+<p><a href="/docs/4.3/monitoring">Monitoring</a> several aspects of the system, from
+infrastructure and kernel metrics to RabbitMQ to application-level metrics is essential.
+While monitoring requires an upfront investment in terms of time, it is very effective
+at catching issues and noticing potentially problematic trends early (or at all).</p>
+<h3 id="resource-limits-ram">Memory</h3>
+<p>RabbitMQ uses <a href="/docs/4.3/alarms">Resource-driven alarms</a>
+to throttle publishers when consumers do not keep up.</p>
+<p>By default, RabbitMQ will not accept any new messages when it detects
+that it's using more than 60% of the available memory (as reported by the OS):
+<code>vm_memory_high_watermark.relative = 0.6</code>. This is a safe default
+and care should be taken when modifying this value, even when the
+host is a dedicated RabbitMQ node.</p>
+<p>The OS and file system use system memory to speed up operations for
+all system processes. Failing to leave enough free system memory for
+this purpose will have an adverse effect on system performance due to
+OS swapping, and can even result in RabbitMQ process termination.</p>
+<p>A few recommendations when adjusting the default
+<code>vm_memory_high_watermark</code>:</p>
+<ul>
+<li>Nodes hosting RabbitMQ should have at least <strong>256 MiB</strong> of
+memory available at all times. Deployments that use <a href="/docs/4.3/quorum-queues">quorum queues</a> require more,
+see <a href="/docs/4.3/quorum-queues#resource-use">how quorum queue use resources</a> for more information.</li>
+<li>The recommended <code>vm_memory_high_watermark.relative</code> range is <code>0.4 to 0.7</code></li>
+<li>Values above <code>0.7</code> should be used with care and with solid <a href="/docs/4.3/memory-use">memory usage</a> and infrastructure-level <a href="/docs/4.3/monitoring">monitoring</a> in place.
+The OS and file system must be left with at least 30% of the memory, otherwise performance may degrade severely due to paging.</li>
+</ul>
+<p>These are some very broad-stroked guidelines.
+As with every tuning scenario, monitoring, benchmarking and measuring are required to find
+the best setting for the environment and workload.</p>
+<p>Learn more about <a href="/docs/4.3/memory">RabbitMQ and system memory</a> in a separate guide.</p>
+<h3 id="resource-limits-disk-space">Disk Space</h3>
+<p>The current 50MB <code>disk_free_limit</code> default works very well for
+development and <a href="/tutorials">tutorials</a>.
+Production deployments require a much greater safety margin.
+Insufficient disk space will lead to node failures and may result in data loss
+as all disk writes will fail.</p>
+<p>Why is the default 50MB then? Development
+environments sometimes use really small partitions to host
+<code>/var/lib</code>, for example, which means nodes go
+into resource alarm state right after booting. The very low
+default ensures that RabbitMQ works out of the box for
+everyone. As for production deployments, we recommend the
+following:</p>
+<p>The minimum recommended free disk space low watermark value is about the same
+as the high memory watermark. For example, on a node configured to have its memory watermark of 4GB,
+<code>disk_free_limit.absolute = 4G</code> would be a recommended minimum.</p>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>Nodes running out of disk space should be considered a very serious operational problem,
+commonly leading to outages and possibly data loss for the affected node.</p><p>When in doubt, overprovision the disk space and/or use a high <code>disk_free_limit</code>.</p></div></div>
+<h3 id="resource-limits-file-handle-limit">Open File Handles Limit</h3>
+<p>Operating systems limit maximum number of concurrently open file handles, which
+includes network sockets. Make sure that you have limits set high enough to allow
+for expected number of concurrent connections and queues.</p>
+<p>Make sure production environments allow for at least 50K open file descriptors for effective RabbitMQ
+user, including in development environments.</p>
+<p>As a guideline, multiply the 95th percentile number of concurrent connections
+by 2 and add the total number of queues to calculate the recommended open file handle limit.
+Values as high as 500K are not inadequate and
+will not consume a lot of hardware resources, therefore, they are recommended for production
+setups.</p>
+<p>See <a href="/docs/4.3/networking">Networking guide</a> for more information.</p>
+<h3 id="logging">Log Collection</h3>
+<p>It is highly recommended that logs of all RabbitMQ nodes and applications (when possible) are collected
+and aggregated. Logs can be crucially important in investigating unusual system behaviour.</p>
+<h2 id="limits">Configurable Limits</h2>
+<p>Production clusters should adopt at least some configurable limits
+that act as guard rails that prevent poorly behaved
+applications from leaking resources and affecting cluster stability.</p>
+<p>RabbitMQ provides a comprehensive set of <a href="/docs/4.3/limits">configurable limits</a> at multiple levels: from cluster-wide to <a href="/docs/4.3/vhosts#limits">per virtual host</a> and <a href="/docs/4.3/user-limits">per user</a>, down to individual connections, channels, queues, and streams.</p>
+<p>Adopting these limits is particularly important in multi-tenant environments or when RabbitMQ is offered as a service.
+Even in single-tenant deployments, limits help prevent resource leaks and provide early detection of application issues.</p>
+<p>Consult the <a href="/docs/4.3/limits">Configurable Limits guide</a> for detailed information on available limits and how to configure them.</p>
+<h2 id="security">Security Considerations</h2>
+<h3 id="security-users-and-permissions">Users and Permissions</h3>
+<p>See the section on vhosts, users, and credentials above.</p>
+<h3 id="inter-node-authentication">Inter-node and CLI Tool Authentication</h3>
+<p>RabbitMQ nodes authenticate to each other using a <a href="/docs/4.3/clustering#erlang-cookie">shared secret</a>
+stored in a file. On Linux and other UNIX-like systems, it is necessary to restrict cookie file
+access only to the OS users that will run RabbitMQ and <a href="/docs/4.3/cli">CLI tools</a>.</p>
+<p>It is important that the value is generated in a reasonably secure way
+(e.g. not computed from an easy to guess value). This is usually done using deployment
+automation tools at the time of initial deployment. Those tools can use default or
+placeholder values: don't rely on them. Allowing the runtime to generate a cookie file
+on one node and copying it to all other nodes is also a poor practice: it makes the generated value
+more predictable since the generation algorithm is known.</p>
+<p>CLI tools use the same authentication mechanism. It is recommended that
+<a href="/docs/4.3/clustering#ports">inter-node and CLI communication port</a>
+access is limited to the hosts that run RabbitMQ nodes or CLI tools.</p>
+<p><a href="/docs/4.3/clustering-ssl">Securing inter-node communication with TLS</a> is recommended.
+It implies that CLI tools are also configured to use TLS.</p>
+<h3 id="security-firewall-rules">Firewall Configuration</h3>
+<p><a href="/docs/4.3/networking#ports">Ports used by RabbitMQ</a> can be broadly put into
+one of two categories:</p>
+<ul><li>Ports used by client libraries (AMQP 0-9-1, AMQP 1.0, MQTT, STOMP, HTTP API)</li><li>All other ports (inter node communication, CLI tools and so on)</li></ul>
+<p>Access to ports from the latter category generally should be restricted to hosts running RabbitMQ nodes
+or CLI tools. Ports in the former category should be accessible to hosts that run applications,
+which in some cases can mean public networks, for example, behind a load balancer.</p>
+<h3 id="security-tls">TLS</h3>
+<p>We recommend using <a href="/docs/4.3/ssl">TLS connections</a> when possible,
+at least to encrypt traffic. Peer verification (authentication) is also recommended.
+Development and QA environments can use <a href="https://github.com/rabbitmq/tls-gen/">self-signed TLS certificates</a>.
+Self-signed certificates can be appropriate in production environments when
+RabbitMQ and all applications run on a trusted network or isolated using technologies
+such as VMware NSX.</p>
+<p>While RabbitMQ tries to offer a reasonably secure TLS configuration by
+default, it is highly recommended evaluating
+TLS configuration (versions cipher suites and so on) using tools such as <a href="https://testssl.sh/">testssl.sh</a>.
+Please refer to the <a href="/docs/4.3/ssl">TLS guide</a> to learn more.</p>
+<p>Note that TLS can have significant impact on overall system throughput,
+including CPU usage of both RabbitMQ and applications that use it.</p>
+<h3 id="security-encryption-at-rest">Encryption at Rest</h3>
+<p>RabbitMQ itself does not encrypt data it writes to disk, such as message payloads or
+<a href="/docs/4.3/metadata-store">metadata</a>. This is by design — encrypting messages on the server side would have a significant performance impact, since the broker would need to encrypt and decrypt the payload of every message passing through it. We recommend the following alternatives, which address data-at-rest encryption without that cost.</p>
+<ul>
+<li><strong>Encrypt the underlying storage.</strong> Full-disk or volume-level encryption (for example, <a href="https://gitlab.com/cryptsetup/cryptsetup">LUKS</a>, or
+encrypted cloud block storage) protects <em>all</em> data at rest with hardware-accelerated performance.</li>
+<li><strong>Use end-to-end encryption.</strong> Client applications can encrypt payloads before publishing and decrypt them after consuming. This ensures that message contents stay confidential even from anyone with access to the broker itself, including its administrators. As a result, the broker only ever sees and stores opaque encrypted bytes.</li>
+</ul>
+<p>Both of these options can be used independently or can complement each other to achieve the best security outcome for your use case.</p>
+<h2 id="networking">Networking Configuration</h2>
+<p>Production environments may require network configuration
+tuning, for example, to sustain a high number of concurrent clients.
+Please refer to the <a href="/docs/4.3/networking">Networking Guide</a> for details.</p>
+<h3 id="networking-throughput">Minimum Available Network Throughput Estimate</h3>
+<p>With higher message rates and large message payloads, traffic bandwidth available to cluster nodes becomes an important
+factor.</p>
+<p>The following (intentionally oversimplified) formula can be used to compute the <strong>minimum amount of bandwidth</strong>
+that must be available to cluster nodes, in bits per second:</p>
+<div><div><pre><code class="language-ini">MR * MS * 110% * 8</code></pre></div></div>
+<p>where</p>
+<ul>
+<li><code>MR</code>: 95th percentile message rate per second</li>
+<li><code>MS</code>: 95th percentile message size, in bytes</li>
+<li>110%: accounts for message properties, protocol metadata, and other data transferred</li>
+<li>8: bits per byte</li>
+</ul>
+<p>For example, with a message rate (<code>MR</code>) of 20K per second and 6 KB message payloads (<code>MS</code>):</p>
+<div><div><pre><code class="language-ini">20K * 6 KB * 110% * 8 bit/B = 20000 * 6000 * 1.1 * 8 = 1.056 (gigabit/second)</code></pre></div></div>
+<p>With the above inputs, cluster nodes must have network links with throughput of at least 1.056 gigabit per second.</p>
+<p>This formula <strong>is a rule of thumb</strong> and does not consider protocol- or workload-specific nuances.</p>
+<h2 id="clustering">Clustering Considerations</h2>
+<h3 id="clustering-cluster-size">Cluster Size</h3>
+<p>The number of queues, queue replication factor, number of connections, maximum
+message backlog and sometimes message throughput are factors that determine how
+large should a cluster be.</p>
+<p>Single node clusters can be sufficient when simplicity is
+preferred over everything else: development, integration testing and certain QA environments.</p>
+<p>Three node clusters are the next step up. They can tolerate a single node
+failure (or unavailability) and still <a href="/docs/4.3/quorum-queues">maintain quorum</a>.
+Simplicity is traded off for availability, resiliency and, in certain cases, throughput.</p>
+<p>It is recommended to use clusters with an odd
+number of nodes (3, 5, 7, etc) so that when one node becomes unavailable, the
+service remains available and a clear majority of nodes can be identified.</p>
+<p>For most environments, configuring queue replication to more than half — but not all —
+cluster nodes is sufficient.</p>
+<h4 id="uneven-numbers-of-nodes-and-cluster-majority">Uneven Numbers of Nodes and Cluster Majority</h4>
+<p>It is important to pick a <a href="/docs/4.3/partitions">partition handling strategy</a> before going into production.
+When in doubt, use the <code>pause_minority</code> strategy with an odd number of nodes (3, 5, 7, and so on).</p>
+<p>Uneven number of nodes make network partition recovery more predictable, with the common option
+of the minority automatically refusing to service commands.</p>
+<h4 id="data-locality-considerations">Data Locality Considerations</h4>
+<p>With multi-node clusters, data locality becomes an important consideration.
+Since <a href="/docs/4.3/clustering">clients can connect to any node</a>, RabbitMQ nodes may need to perform
+inter-cluster routing of messages and internal operations. Data locality will be best
+when producers (publishers) connect to RabbitMQ nodes where queue leaders are running.
+Such topology is difficult to achieve in practice.</p>
+<p>With classic queues, all deliveries are performed from the leader replica.
+Quorum queues can deliver messages from queue replicas as well,
+so as long as consumers connect to a node where a
+quorum queue replica is hosted, messages delivered to those consumers will be
+performed from the local node.</p>
+<h4 id="growing-node-count-to-sustain-more-concurrent-clients">Growing Node Count to Sustain More Concurrent Clients</h4>
+<p>Environments that have to sustain a <a href="/docs/4.3/networking#tuning-for-large-number-of-connections">large number of concurrent client connections</a>
+will benefit from more cluster nodes as long as the connections are distributed
+across them. This can be achieved using a load balancer or making clients
+randomly pick a node to connect to from the provided node list.</p>
+<h4 id="increasing-node-counts-vs-deploying-separate-clusters-for-separate-purposes">Increasing Node Counts vs. Deploying Separate Clusters for Separate Purposes</h4>
+<p>All metadata (<a href="/docs/4.3/definitions">definitions</a>: virtual hosts, users, queues, exchanges, bindings, etc.) is replicated
+across all nodes in the cluster, and most metadata changes are synchronous in nature.</p>
+<p>The cost of propagating such changes goes up with the number of cluster nodes,
+both during operations and node restarts. Users who find themselves in need of
+clusters with node counts in double digits should
+<strong>consider using independent clusters for separate parts of the system</strong> where possible.</p>
+<h3 id="clustering-ntp">Node Time Synchronization</h3>
+<p>A RabbitMQ cluster will typically function well without clocks
+of participating servers being synchronized. However some plugins,
+such as the management one, make use of local timestamps for metrics
+processing and may display incorrect statistics when the current
+time of nodes drift apart. It is therefore recommended that servers
+use NTP or similar to ensure clocks remain in sync.</p>
+<h2 id="apps">Application Considerations</h2>
+<p>The way applications are designed and use RabbitMQ client libraries
+is a major contributor to the overall system resilience. Applications
+that use resources inefficiently or leak them will eventually affect the
+rest of the system. For example, an app that continuously opens connections
+but never closes them will exhaust cluster nodes out of file descriptors so
+no new connections will be accepted. This and similar problems can
+manifest themselves in more complex scenarios, e.g those collectively
+known as the thundering herd problem.</p>
+<p>This section covers a number of most common problems. Most of these problems
+are generally not protocol-specific or new. They can be hard to detect, however.
+Adequate <a href="/docs/4.3/monitoring">monitoring</a> of the system is critically
+important as it is the only way to spot problematic trends
+(e.g. channel leaks, growing file descriptor usage from poor connection management) early.</p>
+<h3 id="apps-connection-management">Connection Management</h3>
+<p>Messaging protocols generally assume long-lived connections. Some applications
+connect to RabbitMQ on start and only close the connection(s) when they have to terminate.
+Others open and close connections more dynamically. For the latter group it is important to close
+them when they are no longer used.</p>
+<p>Connections can be closed for reasons outside of application developer's control.
+Messaging protocols supported by RabbitMQ use a feature called <a href="/docs/4.3/heartbeats">heartbeats</a> (the name
+may vary but the concept does not) to detect such connections quicker than the TCP stack.
+Developers should be careful about using heartbeat timeout that are too low (less than 5 seconds)
+as that may produce false positives when network congestion or system load goes up.</p>
+<p>Very short lived connections should be avoided when possible. The following section
+will cover this in more detail.</p>
+<p>It is recommended that, when possible, publishers and consumers use separate connections
+so that consumers are isolated from potential <a href="/docs/4.3/connections#flow-control">flow control</a>
+that may be applied to publishing connections, affecting <a href="/docs/4.3/confirms">manual consumer acknowledgements</a>.</p>
+<h3 id="apps-connection-churn">Connection Churn</h3>
+<p>As mentioned above, messaging protocols generally assume long-lived connections. Some applications
+may open a new connection to perform a single operation (e.g. publish a message) and then close it.
+This is highly inefficient as opening a connection is an expensive operation (compared to reusing
+an existing one). Such workload also leads to <a href="/docs/4.3/networking#dealing-with-high-connection-churn">connection churn</a>.
+Nodes experiencing high connection churn must be tuned to release TCP connections much quicker than
+kernel defaults, otherwise they will eventually run out of file handles or memory and will stop
+accepting new connections.</p>
+<p>If a small number of long lived connections is not an option, connection pooling can help
+reduce peak resource usage.</p>
+<h3 id="apps-automatic-recovery">Recovery from Connection Failures</h3>
+<p>Some client libraries, for example, <a href="/client-libraries/java-api-guide">Java</a>,
+<a href="/client-libraries/dotnet-api-guide">.NET</a> and
+<a href="http://rubybunny.info">Ruby</a>, support
+automatic connection recovery after network failures. If the
+client used provides this feature, it is recommended to use
+it instead of developing your own recovery mechanism.</p>
+<p>Other clients (Go, Pika) do not support automatic connection recovery as a feature
+but do provide examples that demonstrate how to recover from connection failures.</p>
+<h3 id="apps-excessive-channel-usage">Excessive Channel Usage</h3>
+<p>Channels also consume resources in both client and server. Applications should minimize
+the number of channels they use when possible and close channels that are no longer necessary.
+Channels, like connections, are meant to be long lived.</p>
+<p>Note that closing a connection automatically closes all channels on it.</p>
+<h3 id="apps-polling-consumers">Polling Consumers</h3>
+<p><a href="/docs/4.3/consumers#polling">Polling consumers</a> (consumption with <code>basic.get</code>) is a feature that application developers
+should avoid in most cases as polling is inherently inefficient.</p></main>

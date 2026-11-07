@@ -1,0 +1,270 @@
+<main><header><h1>Scaling a consumer</h1></header>
+<p>On the <a href="/learn/jetstream/pull-consumers">previous page</a>, one worker consumed
+the <code>shipping</code> consumer: a continuous pull loop that ships each order and
+acks. That kept up while Acme shipped a few orders an hour.</p>
+<p>Then Acme's order volume climbed. Orders arrive faster than one worker can
+ship them, and the unshipped ones pile up in <code>ORDERS</code>.</p>
+<p>You clear that backlog by adding workers. Point several processes at the same
+<code>shipping</code> consumer and they share the load: the server hands each stored
+order to exactly one worker. You reuse the <code>ORDERS</code> stream and <code>shipping</code>
+consumer you already have.</p>
+<h2 id="one-consumer-many-workers">One consumer, many workers</h2>
+<p>Each worker names the same <code>shipping</code> consumer and runs the same pull loop.
+Start that loop in several processes at once:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# A worker loop for the shipping consumer.
+# Run this same loop in three separate terminals to form a pool of
+# three workers. All three share the one "shipping" consumer, and the
+# server splits the stored messages across them.
+
+# Each pass: pull one message, "process" it, and acknowledge it.
+# --count 1 pulls a single message at a time.
+# --ack acknowledges the message after it is received.
+while true; do
+  nats consumer next ORDERS shipping --count 1 --ack
+done
+
+# Publish work from a fourth terminal and watch it spread across the
+# three running loops:
+#   nats pub orders.shipped '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+#
+# To see in-flight redelivery: stop one worker (Ctrl-C) right after it
+# pulls a message but before it acks. After AckWait (30s default), the
+# server redelivers that message to one of the surviving workers.</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Bind to the durable "shipping" consumer created earlier.
+const js = jetstream(nc);
+const c = await js.consumers.get("ORDERS", "shipping");
+
+// consume() yields the orders the server hands this worker. Run this same
+// program in several processes: they all share the one "shipping" consumer, and
+// the server splits the stored orders across them, one order to one worker.
+const messages = await c.consume();
+for await (const m of messages) {
+  console.log(`shipping ${m.string()}`);
+  m.ack();
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Bind to the durable "shipping" consumer created earlier.
+cons, err := js.Consumer(ctx, "ORDERS", "shipping")
+if err != nil {
+	panic(err)
+}
+
+// Consume runs the handler for every order the server hands this worker.
+// Start this same program in several processes: they all share the one
+// "shipping" consumer, and the server splits the stored orders across them,
+// one order to one worker.
+consCtx, err := cons.Consume(func(msg jetstream.Msg) {
+	fmt.Printf("shipping %s\n", string(msg.Data()))
+	msg.Ack()
+})
+if err != nil {
+	panic(err)
+}
+defer consCtx.Stop()
+
+// Keep this worker running until interrupted (Ctrl-C).
+sig := make(chan os.Signal, 1)
+signal.Notify(sig, os.Interrupt)
+&lt;-sig</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Bind to the durable "shipping" consumer created earlier. Run this same
+# program in several processes: they all share the one consumer, and the
+# server splits the stored orders across them, one order to one worker.
+psub = await js.pull_subscribe_bind("shipping", stream="ORDERS")
+
+# Pull one order at a time and ack it. fetch times out when nothing is
+# waiting; keep looping so the worker stays ready for the next order.
+while True:
+    try:
+        msgs = await psub.fetch(batch=1, timeout=5)
+    except nats.errors.TimeoutError:
+        continue
+
+    for msg in msgs:
+        print(f"shipping {msg.data.decode()}")
+        await msg.ack()</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// consume() runs the handler for every order the server hands this
+// worker. Run this same program in several processes: they all share
+// the one "shipping" consumer, and the server splits the stored
+// orders across them, one order to one worker.
+try (MessageConsumer mc = cc.consume(msg -&gt; {
+    System.out.println("shipping " + new String(msg.getData(), StandardCharsets.UTF_8));
+    msg.ack();
+})) {
+    // Keep this worker running until the process is stopped.
+    Thread.sleep(Long.MAX_VALUE);
+}</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Bind to the durable "shipping" consumer created earlier.
+let stream = js.get_stream("ORDERS").await?;
+let consumer: PullConsumer = stream.get_consumer("shipping").await?;
+
+// messages() is a never-ending stream of orders the server hands this
+// worker. Run this same program in several processes: they all share the
+// one "shipping" consumer, and the server splits the stored orders across
+// them, one order to one worker.
+let mut messages = consumer.messages().await?;
+while let Some(msg) = messages.next().await {
+    let msg = msg?;
+    println!("shipping {}", std::str::from_utf8(&amp;msg.payload)?);
+    msg.ack().await?;
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Bind to the durable "shipping" consumer created earlier.
+var consumer = await js.GetConsumerAsync("ORDERS", "shipping");
+
+// ConsumeAsync yields the orders the server hands this worker. Run this
+// same program in several processes: they all share the one "shipping"
+// consumer, and the server splits the stored orders across them, one
+// order to one worker.
+await foreach (var msg in consumer.ConsumeAsync&lt;Order&gt;())
+{
+    output.WriteLine($"shipping {msg.Data}");
+    await msg.AckAsync();
+
+    // A real worker loops forever; stop once the backlog is clear so the
+    // example returns.
+    if (++shipped == 3)
+    {
+        break;
+    }
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The handler runs for every order the server hands this worker.
+static void
+onOrder(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("shipping %.*s\n", natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+    natsMsg_Ack(msg, NULL);
+    natsMsg_Destroy(msg);
+}
+    // Bind to the durable "shipping" consumer created earlier and deliver
+    // messages to the handler. Start this same program in several processes:
+    // they all share the one "shipping" consumer, and the server splits the
+    // stored orders across them, one order to one worker.
+    jsSubOptions so;
+
+    jsSubOptions_Init(&amp;so);
+    so.Stream    = "ORDERS";
+    so.Consumer  = "shipping";
+    so.ManualAck = true;
+
+    s = js_PullSubscribeAsync(&amp;sub, js, NULL, NULL, onOrder, NULL, NULL, &amp;so, &amp;jerr);
+
+    // Keep this worker running until interrupted (Ctrl-C).
+    while ((s == NATS_OK) &amp;&amp; !done)
+        nats_Sleep(100);</code></pre></div></div>
+<p>Open three terminals and run that loop in each. The <code>ORDERS</code> stream
+already holds the orders from earlier pages; now add a fresh handful of
+<code>orders.shipped</code> messages from a fourth terminal so all three workers
+have something to compete for:</p>
+<div><div><pre><code class="language-bash">nats pub --jetstream orders.shipped '{"order_id":"ord_9x3f","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T11:01:50Z"}'
+nats pub --jetstream orders.shipped '{"order_id":"ord_7p4d","customer":"globex","total_cents":7800,"ts":"2026-05-22T11:01:55Z"}'
+nats pub --jetstream orders.shipped '{"order_id":"ord_5xk1","customer":"initech","total_cents":1500,"ts":"2026-05-22T11:02:00Z"}'</code></pre></div></div>
+<p>Each <code>--jetstream</code> publish returns a <code>PubAck</code> confirming the order landed in
+<code>ORDERS</code>. The server hands each waiting order to one worker, serving pull
+requests in the order they arrived. No two workers get the same order, so the
+three split the backlog roughly evenly, because each loop pulls one order at a
+time:</p>
+<div></div>
+<p>A worker only takes a turn while it's actually asking. One that's still
+shipping an order has no pull request open, so the server skips it and gives
+the order to the next worker in line. Distribution follows demand: a faster
+worker pulls more often and ships more.</p>
+<p>The consumer still tracks a single position through all of this. Ask the
+server and the acked count climbs as one number:</p>
+<div><div><pre><code class="language-bash">nats consumer info ORDERS shipping</code></pre></div></div>
+<div><div><pre><code class="language-text">State:
+
+  Last Delivered Message: Consumer sequence: ... Stream sequence: ...
+     Acknowledgment Floor: Consumer sequence: ... Stream sequence: ...
+         Outstanding Acks: 0 out of maximum 1,000</code></pre></div></div>
+<p>Your exact sequence numbers depend on the earlier pages; what matters is the
+shape. The two Acknowledgment Floor numbers advance together as workers ack,
+and the Last Delivered pair sits at or ahead of them. The position belongs to
+the consumer, not to each worker, so it advances the same whether one process
+pulls or three.</p>
+<h2 id="this-works-on-the-log-you-already-have">This works on the log you already have</h2>
+<p><code>ORDERS</code> is the same Limits-retention stream from page one; nothing about it
+changed to make this work. Sharing is a property of the consumer, not the
+stream: point many workers at one consumer and the server splits the work on
+any stream.</p>
+<p>One consequence matters here. An ack advances the position, it doesn't remove
+the order. The order stays in <code>ORDERS</code> for <code>billing</code>, <code>analytics</code>, and any
+consumer that reads the log later. The workers share a <em>position</em>, not the
+messages.</p>
+<h2 id="how-this-differs-from-a-queue-group">How this differs from a queue group</h2>
+<p>If you read the Core Concepts, this looks like a queue group, but the two
+balance different things.</p>
+<p>A queue group splits <strong>live</strong> messages across core NATS subscribers as each
+one arrives, with no storage behind it. A subscriber that's offline when a
+message arrives misses it for good.</p>
+<p>Workers sharing a consumer split <strong>stored</strong> messages against the stream. A
+message waits in the stream until some worker pulls it and acks it, so a
+worker that's offline just leaves its share for the others.</p>
+<p>Only the stream-backed split survives a worker dropping out or a restart.</p>
+<h2 id="when-a-worker-crashes-mid-message">When a worker crashes mid-message</h2>
+<p>A worker pulls an order and starts shipping it. Before it acks, the process
+dies. On the consumer that order is still in progress: the server delivered
+it and is waiting on the ack. When <code>AckWait</code> runs out (30 seconds by
+default), the server hands the order to another worker. This is the
+redelivery loop from the <a href="/learn/jetstream/acknowledgment">acknowledgment page</a>,
+now spread across the pool.</p>
+<div></div>
+<p>Watch it happen. The loop above acks the instant it pulls, so there's no window
+to interrupt — a real ship takes time. Add a brief delay before the ack (a
+<code>sleep 5</code> in the shell loop, or a pause in your handler), then kill that worker
+during the delay. After <code>AckWait</code> (30 seconds by default), the order reappears
+on a surviving worker and ships once, because some worker eventually acks it. If
+the dead worker had already shipped the order before crashing, it ships twice;
+the pitfall below covers keying side effects by <code>order_id</code>.</p>
+<h2 id="capping-how-many-orders-are-in-progress">Capping how many orders are in progress</h2>
+<p>Each worker can hold an order in progress, so more workers mean more in
+progress at once. There's a ceiling on that.</p>
+<p>The ceiling is <code>MaxAckPending</code>: how many delivered-but-unacked messages the
+consumer allows at once, default 1000. Hit it and the server stops delivering
+new orders until some get acked. The cap is shared across the whole consumer,
+not per worker: five workers get 1000 between them, not 1000 each.</p>
+<p>You set it when you create or update the consumer:</p>
+<div><div><pre><code class="language-bash">nats consumer edit ORDERS shipping --max-pending 1000</code></pre></div></div>
+<p>Set it too low and workers sit idle waiting for a slot. Set it too high and a
+slow ack leaves a big in-progress backlog that all redelivers at once if many
+workers die together.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Running several workers makes two consumer settings, <code>AckWait</code> and
+<code>MaxAckPending</code>, matter in practice.</p>
+<p><strong>A redelivered order can arrive at a second worker.</strong> When one worker
+crashes mid-order, the server gives that order to another worker after
+<code>AckWait</code>, so the work still gets done. The same order can then run twice, so
+key side effects by <code>order_id</code>. A redelivery shows up in the message's
+delivery count.</p>
+<p>The pool shares work by demand, so you don't choose which worker gets an
+order. For that control, use <a href="/learn/jetstream/priority-groups">priority groups</a>:
+send everything to one worker until it fails, or keep a standby worker idle
+until the pool falls behind.</p>
+<p><strong>A low <code>MaxAckPending</code> starves a large set of workers.</strong> The cap is shared
+across the whole consumer, not per worker. Set it to 3 and only three
+messages are ever in progress, so ten workers leave seven of them idle no
+matter how much is stored. Set the cap to at least your worker count, with
+room to spare.</p>
+<p><strong>A crashed worker holds its order until <code>AckWait</code>.</strong> The server can't tell
+a crash from slow work; it only knows the ack hasn't come. Until the timer
+runs out (30 seconds by default), that order stays in progress and goes to no
+one else. Set <code>AckWait</code> to your normal processing time: too short redelivers
+while a healthy worker is still working, too long leaves real failures stuck.
+The full set of in-progress and redelivery options (<code>AckWait</code>, <code>MaxDeliver</code>,
+backoff arrays) is in
+<a href="/reference/jetstream/api/consumer/create">Reference → Consumer Configuration</a>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have:</p>
+<ul>
+<li>One <code>shipping</code> consumer, unchanged from earlier pages.</li>
+<li>Several workers pulling from it, splitting the stored messages between
+them.</li>
+<li>A name for the ceiling on how much runs at once: <code>MaxAckPending</code>,
+shared across every worker.</li>
+</ul>
+<p>You scale by starting more processes; the consumer is unchanged. And because
+<code>ORDERS</code> is a log, it keeps every order after a worker handles it.</p>
+<h2 id="whats-next">What's next</h2>
+<p>Every consumer so far — <code>billing</code>, <code>analytics</code>, <code>shipping</code> — was built to
+last: named, durable, resumable. The next page is the opposite kind of read:
+an <a href="/learn/jetstream/ordered-consumer">ordered consumer</a>, a fast single pass
+over the whole log, in order, that cleans up after itself — for a job like
+totaling every order once, with no position to keep.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/api/consumer/create">Reference → Consumer Configuration</a>
+— <code>MaxAckPending</code>, <code>AckWait</code>, backoff, and every other consumer field.</li>
+<li><a href="/concepts/queue-groups">Core Concepts → Queue Groups</a> — the core NATS
+balancing this page contrasts with.</li>
+</ul></main>

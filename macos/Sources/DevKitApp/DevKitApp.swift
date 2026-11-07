@@ -238,6 +238,24 @@ final class WorkspaceModel: ObservableObject {
         } catch is CancellationError { throw CancellationError() }
         catch { catalogError = error.localizedDescription; throw error }
     }
+
+    func purgeOldVersions() async throws -> LibraryPurgeResult {
+        operation = "Purging older versions"
+        let previousRevision = libraryRevision
+        defer {
+            if libraryRevision == previousRevision { libraryRevision += 1 }
+            operation = nil
+        }
+        let result: LibraryPurgeResult
+        do {
+            result = try await Core.request(CoreRequest("library.purge"))
+        } catch {
+            try? await reload()
+            throw error
+        }
+        try await reload()
+        return result
+    }
 }
 
 private struct WorkspaceView: View {
@@ -272,7 +290,15 @@ private struct WorkspaceView: View {
                 }
                 Section("Build") { sidebarRows([.templates, .infrastructure]) }
                 Section("Reference") { sidebarRows([.docs, .runtimes]) }
-                Section("Manage") { sidebarRows([.library, .offline, .updates, .activity]) }
+                Section("Manage") {
+                    sidebarRows([.library, .offline, .updates, .activity])
+                    SettingsLink {
+                        Label("Settings", systemImage: "gearshape")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
             .listStyle(.sidebar)
             .safeAreaInset(edge: .bottom) {
@@ -388,6 +414,7 @@ private struct WorkspaceView: View {
         .onChange(of: focusReading) { _, focused in columnVisibility = focused && workspace == .docs ? .detailOnly : .all }
         .onChange(of: model.libraryRevision) { _, _ in
             if let path = projectContext?.path { Task { await loadProjectContext(path) } }
+            Task { await infrastructure.refresh() }
         }
         .onOpenURL(perform: handleURL)
     }
@@ -711,6 +738,12 @@ private struct SettingsView: View {
     @State private var cliLocation: String?
     @State private var cliError: String?
     @State private var pathCopied = false
+    @State private var retention: LibraryRetention?
+    @State private var retentionBusy = false
+    @State private var purging = false
+    @State private var confirmPurge = false
+    @State private var libraryNotice: String?
+    @State private var libraryError: String?
 
     var body: some View {
         Form {
@@ -732,6 +765,27 @@ private struct SettingsView: View {
                     }
                 }
                 Button("Refresh Library") { Task { await model.refresh() } }
+                if let retention {
+                    Toggle("Keep only the latest version after updates", isOn: Binding(
+                        get: { retention.keepLatest },
+                        set: { enabled in Task { await loadRetention(keepLatest: enabled) } }
+                    ))
+                    .disabled(retentionBusy || purging)
+                }
+                Text("When Devline installs the newest local release of a docset, starter, or image archive, it purges older releases of that item.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Purge Older Versions…") { confirmPurge = true }
+                    .disabled(retentionBusy || model.operation != nil || model.jobs.contains(where: \.isActive))
+                if purging {
+                    ProgressView("Purging older versions…").controlSize(.small)
+                }
+                if let libraryNotice {
+                    Text(libraryNotice).font(.caption).foregroundStyle(.secondary)
+                }
+                if let libraryError {
+                    Label(libraryError, systemImage: "exclamationmark.circle")
+                        .font(.callout).foregroundStyle(.red)
+                }
             }
             AppUpdatesSettings()
             LookupSettings()
@@ -767,6 +821,38 @@ private struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 550, height: 560)
+        .task { await loadRetention() }
+        .alert("Purge older library versions?", isPresented: $confirmPurge) {
+            Button("Purge Older Versions", role: .destructive) { Task { await purgeOldVersions() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Devline will keep the newest local release of each docset, starter, and image archive. Projects pinned to a removed release may need that release prepared again.")
+        }
+    }
+
+    private func loadRetention(keepLatest: Bool? = nil) async {
+        retentionBusy = true
+        libraryError = nil
+        defer { retentionBusy = false }
+        do {
+            retention = try await Core.request(CoreRequest("library.retention", keepLatest: keepLatest))
+        } catch is CancellationError {
+        } catch {
+            libraryError = error.localizedDescription
+        }
+    }
+
+    private func purgeOldVersions() async {
+        guard model.operation == nil else { return }
+        purging = true
+        defer { purging = false }
+        libraryNotice = nil
+        libraryError = nil
+        do {
+            libraryNotice = try await model.purgeOldVersions().summary
+        } catch {
+            libraryError = error.localizedDescription
+        }
     }
 
     private func installCLI() {

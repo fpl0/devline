@@ -1,0 +1,285 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This guide describes how to configure <a href="https://www.haproxy.com/">HAProxy</a> as a TLS passthrough load balancer in front of Keycloak.</p>
+</div>
+<div class="paragraph">
+<p>In TLS passthrough mode, HAProxy forwards the raw TLS connection directly to Keycloak without terminating it.
+HAProxy operates at the TCP layer (Layer 4) and has no visibility into the HTTP content.
+The TLS handshake occurs between the client and Keycloak, preserving end-to-end encryption.</p>
+</div>
+<div class="paragraph">
+<p>For a general overview of TLS passthrough and how it compares to re-encrypt, see the <a href="https://www.keycloak.org/server/reverseproxy">Configuring a reverse proxy</a> guide.</p>
+</div>
+<div class="paragraph">
+<p>A ready-to-run example with a Compose file is available in the <a href="https://github.com/keycloak/keycloak-quickstarts/tree/main/proxy/haproxy/passthrough">quickstart repository</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="haproxy-configuration-passthrough"><a class="anchor" href="#haproxy-configuration-passthrough"></a>HAProxy configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following <code>haproxy.cfg</code> shows a configuration for TLS passthrough with two Keycloak backend servers.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="haproxy">global
+    log stdout format raw local0
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    timeout connect 5s
+    timeout client  50s
+    timeout server  50s
+    retries 3
+
+frontend https_front
+    bind *:8443 <i class="conum" data-value="1"></i><b>(1)</b>
+    mode tcp <i class="conum" data-value="2"></i><b>(2)</b>
+    option tcplog
+    default_backend keycloak_back
+
+backend keycloak_back
+    mode tcp <i class="conum" data-value="3"></i><b>(3)</b>
+    balance roundrobin <i class="conum" data-value="4"></i><b>(4)</b>
+    option httpchk GET /health/ready <i class="conum" data-value="5"></i><b>(5)</b>
+    http-check expect status 200
+    server keycloak1 keycloak1:8443 send-proxy-v2 check port 9000 check-ssl verify none inter 5s fall 3 rise 2 slowstart 60s <i class="conum" data-value="6"></i><b>(6)</b>
+    server keycloak2 keycloak2:8443 send-proxy-v2 check port 9000 check-ssl verify none inter 5s fall 3 rise 2 slowstart 60s</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The port HAProxy listens on for incoming TLS connections.
+Clients connect to this port, and HAProxy forwards the raw TCP stream to the backend.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Enables <a href="https://docs.haproxy.org/3.2/configuration.html#4-mode">TCP mode</a> on the frontend.
+This tells HAProxy to operate at Layer 4, forwarding raw bytes without decrypting TLS.
+HAProxy never sees the plaintext HTTP traffic in this mode.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The backend must also use TCP mode to match the frontend.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Distributes connections across backend servers using <a href="https://docs.haproxy.org/3.2/configuration.html#4-balance">round-robin</a> load balancing.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Configures <a href="https://docs.haproxy.org/3.2/configuration.html#4.2-option%20httpchk">HTTP health checks</a> against Keycloak’s readiness endpoint.
+Even though the data traffic uses TCP mode, HAProxy can perform HTTP health checks on a separate port.
+The <code>http-check expect status 200</code> directive tells HAProxy to consider the server healthy only when it receives an HTTP 200 response.
+For details on the Keycloak health check endpoint, see the <a href="https://www.keycloak.org/server/management-interface">Configuring the Management Interface</a> guide.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Defines a backend Keycloak server.
+The parameters on this line control PROXY protocol, health checks, and failure detection:</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The <code>server</code> directive parameters are explained below:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>send-proxy-v2</code></dt>
+<dd>
+<p>Enables the <a href="https://docs.haproxy.org/3.2/configuration.html#5.2-send-proxy-v2">PROXY protocol v2</a>.
+HAProxy prepends the original client IP address to the TCP connection so that Keycloak sees the real source IP instead of HAProxy’s address.
+This requires Keycloak to be configured with <code>--proxy-protocol-enabled=true</code> (see <a href="#keycloak-configuration-haproxy-passthrough">Keycloak configuration</a>).
+Version 1 (<code>send-proxy</code>) is also supported.</p>
+</dd>
+<dt class="hdlist1"><code>check port 9000 check-ssl verify none</code></dt>
+<dd>
+<p>Directs health checks to the <a href="https://docs.haproxy.org/3.2/configuration.html#5.2-check">management port</a> (<code>9000</code>) over HTTPS.
+The <code>verify none</code> option skips TLS certificate verification for the health check connection, which is acceptable because the health check is an internal communication between HAProxy and Keycloak.
+The management port is separate from the main application port (<code>8443</code>), as described in the <a href="https://www.keycloak.org/server/management-interface">Configuring the Management Interface</a> guide.</p>
+</dd>
+<dt class="hdlist1"><code>inter 5s fall 3 rise 2</code></dt>
+<dd>
+<p>Configures the <a href="https://docs.haproxy.org/3.2/configuration.html#5.2-inter">health check frequency</a>:
+poll every 5 seconds, mark a server as down after 3 consecutive failures, and mark it as up again after 2 consecutive successes.
+These values affect how quickly HAProxy detects that a Keycloak instance is shutting down (see <a href="#graceful-shutdown-considerations-haproxy-passthrough">Graceful shutdown considerations</a>).</p>
+</dd>
+<dt class="hdlist1"><code>slowstart 60s</code></dt>
+<dd>
+<p>Gradually increases the server’s weight from 0 to its full value over 60 seconds after the server becomes available.
+This gives Keycloak and the JVM time to warm up (JIT compilation, class loading, cache population) before receiving full traffic, preventing performance degradation and timeouts during the warmup phase.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="keycloak-configuration-haproxy-passthrough"><a class="anchor" href="#keycloak-configuration-haproxy-passthrough"></a>Keycloak configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With TLS passthrough, Keycloak requires the following configuration:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start <span class="nt">--proxy-protocol-enabled</span> <span class="nb">true</span> <span class="nt">--health-enabled</span> <span class="nb">true</span> <span class="nt">--metrics-enabled</span> <span class="nb">true</span></code></pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>--proxy-protocol-enabled true</code></dt>
+<dd>
+<p>Enables the PROXY protocol so that Keycloak can read the real client IP address from the PROXY protocol header added by HAProxy.
+Do not set <code>--proxy-headers</code> when using TLS passthrough because HAProxy cannot inject HTTP headers into the encrypted traffic.
+The <code>--proxy-protocol-enabled</code> option and the <code>--proxy-headers</code> option are mutually exclusive.</p>
+</dd>
+<dt class="hdlist1"><code>--health-enabled true</code></dt>
+<dd>
+<p>Enables the health check endpoints on the management port (<code>9000</code>).
+Without this, the <code>/health/ready</code> endpoint that HAProxy polls will not be available, and HAProxy will mark all Keycloak instances as down.</p>
+</dd>
+<dt class="hdlist1"><code>--metrics-enabled true</code></dt>
+<dd>
+<p>Enables the metrics endpoints on the management port.
+Enabling metrics also enables an additional status check for the database, so it is recommended to enable metrics.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="graceful-shutdown-considerations-haproxy-passthrough"><a class="anchor" href="#graceful-shutdown-considerations-haproxy-passthrough"></a>Graceful shutdown considerations</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With TLS passthrough, HAProxy cannot signal a connection close at the HTTP level.
+The HAProxy health check settings determine how long it takes for the proxy to detect that a Keycloak instance is shutting down and that connections should no longer be routed to it.</p>
+</div>
+<div class="paragraph">
+<p>With the health check settings from the configuration above (<code>inter 5s fall 3</code>), it takes up to 15 seconds (3 failures x 5-second interval) for HAProxy to mark a Keycloak instance as down.
+During this period, Keycloak must remain running to serve in-flight requests.
+Therefore, you need to configure the <code>--shutdown-delay</code> to be at least as long as the detection time:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start <span class="nt">--proxy-protocol-enabled</span> <span class="nb">true</span> <span class="nt">--health-enabled</span> <span class="nb">true</span> <span class="nt">--metrics-enabled</span> <span class="nb">true</span> <span class="nt">--shutdown-delay</span><span class="o">=</span>30s</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For a detailed explanation of shutdown phases and how to tune the delay and timeout values, see the Graceful HTTP shutdown section in the <a href="https://www.keycloak.org/server/reverseproxy">Configuring a reverse proxy</a> guide.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_relevant_options"><a class="anchor" href="#_relevant_options"></a>Relevant options</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch options">
+<colgroup>
+<col style="width: 75%;"/>
+<col style="width: 12.5%;"/>
+<col style="width: 12.5%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"></th>
+<th class="tableblock halign-left valign-top"><em>Type</em> or Values</th>
+<th class="tableblock halign-left valign-top">Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>shutdown-delay</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Length of the pre-shutdown phase during which the server prepares for shutdown.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">May be an ISO 8601 duration value, an integer number of seconds, or an integer followed by one of [ms, h, m, s, d]. This period allows for loadbalancer reconfiguration and draining of TLS/HTTP keepalive connections.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--shutdown-delay</code><br/>
+<strong>Env:</strong> <code>KC_SHUTDOWN_DELAY</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1s</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>health-enabled</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">If the server should expose health check endpoints.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If enabled, health checks are available at the <code>/health</code>, <code>/health/ready</code> and <code>/health/live</code> endpoints.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--health-enabled</code><br/>
+<strong>Env:</strong> <code>KC_HEALTH_ENABLED</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>metrics-enabled</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">If the server should expose metrics.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If enabled, metrics are available at the <code>/metrics</code> endpoint.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--metrics-enabled</code><br/>
+<strong>Env:</strong> <code>KC_METRICS_ENABLED</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>proxy-protocol-enabled</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Whether the server should use the HA PROXY protocol when serving requests from behind a proxy.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">When set to true, the remote address returned will be the one from the actual connecting client. Cannot be enabled when the <code>proxy-headers</code> is used.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--proxy-protocol-enabled</code><br/>
+<strong>Env:</strong> <code>KC_PROXY_PROTOCOL_ENABLED</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div> </div>
+</main>

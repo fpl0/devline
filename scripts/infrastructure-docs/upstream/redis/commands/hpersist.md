@@ -1,0 +1,104 @@
+# HPERSIST
+
+Removes the expiration time for each specified field
+
+## Syntax
+
+```text
+HPERSIST key FIELDS numfields field [field ...]
+```
+
+
+**Available since** 7.4.0
+
+**Group** hash
+
+**Time complexity** O(N) where N is the number of specified fields
+
+**Arity** -5
+
+**ACL categories** HASH
+
+**Command flags** WRITE, FAST
+
+## Arguments
+
+```json
+[
+  {
+    "name": "key",
+    "type": "key",
+    "key_spec_index": 0
+  },
+  {
+    "name": "fields",
+    "token": "FIELDS",
+    "type": "block",
+    "arguments": [
+      {
+        "name": "numfields",
+        "type": "integer"
+      },
+      {
+        "name": "field",
+        "type": "string",
+        "multiple": true
+      }
+    ]
+  }
+]
+```
+
+
+## Reply schema
+
+```json
+{
+  "description": "Array of results. Returns empty array if the key does not exist.",
+  "type": "array",
+  "minItems": 0,
+  "maxItems": 4294967295,
+  "items": {
+    "oneOf": [
+      {
+        "description": "The field does not exist.",
+        "const": -2
+      },
+      {
+        "description": "The field exists but has no associated expire.",
+        "const": -1
+      },
+      {
+        "description": "Expiration time was removed",
+        "const": 1
+      }
+    ]
+  }
+}
+```
+
+
+## Key specifications
+
+```json
+[
+  {
+    "flags": [
+      "RW",
+      "UPDATE"
+    ],
+    "begin_search": {
+      "index": {
+        "pos": 1
+      }
+    },
+    "find_keys": {
+      "range": {
+        "lastkey": 0,
+        "step": 1,
+        "limit": 0
+      }
+    }
+  }
+]
+```

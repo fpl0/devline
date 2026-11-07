@@ -1,0 +1,325 @@
+<main><header><h1>RabbitMQ tutorial - Work Queues</h1></header>
+<h2 id="work-queues">Work Queues</h2>
+<h3 id="using-the-java-client">(using the Java Client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-one-java">first tutorial</a> we
+wrote programs to send and receive messages from a named queue. In this
+one we'll create a <em>Work Queue</em> that will be used to distribute
+time-consuming tasks among multiple workers.</p>
+<p>The main idea behind Work Queues (aka: <em>Task Queues</em>) is to avoid
+doing a resource-intensive task immediately and having to wait for
+it to complete. Instead we schedule the task to be done later. We encapsulate a
+<em>task</em> as a message and send it to a queue. A worker process running
+in the background will pop the tasks and eventually execute the
+job. When you run many workers the tasks will be shared between them.</p>
+<p>This concept is especially useful in web applications where it's
+impossible to handle a complex task during a short HTTP request
+window.</p>
+<h2 id="preparation">Preparation</h2>
+<p>In the previous part of this tutorial we sent a message containing
+"Hello World!". Now we'll be sending strings that stand for complex
+tasks. We don't have a real-world task, like images to be resized or
+pdf files to be rendered, so let's fake it by just pretending we're
+busy - by using the <code>Thread.sleep()</code> function. We'll take the number of dots
+in the string as its complexity; every dot will account for one second
+of "work".  For example, a fake task described by <code>Hello...</code>
+will take three seconds.</p>
+<p>We will slightly modify the <em>Send.java</em> code from our previous example,
+to allow arbitrary messages to be sent from the command line. This
+program will schedule tasks to our work queue, so let's name it
+<code>NewTask.java</code>:</p>
+<div><div><pre><code class="language-java">String message = String.join(" ", argv);
+
+channel.basicPublish("", "hello", null, message.getBytes());
+System.out.println(" [x] Sent '" + message + "'");</code></pre></div></div>
+<p>Our old <em>Recv.java</em> program also requires some changes: it needs to
+fake a second of work for every dot in the message body. It will handle
+delivered messages and perform the task, so let's call it <code>Worker.java</code>:</p>
+<div><div><pre><code class="language-java">DeliverCallback deliverCallback = (consumerTag, delivery) -&gt; {
+  String message = new String(delivery.getBody(), "UTF-8");
+
+  System.out.println(" [x] Received '" + message + "'");
+  try {
+    doWork(message);
+  } finally {
+    System.out.println(" [x] Done");
+  }
+};
+boolean autoAck = true; // acknowledgment is covered below
+channel.basicConsume(TASK_QUEUE_NAME, autoAck, deliverCallback, consumerTag -&gt; { });</code></pre></div></div>
+<p>Our fake task to simulate execution time:</p>
+<div><div><pre><code class="language-java">private static void doWork(String task) throws InterruptedException {
+    for (char ch: task.toCharArray()) {
+        if (ch == '.') Thread.sleep(1000);
+    }
+}</code></pre></div></div>
+<p>Compile them as in tutorial one (with the jar files in the working directory
+and the environment variable <code>CP</code>):</p>
+<div><div><pre><code class="language-bash">javac -cp $CP NewTask.java Worker.java</code></pre></div></div>
+<h2 id="round-robin-dispatching">Round-robin dispatching</h2>
+<p>One of the advantages of using a Task Queue is the ability to easily
+parallelise work. If we are building up a backlog of work, we can just
+add more workers and that way, scale easily.</p>
+<p>First, let's try to run two worker instances at the same time. They
+will both get messages from the queue, but how exactly? Let's see.</p>
+<p>You need three consoles open. Two will run the worker
+program. These consoles will be our two consumers - C1 and C2.</p>
+<div><div><pre><code class="language-bash"># shell 1
+java -cp $CP Worker
+# =&gt; [*] Waiting for messages. To exit press CTRL+C</code></pre></div></div>
+<div><div><pre><code class="language-bash"># shell 2
+java -cp $CP Worker
+# =&gt; [*] Waiting for messages. To exit press CTRL+C</code></pre></div></div>
+<p>In the third one we'll publish new tasks. Once you've started
+the consumers you can publish a few messages:</p>
+<div><div><pre><code class="language-bash"># shell 3
+java -cp $CP NewTask First message.
+# =&gt; [x] Sent 'First message.'
+java -cp $CP NewTask Second message..
+# =&gt; [x] Sent 'Second message..'
+java -cp $CP NewTask Third message...
+# =&gt; [x] Sent 'Third message...'
+java -cp $CP NewTask Fourth message....
+# =&gt; [x] Sent 'Fourth message....'
+java -cp $CP NewTask Fifth message.....
+# =&gt; [x] Sent 'Fifth message.....'</code></pre></div></div>
+<p>Let's see what is delivered to our workers:</p>
+<div><div><pre><code class="language-bash">java -cp $CP Worker
+# =&gt; [*] Waiting for messages. To exit press CTRL+C
+# =&gt; [x] Received 'First message.'
+# =&gt; [x] Received 'Third message...'
+# =&gt; [x] Received 'Fifth message.....'</code></pre></div></div>
+<div><div><pre><code class="language-bash">java -cp $CP Worker
+# =&gt; [*] Waiting for messages. To exit press CTRL+C
+# =&gt; [x] Received 'Second message..'
+# =&gt; [x] Received 'Fourth message....'</code></pre></div></div>
+<p>By default, RabbitMQ will send each message to the next consumer,
+in sequence. On average every consumer will get the same number of
+messages. This way of distributing messages is called round-robin. Try
+this out with three or more workers.</p>
+<h2 id="message-acknowledgment">Message acknowledgment</h2>
+<p>Doing a task can take a few seconds, you may wonder what happens if
+a consumer starts a long task and it terminates before it completes.
+With our current code, once RabbitMQ delivers a message to the consumer, it
+immediately marks it for deletion. In this case, if you terminate a worker,
+the message it was just processing is lost. The messages that were dispatched
+to this particular worker but were not yet handled are also lost.</p>
+<p>But we don't want to lose any tasks. If a worker dies, we'd like the
+task to be delivered to another worker.</p>
+<p>In order to make sure a message is never lost, RabbitMQ supports
+<a href="https://www.rabbitmq.com/docs/4.3/confirms">message <em>acknowledgments</em></a>. An acknowledgement is sent back by the
+consumer to tell RabbitMQ that a particular message has been received,
+processed and that RabbitMQ is free to delete it.</p>
+<p>If a consumer dies (its channel is closed, connection is closed, or
+TCP connection is lost) without sending an ack, RabbitMQ will
+understand that a message wasn't processed fully and will re-queue it.
+If there are other consumers online at the same time, it will then quickly redeliver it
+to another consumer. That way you can be sure that no message is lost,
+even if the workers occasionally die.</p>
+<p>A timeout (30 minutes by default) is enforced on consumer delivery acknowledgement.
+This helps detect buggy (stuck) consumers that never acknowledge deliveries.
+You can increase this timeout as described in
+<a href="https://www.rabbitmq.com/docs/4.3/consumers#acknowledgement-timeout">Delivery Acknowledgement Timeout</a>.</p>
+<p><a href="https://www.rabbitmq.com/docs/4.3/confirms">Manual message acknowledgments</a> are turned on by default. In previous
+examples we explicitly turned them off via the <code>autoAck=true</code>
+flag. It's time to set this flag to <code>false</code> and send a proper acknowledgment
+from the worker, once we're done with a task.</p>
+<div><div><pre><code class="language-java">channel.basicQos(1); // accept only one unack-ed message at a time (see below)
+
+DeliverCallback deliverCallback = (consumerTag, delivery) -&gt; {
+  String message = new String(delivery.getBody(), "UTF-8");
+
+  System.out.println(" [x] Received '" + message + "'");
+  try {
+    doWork(message);
+  } finally {
+    System.out.println(" [x] Done");
+    channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+  }
+};
+boolean autoAck = false;
+channel.basicConsume(TASK_QUEUE_NAME, autoAck, deliverCallback, consumerTag -&gt; { });</code></pre></div></div>
+<p>Using this code, you can ensure that even if you terminate a worker using
+CTRL+C while it was processing a message, nothing is lost. Soon
+after the worker terminates, all unacknowledged messages are redelivered.</p>
+<p>Acknowledgement must be sent on the same channel that received the
+delivery. Attempts to acknowledge using a different channel will result
+in a channel-level protocol exception. See the <a href="https://www.rabbitmq.com/docs/4.3/confirms">doc guide on confirmations</a>
+to learn more.</p>
+<blockquote>
+<h4 id="forgotten-acknowledgment">Forgotten acknowledgment</h4>
+<p>It's a common mistake to miss the <code>basicAck</code>. It's an easy error,
+but the consequences are serious. Messages will be redelivered
+when your client quits (which may look like random redelivery), but
+RabbitMQ will eat more and more memory as it won't be able to release
+any unacked messages.</p>
+<p>In order to debug this kind of mistake you can use <code>rabbitmqctl</code>
+to print the <code>messages_unacknowledged</code> field:</p>
+<div><div><pre><code class="language-bash">sudo rabbitmqctl list_queues name messages_ready messages_unacknowledged</code></pre></div></div>
+<p>On Windows, drop the sudo:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl.bat list_queues name messages_ready messages_unacknowledged</code></pre></div></div>
+</blockquote>
+<h2 id="message-durability">Message durability</h2>
+<p>We have learned how to make sure that even if the consumer dies, the
+task isn't lost. But our tasks will still be lost if RabbitMQ server stops.</p>
+<p>When RabbitMQ quits or crashes it will forget the queues and messages
+unless you tell it not to. Two things are required to make sure that
+messages aren't lost: we need to mark both the queue and messages as
+durable.</p>
+<p>First, we need to make sure that the queue will survive a RabbitMQ node restart.
+In order to do so, we need to declare it as <em>durable</em>:</p>
+<div><div><pre><code class="language-java">boolean durable = true;
+Map&lt;String, Object&gt; args = Map.of("x-queue-type", "quorum");
+channel.queueDeclare("hello", durable, false, false, args);</code></pre></div></div>
+<p>Although this command is correct by itself, it won't work in our present
+setup. That's because we've already defined a queue called <code>hello</code>
+which is not durable. RabbitMQ doesn't allow you to redefine an existing queue
+with different parameters and will return an error to any program
+that tries to do that. But there is a quick workaround - let's declare
+a queue with different name, for example <code>task_queue</code>:</p>
+<div><div><pre><code class="language-java">boolean durable = true;
+Map&lt;String, Object&gt; args = Map.of("x-queue-type", "quorum");
+channel.queueDeclare("task_queue", durable, false, false, args);</code></pre></div></div>
+<p>This <code>queueDeclare</code> change needs to be applied to both the producer
+and consumer code.</p>
+<p>At this point we're sure that the <code>task_queue</code> queue won't be lost
+even if RabbitMQ restarts. Now we need to mark our messages as persistent</p>
+<ul>
+<li>by setting <code>MessageProperties</code> (which implements <code>BasicProperties</code>)
+to the value <code>PERSISTENT_TEXT_PLAIN</code>.</li>
+</ul>
+<div><div><pre><code class="language-java">import com.rabbitmq.client.MessageProperties;
+
+channel.basicPublish("", "task_queue",
+            MessageProperties.PERSISTENT_TEXT_PLAIN,
+            message.getBytes());</code></pre></div></div>
+<blockquote>
+<h4 id="note-on-message-persistence">Note on message persistence</h4>
+<p>Marking messages as persistent doesn't fully guarantee that a message
+won't be lost. Although it tells RabbitMQ to save the message to disk,
+there is still a short time window when RabbitMQ has accepted a message and
+hasn't saved it yet. Also, RabbitMQ doesn't do <code>fsync(2)</code> for every
+message -- it may be just saved to cache and not really written to the
+disk. The persistence guarantees aren't strong, but it's more than enough
+for our simple task queue. If you need a stronger guarantee then you can use
+<a href="https://www.rabbitmq.com/docs/4.3/confirms">publisher confirms</a>.</p>
+</blockquote>
+<h2 id="fair-dispatch">Fair dispatch</h2>
+<p>You might have noticed that the dispatching still doesn't work exactly
+as we want. For example in a situation with two workers, when all
+odd messages are heavy and even messages are light, one worker will be
+constantly busy and the other one will do hardly any work. Well,
+RabbitMQ doesn't know anything about that and will still dispatch
+messages evenly.</p>
+<p>This happens because RabbitMQ just dispatches a message when the message
+enters the queue. It doesn't look at the number of unacknowledged
+messages for a consumer. It just blindly dispatches every n-th message
+to the n-th consumer.</p>
+<!-- -->
+<p>In order to defeat that we can use the <code>basicQos</code> method with the
+<code>prefetchCount</code> = <code>1</code> setting. This tells RabbitMQ not to give more than
+one message to a worker at a time. Or, in other words, don't dispatch
+a new message to a worker until it has processed and acknowledged the
+previous one. Instead, it will dispatch it to the next worker that is not still busy.</p>
+<div><div><pre><code class="language-java">int prefetchCount = 1;
+channel.basicQos(prefetchCount);</code></pre></div></div>
+<blockquote>
+<h4 id="note-about-queue-size">Note about queue size</h4>
+<p>If all the workers are busy, your queue can fill up. You will want to keep an
+eye on that, and maybe add more workers, or have some other strategy.</p>
+</blockquote>
+<h2 id="putting-it-all-together">Putting it all together</h2>
+<p>Final code of our <code>NewTask.java</code> class:</p>
+<div><div><pre><code class="language-java">import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.MessageProperties;
+
+import java.util.Map;
+
+public class NewTask {
+
+  private static final String TASK_QUEUE_NAME = "task_queue";
+
+  public static void main(String[] argv) throws Exception {
+    ConnectionFactory factory = new ConnectionFactory();
+    factory.setHost("localhost");
+    try (Connection connection = factory.newConnection();
+         Channel channel = connection.createChannel()) {
+        Map&lt;String, Object&gt; args = Map.of("x-queue-type", "quorum");
+        channel.queueDeclare(TASK_QUEUE_NAME, true, false, false, args);
+
+        String message = String.join(" ", argv);
+
+        channel.basicPublish("", TASK_QUEUE_NAME,
+                MessageProperties.PERSISTENT_TEXT_PLAIN,
+                message.getBytes("UTF-8"));
+        System.out.println(" [x] Sent '" + message + "'");
+    }
+  }
+
+}</code></pre></div></div>
+<p><a href="http://github.com/rabbitmq/rabbitmq-tutorials/blob/main/java/NewTask.java">(NewTask.java source)</a></p>
+<p>And our <code>Worker.java</code>:</p>
+<div><div><pre><code class="language-java">import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+
+import java.util.Map;
+
+public class Worker {
+
+  private static final String TASK_QUEUE_NAME = "task_queue";
+
+  public static void main(String[] argv) throws Exception {
+    ConnectionFactory factory = new ConnectionFactory();
+    factory.setHost("localhost");
+    final Connection connection = factory.newConnection();
+    final Channel channel = connection.createChannel();
+
+    Map&lt;String, Object&gt; args = Map.of("x-queue-type", "quorum");
+    channel.queueDeclare(TASK_QUEUE_NAME, true, false, false, args);
+    System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
+
+    channel.basicQos(1);
+
+    DeliverCallback deliverCallback = (consumerTag, delivery) -&gt; {
+        String message = new String(delivery.getBody(), "UTF-8");
+
+        System.out.println(" [x] Received '" + message + "'");
+        try {
+            doWork(message);
+        } finally {
+            System.out.println(" [x] Done");
+            channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
+        }
+    };
+    channel.basicConsume(TASK_QUEUE_NAME, false, deliverCallback, consumerTag -&gt; { });
+  }
+
+  private static void doWork(String task) {
+    for (char ch : task.toCharArray()) {
+        if (ch == '.') {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException _ignored) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+  }
+}</code></pre></div></div>
+<p><a href="http://github.com/rabbitmq/rabbitmq-tutorials/blob/main/java/Worker.java">(Worker.java source)</a></p>
+<p>Using message acknowledgments and <code>prefetchCount</code> you can set up a
+work queue. The durability options let the tasks survive even if
+RabbitMQ is restarted.</p>
+<p>For more information on <code>Channel</code> methods and <code>MessageProperties</code>, you can browse the
+<a href="https://rabbitmq.github.io/rabbitmq-java-client/api/current/">JavaDocs online</a>.</p>
+<p>Now we can move on to <a href="/tutorials/tutorial-three-java">tutorial 3</a> and learn how
+to deliver the same message to many consumers.</p></main>

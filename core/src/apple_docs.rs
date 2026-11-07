@@ -1,6 +1,6 @@
 use crate::{
-    doc_links::SDK_LINK_PREFIX, doc_updates, install_doc_pack, markdown, tasks::Job, templates,
-    Context, DocPack,
+    doc_links::SDK_LINK_PREFIX, doc_updates, install_doc_pack, lock_library, markdown, tasks::Job,
+    templates, Context, DocPack,
 };
 use anyhow::{bail, Context as _, Result};
 use pulldown_cmark::{Event, Parser, Tag};
@@ -529,6 +529,7 @@ pub(crate) fn install(
     mut job: Option<&mut Job>,
 ) -> Result<Value> {
     if let Some(version) = requested {
+        let _lock = lock_library(ctx)?;
         if let Some((pack, path)) = doc_updates::cached_pack(ctx, PACK_ID, Some(version))? {
             if pack.local_only {
                 return install_doc_pack(ctx, &pack, &path);
@@ -545,9 +546,12 @@ pub(crate) fn install(
             sdk.version
         );
     }
-    if let Some((pack, path)) = doc_updates::cached_pack(ctx, PACK_ID, Some(&sdk.version))? {
-        if pack.local_only {
-            return install_doc_pack(ctx, &pack, &path);
+    {
+        let _lock = lock_library(ctx)?;
+        if let Some((pack, path)) = doc_updates::cached_pack(ctx, PACK_ID, Some(&sdk.version))? {
+            if pack.local_only {
+                return install_doc_pack(ctx, &pack, &path);
+            }
         }
     }
     let parent = templates::library(ctx, Path::new("apple-sdk-import"), true)?;
@@ -600,6 +604,7 @@ pub(crate) fn install(
     if let Some(job) = job {
         job.stage("Indexing the local SwiftUI SDK reference")?;
     }
+    let _lock = lock_library(ctx)?;
     let cached = doc_updates::store_original(ctx, &pack, &package)?;
     let mut result = install_doc_pack(ctx, &pack, &cached)?;
     result["local_only"] = json!(true);

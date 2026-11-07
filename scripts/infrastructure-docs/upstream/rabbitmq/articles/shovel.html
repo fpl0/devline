@@ -1,0 +1,208 @@
+<main><header><h1>Shovel Plugin</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide provides an overview of RabbitMQ Shovel, a core RabbitMQ plugin that unidirectionally
+moves messages from a source to a destination. Two more guides
+cover the two flavors of Shovels, <a href="/docs/4.3/shovel-dynamic">dynamic shovels</a> and <a href="/docs/4.3/shovel-static">static shovels</a>,
+respectively. This one focuses on explaining the concept, how do shovels work
+and what they can do.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p><a href="/docs/4.3/shovel-dynamic">Dynamic shovels</a> is the modern shovel type. When in doubt,
+prefer dynamic shovels.</p></div></div>
+<p>Sometimes it is necessary to reliably and continually move messages from a source (typically a queue)
+in one cluster to a destination (an exchange, topic, etc) in another cluster.</p>
+<p>The <code>rabbitmq_shovel</code> <a href="/docs/4.3/plugins">plugin</a> allows you to
+configure a number of shovels (transfer workers), which do just that
+and run as part of a RabbitMQ cluster.</p>
+<p>The source and destination can be in the same
+cluster (typically in different vhosts) or distinct ones.
+Shovels support AMQP 0.9.1 and AMQP 1.0 sources and destinations.
+The source and destination do not have to use the same protocol,
+so it is possible to move messages from an AMQP 1.0 broker to RabbitMQ
+or vice versa.</p>
+<p>A shovel behaves like a well-written client application, which
+connects to its source and destination, consumes and republishes messages,
+and uses <a href="/docs/4.3/confirms">acknowledgements</a> on both ends to cope with failures.</p>
+<p>A Shovel uses <a href="/client-libraries/erlang-client-user-guide">Erlang AMQP 0-9-1</a>
+and <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_amqp_client">Erlang AMQP 1.0</a> clients under the hood.</p>
+<p>RabbitMQ 4.2 introduced a new protocol type, the <code>local</code> shovels. Local shovels do not
+use any of the existing protocols to connect to the source or destination, but
+use an internal API to consume and/or publish directly from the queues in the local
+cluster. They can only be used on the cluster the shovel is being declared.
+A local shovel shares most features and configuration with AMQP 0-9-1 shovels.</p>
+<h2 id="benefits">Why Use Shovel</h2>
+<p>Shovel is a minimalistic yet flexible tool in the distributed messaging toolkit
+that can accommodate a number of use cases. Below are some of its key features
+and design goals.</p>
+<h3 id="loose-coupling">Loose Coupling</h3>
+<p>A shovel can move messages between brokers (or clusters) in
+different geographic or administrative domains that</p>
+<ul>
+<li>may have different loosely related purposes</li>
+<li>may run on different versions of RabbitMQ</li>
+<li>may use different messaging products or protocols</li>
+<li>may have different users and virtual hosts</li>
+</ul>
+<h3 id="wan-friendly">WAN-friendly</h3>
+<p>The Shovel plugin uses <a href="/docs/4.3/connections">client connections</a> under the hood.
+<a href="/docs/4.3/confirms">Acknowledgements and publisher confirms</a> are used to ensure data safety in case of connection
+and node failures.</p>
+<h3 id="cross-protocol-and-product-message-transfers">Cross-protocol and Product Message Transfers</h3>
+<p>Modern Shovel versions support multiple protocols: AMQP 0.9.1 and AMQP 1.0.</p>
+<p>This means it is possible to shovel, e.g. from and AMQP 1.0
+broker source to a RabbitMQ destination and vice versa.
+More protocols may be supported in the future.</p>
+<h3 id="flexibility">Flexibility</h3>
+<p>When a shovel connects (either to the source or the
+destination) it can be configured to predeclare a certain topology
+it needs.</p>
+<p>There is no requirement to run the shovel on the same broker
+(or cluster) as its source or destination, although that's the most typical approach;
+the shovel can run on an entirely separate node or cluster.</p>
+<p>A comparison between <a href="/docs/4.3/clustering">clustering</a>, <a href="/docs/4.3/federation">federation</a>
+is provided in the <a href="/docs/4.3/distributed">Distributed Messaging</a> guide.</p>
+<h2 id="what-it-does">What Does a Shovel Do?</h2>
+<p>In essence, a shovel is a minimalistic message pump. Each shovel:</p>
+<ul>
+<li><a href="/docs/4.3/connections">Connects</a> to the source and destination clusters</li>
+<li><a href="/docs/4.3/consumers">Consumes</a> messages from a queue</li>
+<li><a href="/docs/4.3/publishers">Re-publishes</a> to a destination</li>
+<li>Uses <a href="/docs/4.3/confirms">data safety features</a> on both ends and handles failures</li>
+</ul>
+<p>The shovel configuration allows each of these processes to be tailored.</p>
+<h3 id="connection">Connection</h3>
+<p>After connection to a source or a destination broker a
+series of configured topology declaration operations can be
+issued. For example, on an AMQP 0-9-1 endpoint, queues,
+exchanges and bindings can be declared.</p>
+<p>A shovel will attempt to reconnect if a failure
+occurs and <a href="#clustering">multiple brokers can be specified</a> for the source and
+destination so that another broker may be selected (at
+random) to reconnect to. A reconnection delay can be
+specified to avoid flooding the network with reconnection
+attempts, or to prevent reconnection on failure altogether.</p>
+<p>All configured topology declaration operations for that source or
+destination are re-issued upon reconnection.</p>
+<h3 id="consumption">Consumption</h3>
+<p>The Shovel's consumer will <a href="/docs/4.3/confirms">acknowledge</a> messages
+automatically on receipt, after (re-)publication, or after
+<a href="/docs/4.3/confirms">confirmation of its publication</a> from the destination server.</p>
+<p>Messages rejected by the destination will be requeued in the case of AMQP 0-9-1
+and local shovels. For AMQP 1.0, messages rejected by the destination will be dropped.</p>
+<h3 id="re-publishing">Re-publishing</h3>
+<p>Most publishing and message properties are controlled by the operator.</p>
+<h2 id="how-are-shovels-different-from-queue-federation">How are Shovels Different from Queue Federation?</h2>
+<p><a href="/docs/4.3/federated-queues">Queue federation</a> moves messages from a source queue in the upstream cluster to a destination queue in local (downstream) cluster.
+This, indeed, is very similar to what shovels do, but with a number of key differences:</p>
+<table><thead><tr><th>Characteristic</th><th>Shovel</th><th>Queue Federation</th></tr></thead><tbody><tr><td>Message movement</td><td>Moves messages unconditionally</td><td>Only moves messages if the upstream has no local consumers</td></tr><tr><td>Directionality</td><td>Always unidirectional</td><td>Can be bi-directional or N-directional with multiple clusters</td></tr></tbody></table>
+<h2 id="getting-started">Getting started</h2>
+<p>The Shovel plugin is included in the RabbitMQ distribution.
+To enable it, use <a href="/docs/4.3/cli">rabbitmq-plugins</a>:</p>
+<div><div><pre><code class="language-bash">rabbitmq-plugins enable rabbitmq_shovel</code></pre></div></div>
+<p><a href="/docs/4.3/management">Management UI</a> users may also wish to enable the <code>rabbitmq_shovel_management</code> plugin
+for <a href="#status">Shovel status monitoring</a>.</p>
+<p>There are two distinct ways to define shovels: <a href="/docs/4.3/shovel-dynamic">dynamic shovels</a> are defined using
+<a href="/docs/4.3/parameters">runtime parameters</a> and <a href="/docs/4.3/shovel-static">static shovels</a> are defined in the <a href="/docs/4.3/configure"><code>advanced.config</code> file</a>.</p>
+<p>The pros and cons with each approach are covered below. Most users should consider
+dynamic shovels first for their ease of reconfiguration and management.</p>
+<table><tbody><tr><th><a href="./shovel-static">Static Shovels</a></th><th><a href="./shovel-dynamic">Dynamic Shovels</a></th></tr><tr><td><p>Defined in the broker <a href="./configure">advanced configuration file</a>.</p></td><td><p>Defined using <a href="./parameters">runtime parameters</a>.</p></td></tr><tr><td><p>Creation and deletion require a node restart.</p></td><td><p>Creation and deletion do not require a node restart. Can be created and deleted at any time.</p></td></tr><tr><td><p>Less opinionated, less automation-friendly: any queues, exchanges or bindings can
+be declared manually at startup.</p></td><td><p>More opinionated, more automation-friendly: the queues, exchanges and
+bindings used by the shovel will be declared automatically.</p></td></tr></tbody></table>
+<p>Note that when using AMQP 1.0 the "nodes" may still need to be created
+outside of the shovel as the protocol does not include topology
+creation.</p>
+<h2 id="shovel-connection-endpoints">Shovel Connection Endpoints</h2>
+<p>Shovels use URIs to connect to both source and destination.</p>
+<p>For AMQP 0-9-1, the URI format follows the <a href="/docs/4.3/uri-spec">RabbitMQ URI specification</a>.</p>
+<p>For AMQP 1.0, the format is slightly different, specifically the part that specifies
+what virtual host to connect to (assuming the target AMQP 1.0 broker is RabbitMQ, and thus has such a concept).</p>
+<p>See the <a href="/docs/4.3/shovel-dynamic#amqp10-reference">dynamic AMQP 1.0 Shovel reference</a> to learn more.</p>
+<h2 id="authn-authz-for-shovels">Authentication and authorisation for Shovels</h2>
+<p>The plugin uses <a href="/client-libraries/erlang-client-user-guide">Erlang AMQP 0-9-1</a> and <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_amqp_client">Erlang AMQP 1.0</a>
+clients under the hood to open connections to its source and/or destination. Just like any other
+<a href="/docs/4.3/connections">client library connection</a>, a Shovel connection must <a href="/docs/4.3/access-control">successfully authenticate</a>
+and be <a href="/docs/4.3/access-control">authorized to access</a> the virtual host and resources it is trying to use.
+This is true for both sources and destinations.</p>
+<p>Authentication and authorisation failures of shovel connections will be
+<a href="/docs/4.3/logging">logged</a> by the node that's running the shovel.</p>
+<p>Local shovels are also subject to the same authentication checks.</p>
+<h2 id="clustering">Shovel Failure Handling in Clusters</h2>
+<p>It's normally desirable to ensure that shovels are resilient
+to failure of any node in the source or destination clusters,
+or the cluster hosting the shovel.</p>
+<p>A shovel can be provided a list of both source and destination endpoints.
+In this case the shovel will connect to the first reachable endpoint.</p>
+<p>Dynamic shovels are automatically defined on all nodes of the
+hosting cluster on which the shovel plugin is enabled. Each
+shovel will only start on one arbitrarily chosen node, but will
+be restarted on another node in case of node failure.</p>
+<p>Static shovels should be defined in the configuration file for
+all nodes of the hosting cluster on which the shovel plugin is
+enabled. Again each shovel will only start on one node and
+be restarted on another cluster node when a node failure is detected.</p>
+<h2 id="tls">Securing Shovel Connections with TLS</h2>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>Starting with Erlang 26, <a href="/docs/4.3/ssl#peer-verification">TLS client peer verification</a> is enabled by default by the TLS implementation.</p><p>If client TLS certificate and key pair is not configured, TLS-enabled Shovels
+will fail to connect. A certificate (public key) and private key
+pair must be configured for TLS-enabled Shovels that need to use peer verification.</p><p>If peer verification is not necessary, it can be disabled.</p></div></div>
+<p>To configure Shovel to use TLS, one needs to</p>
+<ul>
+<li>In source and destination URIs, use the <code>amqps</code> for scheme instead of <code>amqp</code> and port <code>5671 instead of </code>5672` (assuming the default port is used but the port specified explicitly)</li>
+<li>In the same source and destination URIs, specify CA certificate and client certificate/key pair, as well as other parameters (namely <a href="/docs/4.3/ssl#peer-verification">enable or disable peer verification</a>, <a href="/docs/4.3/ssl#peer-verification-depth">peer verification depth</a>) via <a href="/docs/4.3/uri-query-parameters">URI query parameters</a></li>
+<li>Optionally, configure <a href="/docs/4.3/ssl">TLS-related</a> settings or defaults common for all shovels (plus, optionally, <a href="/docs/4.3/federation">Federation links</a>) via the Erlang client settings</li>
+</ul>
+<p>In the following example, the source URI does not use TLS (it connects to <code>localhost</code>, so this may be a reasonable call to make)
+while the destination URI is modified to use TLS with a client certificate (public key)
+and private key pair but with peer verification disabled (for simplicity, it is encouraged for production use):</p>
+<div><div><pre><code class="language-bash"># Note: this user's access is limited to localhost.
+#
+# In the following example, the source URI connects to `localhost` and does not use TLS
+# while the destination URI is modified to use TLS with peer verification disabled
+# for simplicity
+curl -v -u guest:guest -X PUT http://localhost:15672/api/parameters/shovel/%2f/my-shovel \
+                       -H "content-type: application/json" \
+                       -d @- &lt;&lt;EOF
+{
+  "value": {
+    "src-protocol": "amqp091",
+    "src-uri": "amqp://localhost",
+    "src-queue": "source-queue",
+    "dest-protocol": "amqp091",
+    "dest-uri": "amqps://target.hostname:5671?cacertfile=/path/to/ca_bundle.pem&amp;certfile=/path/to/client_certificate.pem&amp;keyfile=/path/to/client_key.pem&amp;verify=verify_none",
+    "dest-queue": "destination-queue"
+  }
+}
+EOF</code></pre></div></div>
+<p>These examples use a URI with four additional <a href="/docs/4.3/uri-query-parameters">URI query parameters</a>:</p>
+<ul>
+<li><code>cacertfile</code>: the CA certificate bundle file that includes one or more CA certificates that were used to sign the client certificate and private key pair</li>
+<li><code>certfile</code>: the client certificate (public key)</li>
+<li><code>keyfile</code>: the client private key</li>
+<li><code>verify</code>: <a href="/docs/4.3/ssl#peer-verification">controls peer verification</a> (in this specific example, disables it)</li>
+</ul>
+<p>Just like with "regular" client connections, if TLS-enabled shovels need to perform peer verification then server's CA must be
+trusted on the node where shovels runs, and vice versa.</p>
+<p>Local shovels do not use any connection, so no TLS is used.</p>
+<h2 id="status">Monitoring Shovels</h2>
+<p>There are two ways of discovering the status of shovels.</p>
+<h3 id="status-management">Using Management UI</h3>
+<p>Shovel status can be reported on the <a href="/docs/4.3/management">Management plugin</a> user interface
+in the administrative section.
+This requires the <code>rabbitmq_shovel_management</code> plugin to be <a href="/docs/4.3/plugins">enabled</a>
+on the node used to access management UI.</p>
+<h3 id="status-cli">Using CLI Tools</h3>
+<p>Shovel status can be obtained by direct query of the Shovel plugin app using <a href="/docs/4.3/cli"><code>rabbitmqctl</code></a>:</p>
+<div><div><pre><code class="language-bash"># use the -n switch to target a remote node
+rabbitmqctl shovel_status</code></pre></div></div>
+<p>The result will return a list of statuses, one per Shovel running.</p>
+<p>Each element of the list is a map with several properties:</p>
+<ul>
+<li>Name</li>
+<li>Type</li>
+<li>Status</li>
+<li>Last state change timestamp</li>
+</ul>
+<table><thead><tr><td><strong>Property</strong></td><td><strong>Description</strong></td></tr></thead><tbody><tr><td>Name</td><td>Name of the shovel</td></tr><tr><td>Type</td><td><code>static</code> for static shovels, <code>dynamic</code> for dynamic ones</td></tr><tr><td>Status</td><td>Current state of the shovel</td></tr><tr><td>Timestamp</td><td><p>Time when the shovel has last entered this state (e.g. successfully connected,
+lost connection, ran into an exception)</p></td></tr></tbody></table>
+<p>Timestamp will return a local calendar time of the form
+of <code>{{YYYY, MM, DD}, {HH, MM, SS}}</code>.</p>
+<p>Key states of a shovel are</p>
+<table><thead><tr><td><strong>State</strong></td><td><strong>Description</strong></td></tr></thead><tbody><tr><td>starting</td><td><p>Shovel is starting or trying to connect to its configured endpoints</p></td></tr><tr><td>running</td><td><p>Shovel has successfully connected and running (consuming from the source and republishing to the destination).
+This state will report some basic endpoint and protocol information.</p></td></tr><tr><td>terminated</td><td><p>Shovel has stopped or ran into an exception. A reason will be provided.</p></td></tr></tbody></table></main>

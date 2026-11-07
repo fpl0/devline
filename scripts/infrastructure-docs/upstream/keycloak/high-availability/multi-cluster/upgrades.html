@@ -1,0 +1,109 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div class="sect1">
+<h2 id="_keycloak_upgrades"><a class="anchor" href="#_keycloak_upgrades"></a>Keycloak upgrades</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>In order to update to a new major or minor version of Keycloak, it is expected that the Keycloak deployment
+on each site is taken offline during the upgrade procedure as described in <a href="https://www.keycloak.org/high-availability/multi-cluster/operate-site-offline">Taking a site offline</a>.
+Deploying different Keycloak major/minor versions on each of the sites is not supported. Neither site should be
+exposed to user requests via the load balancer until both Keycloak deployments have been upgraded and their
+Infinispan clusters synchronized.</p>
+</div>
+<div class="paragraph">
+<p>Patch upgrades can be deployed with zero-downtime.
+It is technically possible for upgrades to be rolled out to both sites simultaneously, however we recommend that upgrades be rolled out to one
+site at a time in order to simplify monitoring and debugging. For example, all nodes in site A should be upgraded to the
+new Keycloak version before the upgrade is rolled out to nodes in site B.</p>
+</div>
+<div class="paragraph">
+<p>See the <a href="https://www.keycloak.org/operator/rolling-updates">Avoiding downtime with rolling updates</a> guide for more details.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_infinispan_upgrades"><a class="anchor" href="#_infinispan_upgrades"></a>Infinispan upgrades</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Upgrading Infinispan to a new major or minor version, requires the Infinispan cluster to be shutdown and redeployed
+on both sites. This results in Keycloak downtime, as requests cannot succeed without a Infinispan cluster. The
+Keycloak deployments should not be exposed via the load balancer until both Infinispan clusters have been upgraded,
+marked as online and synchronized.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>As major and minor upgrades of both Keycloak and Infinispan require downtime, we recommend that these upgrades
+be performed during the same maintenance window in order to reduce overall service downtime.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Infinispan supports zero-downtime upgrades of patch versions for local clusters, however it does not support running
+cross-site clusters with different patch versions on each site. Therefore, in order to upgrade Infinispan patch versions
+with zero-downtime, it is necessary for the upgrade to be applied as follows:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Take site B offline</p>
+</li>
+<li>
+<p>Shutdown site B</p>
+</li>
+<li>
+<p>Perform an in-place upgrade of Infinispan on site A and wait for it to complete</p>
+</li>
+<li>
+<p>Deploy the new Infinispan version to site B</p>
+</li>
+<li>
+<p>Bring site B online</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>Site B will no longer be able to serve Keycloak requests during steps 1-4, however the load balancer should ensure
+these requests are still served by site A, hence downtime is avoided.</p>
+</div>
+<div class="paragraph">
+<p>See the <a href="https://infinispan.org/docs/infinispan-operator/main/operator.html#upgrading-clusters">Infinispan cluster upgrade documentation</a> for more details
+on how to perform Infinispan in-place upgrades.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_database_upgrades"><a class="anchor" href="#_database_upgrades"></a>Database upgrades</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Database upgrade semantics vary depending on the vendor chosen. In general, it should be possible for Keycloak to
+continue to function as expected if the database natively supports zero-downtime upgrades, for example AWS Aurora. If the
+database does not support zero-downtime upgrades, then it is necessary for the Keycloak deployment to be shutdown on
+both sites before the database is upgraded. Once the database upgrade has completed, it is then possible to redeploy
+Keycloak to both sites.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>When a database upgrade cannot be performed without downtime, it is recommended to also perform Keycloak and
+Infinispan major/minor upgrades in the same maintenance window as these also require downtime.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div> </div>
+</main>

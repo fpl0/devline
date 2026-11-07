@@ -1,0 +1,244 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This guide describes advanced Keycloak configurations for Kubernetes which are load tested and will recover from single Pod failures.</p>
+</div>
+<div class="paragraph">
+<p>These instructions are intended for use with the setup described in the <a href="https://www.keycloak.org/high-availability/multi-cluster/concepts">Concepts for multi-cluster (v1) deployments</a> guide.
+Use it together with the other building blocks outlined in the <a href="https://www.keycloak.org/high-availability/multi-cluster/building-blocks">Building blocks multi-cluster deployments</a> guide.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Kubernetes cluster running.</p>
+</li>
+<li>
+<p>Understanding of a <a href="https://www.keycloak.org/operator/basic-deployment">Basic Keycloak deployment</a> of Keycloak with the Keycloak Operator.</p>
+</li>
+<li>
+<p>AWS Aurora database deployed using the <a href="https://www.keycloak.org/high-availability/multi-cluster/deploy-aurora">Deploying AWS Aurora in multiple availability zones</a> guide.</p>
+</li>
+<li>
+<p>Infinispan server deployed using the <a href="https://www.keycloak.org/high-availability/multi-cluster/deploy-infinispan-kubernetes-crossdc">Deploying Infinispan for HA with the Infinispan Operator</a> guide.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_procedure"><a class="anchor" href="#_procedure"></a>Procedure</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Determine the sizing of the deployment using the <a href="https://www.keycloak.org/high-availability/multi-cluster/concepts-memory-and-cpu-sizing">Concepts for sizing CPU and memory resources</a> guide.</p>
+</li>
+<li>
+<p>Install the Keycloak Operator as described in the <a href="https://www.keycloak.org/operator/installation">Keycloak Operator Installation</a> guide.</p>
+</li>
+<li>
+<p>Notice the configuration file below contains options relevant for connecting to the Aurora database from <a href="https://www.keycloak.org/high-availability/multi-cluster/deploy-aurora#multi-cluster-aurora-connect">Deploying AWS Aurora in multiple availability zones</a></p>
+</li>
+<li>
+<p>Notice the configuration file below options relevant for connecting to the Infinispan server from <a href="https://www.keycloak.org/high-availability/multi-cluster/deploy-infinispan-kubernetes-crossdc#connect-infinispan-to-keycloak">Deploying Infinispan for HA with the Infinispan Operator</a></p>
+</li>
+<li>
+<p>Build a custom Keycloak image which is <a href="https://www.keycloak.org/server/db#preparing-keycloak-for-amazon-aurora-postgresql">prepared for usage with the Amazon Aurora PostgreSQL database</a>.</p>
+</li>
+<li>
+<p>Secure the Amazon Aurora PostgreSQL database connection by downloading the <a href="https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html">certificate bundles</a>.
+Create a <code>ConfigMap</code> with the certificate bundle using:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl <span class="nt">--namespace</span> keycloak create configmap keycloak-aurora-rootcert <span class="nt">--from-file</span> aurora.pem<span class="o">=</span>/path/to/bundle.pem</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Deploy the Keycloak CR with the following values with the resource requests and limits calculated in the first step:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.keycloak.org/v2beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Keycloak</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">keycloak</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">keycloak</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">keycloak</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">hostname</span><span class="pi">:</span>
+    <span class="na">hostname</span><span class="pi">:</span> <span class="s">&lt;KEYCLOAK_URL_HERE&gt;</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span>
+      <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1250M"</span>
+    <span class="na">limits</span><span class="pi">:</span>
+      <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">6"</span>
+      <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2250M"</span>
+  <span class="na">db</span><span class="pi">:</span>
+    <span class="na">vendor</span><span class="pi">:</span> <span class="s">postgres</span>
+    <span class="na">url</span><span class="pi">:</span> <span class="s">jdbc:aws-wrapper:postgresql://&lt;AWS_AURORA_URL_HERE&gt;:5432/keycloak</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">poolMinSize</span><span class="pi">:</span> <span class="s">30</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="na">poolInitialSize</span><span class="pi">:</span> <span class="m">30</span>
+    <span class="na">poolMaxSize</span><span class="pi">:</span> <span class="m">30</span>
+    <span class="na">usernameSecret</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">keycloak-db-secret</span>
+      <span class="na">key</span><span class="pi">:</span> <span class="s">username</span>
+    <span class="na">passwordSecret</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">keycloak-db-secret</span>
+      <span class="na">key</span><span class="pi">:</span> <span class="s">password</span>
+  <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;KEYCLOAK_IMAGE_HERE&gt;</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">startOptimized</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">update</span><span class="pi">:</span>
+    <span class="na">strategy</span><span class="pi">:</span> <span class="s">Auto</span>
+  <span class="na">features</span><span class="pi">:</span>
+    <span class="na">enabled</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">rolling-updates:v2</span>
+      <span class="pi">-</span> <span class="s">multi-site</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="na">additionalOptions</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">log-console-output</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s">json</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">metrics-enabled</span> <i class="conum" data-value="5"></i><b>(5)</b>
+      <span class="na">value</span><span class="pi">:</span> <span class="s1">'</span><span class="s">true'</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">event-metrics-user-enabled</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s1">'</span><span class="s">true'</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cache-remote-host</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">infinispan.keycloak.svc"</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cache-remote-port</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">11222"</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cache-remote-username</span>
+      <span class="na">secret</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">remote-store-secret</span>
+        <span class="na">key</span><span class="pi">:</span> <span class="s">username</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cache-remote-password</span>
+      <span class="na">secret</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">remote-store-secret</span>
+        <span class="na">key</span><span class="pi">:</span> <span class="s">password</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">db-driver</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s">software.amazon.jdbc.Driver</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">db-tls-mode</span> <i class="conum" data-value="6"></i><b>(6)</b>
+      <span class="na">value</span><span class="pi">:</span> <span class="s">verify-server</span>
+  <span class="na">http</span><span class="pi">:</span>
+    <span class="na">tlsSecret</span><span class="pi">:</span> <span class="s">keycloak-tls-secret</span>
+  <span class="na">instances</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">truststores</span><span class="pi">:</span>
+    <span class="na">aurora</span><span class="pi">:</span>
+      <span class="na">configMap</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">keycloak-aurora-rootcert</span> <i class="conum" data-value="7"></i><b>(7)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Set the Amazon Aurora PostgreSQL URL.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The database connection pool initial, max and min size should be identical to allow statement caching for the database.
+Adjust this number to meet the needs of your system.
+As most requests will not touch the database due to the Keycloak embedded cache, this change can serve several hundreds of requests per second.
+See the <a href="https://www.keycloak.org/high-availability/multi-cluster/concepts-database-connections">Concepts for database connection pools</a> guide for details.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specify the URL to your custom Keycloak image. If your image is optimized, set the <code>startOptimized</code> flag to <code>true</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Enable additional features for multi-cluster support like the loadbalancer probe <code>/lb-check</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>To be able to analyze the system under load, enable the metrics endpoint.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Secure the database connection.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>Specify the <code>ConfigMap</code> name that contains the Amazon Aurora PostgreSQL database certificate bundle.
+The Operator will automatic mount the file in directory <code>/opt/keycloak/conf/truststores/configmap-&lt;config map name&gt;/&lt;file-name&gt;</code></td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-verify-deployment"><a class="anchor" href="#multi-cluster-verify-deployment"></a>Verify the deployment</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Confirm that the Keycloak deployment is ready.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl <span class="nb">wait</span> <span class="nt">--for</span><span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready keycloaks.k8s.keycloak.org/keycloak
+kubectl <span class="nb">wait</span> <span class="nt">--for</span><span class="o">=</span><span class="nv">condition</span><span class="o">=</span><span class="nv">RollingUpdate</span><span class="o">=</span>False keycloaks.k8s.keycloak.org/keycloak</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-load-shedding"><a class="anchor" href="#multi-cluster-load-shedding"></a>Optional: Load shedding</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To enable load shedding, limit the number of queued requests.</p>
+</div>
+<div class="listingblock">
+<div class="title">Load shedding with max queued http requests</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">additionalOptions</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">http-max-queued-requests</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1000"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>All exceeding requests are served with an HTTP 503.</p>
+</div>
+<div class="paragraph">
+<p>You might consider limiting the value for <code>http-pool-max-threads</code> further because multiple concurrent threads will lead to throttling by Kubernetes once the requested CPU limit is reached.</p>
+</div>
+<div class="paragraph">
+<p>See the <a href="https://www.keycloak.org/high-availability/multi-cluster/concepts-threads#multi-cluster-load-shedding">Concepts for configuring thread pools</a> guide about load shedding for details.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-sticky-sessions"><a class="anchor" href="#multi-cluster-sticky-sessions"></a>Optional: Disable sticky sessions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When running on OpenShift and the default passthrough Ingress setup as provided by the Keycloak Operator, the load balancing done by HAProxy is done by using sticky sessions based on the IP address of the source.</p>
+</div>
+<div class="paragraph">
+<p>The recommended way to run Keycloak behind a load balancer is to disable sticky session to allow for an even distribution of requests across all nodes.</p>
+</div>
+<div class="paragraph">
+<p>Add the following supplementary configuration under the <code>spec</code> in the Keycloak Custom Resource to disable sticky sessions.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">ingress</span><span class="pi">:</span>
+    <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">annotations</span><span class="pi">:</span>
+      <span class="c1"># When running load tests, disable sticky sessions on the OpenShift HAProxy router</span>
+      <span class="c1"># to avoid receiving all requests on a single Keycloak Pod.</span>
+      <span class="na">haproxy.router.openshift.io/balance</span><span class="pi">:</span> <span class="s">roundrobin</span>
+      <span class="na">haproxy.router.openshift.io/disable_cookies</span><span class="pi">:</span> <span class="s1">'</span><span class="s">true'</span></code></pre>
+</div>
+</div>
+</div>
+</div> </div>
+</main>

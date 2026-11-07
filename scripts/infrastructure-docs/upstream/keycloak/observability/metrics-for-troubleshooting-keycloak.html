@@ -1,0 +1,192 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This is part of the <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting">Troubleshooting using metrics</a> guide.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Metrics need to be enabled for Keycloak. Follow the <a href="https://www.keycloak.org/observability/configuration-metrics">Gaining insights with metrics</a> guide for more details.</p>
+</li>
+<li>
+<p>A monitoring system collecting the metrics.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_metrics"><a class="anchor" href="#_metrics"></a>Metrics</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_user_event_metrics"><a class="anchor" href="#_user_event_metrics"></a>User Event Metrics</h3>
+<div class="paragraph">
+<p>User event metrics are disabled by default. See <a href="https://www.keycloak.org/observability/event-metrics">Monitoring user activities with event metrics</a> on how to enable them and how to configure which tags are recorded.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>keycloak_user_events_total</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Counting the occurrence of user events.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Tags</strong></p>
+</div>
+<div class="paragraph">
+<p>The tags <code>client_id</code> and <code>idp</code> are disabled by default to avoid a too high cardinality.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>realm</code></dt>
+<dd>
+<p>Realm</p>
+</dd>
+<dt class="hdlist1"><code>client_id</code></dt>
+<dd>
+<p>Client ID</p>
+</dd>
+<dt class="hdlist1"><code>idp</code></dt>
+<dd>
+<p>Identity Provider</p>
+</dd>
+<dt class="hdlist1"><code>event</code></dt>
+<dd>
+<p>User event, for example <code>login</code> or <code>logout</code>. See the <a href="https://www.keycloak.org/docs/latest/server_admin/#event-types">Server Administration Guide on event types</a> for an overview of the available events.</p>
+</dd>
+<dt class="hdlist1"><code>error</code></dt>
+<dd>
+<p>Error specific to the event, for example <code>invalid_user_credentials</code> for the event <code>login</code>. Empty string if no error occurred.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>The snippet below is an example of a response provided by the metric endpoint:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code># HELP keycloak_user_events_total Keycloak user events
+# TYPE keycloak_user_events_total counter
+keycloak_user_events_total{client_id="security-admin-console",error="",event="code_to_token",idp="",realm="master",} 1.0
+keycloak_user_events_total{client_id="security-admin-console",error="",event="login",idp="",realm="master",} 1.0
+keycloak_user_events_total{client_id="security-admin-console",error="",event="logout",idp="",realm="master",} 1.0
+keycloak_user_events_total{client_id="security-admin-console",error="invalid_user_credentials",event="login",idp="",realm="master",} 1.0</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_password_hashing"><a class="anchor" href="#_password_hashing"></a>Password hashing</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>keycloak_credentials_password_hashing_validations_total</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Counting password hashes validations.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Tags</strong></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>realm</code></dt>
+<dd>
+<p>Realm</p>
+</dd>
+<dt class="hdlist1"><code>algorithm</code></dt>
+<dd>
+<p>Algorithm used for hashing password, for example <code>argon2</code></p>
+</dd>
+<dt class="hdlist1"><code>hashing_strength</code></dt>
+<dd>
+<p>String denoting strength of hashing algorithm, for example, number of iterations depending on the algorithm. For example, <code>Argon2id-1.3[m=7168,t=5,p=1]</code></p>
+</dd>
+<dt class="hdlist1"><code>outcome</code></dt>
+<dd>
+<p>Outcome of password validation.
+Possible values:</p>
+<div class="openblock">
+<div class="content">
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>valid</code></dt>
+<dd>
+<p>Password correct</p>
+</dd>
+<dt class="hdlist1"><code>invalid</code></dt>
+<dd>
+<p>Password incorrect</p>
+</dd>
+<dt class="hdlist1"><code>error</code></dt>
+<dd>
+<p>Error when creating the hash of the password</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>To configure what tags are available provide a comma-separated list of tag names to the following option <code>spi-credential—​keycloak-password—​validations-counter-tags</code>.
+By default, all tags are enabled.</p>
+</div>
+<div class="paragraph">
+<p>The snippet below is an example of a response provided by the metric endpoint:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code># HELP keycloak_credentials_password_hashing_validations_total Password validations
+# TYPE keycloak_credentials_password_hashing_validations_total counter
+keycloak_credentials_password_hashing_validations_total{algorithm="argon2",hashing_strength="Argon2id-1.3[m=7168,t=5,p=1]",outcome="valid",realm="realm-0",} 39949.0</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_next_steps"><a class="anchor" href="#_next_steps"></a>Next steps</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Return back to the <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting">Troubleshooting using metrics</a> or proceed to <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-jvm">JVM metrics</a>.</p>
+</div>
+</div>
+</div> </div>
+</main>

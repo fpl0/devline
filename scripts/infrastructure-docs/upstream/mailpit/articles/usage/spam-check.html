@@ -1,0 +1,25 @@
+<main>
+		
+		<h1>Spam check</h1>
+		<p><img alt="Mailpit" src="/images/spamassassin.png"/></p>
+<p>Mailpit can optionally integrate with SpamAssassin (both versions 3 and 4) and/or <a href="https://rspamd.com/">Rspamd</a> to provide insight into the “spamminess” of your messages.
+Each time Mailpit checks the scores for a message, it sends (posts) your complete message (including attachments) to a running SpamAssassin or Rspamd server and then displays the results returned by that server.</p>
+<p>Please refer to the configuration documentation to see how to enable <a href="../../configuration/spamassassin/">SpamAssassin</a> or <a href="../../configuration/rspamd/">Rspamd</a> integration.
+Both can be enabled at the same time, in which case Mailpit shows a separate “SpamAssassin” and “Rspamd” tab for each.</p>
+<h2 id="notes-on-spamassassin">Notes on SpamAssassin</h2>
+<p>The default spam threshold is <code>5</code>, meaning any score lower than 5 is considered ham (not spam), and any score of 5 or above is spam.
+SpamAssassin will also return the rules that are triggered by the message. These rules can differ depending on the configuration of your SpamAssassin server. The total of this score makes up the “spamminess” of the message.</p>
+<p>Mailpit does not manipulate the results nor determine the “spamminess” of your message. The result is what SpamAssassin returns, and it is entirely dependent on how SpamAssassin is set up and optionally trained.
+This tool is simply provided as an aid to assist you. If you are running your own instance of SpamAssassin, then you should look into your SpamAssassin configuration. If you are using the Postmark service, then the results are what they are (you cannot change that).</p>
+<p>For a list of default SpamAssassin tests run, please <a href="https://spamassassin.apache.org/old/tests_3_3_x.html">see this</a>. The SpamAssassin report will only return tests triggered by the message.</p>
+<h2 id="notes-on-rspamd">Notes on Rspamd</h2>
+<p>Rspamd returns a recommended action (such as “no action”, “greylist”, “add header” or “reject”) based on the score of the message.
+Mailpit considers a message to be spam when Rspamd’s action is “add header”, “rewrite subject” or “reject”, and displays the score relative to the “add header” threshold (<code>6</code> by default, but this depends on your Rspamd configuration).
+Rspamd will also return the symbols that are triggered by the message, which Mailpit lists with the highest scores first. Symbols can have a negative score, which lowers the total score of the message.</p>
+<p>As with SpamAssassin, Mailpit does not manipulate the results. The result is what Rspamd returns, and it is entirely dependent on how Rspamd is configured and trained. For more information about symbols, please refer to the <a href="https://docs.rspamd.com/">Rspamd documentation</a>.</p>
+
+
+		
+		
+		
+	</main>

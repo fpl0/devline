@@ -1,0 +1,127 @@
+<main><header><h1>Where to go next</h1></header>
+<p>You started this chapter with a built but unprotected platform: an
+<code>ORDERS</code> stream full of real orders, the <code>ACME</code> operator and its
+accounts deciding who may touch them, all spread across the <code>east</code>
+cluster, with no backup or recovery in place. You end
+it with a dated snapshot under <code>./backups/orders/</code>, an <code>ORDERS_DR</code> mirror
+running at a second site, and an encrypted off-site copy of every key
+that proves who you are. That covers the full progression.</p>
+<p>This page doesn't teach anything new. It collects the model you built
+into one place and points you at the chapters and Reference that take it
+further.</p>
+<h2 id="the-three-copies">The three copies</h2>
+<p>Every page in this chapter covered the same three ideas. They protect
+against different failures, and they don't protect each other. These are
+the key points to retain.</p>
+<p>A <strong>snapshot</strong> is the point you can return to. It's a point-in-time
+copy of a stream (its messages, its config, and optionally its consumer
+state) written off-site. When a delete or a corruption occurs, the
+snapshot is the only thing that lets you go <em>back</em> to before the
+mistake. It answers how much data you can afford to lose: your
+<strong>recovery point</strong>.</p>
+<p>A <strong>mirror</strong> is the site you can fail over to. It's a live, read-only
+copy of <code>ORDERS</code> running at a second site, kept current by replication
+and tracked by its <code>Lag</code>. It doesn't give you a point in the past; it
+gives you a place to keep running when the first site fails. It answers
+how long recovery may take: your <strong>recovery time</strong>.</p>
+<p><strong>Identity</strong> is the proof of who you are. It's the set of files that
+<em>are</em> your security layer: the operator and account JWTs, the nkeys
+that sign them, the user creds, and the server config. A restored stream
+that nobody is allowed to read is not a recovery. Without these files the
+data plane comes back but the platform stays unusable.</p>
+<p>The three are snapshot, mirror, and identity. The item that is <em>not</em> on
+the list: <strong>R3 is availability, not a backup.</strong> Three replicas keep a
+stream alive through a node loss, but a bad write replicates to all three
+just as a good one does. R3 keeps the stream up; only a snapshot lets you
+undo a mistake.</p>
+<h2 id="where-the-details-live">Where the details live</h2>
+<p>The chapter is unversioned and concept-first. The exact flags, defaults,
+and ranges live in <strong>Reference</strong>, which is versioned and exhaustive. When
+you need the precise chunk-size clamp on a snapshot request, the full
+restore schema, or the advisory subjects to alert on, that's where to
+look.</p>
+<p>The <a href="/reference/">Reference root</a> is the entry point. The handoff
+phrases throughout this chapter ("the full set of options is documented
+in Reference") all point into it. The snapshot and restore request
+schemas live at
+<a href="/reference/jetstream/api/stream/snapshot">Snapshot Stream</a> and
+<a href="/reference/jetstream/api/stream/restore">Restore Stream</a>; the resolver
+knobs behind identity restore live at
+<a href="/reference/config/resolver">resolver config</a>.</p>
+<h2 id="sibling-deep-dives">Sibling deep dives</h2>
+<p>This chapter sits in the Operate half of Learn, downstream of the
+chapters that <em>built</em> the platform. The others around it go deeper than
+any single page here could.</p>
+<p>The <a href="/learn/jetstream">JetStream deep dive</a> is where the data this
+chapter protects comes from, and where the mirror mechanism is
+taught in full. When you want to know <em>how</em> a mirror replicates (start
+position, filters, fan-in), read
+<a href="/learn/jetstream/mirrors-and-sources">JetStream → Mirrors and sources</a>.
+This chapter only applies a mirror to disaster recovery and reads its
+lag.</p>
+<p>The <a href="/learn/security">Security deep dive</a> is where the identity this
+chapter backs up comes from. When you want to know <em>what</em> an operator,
+account, or signing key is, and how a trust chain validates, read
+<a href="/learn/security/operator-mode">Security → Operator mode</a>. This chapter
+only copies those files off-site and puts them back.</p>
+<p>The <a href="/learn/clustering">Clustering &amp; Replication deep dive</a> owns the R3
+story this chapter deliberately set aside: how a stream elects a leader,
+how placement works, and why replication is availability rather than a
+recovery point.</p>
+<p>The <a href="/learn/monitoring">Monitoring deep dive</a> covers the other half of
+running this safely: watching the snapshot advisories fire, alerting on
+a mirror whose lag stops trending to zero, and proving a restore worked
+before you need it.</p>
+<p>The <a href="/learn/deployment">Deployment deep dive</a> covers sizing the disks
+and store directories that a restored stream lands on, the capacity
+question this chapter assumes you've already answered.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>This is the end of the chapter: the triad is complete, and this page
+introduces no new scenario state. The <code>east</code> cluster, the <code>ORDERS</code>
+stream, the <code>ORDERS_DR</code> mirror at the second site, and the off-site
+identity backup are all exactly as you left them on the previous page.
+You can rehearse a failover against them, schedule a test restore, or
+tear the practice copies down when you're done.</p>
+<p>You have the operational model: a snapshot for the point you can return
+to, a mirror for the site you can fail over to, identity backup for the
+keys that prove who you are — and R3 as availability, never as any of
+those three.</p>
+<h2 id="production-checklist">Production checklist</h2>
+<p>Every content page in this chapter closed with a Pitfalls section. This
+page collects the action items from all of them in one place: a last pass
+before you trust this platform with real orders and a real outage. Each
+group links back to the page that explains the why.</p>
+<h3 id="stream-backup-and-restore--see-pitfalls">Stream backup and restore — see <a href="/learn/backup-recovery/stream-backup-restore#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Use file storage for any stream you must snapshot; a memory stream cannot be backed up and the attempt fails outright.</li>
+<li><input/> <!-- -->Restore to the original stream name; the name may not change during restore, so mirror or source afterward if you need a copy under a new name.</li>
+<li><input/> <!-- -->Reduce <code>--chunk-size</code> and <code>--window-size</code> on a slow disk or a high-latency link before the flow-control timeout fires and aborts the snapshot.</li>
+<li><input/> <!-- -->Keep consumer state in the snapshot; it is included by default, and passing <code>--no-consumers</code> silently drops durable consumer config and delivery position.</li>
+</ul>
+<h3 id="mirrors-as-a-dr-tool--see-pitfalls">Mirrors as a DR tool — see <a href="/learn/backup-recovery/mirrors-and-sources#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Pair every mirror with snapshots; a mirror is not a backup — a corrupt write replicates to the copy, and a mirror keeps no earlier state to rewind to.</li>
+<li><input/> <!-- -->Plan the mirror topology upfront; a mirror's config is effectively locked after creation, so changing it means delete and recreate.</li>
+<li><input/> <!-- -->Read the <code>Lag</code> field before trusting a mirror; replication is eventually consistent, not synchronous.</li>
+<li><input/> <!-- -->Avoid Work Queue retention on a mirrored upstream; the mirror's internal consumer bypasses the work queue's subject-overlap check and breaks the single-consumer guarantee, so use Limits.</li>
+</ul>
+<h3 id="disaster-recovery--see-pitfalls">Disaster recovery — see <a href="/learn/backup-recovery/disaster-recovery#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Verify lag has reached 0 before promoting a mirror; promote early and you publish on top of a stream still missing its tail.</li>
+<li><input/> <!-- -->Reach for a snapshot, not R3, against an accidental delete or a logical error; the bad write replicates, so availability cannot undo it.</li>
+<li><input/> <!-- -->Test restore on a schedule, quarterly at least; a green <code>nats stream info</code> on the live stream proves nothing about the archive.</li>
+<li><input/> <!-- -->Stop publishers before purging corrupted messages; purging under live writes races new bad data in.</li>
+<li><input/> <!-- -->Name the domain with <code>--js-domain</code> when rescuing a topology that has more than one; each domain runs its own meta group and a rescue lowers the quorum of exactly one of them.</li>
+</ul>
+<h3 id="config-and-jwt-backup--see-pitfalls">Config and JWT backup — see <a href="/learn/backup-recovery/config-and-jwt-backup#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Seal every <code>nats auth operator backup</code> with <code>--key</code> and store the curve seed apart from the backups; the file carries every private seed, and losing store plus key together is losing the identity.</li>
+<li><input/> <!-- -->Re-push each account after an identity restore if the server lost its resolver directory; the restore rebuilds only your store, and the push needs the <code>server.conf</code> whose <code>SYSTEM</code> preload lets it in — so back that file up too.</li>
+<li><input/> <!-- -->Tag each identity backup with the operator version or timestamp; an unrecorded operator rotation leaves the backup pointing at a dead operator.</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/">Reference</a> — every config field, flag, default, and error code behind this chapter, versioned and exhaustive.</li>
+<li><a href="/learn/jetstream/mirrors-and-sources">JetStream → Mirrors and sources</a> — how a mirror actually replicates, the mechanism this chapter applies but never re-teaches.</li>
+<li><a href="/learn/clustering">Clustering &amp; Replication deep dive</a> — the R3 story this chapter deliberately set aside.</li>
+</ul></main>

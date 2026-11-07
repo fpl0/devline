@@ -192,6 +192,57 @@ fn duplicate_document_id_rolls_back_whole_pack() {
 }
 
 #[test]
+fn starter_retention_is_opt_in_and_manual_purge_keeps_the_newest_installed_release() {
+    let f = Fixture::new();
+    let path = f.root.join("catalog/catalog.json");
+    let mut catalog: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    catalog["templates"] = json!(["1.9.0", "1.10.0", "1.11.0", "2.0.0"].map(|version| {
+        let relative = format!("templates/go/test/{version}");
+        let project = f.root.join("catalog").join(&relative).join("project");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("README.md"), version).unwrap();
+        json!({"id":"go/test","name":"Fixture","stack":"go","version":version,"description":"fixture","app_type":"cli","path":relative,"toolchain":"go","minimum_version":"1.0.0","test_command":"true","target":"any"})
+    }));
+    fs::write(path, serde_json::to_vec(&catalog).unwrap()).unwrap();
+
+    let install = |version| {
+        f.call(json!({"command":"templates.install","id":format!("go/test@{version}")}))
+            .unwrap()
+    };
+    let releases = f.root.join("library/templates/go/test");
+    assert_eq!(
+        f.call(json!({"command":"library.retention"})).unwrap()["keep_latest"],
+        false
+    );
+    install("1.9.0");
+    install("1.10.0");
+    assert!(releases.join("1.9.0").exists());
+
+    f.call(json!({"command":"library.retention","keep_latest":true}))
+        .unwrap();
+    assert!(releases.join("1.9.0").exists());
+    install("1.11.0");
+    assert!(!releases.join("1.9.0").exists());
+    assert!(!releases.join("1.10.0").exists());
+    assert!(releases.join("1.11.0").exists());
+
+    f.call(json!({"command":"library.retention","keep_latest":false}))
+        .unwrap();
+    install("1.10.0");
+    assert_eq!(
+        f.call(json!({"command":"library.purge"})).unwrap(),
+        json!({"docs":0,"starters":1,"images":0})
+    );
+    assert!(!releases.join("1.10.0").exists());
+    assert!(releases.join("1.11.0").exists());
+    assert!(f.root.join("catalog/templates/go/test/1.10.0").is_dir());
+    assert_eq!(
+        f.call(json!({"command":"library.purge"})).unwrap(),
+        json!({"docs":0,"starters":0,"images":0})
+    );
+}
+
+#[test]
 #[cfg(target_os = "macos")]
 fn prepare_uses_docs_from_selected_release() {
     let f = Fixture::new();

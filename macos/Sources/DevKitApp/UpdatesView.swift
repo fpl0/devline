@@ -150,6 +150,7 @@ struct UpdatesView: View {
         .onChange(of: model.jobs.filter { !$0.isActive }.map(\.id)) { _, _ in
             Task { await loadStatus() }
         }
+        .onChange(of: model.libraryRevision) { _, _ in Task { await loadStatus() } }
     }
 
     private var overview: some View {
@@ -158,7 +159,7 @@ struct UpdatesView: View {
                 HStack(alignment: .top, spacing: 18) {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Keep your toolbox current").font(.title2.weight(.semibold))
-                        Text("Update the docs, starters, and image archives already in your library. Previous releases and project pins stay available.")
+                        Text("Update the docs, starters, and image archives already in your library. Manage older releases in Settings → Local Library.")
                             .font(.callout).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }

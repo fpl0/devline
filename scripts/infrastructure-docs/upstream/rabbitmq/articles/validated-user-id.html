@@ -1,0 +1,35 @@
+<main><header><h1>Validated User-ID</h1></header>
+<p>In some scenarios it is useful for consumers to be able
+to know the identity of the user who published a
+message.</p>
+<p>To make this possible, RabbitMQ will validate the <code>user-id</code> message property if it is set.
+In other words, if this property is set by a publisher, its value must be equal
+to the name of the connection's user.</p>
+<p>If the <code>user-id</code> property is not set, the
+publisher's identity remains private and no validation will be performed.</p>
+<h2 id="example-in-java">Example (in Java)</h2>
+<div><div><pre><code class="language-java">AMQP.BasicProperties properties = new AMQP.BasicProperties();
+properties.setUserId("guest");
+channel.basicPublish("amq.fanout", "", properties, "test".getBytes());</code></pre></div></div>
+<p>This message will only be published successfully if the user
+is "guest".</p>
+<h2 id="additional-layer-of-authentication">Additional Layer of Authentication</h2>
+<p>If security is a serious concern, you should probably
+combine the use of this feature
+with <a href="/docs/4.3/ssl">TLS-enabled</a> connections, possibly with peer certificate chain verification
+of clients performed by the server.</p>
+<h2 id="special-cases-the-impersonator-tag">Special Cases: the Impersonator Tag</h2>
+<p>Occasionally it may be useful to allow an application to forge a
+<code>user-id</code>. In order to permit this, the publishing user can have
+its <code>impersonator</code> tag set. By default, no users have
+this tag set. In particular, the <code>administrator</code> tag
+does not allow this.</p>
+<h2 id="federation-interactions">Federation Interactions</h2>
+<p>The <a href="/docs/4.3/federation">federation plugin</a> can deliver
+messages from an upstream on which the <code>user-id</code>
+property is set. By default it will clear this property (since
+it has no way to know whether the upstream broker is
+trustworthy). If the <code>trust-user-id</code> property on an
+upstream is set, then it will pass the <code>user-id</code>
+property through from the upstream broker, assuming it to have
+been validated there.</p></main>

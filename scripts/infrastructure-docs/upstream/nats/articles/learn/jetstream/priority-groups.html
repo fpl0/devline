@@ -1,0 +1,488 @@
+<main><header><h1>Priority groups</h1></header>
+<p>The <a href="/learn/jetstream/worker-pool">worker pool</a> shared work evenly. Every
+worker on the <code>shipping</code> consumer pulled, and the server delivered messages
+to whichever worker asked.</p>
+<p>Some workloads need a different split. You might want one client to
+handle all the work until it fails, or a far-away client to stay idle
+unless the near ones fall behind. Even work sharing can't do either of
+those.</p>
+<p><strong>Priority groups</strong> let a pull consumer ask for those behaviors. They're
+designed in <a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-42.md">ADR-42</a>. This page covers all three
+policies the server offers.</p>
+<h2 id="what-a-priority-group-is">What a priority group is</h2>
+<p>A priority group is a name on a pull consumer, plus a policy that
+decides how the server hands out messages for that name.</p>
+<p>You set two fields when you create the consumer:</p>
+<ul>
+<li><strong><code>PriorityGroups</code></strong>: the list of group names the consumer supports.
+Today a consumer uses exactly one group; naming more than one is
+accepted but only the first takes effect (see Pitfalls).</li>
+<li><strong><code>PriorityPolicy</code></strong>: the rule the server applies, one of <code>overflow</code>,
+<code>pinned_client</code>, or <code>prioritized</code>.</li>
+</ul>
+<p>Two of the three policies, overflow and pinned_client, need the consumer to
+acknowledge its messages, so those examples use <code>--ack explicit</code>. They decide
+what to do from counts the server keeps per client: overflow looks at how many
+messages are waiting and unacknowledged, pinned_client at which client is
+still pulling, and the server only keeps those counts when the consumer acks.
+Prioritized just sorts pulls by a number and needs no acks.</p>
+<p>Once a consumer has a policy, every pull must name its group. A pull that
+leaves the group out is rejected with <code>Bad Request - Priority Group missing</code>.
+The group on the pull and the group on the consumer must match.</p>
+<p>So a priority group is a name on the consumer, a policy that governs it,
+and pulls that join the group by name. The rest of this page covers the
+three policies and the problem each one solves.</p>
+<h2 id="the-overflow-policy">The overflow policy</h2>
+<p>Two regions can both process orders. <code>us-east</code> is close to the stream and
+cheap to serve. <code>us-west</code> works too, but every message it pulls crosses
+the country, costs more, and arrives slower. You want <code>us-west</code> to stay
+idle unless <code>us-east</code> falls behind.</p>
+<p>The <strong>overflow</strong> policy does this. Workers in <code>us-east</code> pull with no
+threshold, so they always get messages. Workers in <code>us-west</code> pull with a
+<code>min_pending</code> threshold: the server answers their pull only when the
+consumer has at least that many messages waiting. Below the threshold
+their pull gets nothing, the same as if the stream were empty.</p>
+<div></div>
+<p>Create an overflow consumer on the <code>ORDERS</code> stream from a config file:</p>
+<div><div><pre><code class="language-bash">nats consumer add ORDERS dispatch --config overflow-consumer.json</code></pre></div></div>
+<p>where <code>overflow-consumer.json</code> sets the policy and its single group:</p>
+<div><div><pre><code class="language-json">{
+  "durable_name": "dispatch",
+  "ack_policy": "explicit",
+  "priority_policy": "overflow",
+  "priority_groups": ["regions"]
+}</code></pre></div></div>
+<p>The intended shorthand is <code>nats consumer add ORDERS dispatch --overflow-groups regions --ack explicit --pull</code>, but through natscli v0.4.x that flag sets the
+policy without attaching the group, so the server rejects the create with error
+<code>10159</code>. Use <code>--config</code> until the fix ships. The pinned and prioritized creates
+later on this page use their flags normally.</p>
+<p>Confirm the consumer:</p>
+<div><div><pre><code class="language-bash">nats consumer info ORDERS dispatch</code></pre></div></div>
+<p>The configuration now carries the two priority fields:</p>
+<div><div><pre><code class="language-text">Configuration:
+
+              Pull Mode: true
+             Ack Policy: Explicit
+        Priority Policy: Overflow
+        Priority Groups: regions</code></pre></div></div>
+<p>The threshold goes on the pull request, not on the consumer. A
+near-region worker pulls with no threshold. A far-region worker adds
+<code>min_pending</code>: deliver only when the consumer has backed up past that many
+waiting messages. <code>min_ack_pending</code> is a related threshold, counted
+against unacknowledged messages instead; meeting either one triggers
+delivery.</p>
+<p>The <code>nats consumer next</code> command issues a plain pull and has no flag for
+these thresholds, so the overflow pull below comes from a client library:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Overflow policy: a standby region pulls only when the consumer has
+# backed up past a min_pending threshold.
+
+# Create an overflow pull consumer on ORDERS. --overflow-groups sets the
+# policy to overflow and names the single group "regions". Overflow
+# requires explicit acks.
+nats consumer add ORDERS dispatch \
+  --overflow-groups regions \
+  --pull \
+  --ack explicit \
+  --defaults
+
+# Inspect it — the configuration now shows Priority Policy: overflow and
+# Priority Groups: [regions].
+nats consumer info ORDERS dispatch
+
+# The min_pending threshold lives on the pull request, which natscli's
+# `nats consumer next` does not expose a flag for. A near-region worker
+# pulls plainly and always gets messages:
+nats consumer next ORDERS dispatch --count 5</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Bind to the existing overflow consumer. Every pull on a
+// priority-group consumer must name its group.
+jsSubOptions so;
+
+jsSubOptions_Init(&amp;so);
+so.Stream = "ORDERS";
+so.Consumer = "dispatch";
+
+s = js_PullSubscribe(&amp;sub, js, NULL, "dispatch", NULL, &amp;so, &amp;jerr);
+
+// A near-region worker pulls with no threshold, so it always gets
+// messages.
+if (s == NATS_OK)
+{
+    jsFetchRequest  req;
+    natsMsgList     list = {NULL, 0};
+
+    jsFetchRequest_Init(&amp;req);
+    req.Batch = 5;
+    req.Expires = 2 * 1000000000LL; // 2 seconds, in nanoseconds
+    req.Group = "regions";
+
+    s = natsSubscription_FetchRequest(&amp;list, sub, &amp;req);
+    if (s == NATS_OK)
+    {
+        printf("near region got %d messages\n", list.Count);
+        for (i = 0; i &lt; list.Count; i++)
+            natsMsg_Ack(list.Msgs[i], NULL);
+        natsMsgList_Destroy(&amp;list);
+    }
+    else if (s == NATS_TIMEOUT)
+        s = NATS_OK; // nothing waiting right now
+}
+
+// A far-region worker adds MinPending: the server answers its pull
+// only when the consumer has backed up past that many waiting
+// messages. Below the threshold it gets nothing, the same as if the
+// stream were empty.
+if (s == NATS_OK)
+{
+    jsFetchRequest  req;
+    natsMsgList     list = {NULL, 0};
+
+    jsFetchRequest_Init(&amp;req);
+    req.Batch = 5;
+    req.Expires = 2 * 1000000000LL;
+    req.Group = "regions";
+    req.MinPending = 100;
+
+    s = natsSubscription_FetchRequest(&amp;list, sub, &amp;req);
+    if (s == NATS_OK)
+    {
+        printf("far region got %d overflow messages\n", list.Count);
+        for (i = 0; i &lt; list.Count; i++)
+            natsMsg_Ack(list.Msgs[i], NULL);
+        natsMsgList_Destroy(&amp;list);
+    }
+    else if (s == NATS_TIMEOUT)
+    {
+        // Backlog below 100: the far region stays idle.
+        printf("far region got nothing\n");
+        s = NATS_OK;
+    }
+}</code></pre></div></div>
+<p>The near-region worker, pulling without a threshold, empties the backlog
+as fast as it processes. The far-region worker gets messages only when the
+backlog crosses its <code>min_pending</code> threshold, takes the overflow, and goes
+idle again once the near worker catches up.</p>
+<h2 id="the-pinned_client-policy">The pinned_client policy</h2>
+<p>The overflow policy spreads work under load. The <strong>pinned_client</strong> policy
+sends all work to one client and keeps a standby ready to take over.</p>
+<p>Consider an order pipeline that must process messages strictly in arrival
+order. Two clients run so that one can take over if the other fails, but
+only one may work at a time, or the ordering breaks. You want one active
+client and one standby.</p>
+<p>The server picks one waiting pull and <strong>pins</strong> it. That client becomes the
+one that receives messages. Every other client's pull waits as a standby.
+If the pinned client stops pulling, because it crashed or went quiet
+longer than the pin timeout allows, the server pins a standby instead.</p>
+<div></div>
+<p>Create a pinned consumer:</p>
+<div><div><pre><code class="language-bash">nats consumer add ORDERS sequencer --pinned-groups ordered --pinned-ttl 90s --ack explicit --pull --defaults</code></pre></div></div>
+<p>Two flags do the work. <code>--pinned-groups ordered</code> sets the policy to
+<code>pinned_client</code> and names the group <code>ordered</code>. <code>--pinned-ttl 90s</code> sets
+how long the server waits for a pull from the pinned client before it
+gives up and pins someone else.</p>
+<p>The pin timeout must sit comfortably above the pull's <code>expires</code> value. The
+pinned client needs time to pull, get its batch or time out, process, then
+pull again, all before the timeout fires and costs it the pin. The
+server's default timeout is two minutes; keep <code>expires</code> under a minute and
+the whole cycle fits.</p>
+<p>The pinned client earns and keeps the pin like this:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Pinned_client policy: one active client gets all the work, with a
+# standby ready to take over.
+
+# Create a pinned consumer. --pinned-groups sets the policy to
+# pinned_client and names the group "ordered". --pinned-ttl is how long
+# the server waits for a pull from the pinned client before pinning a
+# standby instead. Pinned consumers require explicit acks.
+nats consumer add ORDERS sequencer \
+  --pinned-groups ordered \
+  --pinned-ttl 90s \
+  --pull \
+  --ack explicit \
+  --defaults
+
+# Inspect it — the configuration shows Priority Policy: pinned_client,
+# Priority Groups: [ordered], and Pinned TTL: 1m30s. The State block
+# shows which client (if any) currently holds the pin.
+nats consumer info ORDERS sequencer
+
+# The Nats-Pin-Id handshake happens on the pull request, which natscli's
+# `nats consumer next` does not drive. Pull a message to see delivery:
+nats consumer next ORDERS sequencer --count 1
+
+# Force the server to pick a new pinned client:
+nats consumer unpin ORDERS sequencer ordered</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Pull from the pinned consumer with the async helper. The library
+// runs the pin handshake for you: it stores the Nats-Pin-Id header
+// from the first delivered message, sends it back on every later pull,
+// and clears it to rejoin the standby pool if the server unpins this
+// client.
+jsOptions       jsOpts;
+jsSubOptions    so;
+
+jsOptions_Init(&amp;jsOpts);
+jsOpts.PullSubscribeAsync.Group = "ordered"; // the consumer's priority group
+jsOpts.PullSubscribeAsync.Timeout = 30000;   // stop after 30 seconds
+
+jsSubOptions_Init(&amp;so);
+so.Stream = "ORDERS";
+so.Consumer = "sequencer";
+so.ManualAck = true; // pinned_client requires explicit acks
+
+s = js_PullSubscribeAsync(&amp;sub, js, NULL, "sequencer",
+                          onMsg, NULL, &amp;jsOpts, &amp;so, &amp;jerr);
+
+// If the server pins this client, every message flows here; if a
+// standby client runs the same code, its pulls wait until the pin
+// moves to it.
+while ((s == NATS_OK) &amp;&amp; natsSubscription_IsValid(sub))
+    nats_Sleep(100);</code></pre></div></div>
+<p>The client and server agree on the pin through a header. When the server
+pins a client, the first message it delivers carries a <code>Nats-Pin-Id</code>
+header. The client reads that ID and sends it back on every later pull.
+The server keeps serving the client that presents the matching ID and
+parks the others.</p>
+<p>The client gives up the pin in one of two ways. If it falls silent past
+the timeout, the server pins a standby, and the old client's next pull,
+still carrying the now-stale ID, comes back with a <code>423</code> status. The
+client clears its stored ID and pulls without it, joining the standby
+pool again. The <code>423</code> rules and the pinned and unpinned advisories are in
+the <a href="/reference/jetstream/api/consumer/info">Consumer API reference</a>.</p>
+<p>The other way is an operator forcing a switch. <code>nats consumer unpin</code>
+clears the current pin and makes the server choose again:</p>
+<div><div><pre><code class="language-bash">nats consumer unpin ORDERS sequencer ordered -f</code></pre></div></div>
+<p>The command takes the stream, the consumer, and the group name; <code>-f</code> skips
+the confirmation prompt. It reports the client it dropped:</p>
+<div><div><pre><code class="language-text">Unpinned client &lt;client-id&gt; from Priority Group ORDERS &gt; sequencer &gt; ordered</code></pre></div></div>
+<p>To check who's pinned without forcing a change, read the consumer's
+state. <code>nats consumer info ORDERS sequencer</code> shows the live pin in its
+<code>State</code> block:</p>
+<div><div><pre><code class="language-text">State:
+
+          Priority Groups: ordered: pinned &lt;client-id&gt; at 2026-06-02 12:14:22</code></pre></div></div>
+<p>A group with no active client reads <code>No client</code>. To list every fully
+pinned consumer at once, run <code>nats consumer find ORDERS --pinned</code>.</p>
+<p>:::note Client support varies
+The pinned-client steps (storing <code>Nats-Pin-Id</code>, sending it back, handling
+the <code>423</code>) run in the Go, Java, JavaScript/TypeScript, and .NET clients today.
+Rust and Python let you set the configuration fields but don't yet run the
+client-side pinning loop. Check your client's reference before relying on it.
+:::</p>
+<h2 id="the-prioritized-policy">The prioritized policy</h2>
+<p>The overflow policy makes a standby wait for a backlog to build. Sometimes you
+want the opposite: hand work to the next region the instant the closer one
+stops asking, with no threshold and no delay.</p>
+<p><code>us-east</code> is close and cheap but resource-constrained. Whenever it has
+capacity it should take the work; when it doesn't, <code>us-west</code> should pick up
+right away, and <code>eu-west</code> only when neither US region is pulling. That's a
+hierarchy, not a threshold.</p>
+<p>The <strong>prioritized</strong> policy serves pulls in priority order. Each pull carries a
+<code>priority</code> from <code>0</code> to <code>9</code>, and the server hands messages to the lowest number
+present first; pulls at the same priority share round-robin. So <code>us-east</code>
+pulls at priority <code>0</code>, <code>us-west</code> at <code>1</code>, and <code>eu-west</code> at <code>2</code>: work goes to
+<code>us-east</code> whenever it's asking, falls to <code>us-west</code> the moment <code>us-east</code> isn't,
+and reaches <code>eu-west</code> only when neither is pulling.</p>
+<div></div>
+<p>Create a prioritized consumer:</p>
+<div><div><pre><code class="language-bash">nats consumer add ORDERS dispatch --prioritized-groups regions --pull --defaults</code></pre></div></div>
+<p><code>--prioritized-groups regions</code> sets the policy to <code>prioritized</code> and names the
+single group <code>regions</code>. Unlike the other two policies, prioritized keeps no
+per-client counts, so it doesn't require explicit acks.</p>
+<p>This reuses the <code>dispatch</code> name from the overflow example on purpose: overflow
+and prioritized are two ways to run the same regional-dispatch consumer, so you
+pick one. The server does let you switch a live consumer's policy, though
+<code>nats consumer edit</code> has no flag for it; you'd pass a full config with
+<code>--config</code>.</p>
+<p>The priority rides on the pull request, the same place overflow's thresholds
+go, so <code>nats consumer next</code> can't set it and the pull comes from a client
+library:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Prioritized policy: each pull carries a 0-9 priority and the server serves
+# the lowest number first, so nearer workers get first refusal and farther
+# ones pick up the instant the nearer ones go quiet.
+
+# Create a prioritized pull consumer on ORDERS. --prioritized-groups sets the
+# policy to prioritized and names the single group "regions". Prioritized
+# sorts pulls by number and tracks no per-client counts, so unlike overflow
+# and pinned_client it needs no explicit acks.
+nats consumer add ORDERS dispatch \
+  --prioritized-groups regions \
+  --pull \
+  --defaults
+
+# Inspect it — the configuration shows Priority Policy: prioritized and
+# Priority Groups: [regions].
+nats consumer info ORDERS dispatch
+
+# The priority rides on the pull request, which natscli's `nats consumer next`
+# does not expose a flag for. A worker pulls plainly (priority 0) and is
+# served ahead of any higher-numbered pull:
+nats consumer next ORDERS dispatch --count 5</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Bind to the existing prioritized consumer. Every pull names the
+// group and carries a priority from 0 to 9; the server serves the
+// lowest number present first.
+jsSubOptions so;
+
+jsSubOptions_Init(&amp;so);
+so.Stream = "ORDERS";
+so.Consumer = "dispatch";
+
+s = js_PullSubscribe(&amp;sub, js, NULL, "dispatch", NULL, &amp;so, &amp;jerr);
+
+// us-east pulls at priority 0, so it's served ahead of any
+// higher-numbered pull.
+if (s == NATS_OK)
+{
+    jsFetchRequest  req;
+    natsMsgList     list = {NULL, 0};
+
+    jsFetchRequest_Init(&amp;req);
+    req.Batch = 5;
+    req.Expires = 2 * 1000000000LL; // 2 seconds, in nanoseconds
+    req.Group = "regions";
+    req.Priority = 0;
+
+    s = natsSubscription_FetchRequest(&amp;list, sub, &amp;req);
+    if (s == NATS_OK)
+    {
+        printf("us-east got %d messages\n", list.Count);
+        for (i = 0; i &lt; list.Count; i++)
+            natsMsg_Ack(list.Msgs[i], NULL);
+        natsMsgList_Destroy(&amp;list);
+    }
+    else if (s == NATS_TIMEOUT)
+        s = NATS_OK; // nothing waiting right now
+}
+
+// us-west pulls the same way at priority 1: it's served the moment no
+// priority-0 pull is waiting, with no threshold and no delay.
+if (s == NATS_OK)
+{
+    jsFetchRequest  req;
+    natsMsgList     list = {NULL, 0};
+
+    jsFetchRequest_Init(&amp;req);
+    req.Batch = 5;
+    req.Expires = 2 * 1000000000LL;
+    req.Group = "regions";
+    req.Priority = 1;
+
+    s = natsSubscription_FetchRequest(&amp;list, sub, &amp;req);
+    if (s == NATS_OK)
+    {
+        printf("us-west got %d messages\n", list.Count);
+        for (i = 0; i &lt; list.Count; i++)
+            natsMsg_Ack(list.Msgs[i], NULL);
+        natsMsgList_Destroy(&amp;list);
+    }
+    else if (s == NATS_TIMEOUT)
+        s = NATS_OK;
+}</code></pre></div></div>
+<p>This is the immediate counterpart to overflow. Overflow waits for the backlog
+to cross a threshold before a standby gets anything, which avoids churn but
+makes far regions wait. Prioritized shifts work the moment a higher-priority
+puller goes quiet, with no delay, at the cost of some flip-flop as work moves
+between regions.</p>
+<p>The full set of priority-group options, the <code>423</code> protocol, the
+<code>PriorityGroupState</code> fields, and the advisories live in
+<a href="/reference/jetstream/api/consumer/info">Reference → Consumer API</a> and in
+<a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-42.md">ADR-42</a>.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Priority groups have a small surface, but a few details are easy to miss.</p>
+<p><strong>One group per consumer.</strong> A consumer uses exactly one priority group
+today. The <code>--overflow-groups</code> and <code>--pinned-groups</code> flags take a comma
+list, so passing two looks legal, and the server accepts it, but it uses
+only the first group and ignores the rest. Multiple groups per consumer is
+planned for a future server release. To split work by region or tier now,
+run separate consumers on the same stream, each with its own group.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# A consumer acts on exactly one priority group. The --overflow-groups
+# and --pinned-groups flags accept a comma list, so it is easy to pass
+# two by accident.
+
+# NOT THIS: two group names. The server accepts the create without error,
+# but it uses only the first group (regions) and silently ignores the
+# rest. Multiple groups per consumer is reserved for a future release.
+nats consumer add ORDERS dispatch \
+  --overflow-groups regions,backup \
+  --pull \
+  --ack explicit \
+  --defaults
+
+# DO THIS: name a single group. To split work by region or tier, run
+# separate consumers, each with its own group, on the same stream.
+nats consumer add ORDERS dispatch \
+  --overflow-groups regions \
+  --pull \
+  --ack explicit \
+  --defaults</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// A consumer acts on exactly one priority group, but PriorityGroups is
+// a list, so it's easy to pass two by accident.
+jsConsumerConfig    cc;
+const char          *twoGroups[] = {"regions", "backup"};
+const char          *oneGroup[]  = {"regions"};
+
+// NOT THIS: two group names. The server accepts the create without
+// error, but it uses only the first group (regions) and silently
+// ignores the rest. Multiple groups per consumer is reserved for a
+// future release.
+jsConsumerConfig_Init(&amp;cc);
+cc.Durable = "dispatch";
+cc.AckPolicy = js_AckExplicit;
+cc.PriorityPolicy = "overflow";
+cc.PriorityGroups = twoGroups;
+cc.PriorityGroupsLen = 2;
+
+s = js_AddConsumer(&amp;ci, js, "ORDERS", &amp;cc, NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    jsConsumerInfo_Destroy(ci);
+    ci = NULL;
+    // The policy and groups are fixed at creation, so delete the
+    // consumer before recreating it correctly.
+    s = js_DeleteConsumer(js, "ORDERS", "dispatch", NULL, &amp;jerr);
+}
+
+// DO THIS: name a single group. To split work by region or tier, run
+// separate consumers, each with its own group, on the same stream.
+if (s == NATS_OK)
+{
+    cc.PriorityGroups = oneGroup;
+    cc.PriorityGroupsLen = 1;
+    s = js_AddConsumer(&amp;ci, js, "ORDERS", &amp;cc, NULL, &amp;jerr);
+}
+if (s == NATS_OK)
+    printf("dispatch uses group %s\n", ci-&gt;Config-&gt;PriorityGroups[0]);</code></pre></div></div>
+<p><strong>The pin does not give one client sole ownership.</strong> The server can switch
+the pinned client while that client still believes it holds the pin, so a
+long-running handler can finish work the server already gave to someone
+else. A pull that carries a now-stale <code>Nats-Pin-Id</code> comes back with a
+<code>423</code>; clear the stored ID and pull without it to join the standby pool
+again. If the same message must never be processed twice, use explicit
+acks and handlers that are safe to run more than once, not the pin alone.</p>
+<p><strong>A quiet pinned client keeps the pin.</strong> The pin only resets when the
+pinned client pulls again within <code>--pinned-ttl</code>. A client that holds the
+pin but stops pulling, for example because it's stuck on a slow handler,
+keeps every other client parked until the timeout fires. Keep each pull's
+<code>expires</code> comfortably under the pin timeout so the client always pulls
+again in time to renew. Which node in a cluster serves these pulls is
+covered in <a href="/learn/clustering">clustering</a>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>A priority group is always one group plus a policy that decides how the server
+hands out pulls: reach for <code>overflow</code> to spill work to a standby only under
+load, <code>pinned_client</code> for one active worker with a standby ready to take over,
+and <code>prioritized</code> for an immediate, lowest-first hierarchy across regions.</p>
+<h2 id="whats-next">What's next</h2>
+<p>A consumer doesn't have to be running at all. The next page pauses a
+consumer, stopping it from delivering for a set window, and shows when
+that's the right tool.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/api/consumer/info">Reference → Consumer API</a> —
+the priority-group config fields, <code>PriorityGroupState</code>, the <code>423</code>
+protocol, and the pinned/unpinned advisories.</li>
+<li><a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-42.md">ADR-42</a> — the design of pull consumer priority
+groups.</li>
+<li><a href="/learn/jetstream/worker-pool">A pool of workers</a> — the even
+work-sharing this page steers away from.</li>
+</ul></main>

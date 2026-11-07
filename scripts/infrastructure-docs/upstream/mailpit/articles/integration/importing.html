@@ -1,0 +1,16 @@
+<main>
+		
+		<h1>Importing messages</h1>
+		<p>Existing bulk messages can be ingested (imported) using <code>mailpit ingest &lt;file|folder&gt;</code>. By default, this will read the message(s) on disk and send them via SMTP to <code>localhost:1025</code>; however, you can specify a different host/port using the <code>--smtp-addr</code> flag.</p>
+
+<div>
+	Ingested messages must be individual email files and not in mbox format (i.e., not all messages in one file).
+</div>
+
+<p>This can be useful for transferring an entire mailbox of messages directly into Mailpit and can be combined with <code>--recent &lt;x&gt;</code> to only consider messages modified within the last <code>x</code> days. If you are regularly “syncing” a folder to Mailpit, then this, combined with Mailpit’s <code>--ignore-duplicate-ids</code> flag, will prevent any duplicate messages from being added.</p>
+
+
+		
+		
+		
+	</main>

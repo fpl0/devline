@@ -1,0 +1,11 @@
+<main><header><h1>Khepri FAQ</h1></header>
+<h3 id="supported-even-if-experimental">Is Khepri supported?</h3>
+<p>Yes. Khepri is the only supported metadata store in RabbitMQ 4.3 and later.</p>
+<h3 id="is-it-possible-to-disable-khepri">Is it possible to disable Khepri?</h3>
+<p>No. RabbitMQ requires Khepri for metadata storage.</p>
+<h3 id="can-definitions-exported-from-older-releases-be-imported">Can definitions exported from older releases be imported?</h3>
+<p>Yes. <a href="/docs/4.3/definitions">Definitions</a> exported from a Mnesia-based node can be imported
+into a Khepri-based node.</p>
+<h3 id="can-a-rabbitmq-313-cluster-with-khepri-enabled-be-upgraded-in-place">Can a RabbitMQ 3.13 cluster with Khepri enabled be upgraded in place?</h3>
+<p>No. Khepri was experimental in RabbitMQ 3.13. Such clusters require a
+<a href="/docs/4.3/blue-green-upgrade">blue-green upgrade</a>.</p></main>

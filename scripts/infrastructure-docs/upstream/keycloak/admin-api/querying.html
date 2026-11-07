@@ -1,0 +1,340 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+This guide is describing a feature which is currently in preview.
+Please provide your feedback while we’re continuing to work on this.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The Admin API v2 supports filtering clients using the <code>q</code> query parameter.
+The filter syntax is a subset of the <a href="https://www.keycloak.org/docs/latest/server_admin/#_scim_filtering_resources">SCIM filter syntax</a> defined in <a href="https://datatracker.ietf.org/doc/html/rfc7644#section-3.4.2.2">RFC 7644, Section 3.4.2.2</a>. All string comparisons are case-sensitive.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>GET /admin/api/{realmName}/clients/v2?q=&lt;filter-expression&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>String values must be enclosed in double quotes.
+Boolean values are unquoted.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>GET /admin/api/{realmName}/clients/v2?q=clientId eq "my-app"
+GET /admin/api/{realmName}/clients/v2?q=enabled eq true</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_supported_operators"><a class="anchor" href="#_supported_operators"></a>Supported operators</h3>
+<div class="paragraph">
+<p>The following comparison operators are supported for client filtering:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.6666%;"/>
+<col style="width: 33.3333%;"/>
+<col style="width: 50.0001%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Operator</th>
+<th class="tableblock halign-left valign-top">Meaning</th>
+<th class="tableblock halign-left valign-top">Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>eq</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Equal</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>clientId eq "my-app"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ne</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Not equal</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>protocol ne "saml"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>co</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Contains (substring)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>description co "oauth"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sw</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Starts with</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>clientId sw "query-"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ew</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ends with</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>clientId ew "-app"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>pr</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Present (field is not null)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>description pr</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Logical operators (<code>and</code>, <code>or</code>, <code>not</code>) and parentheses for grouping are supported.
+For the full syntax reference, including operator precedence and detailed examples, see the <a href="https://www.keycloak.org/docs/latest/server_admin/#_scim_filtering_resources">SCIM filtering</a> guide in the Server Administration Guide.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>The <code>gt</code>, <code>ge</code>, <code>lt</code>, and <code>le</code> operators supported by the SCIM API are not available for client filtering.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_fields_without_a_value"><a class="anchor" href="#_fields_without_a_value"></a>Fields without a value</h3>
+<div class="paragraph">
+<p>A comparison with a field that has no value is never true, and for every searchable field except <code>roles</code> the negated comparison is not true either.
+For example, neither <code>auth.method ne "client-secret"</code> nor <code>not (auth.method eq "client-secret")</code> returns SAML clients or public clients, because they have no authentication method. Use <code>not auth.method pr</code> to find them.
+The <code>roles</code> field is multi-valued: <code>roles ne "admin"</code> does not return clients without roles, but <code>not (roles eq "admin")</code> does, as described in <a href="#_collection_field_matching">Collection field matching</a>.</p>
+</div>
+<div class="paragraph">
+<p>The <code>eq</code> and <code>ne</code> operators accept the <code>null</code> literal, but a comparison such as <code>description eq null</code> never matches any client, so it cannot be used to find clients where the field is absent.
+For details, see <a href="https://www.keycloak.org/docs/latest/server_admin/#_scim_filtering_null_values">Attributes without a value</a> in the Server Administration Guide.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_queryable_fields"><a class="anchor" href="#_queryable_fields"></a>Queryable fields</h3>
+<div class="paragraph">
+<p>Only the fields listed below can be used in filter expressions.
+Other fields of the client representation are not searchable.
+Using an unsearchable or unknown field returns HTTP 400, unlike the SCIM API which silently ignores unrecognized attributes.</p>
+</div>
+<div class="sect3">
+<h4 id="_common_fields_all_client_types"><a class="anchor" href="#_common_fields_all_client_types"></a>Common fields (all client types)</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;"/>
+<col style="width: 20%;"/>
+<col style="width: 60%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>clientId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">String</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ID uniquely identifying this client</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>displayName</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">String</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Human readable name of the client</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>description</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">String</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Human readable description of the client</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>enabled</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Boolean</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Whether this client is enabled</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>appUrl</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">String</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">URL to the application’s homepage that is represented by this client</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>roles</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set&lt;String&gt;</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Roles associated with this client</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>protocol</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">String</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Discriminator. Allowed values: <code>openid-connect</code>, <code>saml</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>createdTimestamp</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Timestamp when the client was created</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>updatedTimestamp</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Integer</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Timestamp when the client was last updated</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_oidc_specific_fields"><a class="anchor" href="#_oidc_specific_fields"></a>OIDC-specific fields</h4>
+<div class="paragraph">
+<p>These fields are available only for <code>openid-connect</code> clients.
+They resolve to <code>null</code> for SAML clients, so value-based comparisons like <code>eq</code>, <code>ne</code>, <code>co</code>, or <code>sw</code> do not match SAML clients.
+See <a href="#_fields_without_a_value">Fields without a value</a>.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;"/>
+<col style="width: 20%;"/>
+<col style="width: 60%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auth.method</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">String</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Client authentication method (e.g. <code>client-secret</code>, <code>client-secret-jwt</code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_collection_field_matching"><a class="anchor" href="#_collection_field_matching"></a>Collection field matching</h3>
+<div class="paragraph">
+<p>For multi-valued fields (type <code>Set&lt;String&gt;</code> in the tables above), the <code>eq</code>, <code>co</code>, <code>sw</code>, and <code>ew</code> operators match if <strong>any</strong> element in the collection satisfies the condition:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>roles eq "admin"</code> - matches clients that have a role named <code>admin</code></p>
+</li>
+<li>
+<p><code>roles co "adm"</code> - matches clients that have a role whose name contains <code>adm</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The <code>ne</code> operator matches if <strong>any</strong> element in the collection differs from the value.
+For example, <code>roles ne "admin"</code> matches clients that have at least one role other than <code>admin</code>, and it does not match clients without roles.
+To find clients that do not have a given role, negate the equality instead: <code>not (roles eq "admin")</code>.
+This form also matches clients without roles.</p>
+</div>
+<div class="paragraph">
+<p>To match clients that have multiple values, combine conditions with <code>and</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>q=roles eq "admin" and roles eq "user"</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_examples"><a class="anchor" href="#_examples"></a>Examples</h3>
+<div class="paragraph">
+<p>Find all enabled OIDC clients:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>GET /admin/api/{realmName}/clients/v2?q=protocol eq "openid-connect" and enabled eq true</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Find clients with a description:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>GET /admin/api/{realmName}/clients/v2?q=description pr</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Find OIDC clients using client-secret authentication:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>GET /admin/api/{realmName}/clients/v2?q=auth.method eq "client-secret"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Find clients by display name prefix, excluding a specific protocol:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>GET /admin/api/{realmName}/clients/v2?q=displayName sw "My" and protocol ne "saml"</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_projection"><a class="anchor" href="#_projection"></a>Projection</h3>
+<div class="paragraph">
+<p>Use the <code>fields</code> query parameter to include only specific fields in the response.
+If omitted, all fields are returned.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>GET /admin/api/{realmName}/clients/v2?fields=clientId,enabled,protocol</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Filtering and projection can be combined.
+The filter evaluates against the full representation before projection is applied, so filtered fields do not need to be included in the projection:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>GET /admin/api/{realmName}/clients/v2?q=enabled eq true&amp;fields=clientId,displayName</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_error_handling"><a class="anchor" href="#_error_handling"></a>Error handling</h3>
+<div class="paragraph">
+<p>The server returns HTTP 400 with a descriptive error message when:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The filter expression has a syntax error.</p>
+</li>
+<li>
+<p>The filter references an unknown field.</p>
+</li>
+<li>
+<p>The filter references a field that is not searchable.</p>
+</li>
+<li>
+<p>The filter uses an unsupported operator (e.g. <code>gt</code>, <code>ge</code>, <code>lt</code>, <code>le</code>).</p>
+</li>
+<li>
+<p>The filter uses <code>null</code> with an operator other than <code>eq</code> or <code>ne</code>.</p>
+</li>
+</ul>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"error"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Unknown query field: unknownField"</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+</div> </div>
+</main>

@@ -1,0 +1,61 @@
+<main><header><h1>Per-user Resource Limits</h1></header>
+<h2 id="overview">Overview</h2>
+<p>Similarly to <a href="/docs/4.3/vhosts#limits">per-virtual host resource limits</a>, it is possible to limit
+how many connections and channels a specific user can open.</p>
+<p>These limits can be used as guard rails in environments where applications
+cannot be trusted and monitored in detail, for example, when RabbitMQ clusters
+are offered as a service.</p>
+<p>The limits can be configured using CLI tools or the <a href="/docs/4.3/management#http-api">HTTP API</a>.</p>
+<h2 id="connections">Maximum Number of Connections</h2>
+<p>To limit how many connections a user can open, set the <code>max-connections</code> limit to
+a positive integer:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl set_user_limits user1 '{"max-connections": 10}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin user_limits declare --user user1 --name max-connections --value 10</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat set_user_limits user1 "{""max-connections"": 10}"</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe user_limits declare --user user1 --name max-connections --value 10</code></pre></div></div><h4>HTTP API</h4><p>Use the <code>PUT /api/user-limits/{username}/{limit}</code> endpoint with a request body like this:</p><div><div><pre><code class="language-javascript">{"value": 20}</code></pre></div></div><p>Here is an example that uses <code>curl</code>:</p><div><div><pre><code class="language-bash">curl -v -u guest:guest -X PUT http://localhost:15672/api/user-limits/user1/max-connections \
+                       -H "content-type: application/json" \
+                       -d @- &lt;&lt;EOF
+{
+  "value": 20
+}
+EOF</code></pre></div></div>
+<h2 id="channels">Maximum Number of Channels</h2>
+<p>To limit how many channels, in total, a user can open, set the <code>max-channels</code> limit to
+a positive integer:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl set_user_limits guest '{"max-connections": 10, "max-channels": 20}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin user_limits declare --user guest --name max-channels --value 20</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat set_user_limits guest "{""max-connections"": 10, ""max-channels"": 20}"</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe user_limits declare --user guest --name max-channels --value 20</code></pre></div></div><h4>HTTP API</h4><p>Use the <code>PUT /api/user-limits/{username}/{limit}</code> endpoint with a request body like this:</p><div><div><pre><code class="language-javascript">{"value": 20}</code></pre></div></div><p>Here is an example that uses <code>curl</code> to set a limit for user <code>user1</code>:</p><div><div><pre><code class="language-bash">curl -v -u guest:guest -X PUT http://localhost:15672/api/user-limits/user1/max-channels \
+                       -H "content-type: application/json" \
+                       -d @- &lt;&lt;EOF
+{
+  "value": 20
+}
+EOF</code></pre></div></div>
+<p>The limit is applied to the total number of channels across all connections opened
+by the user. Therefore, it must be equal to or greater than the aforementioned maximum
+connection limit.</p>
+<h2 id="listing">Listing User Limits</h2>
+<p>To list limits for a specific user:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl list_user_limits user1</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin user_limits list --user user1</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat list_user_limits user1</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe user_limits list --user user1</code></pre></div></div><h4>HTTP API</h4><div><div><pre><code class="language-bash">curl -u guest:guest -X GET http://localhost:15672/api/user-limits/user1</code></pre></div></div>
+<h2 id="clearing">Clearing User Limits</h2>
+<p>To clear limits for a user, use CLI tools or the <a href="/docs/4.3/management#http-api">HTTP API</a>.</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># clears the maximum number of connections limit
+rabbitmqctl clear_user_limits user1 'max-connections'
+
+# clears the maximum number of channels limit
+rabbitmqctl clear_user_limits user1 'max-channels'
+
+# clears all limits in a single operation
+rabbitmqctl clear_user_limits user1 all</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># clears the maximum number of connections limit
+rabbitmqadmin user_limits delete --user user1 --name max-connections
+
+# clears the maximum number of channels limit
+rabbitmqadmin user_limits delete --user user1 --name max-channels</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell"># clears the maximum number of connections limit
+rabbitmqctl.bat clear_user_limits user1 "max-connections"
+
+# clears the maximum number of channels limit
+rabbitmqctl.bat clear_user_limits user1 "max-channels"
+
+# clears all limits in a single operation
+rabbitmqctl.bat clear_user_limits user1 all</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell"># clears the maximum number of connections limit
+rabbitmqadmin.exe user_limits delete --user user1 --name max-connections
+
+# clears the maximum number of channels limit
+rabbitmqadmin.exe user_limits delete --user user1 --name max-channels</code></pre></div></div><h4>HTTP API</h4><p>Use the <code>DELETE /api/user-limits/{username}/{limit}</code> endpoint without a request body.</p><p>Here is an example that uses <code>curl</code> to clear all limits of user <code>user1</code>:</p><div><div><pre><code class="language-bash">curl -v -u guest:guest -X DELETE http://localhost:15672/api/user-limits/user1/max-channels
+
+curl -v -u guest:guest -X DELETE http://localhost:15672/api/user-limits/user1/max-connections</code></pre></div></div></main>

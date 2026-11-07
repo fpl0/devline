@@ -1,0 +1,515 @@
+<main><header><h1>Shaping the stream</h1></header>
+<p>The <code>ORDERS</code> stream you created back on the
+<a href="/learn/jetstream/your-first-stream">Your first stream</a> page has no
+limits. It keeps
+every message forever, on however much disk the server has. That was
+fine for learning, but not for production.</p>
+<p>Without a limit, the stream keeps growing until it fills the disk and
+takes the server down with it.</p>
+<p>This page covers two settings. The <strong>limit</strong> is the cap that decides
+when the stream is full. The <strong>Discard policy</strong> decides which message
+the server discards when the stream hits that limit: the new one or the
+oldest stored one.</p>
+<h2 id="the-limit">The limit</h2>
+<p>A stream under the default <strong>Limits</strong> retention policy keeps messages
+until a limit forces it to discard them. You saw that policy in the config
+printout on the <a href="/learn/jetstream/your-first-stream">Your first stream</a>
+page. A limit is a ceiling on the stream. You set it with
+one of three options, depending on how you want to measure the stream:</p>
+<ul>
+<li><strong>MaxAge</strong> caps how old a message may get. Set it to seven days and a
+message is discarded roughly seven days after it was stored. It fits when
+only recent events matter — a live order stream rarely needs one from last
+quarter.</li>
+<li><strong>MaxBytes</strong> caps how much disk the stream may use. Set it to one
+gigabyte and the stream never grows past a gigabyte, no matter how
+old or new the messages are. This option protects the server itself.</li>
+<li><strong>MaxMsgs</strong> caps how many messages the stream may hold. Set it to one
+million and the millionth-and-first message forces a discard. Use this
+when message count, rather than size or age, is what you reason about.</li>
+</ul>
+<p>The three options work separately, and all of them are active at once.
+Whichever one is reached first triggers a discard. You don't have to set
+all three. Set the ones that match how you think about the stream, and
+leave the rest unlimited.</p>
+<p>MaxAge evicts by the clock; MaxMsgs evicts by the count. Same discard,
+two different triggers:</p>
+<div></div>
+<div></div>
+<h2 id="cap-the-orders-stream">Cap the ORDERS stream</h2>
+<p>Give <code>ORDERS</code> a seven-day age limit and a one-gigabyte ceiling. The
+<code>nats stream edit</code> command changes an existing stream in place, so the
+messages already stored stay where they are.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Cap the ORDERS stream so it cannot grow without bound.
+#
+# `nats stream edit` changes an existing stream in place. The three
+# messages already stored stay where they are; only the configuration
+# changes. The command prints a diff of what will change and asks for
+# confirmation before applying it.
+#
+# --max-age sets MaxAge: the oldest a message may get. 7d means a
+#   message is removed roughly seven days after it was stored.
+# --max-bytes sets MaxBytes: the most disk the stream may occupy on
+#   disk. 1GiB caps it at one gibibyte (about a gigabyte); the stream
+#   never grows past it. nats reports the cap back as "1.0 GiB".
+#
+# MaxMsgs is left unset, so message count stays unlimited. Discard
+# policy is left at its default (Old), so when a limit is hit the
+# server drops the oldest messages to make room.
+
+nats stream edit ORDERS \
+  --max-age=7d \
+  --max-bytes=1GiB</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Cap ORDERS with a seven-day age limit and a 1 GiB byte ceiling. streams.update
+// takes just the fields you're changing and leaves the rest, and the stored
+// messages, in place. max_age is in nanoseconds.
+const jsm = await jetstreamManager(nc);
+await jsm.streams.update("ORDERS", {
+  max_age: 7 * 24 * 60 * 60 * 1_000_000_000, // 7 days
+  max_bytes: 1024 * 1024 * 1024, // 1 GiB
+});
+console.log("ORDERS capped at 7d age and 1 GiB");</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Cap ORDERS so it can't grow without bound. Fetch the current config, add
+// a seven-day age limit and a 1 GiB byte ceiling, and update the stream in
+// place. Editing limits leaves the messages already stored alone.
+s, err := js.Stream(ctx, "ORDERS")
+if err != nil {
+	panic(err)
+}
+cfg := s.CachedInfo().Config
+cfg.MaxAge = 7 * 24 * time.Hour
+cfg.MaxBytes = 1 &lt;&lt; 30 // 1 GiB
+if _, err := js.UpdateStream(ctx, cfg); err != nil {
+	panic(err)
+}
+fmt.Println("ORDERS capped at 7d age and 1 GiB")</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Cap ORDERS with a seven-day age limit and a 1 GiB byte ceiling. Fetch the
+# current config, set the limits, and update the stream in place; the stored
+# messages stay put. max_age is in seconds.
+info = await js.stream_info("ORDERS")
+config = info.config
+config.max_age = 7 * 24 * 3600  # 7 days
+config.max_bytes = 1024 * 1024 * 1024  # 1 GiB
+await js.update_stream(config)
+print("ORDERS capped at 7d age and 1 GiB")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Cap ORDERS with a seven-day age limit and a 1 GiB byte ceiling.
+// Build from the current config so other fields, and the stored
+// messages, are left in place, then update the stream.
+StreamInfo si = jsm.getStreamInfo("ORDERS");
+StreamConfiguration cfg = StreamConfiguration.builder(si.getConfiguration())
+    .maxAge(Duration.ofDays(7))
+    .maxBytes(1L &lt;&lt; 30) // 1 GiB
+    .build();
+jsm.updateStream(cfg);
+System.out.println("ORDERS capped at 7d age and 1 GiB");</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Cap ORDERS so it can't grow without bound. Fetch the current config, add
+// a seven-day age limit and a 1 GiB byte ceiling, and update the stream in
+// place. Editing limits leaves the messages already stored alone.
+let mut stream = js.get_stream("ORDERS").await?;
+let mut config = stream.info().await?.config.clone();
+config.max_age = Duration::from_secs(7 * 24 * 3600);
+config.max_bytes = 1 &lt;&lt; 30; // 1 GiB
+js.update_stream(config).await?;
+println!("ORDERS capped at 7d age and 1 GiB");</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Cap ORDERS with a seven-day age limit and a 1 GiB byte ceiling. Fetch
+// the current config, set the limits, and update the stream in place;
+// the stored messages stay put.
+var stream = await js.GetStreamAsync("ORDERS");
+var config = stream.Info.Config;
+config.MaxAge = TimeSpan.FromDays(7);
+config.MaxBytes = 1L &lt;&lt; 30; // 1 GiB
+await js.UpdateStreamAsync(config);
+output.WriteLine("ORDERS capped at 7d age and 1 GiB");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Cap ORDERS so it can't grow without bound. Fetch the current
+// config, add a seven-day age limit and a 1 GiB byte ceiling, and
+// update the stream in place. Editing limits leaves the messages
+// already stored alone.
+s = js_GetStreamInfo(&amp;si, js, "ORDERS", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    si-&gt;Config-&gt;MaxAge   = (int64_t) 7 * 24 * 60 * 60 * 1000000000LL; // 7 days in ns
+    si-&gt;Config-&gt;MaxBytes = 1024 * 1024 * 1024;                        // 1 GiB
+    s = js_UpdateStream(NULL, js, si-&gt;Config, NULL, &amp;jerr);
+}
+if (s == NATS_OK)
+    printf("ORDERS capped at 7d age and 1 GiB\n");</code></pre></div></div>
+<p><code>nats stream edit</code> shows the change and asks for confirmation before
+applying it. Confirm, then read the stream back:</p>
+<div><div><pre><code class="language-bash">nats stream info ORDERS</code></pre></div></div>
+<p>The configuration block now reports the two limits instead of
+<code>unlimited</code>:</p>
+<div><div><pre><code class="language-text">Options:
+
+                    Retention: Limits
+              Acknowledgments: true
+               Discard Policy: Old
+             Duplicate Window: 2m0s
+
+Limits:
+
+             Maximum Messages: unlimited
+          Maximum Per Subject: unlimited
+                Maximum Bytes: 1.0 GiB
+                  Maximum Age: 7d0h0m0s
+         Maximum Message Size: unlimited
+            Maximum Consumers: unlimited</code></pre></div></div>
+<p><code>Maximum Messages</code> is still <code>unlimited</code>, because you set only age and
+bytes. (<code>Maximum Message Size</code>, also in the block, is a different limit —
+a cap on a single message rather than the whole stream — and stays
+unlimited here.) The stream now has clear bounds: it can't grow past a
+gigabyte, and it can't hold anything older than a week.</p>
+<h2 id="the-discard-policy">The Discard policy</h2>
+<p>The Discard policy controls what happens at the moment a new message
+would push the stream past a limit: the server discards the new message
+or the oldest stored one. It has two settings.</p>
+<p><strong>Discard Old</strong> is the default, and it's what you have right now. When a
+limit is hit, the server discards the <em>oldest</em> messages to make room for
+the new one. The publish always succeeds: the newest message is stored,
+the oldest is discarded.</p>
+<div></div>
+<p><strong>Discard New</strong> is the opposite. When a size or count limit is hit — <code>MaxMsgs</code>,
+<code>MaxBytes</code>, or a per-subject cap — the server discards the <em>new</em> message: it
+rejects the publish, which fails with an error, and nothing already stored is
+dropped to make room. <code>MaxAge</code> isn't a Discard-policy choice: it expires stored
+messages on its own timer under either policy. The rule from the top of the page
+still holds — <strong>the first limit to hit applies.</strong></p>
+<div></div>
+<p>For <code>ORDERS</code>, Discard Old is the right choice. A live order stream wants
+the most recent week of events. If disk pressure forces a trade-off, the
+order from eight days ago is the one to discard, not today's. Leave the
+default in place.</p>
+<p>Use Discard New when discarding an old message would lose data you're
+required to keep, and you'd rather slow the publisher down than lose
+history. The publisher then has to handle the rejected publish, which is
+why it's the less common choice.</p>
+<h2 id="limits-apply-to-the-stream-not-the-consumer">Limits apply to the stream, not the consumer</h2>
+<p>A limit discards a message for everyone. When MaxAge discards a message,
+it's gone from the stream, and every consumer reading that stream loses
+access to it at once.</p>
+<p>Limits and consumers are separate decisions. The <code>shipping</code> consumer's
+position and the <code>analytics</code> consumer's filter don't protect a message
+from the stream's limits. If a consumer is too slow and a message ages
+out before that consumer reads it, the message is gone. The next page
+returns to that risk, where the retention policy itself changes.</p>
+<h2 id="per-subject-limits">Per-subject limits</h2>
+<p>A stream can also limit messages <em>per subject</em> rather than across the
+whole stream, which is useful when <code>orders.&gt;</code> should keep, say, the last
+hundred messages for each individual subject. That's the
+<code>MaxMsgsPerSubject</code> option.</p>
+<p>The full set of stream limit options is documented in
+<a href="/reference/jetstream/api/stream/create">Reference → Stream Configuration</a>.
+We use only MaxAge, MaxBytes, and Discard here.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Limits are easy to set and easy to misread. Two traps account for most
+of the surprises.</p>
+<p><strong>Discard Old discards the oldest message silently.</strong> Discard Old never fails a
+publish. When a size or count limit is hit, the server drops the oldest message
+and the publish succeeds — right for a rolling window, but the publisher gets no
+warning and the oldest order is gone. To keep history and push back on the
+publisher, switch to Discard New, which rejects the publish (<code>maximum bytes exceeded</code> or <code>maximum messages exceeded</code>) instead of dropping a stored message.
+Discard New still leaves <code>MaxAge</code> in force — <strong>the first limit to hit applies</strong> —
+so if you must keep history, remove or raise the age limit too:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Switch ORDERS from Discard Old to Discard New so a full stream pushes
+# backpressure to the publisher instead of silently dropping old orders.
+#
+# Under Discard Old (the default) a publish that exceeds a limit always
+# succeeds, because the server drops the oldest message to make room and
+# tells the publisher nothing. If you need to keep history, that silent
+# drop is data loss you never see.
+#
+# --discard new flips the trade: when a limit is hit, the server rejects
+# the new message and the publish fails with "maximum bytes exceeded" (or
+# "maximum messages exceeded"). The publisher now feels the limit.
+
+# Force the full condition so you can see the rejection. Discard New never
+# drops messages that are already stored, so switching ORDERS to it and
+# capping it at one message leaves the orders from earlier pages in place and
+# puts the stream instantly over its limit -- both in one edit.
+nats stream edit ORDERS --discard new --max-msgs 1
+
+# ORDERS is now full. Under Discard New this publish fails instead of
+# succeeding silently, so the publisher can retry, alert, or shed load:
+nats pub orders.created \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+# -&gt; nats: maximum messages exceeded
+
+# Put ORDERS back the way it was: Discard Old and no message-count cap. The
+# 7-day age and 1 GiB byte limits set earlier stay in place.
+nats stream edit ORDERS --discard old --max-msgs -1</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Switch ORDERS to Discard New. Discard New never drops stored messages, so
+// capping it at one message leaves the existing orders in place and puts the
+// stream instantly over its limit; the next publish is rejected.
+const jsm = await jetstreamManager(nc);
+await jsm.streams.update("ORDERS", { discard: DiscardPolicy.New, max_msgs: 1 });
+
+// This publish hits the full stream and rejects with "maximum messages
+// exceeded" instead of succeeding silently. Handle it in the publisher.
+const js = jetstream(nc);
+try {
+  await js.publish("orders.created", JSON.stringify({ order_id: "ord_8w2k" }));
+} catch (err) {
+  console.log(`publish rejected: ${(err as Error).message}`);
+}
+
+// Put ORDERS back: Discard Old, no message cap (age and byte limits stay).
+await jsm.streams.update("ORDERS", { discard: DiscardPolicy.Old, max_msgs: -1 });</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Switch ORDERS to Discard New. Discard New never drops messages already
+// stored, so capping it at one message leaves the existing orders in place
+// and puts the stream instantly over its limit. The next publish is
+// rejected rather than evicting an older order.
+s, err := js.Stream(ctx, "ORDERS")
+if err != nil {
+	panic(err)
+}
+cfg := s.CachedInfo().Config
+cfg.Discard = jetstream.DiscardNew
+cfg.MaxMsgs = 1
+if _, err := js.UpdateStream(ctx, cfg); err != nil {
+	panic(err)
+}
+
+// This publish hits the full stream and fails with "maximum messages
+// exceeded" instead of succeeding silently. Handle it in the publisher.
+if _, err := js.Publish(ctx, "orders.created", []byte(`{"order_id":"ord_8w2k"}`)); err != nil {
+	fmt.Printf("publish rejected: %v\n", err)
+}
+
+// Put ORDERS back: Discard Old, no message cap (age and byte limits stay).
+cfg.Discard = jetstream.DiscardOld
+cfg.MaxMsgs = -1
+if _, err := js.UpdateStream(ctx, cfg); err != nil {
+	panic(err)
+}</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Switch ORDERS to Discard New. Discard New never drops stored messages, so
+# capping it at one message leaves the existing orders in place and puts the
+# stream instantly over its limit; the next publish is rejected.
+info = await js.stream_info("ORDERS")
+config = info.config
+config.discard = DiscardPolicy.NEW
+config.max_msgs = 1
+await js.update_stream(config)
+
+# This publish hits the full stream and is rejected instead of succeeding
+# silently. Handle it in the publisher.
+try:
+    await js.publish("orders.created", b'{"order_id":"ord_8w2k"}')
+except APIError as err:
+    print(f"publish rejected: {err.description}")
+
+# Put ORDERS back: Discard Old, no message cap (age and byte limits stay).
+config.discard = DiscardPolicy.OLD
+config.max_msgs = -1
+await js.update_stream(config)</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Switch ORDERS to Discard New. Discard New never drops stored
+// messages, so capping it at one message leaves the existing orders
+// in place and puts the stream instantly over its limit; the next
+// publish is rejected.
+StreamInfo si = jsm.getStreamInfo("ORDERS");
+jsm.updateStream(StreamConfiguration.builder(si.getConfiguration())
+    .discardPolicy(DiscardPolicy.New)
+    .maxMessages(1)
+    .build());
+
+// This publish hits the full stream and is rejected instead of
+// succeeding silently. Handle it in the publisher.
+try {
+    js.publish("orders.created", "{\"order_id\":\"ord_8w2k\"}".getBytes());
+}
+catch (JetStreamApiException e) {
+    System.out.println("publish rejected: " + e.getMessage());
+}
+
+// Put ORDERS back: Discard Old, no message cap (age and byte limits
+// stay).
+jsm.updateStream(StreamConfiguration.builder(si.getConfiguration())
+    .discardPolicy(DiscardPolicy.Old)
+    .maxMessages(-1)
+    .build());</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Switch ORDERS to Discard New. Discard New never drops messages already
+// stored, so capping it at one message leaves the existing orders in place
+// and puts the stream instantly over its limit. The next publish is
+// rejected rather than evicting an older order.
+let mut stream = js.get_stream("ORDERS").await?;
+let mut config = stream.info().await?.config.clone();
+config.discard = DiscardPolicy::New;
+config.max_messages = 1;
+js.update_stream(config.clone()).await?;
+
+// This publish hits the full stream; the ack returns an error instead of
+// the publish succeeding silently. Handle it in the publisher.
+let ack = js
+    .publish("orders.created", r#"{"order_id":"ord_8w2k"}"#.into())
+    .await?;
+if let Err(err) = ack.await {
+    println!("publish rejected: {err}");
+}
+
+// Put ORDERS back: Discard Old, no message cap (age and byte limits stay).
+config.discard = DiscardPolicy::Old;
+config.max_messages = -1;
+js.update_stream(config).await?;</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Switch ORDERS to Discard New. Discard New never drops stored messages,
+// so capping it at one message leaves the existing orders in place and
+// puts the stream instantly over its limit; the next publish is rejected.
+var stream = await js.GetStreamAsync("ORDERS");
+var config = stream.Info.Config;
+config.Discard = StreamConfigDiscard.New;
+config.MaxMsgs = 1;
+await js.UpdateStreamAsync(config);
+
+// This publish hits the full stream and is rejected instead of
+// succeeding silently. Handle it in the publisher.
+try
+{
+    var ack = await js.PublishAsync&lt;Order&gt;(subject: "orders.created", data: new Order(OrderId: "ord_5k1m"));
+
+    // PublishAsync returns the server's answer; EnsureSuccess turns a
+    // rejection into an exception instead of leaving it unchecked.
+    ack.EnsureSuccess();
+}
+catch (NatsJSApiException e)
+{
+    output.WriteLine($"publish rejected: {e.Message}");
+    rejected = true;
+}
+
+// Put ORDERS back: Discard Old, no message cap (age and byte limits stay).
+config.Discard = StreamConfigDiscard.Old;
+config.MaxMsgs = -1;
+await js.UpdateStreamAsync(config);</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Switch ORDERS to Discard New. Discard New never drops messages
+// already stored, so capping it at one message leaves the existing
+// orders in place and puts the stream instantly over its limit. The
+// next publish is rejected rather than evicting an older order.
+const char *order = "{\"order_id\":\"ord_8w2k\"}";
+
+s = js_GetStreamInfo(&amp;si, js, "ORDERS", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    si-&gt;Config-&gt;Discard = js_DiscardNew;
+    si-&gt;Config-&gt;MaxMsgs = 1;
+    s = js_UpdateStream(NULL, js, si-&gt;Config, NULL, &amp;jerr);
+}
+
+// This publish hits the full stream and fails with "maximum messages
+// exceeded" instead of succeeding silently. Handle it in the
+// publisher.
+if (s == NATS_OK)
+{
+    if (js_Publish(NULL, js, "orders.created", order, (int) strlen(order), NULL, &amp;jerr) != NATS_OK)
+        printf("publish rejected: %s\n", nats_GetLastError(NULL));
+}
+
+// Put ORDERS back: Discard Old, no message cap (age and byte limits
+// stay).
+if (s == NATS_OK)
+{
+    si-&gt;Config-&gt;Discard = js_DiscardOld;
+    si-&gt;Config-&gt;MaxMsgs = -1;
+    s = js_UpdateStream(NULL, js, si-&gt;Config, NULL, &amp;jerr);
+}</code></pre></div></div>
+<p>The same quiet discard applies to MaxAge and MaxBytes together. The two
+limits work separately, so whichever is reached first triggers the
+discard. A seven-day MaxAge does not guarantee seven days of history. If
+traffic spikes, MaxBytes can be reached first and discard messages that
+are only hours old. Set MaxBytes for your busiest traffic, not your average, if
+the age window matters to you.</p>
+<p><strong>Whole-stream limits don't balance across subjects.</strong> MaxMsgs,
+MaxBytes, and MaxAge measure <code>ORDERS</code> as a whole, across every subject
+under <code>orders.&gt;</code>. A high volume of <code>orders.created</code> counts toward the
+same ceiling as <code>orders.shipped</code>, so Discard Old can discard a shipped
+order to make room for a created one. When each subject needs its own limit,
+add a per-subject ceiling with <code>MaxMsgsPerSubject</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Add a per-subject ceiling to ORDERS so one noisy subject cannot evict
+# another subject's messages.
+#
+# MaxMsgs, MaxBytes, and MaxAge all measure the stream as a whole,
+# across every subject under orders.&gt;. If orders.created floods in, its
+# messages count toward the same ceiling as orders.shipped, and Discard
+# Old can drop a shipped order to make room for a created one.
+#
+# --max-msgs-per-subject sets MaxMsgsPerSubject: a separate ceiling
+# applied to each individual subject. Set it to 100000 and every subject
+# keeps its own most-recent 100000 messages, independent of how loud its
+# neighbors are.
+
+nats stream edit ORDERS --max-msgs-per-subject=100000
+
+# Read the stream back; the per-subject limit now appears alongside the
+# whole-stream limits.
+nats stream info ORDERS</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Add a per-subject ceiling so one noisy subject can't evict another's
+// messages. max_msgs_per_subject keeps the most recent N messages for every
+// subject independently, alongside the whole-stream limits.
+const jsm = await jetstreamManager(nc);
+await jsm.streams.update("ORDERS", { max_msgs_per_subject: 100000 });
+console.log("ORDERS now keeps 100000 messages per subject");</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Add a per-subject ceiling so one noisy subject can't evict another's
+// messages. MaxMsgsPerSubject keeps the most recent N messages for every
+// subject independently, alongside the whole-stream limits.
+s, err := js.Stream(ctx, "ORDERS")
+if err != nil {
+	panic(err)
+}
+cfg := s.CachedInfo().Config
+cfg.MaxMsgsPerSubject = 100000
+if _, err := js.UpdateStream(ctx, cfg); err != nil {
+	panic(err)
+}
+fmt.Println("ORDERS now keeps 100000 messages per subject")</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Add a per-subject ceiling so one noisy subject can't evict another's
+# messages. max_msgs_per_subject keeps the most recent N messages for every
+# subject independently, alongside the whole-stream limits.
+info = await js.stream_info("ORDERS")
+config = info.config
+config.max_msgs_per_subject = 100000
+await js.update_stream(config)
+print("ORDERS now keeps 100000 messages per subject")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Add a per-subject ceiling so one noisy subject can't evict
+// another's messages. maxMessagesPerSubject keeps the most recent N
+// messages for every subject independently, alongside the
+// whole-stream limits.
+StreamInfo si = jsm.getStreamInfo("ORDERS");
+StreamConfiguration cfg = StreamConfiguration.builder(si.getConfiguration())
+    .maxMessagesPerSubject(100000)
+    .build();
+jsm.updateStream(cfg);
+System.out.println("ORDERS now keeps 100000 messages per subject");</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Add a per-subject ceiling so one noisy subject can't evict another's
+// messages. max_messages_per_subject keeps the most recent N messages for
+// every subject independently, alongside the whole-stream limits.
+let mut stream = js.get_stream("ORDERS").await?;
+let mut config = stream.info().await?.config.clone();
+config.max_messages_per_subject = 100_000;
+js.update_stream(config).await?;
+println!("ORDERS now keeps 100000 messages per subject");</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Add a per-subject ceiling so one noisy subject can't evict another's
+// messages. MaxMsgsPerSubject keeps the most recent N messages for every
+// subject independently, alongside the whole-stream limits.
+var stream = await js.GetStreamAsync("ORDERS");
+var config = stream.Info.Config;
+config.MaxMsgsPerSubject = 100000;
+await js.UpdateStreamAsync(config);
+output.WriteLine("ORDERS now keeps 100000 messages per subject");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Add a per-subject ceiling so one noisy subject can't evict
+// another's messages. MaxMsgsPerSubject keeps the most recent N
+// messages for every subject independently, alongside the
+// whole-stream limits.
+s = js_GetStreamInfo(&amp;si, js, "ORDERS", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    si-&gt;Config-&gt;MaxMsgsPerSubject = 100000;
+    s = js_UpdateStream(NULL, js, si-&gt;Config, NULL, &amp;jerr);
+}
+if (s == NATS_OK)
+    printf("ORDERS now keeps 100000 messages per subject\n");</code></pre></div></div>
+<p>Under Discard Old, a per-subject ceiling discards the oldest message <em>for
+that subject</em> once it fills. Discard New doesn't change that on its own:
+by default the per-subject limit still rolls, discarding the subject's
+oldest message rather than rejecting the publish. Making a full subject
+reject takes a second setting, <code>DiscardNewPerSubject</code> (the
+<code>discard_new_per_subject</code> config field), on top of Discard New. With both,
+a publish past the per-subject ceiling fails with <code>maximum messages per subject exceeded</code>, a third rejection string alongside the whole-stream
+<code>maximum bytes exceeded</code> and <code>maximum messages exceeded</code>. The field is in
+<a href="/reference/jetstream/api/stream/create">Reference → Stream Configuration</a>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have:</p>
+<ul>
+<li>an <code>ORDERS</code> stream capped at a seven-day MaxAge and a 1 GiB MaxBytes
+ceiling</li>
+<li>the messages from earlier still stored (editing limits doesn't
+discard messages that already sit within them)</li>
+<li>Discard Old in place, so a future limit discards the oldest order, never
+the newest</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>You set <em>limits</em> under the default Limits retention policy. The next page
+covers the policy choice itself: the three retention policies, Limits
+versus Interest versus WorkQueue, and which one to use when.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/api/stream/create">Reference → Stream Configuration</a>
+— every limit option, its type, range, and default.</li>
+</ul></main>

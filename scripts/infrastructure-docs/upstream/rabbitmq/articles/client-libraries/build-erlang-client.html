@@ -1,0 +1,38 @@
+<main><header><h1>RabbitMQ Erlang Client Library Build Instructions</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide covers building RabbitMQ Erlang client from source.</p>
+<h2 id="building-from-source">Building from Source</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>In order to build the client library, you will need a few tools.</p>
+<p>RabbitMQ requires a recent version of <a href="http://www.python.org/download/">Python</a>
+for generating AMQP 0-9-1 framing code.</p>
+<p>Additionally, you will need</p>
+<ul>
+<li>The <a href="https://www.erlang.org/downloads">Erlang</a>
+development and runtime tools. On a Debian-based
+system then you need the <code>erlang-nox</code>, <code>erlang-dev</code> and
+<code>erlang-src</code> packages installed. See <a href="https://www.rabbitmq.com/docs/4.3/which-erlang">Erlang Version Requirements guide</a> to learn
+about the recommended ways of provisioning a recent supported version of Erlang.</li>
+<li>A recent version of <a href="https://elixir-lang.org/">Elixir</a></li>
+<li>a recent version of <a href="http://www.gnu.org/software/make/">GNU make</a></li>
+<li>a recent version of <code>xsltproc</code>, which is part of <a href="http://xmlsoft.org/XSLT/">libxslt</a></li>
+<li>a recent version of <code>xmlto</code></li>
+<li><a href="http://www.info-zip.org/Zip.html">zip</a> and <a href="http://www.info-zip.org/UnZip.html">unzip</a></li>
+</ul>
+<h2 id="building-the-client">Building the Client</h2>
+<p>The repository is hosted on GitHub. Clone the repository with</p>
+<div><div><pre><code class="language-bash">git clone https://github.com/rabbitmq/rabbitmq-erlang-client.git</code></pre></div></div>
+<p>to build the client, run <code>make</code>:</p>
+<div><div><pre><code class="language-bash">cd rabbitmq-erlang-client
+make</code></pre></div></div>
+<p>This will clone and build all dependencies of the client.</p>
+<h2 id="targets">Other Make Targets</h2>
+<p>There are other useful <code>Makefile</code> targets available in the repository. They include</p>
+<table><thead><tr><th>Target</th><th>Description</th></tr></thead><tbody><tr><td>all</td><td>The default target. Builds the client library and all of its dependencies.</td></tr><tr><td>shell</td><td><p>Builds the client library and starts an Erlang shell (a REPL) with the
+libraries loaded.</p></td></tr><tr><td>run-broker</td><td><p>Builds the client and starts a RabbitMQ server node with shell
+and the client included in runtime load path.</p></td></tr><tr><td>clean</td><td>Removes temporary build products.</td></tr><tr><td>distclean</td><td>Removes all build products.</td></tr><tr><td>tests</td><td>Runs test suites</td></tr><tr><td>dialyze</td><td><p>Analyses the client source code with dialyzer. Uses PLT
+file from default location:
+<code>~/.dialyzer_plt</code>. Use</p><div><div><pre><code class="language-bash">make PLT=/path/to/plt dialyze</code></pre></div></div><p>to override this. Add broker to PLT beforehand,
+otherwise you will a lot of 'unknown function'
+warnings. See <code>add_broker_to_plt</code> make
+target.</p></td></tr><tr><td>source-dist</td><td>Creates a source tarball of the library under <code>./PACKAGES</code>.</td></tr><tr><td>package</td><td>Creates an Erlang archive (binary build) of the library under <code>./PACKAGES</code>.</td></tr></tbody></table></main>

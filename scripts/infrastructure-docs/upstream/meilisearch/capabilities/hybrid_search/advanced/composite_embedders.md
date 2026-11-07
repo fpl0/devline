@@ -1,0 +1,137 @@
+# Composite embedders
+
+> Use different embedding providers for indexing and search to optimize cost, latency, and throughput independently.
+
+Composite embedders let you assign one embedder for indexing and a different one for search within the same index. This decouples the two operations so you can optimize each independently, for example using a high-throughput cloud API for bulk indexing and a local model for low-latency search.
+
+> [!WARNING]
+>
+> Composite embedders are an experimental feature. You must enable the `compositeEmbedders` experimental flag before using them. Experimental features may change or be removed in future releases.
+
+## When to use composite embedders
+
+A single embedder works well for most projects. Composite embedders are useful when indexing and search have different performance requirements:
+
+| Scenario | Indexing embedder | Search embedder |
+| - | - | - |
+| Cost optimization | Cloud API with batch pricing | Local model (no per-query cost) |
+| Latency optimization | [REST endpoint](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_rest_embedder) (higher throughput, higher latency) | HuggingFace local model (lower latency) |
+| Infrastructure split | GPU server for bulk embedding | CPU-based model for real-time queries |
+| Rate limit management | Dedicated batch API endpoint | Separate endpoint with its own rate limits |
+
+> [!NOTE]
+>
+> This guide requires two embedding providers that produce vectors with the same number of dimensions.
+
+## Step 1: enable the experimental feature
+
+Activate the `compositeEmbedders` flag:
+
+```sh
+curl \
+  -X PATCH 'http://localhost:7700/experimental-features' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY' \
+  --data-binary '{
+    "compositeEmbedders": true
+  }'
+```
+
+## Step 2: configure a composite embedder
+
+Set the embedder source to `"composite"` and define separate `searchEmbedder` and `indexingEmbedder` objects. Each sub-embedder uses the same configuration format as a standard embedder.
+
+```sh
+curl \
+  -X PATCH 'http://localhost:7700/indexes/movies/settings/embedders' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY' \
+  --data-binary '{
+    "hybrid": {
+      "source": "composite",
+      "searchEmbedder": {
+        "source": "huggingFace",
+        "model": "BAAI/bge-base-en-v1.5"
+      },
+      "indexingEmbedder": {
+        "source": "rest",
+        "url": "https://your-embedding-api.example.com/embed",
+        "request": {
+          "input": "{{text}}"
+        },
+        "response": {
+          "data": [
+            {
+              "embedding": "{{embedding}}"
+            }
+          ]
+        },
+        "dimensions": 768
+      }
+    }
+  }'
+```
+
+In this example:
+
+* **Indexing** uses a REST embedder pointing to a high-throughput embedding API. This endpoint can handle large batches of documents efficiently.
+* **Search** uses a local HuggingFace model (`BAAI/bge-base-en-v1.5`). Running locally eliminates network latency for real-time search queries.
+
+Both produce 768-dimensional vectors, so their outputs are compatible.
+
+## Step 3: search with the composite embedder
+
+Search works exactly like any other hybrid search. Reference the composite embedder by name:
+
+```sh
+curl \
+  -X POST 'http://localhost:7700/indexes/movies/search' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY' \
+  --data-binary '{
+    "q": "feel-good adventure movie",
+    "hybrid": {
+      "semanticRatio": 0.7,
+      "embedder": "hybrid"
+    }
+  }'
+```
+
+Meilisearch automatically uses the search embedder for the query and the indexing embedder when processing new or updated documents.
+
+## Important constraints
+
+**Matching dimensions**: both the search embedder and the indexing embedder must produce vectors with the same number of dimensions. If they differ, Meilisearch returns an error when you try to configure the embedder.
+
+**Compatible models**: for coherent search results, both embedders must use the exact same model with the same version and configuration. For example, you can use BGE-M3 hosted locally for indexing and the same BGE-M3 model on Cloudflare Workers AI for search, as long as both use the same model revision. Using different models (for example, an OpenAI model for indexing and a Mistral model for search) will produce poor search quality because the vector spaces will not align, even if dimensions match.
+
+**Experimental status**: this feature requires the `compositeEmbedders` experimental flag. The API surface may change in future versions. Monitor the [changelog](https://www.meilisearch.com/docs/changelog) for updates.
+
+## Sub-embedder constraints
+
+Composite embedders impose additional rules on their `indexingEmbedder` and `searchEmbedder` sub-objects. Breaking any of these rules makes the embedder settings invalid.
+
+* `indexingEmbedder` and `searchEmbedder` must use the same model for generating embeddings.
+* `indexingEmbedder` and `searchEmbedder` must have identical `dimensions` and `pooling` methods.
+* `source` is mandatory for both `indexingEmbedder` and `searchEmbedder`.
+* Neither sub-embedder can set `source` to `composite` or `userProvided`.
+* `binaryQuantized` and `distribution` are not valid sub-embedder fields. They must always be declared on the main (composite) embedder.
+* `documentTemplate` and `documentTemplateMaxBytes` are invalid fields for `searchEmbedder`.
+* `documentTemplate` and `documentTemplateMaxBytes` are mandatory for `indexingEmbedder` when its source supports them (that is, every source except `userProvided`).
+
+## Next steps
+
+> [card] [Choose an embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/choose_an_embedder)
+>
+> Compare embedding providers and pick the right one for your use case.
+
+> [card] [Configure a REST embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_rest_embedder)
+>
+> Set up embedders using any provider with a REST API.
+
+> [card] [Configure a HuggingFace embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_huggingface_embedder)
+>
+> Run embedding models locally with HuggingFace.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

@@ -1,0 +1,235 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This topic describes a highly available multi-cluster setup and the behavior to expect. It outlines the requirements of the high availability architecture and describes the benefits and tradeoffs.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_when_to_use_this_setup"><a class="anchor" href="#_when_to_use_this_setup"></a>When to use this setup</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Use this setup to provide Keycloak deployments that are able to tolerate Kubernetes cluster failures, reducing the likelihood of downtime.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_deployment_data_storage_and_caching"><a class="anchor" href="#_deployment_data_storage_and_caching"></a>Deployment, data storage and caching</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Two independent Keycloak deployments running in different sites are connected with a low latency network connection.
+Users, realms, clients, sessions, and other entities are stored in a database that is replicated synchronously across the two sites.
+The data is also cached in the Keycloak Infinispan caches as local caches.
+When the data is changed in one Keycloak instance, that data is updated in the database, and an invalidation message is sent to the other site using the <code>work</code> cache.</p>
+</div>
+<div class="paragraph">
+<p>In the following paragraphs and diagrams, references to deploying Infinispan apply to the external Infinispan.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img alt="active active sync.dio" src="/images/high-availability/active-active-sync.dio.svg"/>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_causes_of_data_and_service_loss"><a class="anchor" href="#_causes_of_data_and_service_loss"></a>Causes of data and service loss</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>While this setup aims for high availability, the following situations can still lead to service or data loss:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Keycloak site failure may result in requests failing in the period between the failure and the loadbalancer detecting
+it, as requests may still be routed to the failed site.</p>
+</li>
+<li>
+<p>Once failures occur in the communication between the sites, manual steps are necessary to re-synchronize a degraded setup.</p>
+</li>
+<li>
+<p>Degraded setups can lead to service or data loss if additional components fail.
+Monitoring is necessary to detect degraded setups.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_failures_which_this_setup_can_survive"><a class="anchor" href="#_failures_which_this_setup_can_survive"></a>Failures which this setup can survive</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all fit-content">
+<colgroup>
+<col/>
+<col/>
+<col/>
+<col/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Failure</th>
+<th class="tableblock halign-left valign-top">Expected behavior</th>
+<th class="tableblock halign-left valign-top">RPO<sup>1</sup></th>
+<th class="tableblock halign-left valign-top">RT<sup>2</sup></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Database node</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If the writer instance fails, the database can promote a reader instance in the same or other site to be the new writer.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds to minutes (depending on the database)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Keycloak node</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multiple Keycloak instances run on each site. If one instance fails some incoming requests might receive an error message or are delayed for some seconds.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Less than 30 seconds</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Infinispan node</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multiple Infinispan instances run in each site. If one instance fails, it takes a few seconds for the other nodes to notice the change. Entities are stored in at least two Infinispan nodes, so a single node failure does not lead to data loss.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Less than 30 seconds</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Infinispan cluster failure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If the Infinispan cluster fails in one of the sites, Keycloak will not be able to communicate with the external Infinispan on that site, and the Keycloak service will be unavailable.
+The loadbalancer will detect the situation as <code>/lb-check</code> returns an error, and will direct all traffic to the other site.</p>
+<p class="tableblock">The setup is degraded until the Infinispan cluster is restored and the data is re-synchronized.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss<sup>3</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds to minutes (depending on load balancer setup)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Connectivity Infinispan</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If the connectivity between the two sites is lost, data cannot be sent to the other site.
+Incoming requests might receive an error message or are delayed for some seconds.
+The Infinispan will mark the other site offline, and will stop sending data.
+One of the sites needs to be taken offline in the loadbalancer until the connection is restored and the data is re-synchronized between the two sites.
+In the blueprints, we show how this can be automated.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss<sup>3</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds to minutes (depending on load balancer setup)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Connectivity database</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If the connectivity between the two sites is lost, the synchronous replication will fail.
+Some requests might receive an error message or be delayed for a few seconds.
+Manual operations might be necessary depending on the database.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss<sup>3</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds to minutes (depending on the database)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Site failure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If none of the Keycloak nodes are available, the loadbalancer will detect the outage and redirect the traffic to the other site.
+Some requests might receive an error message until the loadbalancer detects the failure.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss<sup>3</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Less than two minutes</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<div class="title">Table footnotes:</div>
+<p><sup>1</sup> Tested Recovery Point Objective, assuming all parts of the setup were healthy at the time this occurred.<br/>
+<sup>2</sup> Maximum Recovery Time observed.<br/>
+<sup>3</sup> Manual operations needed to restore the degraded setup.</p>
+</div>
+<div class="paragraph">
+<p>The statement “No data loss” depends on the setup not being degraded from previous failures, which includes completing any pending manual operations to resynchronize the state between the sites.</p>
+</div>
+<div class="paragraph">
+<p>For performance, Keycloak uses optimized database commit for ephemeral data such as sessions and events.
+On a database crash, in-flight session data within a sub-second window may be lost, requiring affected users to re-authenticate.
+Persistent data such as users, realms, and credentials always uses durable commit and is not affected.
+To disable the optimization, set <code>--spi-connections-jpa—​quarkus—​async-commit=false</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_known_limitations"><a class="anchor" href="#_known_limitations"></a>Known limitations</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Site Failure</dt>
+<dd>
+<p>A successful failover requires a setup not degraded from previous failures.
+All manual operations like a re-synchronization after a previous failure must be complete to prevent data loss.
+Use monitoring to ensure degradations are detected and handled in a timely manner.</p>
+</dd>
+<dt class="hdlist1">Out-of-sync sites</dt>
+<dd>
+<p>The sites can become out of sync when a synchronous Infinispan request fails.
+This situation is currently difficult to monitor, and it would need a full manual re-sync of Infinispan to recover.
+Monitoring the number of cache entries in both sites and the Keycloak log file can show when resynch would become necessary.</p>
+</dd>
+<dt class="hdlist1">Manual operations</dt>
+<dd>
+<p>Manual operations that re-synchronize the Infinispan state between the sites will issue a full state transfer which will put a stress on the system.</p>
+</dd>
+<dt class="hdlist1">Two sites restriction</dt>
+<dd>
+<p>This setup is tested and supported only with two sites.
+Each additional site increases overall latency as it is necessary for data to be synchronously written to each site.
+Furthermore, the probability of network failures, and therefore downtime, also increases. Therefore, we do not support more than two sites as we believe it would lead to a deployment with inferior stability and performance.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_questions_and_answers"><a class="anchor" href="#_questions_and_answers"></a>Questions and answers</h2>
+<div class="sectionbody">
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Why synchronous database replication?</dt>
+<dd>
+<p>A synchronously replicated database ensures that data written in one site is always available in the other site after site failures and no data is lost.
+It also ensures that the next request will not return stale data, independent on which site it is served.</p>
+</dd>
+<dt class="hdlist1">Why synchronous Infinispan replication?</dt>
+<dd>
+<p>A synchronously replicated Infinispan ensures that cached data in one site are always available on the other site after a site failure and no data is lost.
+It also ensures that the next request will not return stale data, independent on which site it is served.</p>
+</dd>
+<dt class="hdlist1">Why is a low-latency network between sites needed?</dt>
+<dd>
+<p>Synchronous replication defers the response to the caller until the data is received at the other site.
+For synchronous database replication and synchronous Infinispan replication, a low latency is necessary as each request can have potentially multiple interactions between the sites when data is updated which would amplify the latency.</p>
+</dd>
+<dt class="hdlist1">Is a synchronous cluster less stable than an asynchronous cluster?</dt>
+<dd>
+<p>An asynchronous setup would handle network failures between the sites gracefully, while the synchronous setup would delay requests and will throw errors to the caller where the asynchronous setup would have deferred the writes to Infinispan or the database on the other site.
+However, as the two sites would never be fully up-to-date, this setup could lead to data loss during failures.
+This would include:</p>
+<div class="openblock">
+<div class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>Lost changes leading to users being able to log in with an old password because database changes are not replicated to the other site at the point of failure when using an asynchronous database.</p>
+</li>
+<li>
+<p>Invalid caches leading to users being able to log in with an old password because invalidating caches are not propagated at the point of failure to the other site when using an asynchronous Infinispan replication.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Therefore, tradeoffs exist between high availability and consistency. The focus of this topic is to prioritize consistency over availability with Keycloak.</p>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_next_steps"><a class="anchor" href="#_next_steps"></a>Next steps</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Continue reading in the <a href="https://www.keycloak.org/high-availability/multi-cluster/building-blocks">Building blocks multi-cluster deployments</a> guide to find blueprints for the different building blocks.</p>
+</div>
+</div>
+</div> </div>
+</main>

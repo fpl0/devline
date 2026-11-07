@@ -1,0 +1,200 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div class="sect1">
+<h2 id="_a_temporary_admin_account"><a class="anchor" href="#_a_temporary_admin_account"></a>A temporary admin account</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A user or service admin account created using one of the methods described below is <strong>temporary</strong>. This means the account should exist only for the duration necessary to perform operations needed to gain permanent and more secure admin access. After that, the account needs to be removed manually. Various UI/UX elements, such as the Administration Console warning banner, labels, and log messages, will indicate to a Keycloak administrator that the account is temporary.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_bootstrapping_a_temporary_admin_account_at_keycloak_startup"><a class="anchor" href="#_bootstrapping_a_temporary_admin_account_at_keycloak_startup"></a>Bootstrapping a temporary admin account at Keycloak startup</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak <code>start</code> and <code>start-dev</code> commands support options for bootstrapping both temporary admin users and admin service accounts. These options are standard configuration options, so they can be specified through any of the sources described in <a href="https://www.keycloak.org/server/configuration#_configuring_sources_for_keycloak">Configuring Keycloak</a>, such as environment variables or CLI parameters. For instance, the following examples demonstrate how to use the <code>start</code> and <code>start-dev</code> commands with CLI parameters to bootstrap a temporary admin user and an admin service account, respectively:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start <span class="nt">--bootstrap-admin-username</span> tmpadm <span class="nt">--bootstrap-admin-password</span> pass</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start-dev <span class="nt">--bootstrap-admin-client-id</span> tmpadm <span class="nt">--bootstrap-admin-client-secret</span> secret</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The username or client ID values can be omitted; see the <a href="#_default_values">Default values</a> section below for more information.</p>
+</div>
+<div class="paragraph">
+<p>The purpose of these options is solely for bootstrapping temporary admin accounts. These accounts will be created only during the initial start of the Keycloak server when the master realm doesn’t exist yet. The accounts are always created in the master realm. For recovering lost admin access, use the dedicated command described in the sections below.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_bootstrapping_an_admin_user_or_service_account_using_the_dedicated_command"><a class="anchor" href="#_bootstrapping_an_admin_user_or_service_account_using_the_dedicated_command"></a>Bootstrapping an admin user or service account using the dedicated command</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>bootstrap-admin</code> command can be executed even before the first-ever start of Keycloak. Bear in mind that all the Keycloak nodes need to be stopped prior to using this command. Its execution will trigger the creation of the initial master realm, and as a result, the startup options to bootstrap the admin user and service account will be ignored later when the server is started for the first time.</p>
+</div>
+<div class="paragraph">
+<p>Additionally, it is strongly recommended to use the dedicated command with the same options that the Keycloak server is started with (e.g., <code>db</code> options).</p>
+</div>
+<div class="paragraph">
+<p>If you have built an optimized version of Keycloak with the <code>build</code> command as outlined in <a href="https://www.keycloak.org/server/configuration">Configuring Keycloak</a>, use the command line option <code>--optimized</code> to have Keycloak skip the build check for a faster startup time.
+When doing this, remove the build time options from the command line and keep only the runtime options.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+if you do not use <code>--optimized</code> keep in mind that an <code>bootstrap-admin</code> command may implicitly create or update an optimized build for you - if you are running the command from the same machine as a server instance, this may impact the next start of your server.
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_create_an_admin_user"><a class="anchor" href="#_create_an_admin_user"></a>Create an admin user</h3>
+<div class="paragraph">
+<p>To create a temporary admin user, execute the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] bootstrap-admin user</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If no other parameters are specified and/or no corresponding environment variables are set, the user is prompted to enter the required information. The username value can be omitted to use the default values. For more information, see the <a href="#_default_values">Default values</a> and <a href="#_environment_variables">Environment variables</a> sections below.</p>
+</div>
+<div class="paragraph">
+<p>Alternatively, the parameters can be directly specified in the command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] bootstrap-admin user <span class="nt">--username</span> tmpadm <span class="nt">--password</span>:env PASS_VAR</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This command creates a temporary admin user with the username <code>tmpadm</code> and the password retrieved from the environment variable.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_create_a_service_account"><a class="anchor" href="#_create_a_service_account"></a>Create a service account</h3>
+<div class="paragraph">
+<p>In automated scenarios, a temporary admin service account can be a more suitable alternative to a temporary admin user.</p>
+</div>
+<div class="paragraph">
+<p>To create a temporary admin service account, execute the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] bootstrap-admin service</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Similarly, if no corresponding environment variables or additional parameters are set, the user will be prompted to enter the required information. The client ID value can be omitted to use the default values. For more information, see the <a href="#_default_values">Default values</a> and <a href="#_environment_variables">Environment variables</a> sections below.</p>
+</div>
+<div class="paragraph">
+<p>Alternatively, the parameters can be directly specified in the command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] bootstrap-admin service <span class="nt">--client-id</span> tmpclient <span class="nt">--client-secret</span>:env<span class="o">=</span>SECRET_VAR</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This command creates a temporary admin service account with the client ID <code>tmpclient</code> and the secret retrieved from the environment variable.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_regaining_access_to_the_realm_with_an_increased_security"><a class="anchor" href="#_regaining_access_to_the_realm_with_an_increased_security"></a>Regaining access to the realm with an increased security</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Passwordless, OTP, or other advanced authentication methods can be enforced for a realm with lost admin access. In such a case, the admin service account needs to be created to recover lost admin access to the realm. After the service account is created, authentication against the Keycloak instance is required to perform all necessary operations:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kcadm.[sh|bat] config credentials <span class="nt">--server</span> http://localhost:8080 <span class="nt">--realm</span> master <span class="nt">--client</span> &lt;service_account_client_name&gt; <span class="nt">--secret</span> &lt;service_account_secret&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Next, retrieve the <code>credentialId</code>. For this example, the OTP credential is the relevant one. Use the following command to get an array of <code>CredentialRepresentation</code> objects and find the one with <code>type</code> set to <code>otp</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kcadm.[sh|bat] get <span class="nb">users</span>/<span class="o">{</span>userId<span class="o">}</span>/credentials <span class="nt">-r</span> <span class="o">{</span>realm-name<span class="o">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Finally, the retrieved ID can be used to remove the advanced authentication method (in our case, OTP):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kcadm.[sh|bat] delete <span class="nb">users</span>/<span class="o">{</span>userId<span class="o">}</span>/credentials/<span class="o">{</span>credentialId<span class="o">}</span> <span class="nt">-r</span> <span class="o">{</span>realm-name<span class="o">}</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_default_values"><a class="anchor" href="#_default_values"></a>Default values</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For both the startup and dedicated command scenarios, the username and client ID are optional and default to <code>temp-admin</code> for both the user and service account, respectively.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_disable_the_parameters_prompt"><a class="anchor" href="#_disable_the_parameters_prompt"></a>Disable the parameters prompt</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To disable the prompt for the parameters, the <code>--no-prompt</code> parameter can be used. For example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] bootstrap-admin user <span class="nt">--username</span> tmpadm <span class="nt">--no-prompt</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If no corresponding environment variable is set, the command will fail with an error message indicating that the required password parameter is missing.</p>
+</div>
+<div class="paragraph">
+<p>The <code>--no-prompt</code> parameter can be useful if the username or client ID should be omitted. For example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] bootstrap-admin user <span class="nt">--password</span>:env PASS_VAR <span class="nt">--no-prompt</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This creates a temporary admin user with the default username without prompting for confirmation. For more information, see the <a href="#_default_values">Default values</a> section above.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_environment_variables"><a class="anchor" href="#_environment_variables"></a>Environment variables</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For the <code>bootstrap-admin user</code> command, both username and password can be optionally set as environment variables:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] bootstrap-admin user <span class="nt">--username</span>:env &lt;YourUsernameEnv&gt; <span class="nt">--password</span>:env &lt;YourPassEnv&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For the <code>bootstrap-admin service</code> command, the client ID is optional and defaults to <code>temp-admin</code>, while the client secret is required to be set as an environment variable:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] bootstrap-admin service <span class="nt">--client-id</span>:env &lt;YourClientIdEnv&gt; <span class="nt">--client-secret</span>:env &lt;YourSecretEnv&gt;</code></pre>
+</div>
+</div>
+</div>
+</div> </div>
+</main>

@@ -1,0 +1,12 @@
+<main><header><h1>authorization</h1></header>
+<div><span><span>Hot Reloadable</span></span><div>Only username/password/timeout/default_permissions are legal under cluster authorization.</div></div>
+<p>Authorization map for configuring cluster routes. When a single username/password is used, it defines the authentication mechanism
+this server expects, and how this server will authenticate itself when establishing a connection to a discovered route. This will
+not be used for routes explicitly listed in routes and therefore have to be provided as part of the URL. With this authentication
+mode, either use the same credentials throughout the system or list every route explicitly on every server.</p>
+<p>If the <code>tls</code> configuration map specifies <code>verify_and_map</code> only, provide the expected username. Here different certificates can be
+used, but they have to map to the same <code>username</code>. The authorization map also allows for timeout which is honored but users and
+token configuration are not supported and will prevent the server from starting. The <code>permissions</code> block is ignored.</p>
+<h2 id="properties">Properties</h2>
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Default</th><th>Reloadable</th></tr></thead><tbody><tr><td><a href="/reference/config/cluster/authorization/username"><code>username</code></a></td><td>User name the connecting server authenticates with (requires <code>password</code>).</td><td><code>string</code></td><td>-</td><td>Yes</td></tr><tr><td><a href="/reference/config/cluster/authorization/password"><code>password</code></a></td><td>Password the connecting server authenticates with (requires <code>username</code>).</td><td><code>string</code></td><td>-</td><td>Yes</td></tr><tr><td><a href="/reference/config/cluster/authorization/default_permissions/"><code>default_permissions</code></a></td><td>The default permissions applied to users, if permissions are not explicitly defined for them.</td><td><code>object</code></td><td>-</td><td>Yes*</td></tr><tr><td><a href="/reference/config/cluster/authorization/timeout"><code>timeout</code></a></td><td>Maximum number of seconds to wait for a client to authenticate.</td><td><code>float</code></td><td><code>1</code></td><td>Yes*</td></tr></tbody></table>
+<p>* See the property page for reload caveats.</p></main>

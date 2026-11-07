@@ -1,0 +1,7 @@
+<main><header><h1>default_permissions</h1></header>
+<div><span><span>Hot Reloadable</span></span><div>Deprecated form; also ignored entirely if a top-level cluster{permissions} block is present (opts.go:2074).</div></div>
+<p>The default permissions applied to users, if permissions are
+not explicitly defined for them.</p>
+<h2 id="properties">Properties</h2>
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Default</th><th>Reloadable</th></tr></thead><tbody><tr><td><a href="/reference/config/cluster/authorization/default_permissions/publish/"><code>publish</code></a></td><td>A single subject, list of subjects, or a allow-deny map of subjects for publishing. Specifying a single subject or list of subjects denotes an <em>allow</em> and implcitly denies publishing to all other subjects.</td><td><code>(multiple)</code></td><td>-</td><td>Yes</td></tr><tr><td><a href="/reference/config/cluster/authorization/default_permissions/subscribe/"><code>subscribe</code></a></td><td>A single subject, list of subjects, or a allow-deny map of subjects for subscribing. Note, that the subject permission can have an optional second value declaring a queue name.</td><td><code>(multiple)</code></td><td>-</td><td>Yes</td></tr><tr><td><a href="/reference/config/cluster/authorization/default_permissions/allow_responses/"><code>allow_responses</code></a></td><td></td><td><code>(multiple)</code></td><td>-</td><td>Ignored*</td></tr></tbody></table>
+<p>* See the property page for reload caveats.</p></main>

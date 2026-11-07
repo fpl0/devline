@@ -1,0 +1,98 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following building blocks are needed to set up a single-cluster deployment.</p>
+</div>
+<div class="paragraph">
+<p>The building blocks link to a blueprint with an example configuration.
+They are listed in the order in which they need to be installed.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+We provide these blueprints to show a minimal functionally complete example with a good baseline performance for regular installations.
+You would still need to adapt it to your environment and your organization’s standards and security best practices.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="single-cluster-blocks-prerequisites"><a class="anchor" href="#single-cluster-blocks-prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Understanding the concepts laid out in the <a href="https://www.keycloak.org/high-availability/single-cluster/concepts">Concepts for single-cluster deployments</a> guide.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="single-cluster-blocks-low-latency"><a class="anchor" href="#single-cluster-blocks-low-latency"></a>Multiple availability-zones with low-latency connection</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak requires a low latency network connection for the synchronous replication of data by the database and Keycloak clustering.</p>
+</div>
+<div class="paragraph">
+<p>A round-trip latency of less than 5 ms is suggested and below 10 ms is required, together with a reliable network between the zones to avoid unexpected problems with latency, throughput or connectivity.</p>
+</div>
+<div class="paragraph">
+<p>Network latency and latency spikes amplify in the response time of the service and can lead to queued requests, timeouts, and failed requests.
+Networking problems can cause downtimes until the failure detection isolates problematic nodes.</p>
+</div>
+<div class="paragraph">
+<p><strong>Suggested setup:</strong> Kubernetes cluster consisting of two or more AWS Availability Zones within the same AWS Region.</p>
+</div>
+<div class="paragraph">
+<p><strong>Not considered:</strong> Kubernetes clusters spread across multiple regions on the same or different continents, as it would increase the latency and the likelihood of network failures.
+Synchronous replication of databases as services with Aurora Regional Deployments on AWS is only available within the same region.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="single-cluster-blocks-database"><a class="anchor" href="#single-cluster-blocks-database"></a>Database</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A synchronously replicated database available across all availability-zones.</p>
+</div>
+<div class="sect2">
+<h3 id="_aurora"><a class="anchor" href="#_aurora"></a>Aurora</h3>
+<div class="paragraph">
+<p><strong>Blueprint:</strong> <a href="https://www.keycloak.org/high-availability/single-cluster/deploy-aurora">Deploying AWS Aurora in multiple availability zones</a>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_cloudnativepg"><a class="anchor" href="#_cloudnativepg"></a>CloudNativePG</h3>
+<div class="paragraph">
+<p><strong>Blueprint:</strong> <a href="https://www.keycloak.org/high-availability/single-cluster/deploy-cnpg">Deploying CloudNativePG in multiple availability zones</a>.</p>
+</div>
+<div class="paragraph">
+<p><strong>Blueprint:</strong> <a href="https://www.keycloak.org/high-availability/single-cluster/deploy-cnpg-with-backup">Deploying CloudNativePG with scheduled backups to S3</a>.</p>
+</div>
+<div class="paragraph">
+<p><strong>Blueprint:</strong> <a href="https://www.keycloak.org/high-availability/single-cluster/deploy-cnpg-recovery">Recovering a CloudNativePG cluster from an S3 backup</a>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="single-cluster-blocks-keycloak"><a class="anchor" href="#single-cluster-blocks-keycloak"></a>Keycloak</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A clustered deployment of Keycloak with pods distributed across availability-zones.</p>
+</div>
+<div class="paragraph">
+<p><strong>Blueprint:</strong> <a href="https://www.keycloak.org/high-availability/single-cluster/deploy-keycloak">Deploying Keycloak across multiple availability-zones with the Operator</a>.</p>
+</div>
+</div>
+</div> </div>
+</main>

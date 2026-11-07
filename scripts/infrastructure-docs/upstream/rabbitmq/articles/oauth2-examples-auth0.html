@@ -1,0 +1,114 @@
+<main><header><h1>Use <a href="https://auth0.com">auth0.com</a> as OAuth 2.0 server</h1></header>
+<p>This guide explains how to set up OAuth 2.0 for RabbitMQ
+and Auth0 as Authorization Server using the following flows:</p>
+<ul>
+<li>Access <a href="/docs/4.3/management">management UI</a> via a browser</li>
+<li>Access management HTTP API</li>
+<li>Application authentication and authorization</li>
+</ul>
+<h2 id="prerequisites-to-follow-this-guide">Prerequisites to follow this guide</h2>
+<ul>
+<li>Have an <a href="https://auth0.com/">Auth0</a> account</li>
+<li>Docker</li>
+<li>A local clone of a <a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/tree/next">GitHub repository</a> for branch <code>next</code> that contains all the configuration files and scripts used on this example.</li>
+</ul>
+<h2 id="create-rabbitmq-api">Create RabbitMQ API</h2>
+<p>In Auth0, resources are mapped to Application APIs.</p>
+<ol>
+<li>After logging into the Auth0 account, go to <strong>dashboard &gt; Applications &gt; APIs &gt; Create an API</strong>.</li>
+<li>Give it the name <code>rabbitmq</code>. The important thing here is the <code>identifier</code> which must have the name of the <em>resource_server_id</em> we configured in RabbitMQ. This <code>identifier</code> goes into the <code>audience</code> JWT field. In our case, it is called <code>rabbitmq</code>.</li>
+<li>Choose <code>RS256</code> as the signing algorithm.</li>
+<li>Enable <strong>RBAC</strong>.</li>
+<li>Enable <strong>Add Permissions in the Access Token</strong>.</li>
+</ol>
+<h3 id="configure-permissions-in-rabbitmq-api">Configure permissions in RabbitMQ API</h3>
+<ol>
+<li>
+<p>Edit the API we just created with the name <code>rabbitmq</code>.</p>
+</li>
+<li>
+<p>Go into Permissions and add the permissions (scope) this api can grant. You are going to add the following scopes:</p>
+<ul>
+<li><code>rabbitmq.read:*/*</code></li>
+<li><code>rabbitmq.write:*/*</code></li>
+<li><code>rabbitmq.configure:*/*</code></li>
+<li><code>rabbitmq.tag:administrator</code></li>
+</ul>
+</li>
+</ol>
+<h3 id="create-an-oauth-client-for-the-management-ui">Create an OAuth client for the Management UI</h3>
+<p>By default, for every API we create, an <em>Application</em> gets created using the API's <code>identifier</code> as its name.
+An <em>Application</em> requests an <strong>OAuth client</strong>.</p>
+<p>Go to <strong>dashboard &gt; Applications</strong>, and you should see your application listed. An application gives us a <em>client_id</em>, a <em>client_secret</em> and a http endpoint called <em>Domain</em> where to claim a token.</p>
+<h2 id="create-application-rabbitmq-management">Create Application rabbitmq-management</h2>
+<p>An application gives us the client-id and client-secret for the management UI to authenticate on behalf
+of the end user.</p>
+<p>In the settings, choose:</p>
+<ul>
+<li>Application type : <code>Single Page applications</code></li>
+<li>Allowed Callback URLs: <code>https://localhost:15671/js/oidc-oauth/login-callback.html</code></li>
+<li>Allowed Web Origins: <code>https://localhost:15671</code></li>
+<li>Allowed Origins (CORS): <code>https://localhost:15671</code></li>
+</ul>
+<h2 id="create-a-user-for-management-ui-access">Create a User for Management UI Access</h2>
+<h3 id="create-user">Create user</h3>
+<ol>
+<li>Go to <strong>User Management</strong> &gt; <strong>Users</strong>.</li>
+<li>Create a user. This is the user you will use to login via the management UI.</li>
+</ol>
+<h3 id="create-permissions-and-grant-them">Create permissions and grant them</h3>
+<ol>
+<li>Go to <strong>Roles</strong>.</li>
+<li>Create the role called <code>rabbitmq.tag:administrator</code>.</li>
+<li>Go to <strong>Permissions</strong> and select all the permissions.</li>
+<li>Go to <strong>Users</strong> and make sure our user is listed else add our user to the
+list of users which have this role.</li>
+</ol>
+<h2 id="configure-rabbitmq-to-authenticate-with-auth0">Configure RabbitMQ to authenticate with Auth0</h2>
+<p>To configure RabbitMQ you need to gather the following information from Auth0:</p>
+<ol>
+<li>Go to <strong>dashboard &gt; Applications &gt; Applications</strong>.</li>
+<li>Click on the application <code>rabbitmq-management</code>.</li>
+<li>Take note of the <em>Client ID</em> value</li>
+<li>And take note of the <em>Domain</em> value</li>
+<li>Use the last values in <em>Client ID</em> and <em>Domain</em> fields in the RabbitMQ configuration file</li>
+</ol>
+<p>Clone the configuration file <a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/blob/main/conf/auth0/rabbitmq.conf.tmpl">conf/auth0/rabbitmq.conf.tmpl</a> as <code>rabbitmq.conf</code> (in the same folder as <code>rabbitmq.conf.tmpl</code>).</p>
+<p>Edit <code>rabbitmq.conf</code> and proceed as follows:</p>
+<ol>
+<li>Replace <code>{Client ID}</code> with the values you gathered above.</li>
+<li>Same for <code>{Domain}</code></li>
+</ol>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>Starting with RabbitMQ 4.1.x, you must configure RabbitMQ to include a URI parameter
+called <code>audience</code> whose value matches the value of <code>auth_oauth2.resource_server_id</code>.</p><p>Earlier RabbitMQ versions always sent this URI parameter. If this additional URI parameter is not configured,
+Auth0 will consider the token invalid and RabbitMQ will display "No authorized" for error.</p><p>These <a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/blob/next/conf/auth0/rabbitmq.conf.tmpl#L8-L9">two configuration lines</a>
+configure the <code>audience</code> parameter with the value <code>rabbitmq</code>.</p></div></div>
+<h2 id="start-rabbitmq">Start RabbitMQ</h2>
+<p>Run the following commands to start RabbitMQ:</p>
+<div><div><pre><code class="language-bash">export MODE=auth0
+make start-rabbitmq</code></pre></div></div>
+<h2 id="verify-management-ui-flows">Verify Management UI flows</h2>
+<ol>
+<li>Go to management UI <code>https://localhost:15671</code>.</li>
+<li>Click on the single button, authenticate with your secondary Auth0 user. You should be redirected back to the management UI.</li>
+</ol>
+<p><strong>Auth0</strong> issues an access token like this one below. It has in the <code>scope</code> claim
+the requested scopes configured in <code>management.oauth_scopes</code>, and in the <code>permissions</code> claim all the scopes you configured for this user in Auth0. RabbitMQ read the scopes from the <code>scope</code> claim but also from the claim name configured in <code>auth_oauth2.additional_scopes_key</code> whose value is <code>permissions</code>.</p>
+<div><div><pre><code class="language-javascript">{
+  "iss": "https://dev-tm5ebsbbdcbqddcj.us.auth0.com/",
+  "sub": "auth0|66d980b862efcd9f5144f42a",
+  "aud": [
+    "rabbitmq",
+    "https://dev-tm5ebsbbdcbqddcj.us.auth0.com/userinfo"
+  ],
+  "iat": 1725533554,
+  "exp": 1725619954,
+  "scope": "openid profile rabbitmq.tag:administrator",
+  "azp": "IC1fqsSjkQq2cVsYyHUuQyq30OAYuUv2",
+  "permissions": [
+    "rabbitmq.configure:*/*",
+    "rabbitmq.read:*/*",
+    "rabbitmq.tag:administrator",
+    "rabbitmq.write:*/*"
+  ]
+}</code></pre></div></div></main>

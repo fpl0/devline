@@ -1,0 +1,332 @@
+<main><header><h1>Subjects &amp; wildcards</h1></header>
+<p>On the previous page Acme published <code>orders.created</code> and three services
+subscribed to it. That subject was a flat name. This page gives the
+subject some structure and lets a subscriber match a whole family of
+them at once.</p>
+<p>Acme is opening regional fulfillment. Orders no longer all look the same:
+a US order and an EU order need to land somewhere a regional service can
+tell them apart. The subject is where that distinction lives.</p>
+<h2 id="a-subject-is-a-sequence-of-tokens">A subject is a sequence of tokens</h2>
+<p>A <strong>subject</strong> is a string the server uses to match publishers to
+subscribers. You already used one: <code>orders.created</code>.</p>
+<p>The <code>.</code> (dot) splits the subject into <strong>tokens</strong>.
+<code>orders.created</code> is two tokens, <code>orders</code> then <code>created</code>. The server
+treats each token as a separate unit when it matches.</p>
+<p>That splitting turns a flat name into a hierarchy. Acme can put the
+region in the middle:</p>
+<div><div><pre><code class="language-text">orders.us.created
+orders.eu.created
+orders.us.canceled
+orders.eu.canceled</code></pre></div></div>
+<p>Each of those is three tokens. The first token groups them all under
+<code>orders</code>. The second token says which region. The third says what
+happened. The server isn't configured to know "region" means anything;
+the meaning lives entirely in the names Acme chose.</p>
+<p>A few rules govern what a token may contain.</p>
+<p>Subjects are <strong>case-sensitive</strong>. <code>Orders.created</code> and <code>orders.created</code>
+are two different subjects. A publisher to one won't reach a
+subscriber on the other.</p>
+<p>Tokens are split by single dots only. Spaces, tabs, and line breaks
+aren't allowed anywhere in a subject. Stick to letters, digits, <code>-</code>, and
+<code>_</code> inside a token and you'll never be surprised.</p>
+<p>Note that subjects beginning with <code>$</code> are <strong>reserved</strong> for special or
+internal use by the server or clients and should always be avoided when
+designing your subject space. Future server or client versions may claim
+additional subject namespaces beginning with <code>$</code> at any time.</p>
+<h2 id="subjects-cost-almost-nothing-to-create">Subjects cost almost nothing to create</h2>
+<p>Acme just invented four new subjects without telling the server first —
+that's allowed, and it costs almost nothing. The interest graph from the
+previous page holds an entry for a subject only once something subscribes
+to it, so a subject nobody listens to has no presence on the server at
+all. You never declare or clean up subjects, and a system can use
+millions of them without slowing the server down, because matching walks
+the token tree rather than scanning every subscription.</p>
+<h2 id="wildcards-subscribe-to-many-subjects-at-once">Wildcards: subscribe to many subjects at once</h2>
+<p>A publisher always names one full subject. <code>nats pub</code> to
+<code>orders.*.created</code> isn't "publish to every region": it would publish
+to the literal subject containing a <code>*</code>, which nobody wants.
+Wildcards are a <strong>subscriber-only</strong> tool.</p>
+<p>A <strong>wildcard</strong> is a token in a subscription that matches more than one
+literal subject. NATS has exactly two of them, and they differ in how
+many tokens they match.</p>
+<div></div>
+<h3 id="the-single-token-wildcard-">The single-token wildcard <code>*</code></h3>
+<p>The <strong>single-token wildcard</strong> <code>*</code> matches exactly one token — not zero,
+not two.</p>
+<p>Acme wants one analytics view of created orders across every region.
+Instead of subscribing to <code>orders.us.created</code> and <code>orders.eu.created</code>
+separately, it subscribes once to <code>orders.*.created</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Regional analytics: catch created orders from every region with one
+# subscription. The single-token wildcard * matches exactly one token in
+# the region position, so orders.us.created and orders.eu.created both
+# match, while orders.created and orders.us.west.created do not.
+nats sub "orders.*.created"</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Regional analytics: one subscription catches created orders from every
+// region. The single-token wildcard * matches exactly one token, so both
+// orders.us.created and orders.eu.created match, while orders.created and
+// orders.us.west.created do not.
+const sub = nc.subscribe("orders.*.created");
+for await (const msg of sub) {
+  console.log(`analytics: new order on ${msg.subject}`);
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Regional analytics: one subscription catches created orders from every
+// region. The single-token wildcard * matches exactly one token, so
+// orders.us.created and orders.eu.created both match, while orders.created
+// and orders.us.west.created do not.
+nc.Subscribe("orders.*.created", func(m *nats.Msg) {
+	fmt.Printf("analytics: new order on %s\n", m.Subject)
+})</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Regional analytics: one subscription catches created orders from every
+# region. The single-token wildcard * matches exactly one token, so both
+# orders.us.created and orders.eu.created match, while orders.created and
+# orders.us.west.created do not.
+async with await client.subscribe("orders.*.created") as subscription:
+    async for message in subscription:
+        print(f"analytics: new order on {message.subject}")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Regional analytics: one subscription catches created orders from every
+// region. The single-token wildcard * matches exactly one token, so both
+// orders.us.created and orders.eu.created match, while orders.created and
+// orders.us.west.created do not.
+nc.createDispatcher(msg -&gt;
+    System.out.println("analytics: new order on " + msg.getSubject())
+).subscribe("orders.*.created");</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Regional analytics: one subscription catches created orders from every
+// region. The single-token wildcard * matches exactly one token, so both
+// orders.us.created and orders.eu.created match, while orders.created and
+// orders.us.west.created do not.
+let mut sub = client.subscribe("orders.*.created").await?;
+while let Some(msg) = sub.next().await {
+    println!("analytics: new order on {}", msg.subject);
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Regional analytics: one subscription catches created orders from every
+// region. The single-token wildcard * matches exactly one token, so both
+// orders.us.created and orders.eu.created match, while orders.created and
+// orders.us.west.created do not.
+await foreach (var msg in client.SubscribeAsync&lt;Order&gt;("orders.*.created"))
+{
+    output.WriteLine($"analytics: new order on {msg.Subject}");
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Regional analytics: one subscription catches created orders from every
+// region. The single-token wildcard * matches exactly one token, so
+// orders.us.created and orders.eu.created both match, while orders.created
+// and orders.us.west.created do not.
+static void
+onOrder(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("analytics: new order on %s\n", natsMsg_GetSubject(msg));
+
+    natsMsg_Destroy(msg);
+}
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "orders.*.created",
+                                     onOrder, NULL);</code></pre></div></div>
+<p>The <code>*</code> sits in the region position. Walk through what it catches:</p>
+<ul>
+<li><code>orders.us.created</code> matches: <code>*</code> takes the single token <code>us</code>.</li>
+<li><code>orders.eu.created</code> matches: <code>*</code> takes the single token <code>eu</code>.</li>
+<li><code>orders.created</code> does not match: there's no token in the
+region position, and <code>*</code> needs exactly one.</li>
+<li><code>orders.us.west.created</code> does not match: two tokens sit where
+<code>*</code> allows only one.</li>
+</ul>
+<p>The position of <code>*</code> is fixed; the token in it is free. You can also use
+more than one: <code>orders.*.*</code> matches any three-token subject under
+<code>orders</code>, with both middle and last tokens free.</p>
+<h3 id="the-multi-token-wildcard-">The multi-token wildcard <code>&gt;</code></h3>
+<p>The <strong>multi-token wildcard</strong> <code>&gt;</code> matches one or more tokens, and it must
+be the last token in the pattern.</p>
+<p>Acme is adding an audit service that wants every order message, at every
+depth, regardless of region or action. One subscription covers it:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Audit service: catch every order message at any depth. The multi-token
+# wildcard &gt; matches one or more tokens and must be the last token, so
+# orders.&gt; matches orders.created, orders.us.created, and
+# orders.us.west.created alike.
+nats sub "orders.&gt;"</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Audit service: catch every order message at any depth. The multi-token
+// wildcard &gt; matches one or more tokens and must be the last token, so
+// orders.&gt; matches orders.created, orders.us.created, and
+// orders.us.west.created alike.
+const sub = nc.subscribe("orders.&gt;");
+for await (const msg of sub) {
+  console.log(`audit: ${msg.subject}`);
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Audit service: catch every order message at any depth. The multi-token
+// wildcard &gt; matches one or more tokens and must be the last token, so
+// orders.&gt; matches orders.created, orders.us.created, and
+// orders.us.west.created alike.
+nc.Subscribe("orders.&gt;", func(m *nats.Msg) {
+	fmt.Printf("audit: %s\n", m.Subject)
+})</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Audit service: catch every order message at any depth. The multi-token
+# wildcard &gt; matches one or more tokens and must be the last token, so
+# orders.&gt; matches orders.created, orders.us.created, and
+# orders.us.west.created alike.
+async with await client.subscribe("orders.&gt;") as subscription:
+    async for message in subscription:
+        print(f"audit: {message.subject}")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Audit service: catch every order message at any depth. The multi-token
+// wildcard &gt; matches one or more tokens and must be the last token, so
+// orders.&gt; matches orders.created, orders.us.created, and
+// orders.us.west.created alike.
+nc.createDispatcher(msg -&gt;
+    System.out.println("audit: " + msg.getSubject())
+).subscribe("orders.&gt;");</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Audit service: catch every order message at any depth. The multi-token
+// wildcard &gt; matches one or more tokens and must be the last token, so
+// orders.&gt; matches orders.created, orders.us.created, and
+// orders.us.west.created alike.
+let mut sub = client.subscribe("orders.&gt;").await?;
+while let Some(msg) = sub.next().await {
+    println!("audit: {}", msg.subject);
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Audit service: catch every order message at any depth. The multi-token
+// wildcard &gt; matches one or more tokens and must be the last token, so
+// orders.&gt; matches orders.created, orders.us.created, and
+// orders.us.west.created alike.
+await foreach (var msg in client.SubscribeAsync&lt;Order&gt;("orders.&gt;"))
+{
+    output.WriteLine($"audit: {msg.Subject}");
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Audit service: catch every order message at any depth. The multi-token
+// wildcard &gt; matches one or more tokens and must be the last token, so
+// orders.&gt; matches orders.created, orders.us.created, and
+// orders.us.west.created alike.
+static void
+onOrder(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("audit: %s\n", natsMsg_GetSubject(msg));
+
+    natsMsg_Destroy(msg);
+}
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "orders.&gt;", onOrder, NULL);</code></pre></div></div>
+<p><code>orders.&gt;</code> reaches the entire hierarchy under <code>orders</code>:</p>
+<ul>
+<li><code>orders.created</code> matches: <code>&gt;</code> takes the one token <code>created</code>.</li>
+<li><code>orders.us.created</code> matches: <code>&gt;</code> takes the two tokens <code>us.created</code>.</li>
+<li><code>orders.us.west.created</code> matches: <code>&gt;</code> takes all three remaining
+tokens.</li>
+<li><code>orders</code> does not match: <code>&gt;</code> needs at least one token after the
+prefix.</li>
+</ul>
+<p>Because <code>&gt;</code> matches a token <em>and everything after it</em>, it only makes
+sense at the end. <code>orders.&gt;.created</code> is invalid: the server rejects the
+subscription with an Invalid Subject error. There's no way to anchor a
+tail wildcard in the middle and still know where it stops.</p>
+<p>This is the difference to keep: <code>*</code> is a placeholder for one token in a
+known shape; <code>&gt;</code> is "everything from here down."</p>
+<h2 id="a-wildcard-subscriber-behaves-like-any-subscriber">A wildcard subscriber behaves like any subscriber</h2>
+<p>A wildcard doesn't change the delivery model from the last page. It
+changes which subjects count as a match, nothing else.</p>
+<p>The audit service on <code>orders.&gt;</code> is just another interested subscriber.
+When Acme publishes <code>orders.us.created</code>, every matching subscriber gets
+its own copy: the warehouse on <code>orders.created</code> does <em>not</em> (different
+subject now), the regional analytics on <code>orders.*.created</code> does, and the
+audit service on <code>orders.&gt;</code> does. The server fans one publish out to all
+of them. Delivery is still <a href="/learn/core-nats/publish-subscribe#at-most-once-delivery">at-most-once</a>:
+a wildcard lets a service that joins now see everything published <em>from
+now on</em>, not what it missed before joining. Capturing that backlog is
+what <a href="/learn/jetstream">JetStream</a> adds.</p>
+<h2 id="reserved-prefixes-to-avoid">Reserved prefixes to avoid</h2>
+<p>Acme can name subjects almost anything, but two prefixes are reserved.</p>
+<p>Subjects beginning with <code>$</code> belong to the server and its subsystems:
+<code>$SYS</code> for system events, and <code>$JS</code>, <code>$KV</code>, <code>$O</code>, and <code>$SRV</code> for the
+JetStream, Key-Value, Object-Store, and Services subsystems. Don't
+publish application messages under <code>$</code> and do not design your applications
+to use subjects starting with <code>$</code>, as they may be claimed by future
+versions of the server or clients at any time.</p>
+<p>The <code>_INBOX</code> prefix is reserved for reply subjects that clients generate
+automatically. You don't pick <code>_INBOX</code> names yourself, and you don't
+publish business messages there. The next page, on request-reply, shows
+exactly what <code>_INBOX</code> is for.</p>
+<h2 id="try-it-in-two-terminals">Try it in two terminals</h2>
+<p>With <code>nats-server</code> running, watch a wildcard catch messages it was never
+told about by name:</p>
+<div><div><pre><code class="language-bash"># Terminal 1 — the audit service: every order message, any depth
+nats sub "orders.&gt;"</code></pre></div></div>
+<div><div><pre><code class="language-bash"># Terminal 2 — publish to two regions and a flat subject
+nats pub orders.us.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+nats pub orders.eu.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+nats pub orders.shipped    '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'</code></pre></div></div>
+<p>All three arrive in Terminal 1. Now restart Terminal 1 with
+<code>nats sub "orders.*.created"</code> and re-run Terminal 2: only the two
+<code>*.created</code> messages arrive; <code>orders.shipped</code> no longer matches.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong><code>&gt;</code> only works as the last token.</strong> Use <code>*</code> for a free token in the
+middle: subscribe to <code>orders.*.created</code>, not the invalid <code>orders.&gt;.created</code>,
+which the server rejects.</p>
+<p><strong>Publishers can't publish "to a wildcard."</strong> Wildcards are a
+subscriber-only tool. A publisher always names one fully-qualified
+subject. The trap is that publishing to <code>orders.*.created</code> doesn't produce
+an error: the <code>*</code> is taken as a literal character, so the message lands on
+the odd literal subject <code>orders.*.created</code>. A service subscribed to the
+exact subject <code>orders.us.created</code> never sees it, while wildcard
+subscribers like the regional analytics on <code>orders.*.created</code> and the
+audit service on <code>orders.&gt;</code> do get it — a subscription's <code>*</code> matches any
+single token, including a literal <code>*</code> — which makes the mistake confusing
+to debug. Publish the real subject (<code>orders.us.created</code>); reserve <code>*</code>
+and <code>&gt;</code> for <code>nats sub</code> and the subscribe call in your client.</p>
+<p><strong>An over-broad <code>orders.&gt;</code> pulls more than you want.</strong> It's tempting to
+subscribe to <code>orders.&gt;</code> and filter in code, but that subscriber then
+receives <em>every</em> order message at every depth, for all regions and
+actions, including subjects created later. Subscribe to the narrowest
+pattern that covers your need: <code>orders.*.created</code> for regional new-order
+analytics, the exact subject for a single concern. Narrow interest keeps
+unwanted traffic off the wire entirely, rather than having your code
+discard it after delivery.</p>
+<p><strong>Whitespace is never allowed in a subject.</strong> A token can't contain a
+space, tab, or line break: on the wire, a space separates the subject
+from the reply subject and byte count, so a space inside a subject would
+be read as a boundary. The CLI and most clients catch this before
+sending — publishing to <code>orders.us created</code> fails with <code>nats: invalid subject</code>, and nothing is sent. A client that skips the check (nats.py's
+<code>publish</code> does) writes the space straight into the <code>PUB</code> line, and the
+server silently misroutes: <code>orders.us</code> becomes the subject and <code>created</code>
+a reply subject. Don't rely on the check; keep spaces out of the
+subject:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# A subject token can't contain whitespace. On the wire, a space separates the
+# subject from the reply subject and byte count, so a modern client rejects the
+# subject before anything is sent. This publish therefore FAILS with
+#   nats: error: nats: invalid subject
+# and exits non-zero -- the message never reaches the server.
+nats pub "orders.us created" '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+
+# (An older client -- nats.go before v1.48.0 -- or a raw-protocol writer skips
+# this check and would instead misroute silently: the server would read
+# "orders.us" as the subject and "created" as a reply subject.)
+
+# The fix is one token per dot, no spaces: orders.us.created
+nats pub "orders.us.created" '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// A subject token can't contain whitespace: on the wire, a space
+// separates the subject from the reply subject and byte count. The C
+// client's publish skips the check, so this call does NOT fail: the
+// space goes straight into the PUB line and the server silently
+// misroutes: "orders.us" becomes the subject and "created" a reply
+// subject. Nobody subscribed to orders.us.created ever sees it.
+const char *order = "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+                    "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}";
+
+s = natsConnection_PublishString(conn, "orders.us created", order);
+printf("publish with a space returned: %s\n", natsStatus_GetText(s));
+
+// Don't rely on a client-side check; keep spaces out of the subject.
+// The fix is one token per dot: orders.us.created.
+if (s == NATS_OK)
+    s = natsConnection_PublishString(conn, "orders.us.created", order);</code></pre></div></div>
+<h2 id="where-you-are">Where you are</h2>
+<p>Acme's order traffic now has a shape:</p>
+<ul>
+<li>Orders publish to structured subjects: <code>orders.created</code>,
+<code>orders.us.created</code>, <code>orders.eu.created</code>, and so on.</li>
+<li>Regional analytics subscribes to <code>orders.*.created</code> to catch every
+region's new orders with one subscription.</li>
+<li>An audit service subscribes to <code>orders.&gt;</code> to catch the whole
+hierarchy.</li>
+</ul>
+<p>Subjects address messages; wildcards let one subscriber match a family
+of them. That's the addressing layer everything else in core NATS uses.</p>
+<h2 id="whats-next">What's next</h2>
+<p>So far every message flows one way: a publisher sends, subscribers
+receive, and nobody sends a reply back. The next page,
+<a href="/learn/core-nats/request-reply">Request-reply</a>, adds a reply path:
+Acme builds an inventory service that <em>answers</em> a question on
+<code>orders.inventory.check</code>, using a reserved <code>_INBOX</code> subject you just met.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/concepts/subjects">Core Concepts → Subjects</a> — the short overview of
+tokens and wildcards.</li>
+<li><a href="/learn/security">Learn → Security</a> — granting or denying access per
+subject and wildcard.</li>
+<li><a href="/learn/topologies/super-clusters">Learn → Super-clusters</a> — how
+subject interest propagates across servers and regions.</li>
+</ul></main>

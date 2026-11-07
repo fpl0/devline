@@ -1,0 +1,175 @@
+<main><header><h1>Desired state and evacuation</h1></header>
+<p>The <a href="/learn/clustering/scaling-and-peers">previous page</a> changed the
+<code>ORDERS</code> group one peer at a time and waited for each change to land. From
+2.15 the server does that waiting for you. A scale, a move, a placement
+change, or a retention change is recorded as <strong>desired state</strong>: the peer set
+the stream should end up with. The servers then converge on it on their own,
+and you can read how far along they are.</p>
+<p>This page reads that recorded state, uses it to move every asset off a
+server in one command, and rolls a reconfiguration back when you started the
+wrong one.</p>
+<h2 id="what-the-server-records">What the server records</h2>
+<p>Before 2.15 a reconfiguration left no record of what it was trying to do.
+The meta leader chose the new peers and added them to the group, and from
+then on the only sign that anything was in progress was that the group held
+a different number of peers than the stream's replica count. The stream's
+own leader watched for the new peers to catch up and then proposed dropping
+the old ones. It worked, but the intent was inferred from the peer count
+rather than written down, so there was nothing to ask about where the stream
+was heading and nothing recorded to put it back to.</p>
+<p>Now the meta leader writes the end state onto the assignment — the cluster
+to finish in, the peer set to finish on, and the configuration the stream
+had before — and every server converges on it. That record is what the rest
+of this page is built on: it's why you can read a reconfiguration while it
+runs, and why you can cancel one.</p>
+<p>That record shows up in <code>nats stream info</code> as its own section, under the
+<code>Cluster Information</code> you already read on the previous pages. Start a move
+of <code>ORDERS</code> from <code>east</code> to <code>west</code> and look:</p>
+<div><div><pre><code class="language-bash">nats --server nats://127.0.0.1:4222 stream info ORDERS</code></pre></div></div>
+<div><div><pre><code class="language-text">Cluster Information:
+
+                Name: east
+              Leader: n1-east
+             Replica: n2-east, current, seen 0.10s ago
+             Replica: n3-east, current, seen 0.14s ago
+             Replica: n1-west, outdated, seen 0.11s ago, (pending), 9,102 operations behind
+
+   Cluster Migration Status:
+
+              Status: moving stream to cluster west
+             Created: 2026-09-18 09:41:22 (1m18s)
+
+             Cluster: east -&gt; west
+       Desired Peers: n1-west, n2-west, n3-west</code></pre></div></div>
+<p><strong>Desired peers</strong> is the peer set the stream is heading for. The <code>Replica</code>
+lines above it are the peers it has right now, so the two lists differ while
+a reconfiguration is in flight and match when it's done.</p>
+<p><strong><code>(pending)</code></strong> on a replica means that peer is in the assignment but isn't
+a full RAFT group member yet — it's either still joining or on its way out.
+A pending peer doesn't count toward quorum, which is why a move doesn't put
+the stream at risk: the group keeps committing on the peers it already had.</p>
+<p><strong>Origin</strong> is the configuration the stream had before the reconfiguration
+started, and it's what the rollback below restores. You don't see it under
+its own name — the CLI renders it as the <code>from -&gt; to</code> rows, like the
+<code>Cluster: east -&gt; west</code> line. A scale would show <code>Replicas: 3 -&gt; 5</code>, a
+retention change <code>Retention Policy: Limits -&gt; Interest</code>.</p>
+<p>When the section is absent, nothing is in flight.</p>
+<h2 id="move-everything-off-a-server">Move everything off a server</h2>
+<p>Retiring <code>n4-east</code> used to mean finding every stream and consumer with a
+replica on it and moving each one off by hand. Now you name the server once:</p>
+<div><div><pre><code class="language-bash">nats --server nats://127.0.0.1:4222 server cluster evacuate n4-east</code></pre></div></div>
+<p>The meta leader records desired state for every stream and consumer assigned
+to <code>n4-east</code>, each keeping its current replica count, and picks replacement
+peers that qualify under each asset's placement. Run it without the peer
+name and the CLI lists the meta group's peers and asks you to pick one.</p>
+<p>Replacement here is <strong>best effort</strong>. The job is to clear the server, so an
+asset the meta leader can't place elsewhere — nothing satisfies its placement,
+or the cluster is too small once <code>n4-east</code> is out — still moves off <code>n4-east</code>
+and carries on <strong>under-replicated</strong> until a qualifying server appears. An <code>R=3</code>
+stream can end up running on two peers. The server logs
+<code>could not replace peer for stream</code> when this happens, and <code>nats stream info</code> shows the shortfall, so check the assets you care about afterward
+rather than assuming a clean drain. The evacuated server is kept out of
+those assets' placement while they're short, so it isn't handed the replica
+straight back before you've taken it away.</p>
+<p>This is a system-account command, like the rest of <code>nats server cluster</code>.</p>
+<p>Narrower versions exist for when you don't want the whole server drained,
+and they make the opposite trade: they refuse rather than under-replicate.
+To move one stream and its consumers off a peer:</p>
+<div><div><pre><code class="language-bash">nats --server nats://127.0.0.1:4222 stream cluster evacuate ORDERS n4-east</code></pre></div></div>
+<p>And to move a single consumer:</p>
+<div><div><pre><code class="language-bash">nats --server nats://127.0.0.1:4222 consumer cluster evacuate ORDERS NEW n4-east</code></pre></div></div>
+<p>Both of these refuse the move outright when no server qualifies, answering
+<code>peer remap failed</code> and changing nothing. Losing a replica on one stream is
+a worse outcome than a command that didn't run, so the per-asset commands
+protect the replica count and make you fix the placement. Only the
+server-wide <code>nats server cluster evacuate</code> above will proceed anyway,
+because there the point is to empty the server.</p>
+<p>All three keep the replica count where they can and let the server choose
+the replacements. That's the difference from <code>nats stream edit --replicas</code>,
+which changes how many replicas there are. Evacuation changes only where
+they live.</p>
+<p>Peer <em>removal</em> is a different operation. Removing a peer drops it from a
+group without migrating anything onto a replacement first. That is what you
+want for a server that is gone and isn't coming back, which is the
+<a href="/learn/backup-recovery/disaster-recovery">disaster recovery</a> case. To move
+an asset off a server that's still running, evacuate.</p>
+<p>The server has to be stopped before you remove its peer, which is the other
+half of the same distinction: peer removal is bookkeeping for a node that
+has already gone. Peer-remove one that's still running, and it responds by
+disabling JetStream on itself.</p>
+<h2 id="roll-a-reconfiguration-back">Roll a reconfiguration back</h2>
+<p>If you change your mind mid-operation and want to cancel the move, you can with:</p>
+<div><div><pre><code class="language-bash">nats --server nats://127.0.0.1:4222 stream cluster cancel-move ORDERS</code></pre></div></div>
+<p>The stream goes back to the config and peers recorded in <code>origin</code> — the
+replica count, placement, and retention it had before you changed anything.</p>
+<p>Despite the name, this isn't limited to moves. Any in-flight desired state
+rolls back the same way, so a scale from <code>R=3</code> to <code>R=5</code> and a retention
+change both cancel with this command. Read it as "cancel the
+reconfiguration".</p>
+<p>Two checks run before anything happens, and they're how you find out
+whether there was anything to cancel:</p>
+<ul>
+<li>If the stream isn't clustered at all, it answers <code>stream is not clustered</code>.</li>
+<li>If no reconfiguration is in flight — no <code>Cluster Migration Status</code> section
+in <code>stream info</code> — it answers <code>stream is not busy moving</code>.</li>
+</ul>
+<p>Then it asks you to confirm. <code>--force</code> skips the checks and the prompt
+together, which is why the pitfalls below say not to reach for it first.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>Don't cancel a move that's nearly done.</strong> A rollback is itself a
+reconfiguration: the stream converges back on its original peers, which
+means another round of catchup on the peers that had already been passed
+over. Cancelling a move that's seconds from finishing costs more work than
+letting it land and moving the stream back afterward. Read <code>Desired Peers</code>
+against the <code>Replica</code> lines first — if they almost match, let it finish.</p>
+<p><strong><code>--force</code> on <code>cancel-move</code> skips the check that tells you there's nothing
+to cancel.</strong> Without it, you get <code>stream is not busy moving</code> and learn the
+move already completed. With it, the command runs against a stream that has
+no desired state to roll back to. Run it unforced first, and only reach for
+<code>--force</code> when you know what's in flight, and the prompt is the only thing in
+your way.</p>
+<p><strong>A server-wide evacuation can leave assets under-replicated.</strong> The
+per-asset commands refuse when they can't place a replica; <code>nats server cluster evacuate</code> does not, because its job is to clear the node. On a
+cluster with no spare capacity, or with placement that pins streams to a
+subset of servers, draining a node quietly costs those streams a replica.
+Check <code>nats stream info</code> on the streams you care about after the drain, and
+size the cluster so one node can leave without stranding an asset.</p>
+<p><strong>Mixed 2.14 and 2.15 servers won't finish a reconfiguration.</strong> A 2.14
+server persists the desired state but doesn't run it to completion, so a
+scale or move started mid-upgrade stalls until every node is on 2.15.
+Servers from 2.14.7 on carry the compatibility code for this, which is why
+the <a href="/release-notes/upgrade-to-2.15">upgrade guide</a> asks you to come from at
+least 2.14.7.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You can now read and steer a reconfiguration instead of waiting it out:</p>
+<ul>
+<li>You found the <code>Cluster Migration Status</code> section in <code>nats stream info</code>,
+and you can tell the desired peers from the current ones and spot a
+<code>(pending)</code> peer that doesn't count toward quorum.</li>
+<li>You moved every asset off <code>n4-east</code> with one
+<code>nats server cluster evacuate</code>, and you know the per-stream and
+per-consumer versions for narrower jobs.</li>
+<li>You know which of them will leave a group under-replicated to get the job
+done, and which refuse with <code>peer remap failed</code> instead.</li>
+<li>You rolled a reconfiguration back with
+<code>nats stream cluster cancel-move</code>, and you know it covers scales and
+retention changes, not just moves.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>That's the whole mechanism: routes form the mesh, RAFT groups agree, a
+quorum commits each write, placement decides where replicas live, peer
+management grows the set, and desired state carries a reconfiguration
+through to the end. The last page collects the recap and gathers every
+page's Pitfalls into one production checklist.</p>
+<p>Continue to <a href="/learn/clustering/where-next">Where to go next</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/clustering/scaling-and-peers">Scaling and peer management</a> — the
+one-change-at-a-time mechanics this page builds on.</li>
+<li><a href="/learn/deployment/rolling-upgrades">Rolling upgrades</a> — where
+<code>server cluster evacuate</code> fits when you're taking a node out for good.</li>
+<li><a href="/learn/backup-recovery/disaster-recovery">Disaster recovery</a> — what to do
+when the servers you're trying to evacuate are already gone.</li>
+<li><a href="/reference/jetstream/api/stream">Reference → stream API</a> — the evacuate
+and cancel-move endpoints, and the <code>desired</code> block in stream info.</li>
+</ul></main>

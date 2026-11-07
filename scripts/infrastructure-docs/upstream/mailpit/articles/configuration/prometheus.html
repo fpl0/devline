@@ -1,0 +1,69 @@
+<main>
+		
+		<h1>Prometheus metrics</h1>
+		<p>Mailpit includes optional Prometheus metrics support for monitoring mail server performance and usage statistics.</p>
+<h2 id="enabling-prometheus-metrics">Enabling Prometheus metrics</h2>
+<p>Prometheus metrics are disabled by default. To enable them, use either the command-line flag or environment variable:</p>
+<h3 id="integrated-mode">Integrated mode</h3>
+<p>Serve metrics on the main web UI port, inheriting all configuration such as TLS and authentication, at <code>/metrics</code>:</p>
+<div><pre><code class="language-bash"><span><span><span># Using command line flag</span>
+</span></span><span><span>mailpit --enable-prometheus <span>true</span>
+</span></span><span><span>
+</span></span><span><span><span># Using environment variable</span>
+</span></span><span><span><span>export</span> <span>MP_ENABLE_PROMETHEUS</span><span>=</span><span>true</span>
+</span></span><span><span>mailpit
+</span></span></code></pre></div><h3 id="separate-server-mode">Separate server mode</h3>
+<p>Run a dedicated metrics server on a custom port without TLS or authentication:</p>
+<div><pre><code class="language-bash"><span><span><span># Custom listen address for separate server</span>
+</span></span><span><span>mailpit --enable-prometheus 0.0.0.0:9091
+</span></span><span><span>
+</span></span><span><span><span># Using environment variable</span>
+</span></span><span><span><span>export</span> <span>MP_ENABLE_PROMETHEUS</span><span>=</span><span>"0.0.0.0:9091"</span>
+</span></span><span><span>mailpit
+</span></span></code></pre></div><h2 id="available-metrics">Available metrics</h2>
+<p>Mailpit exposes the following metrics:</p>
+<h4 id="message-statistics">Message statistics</h4>
+<ul>
+<li><strong><code>mailpit_messages</code></strong> (gauge) - Total number of messages in the database</li>
+<li><strong><code>mailpit_messages_unread</code></strong> (gauge) - Number of unread messages</li>
+<li><strong><code>mailpit_messages_deleted_total</code></strong> (counter) - Total number of messages deleted</li>
+</ul>
+<h4 id="smtp-statistics">SMTP statistics</h4>
+<ul>
+<li><strong><code>mailpit_smtp_accepted_total</code></strong> (counter) - Total SMTP messages accepted</li>
+<li><strong><code>mailpit_smtp_rejected_total</code></strong> (counter) - Total SMTP messages rejected</li>
+<li><strong><code>mailpit_smtp_ignored_total</code></strong> (counter) - Total SMTP messages ignored (duplicates)</li>
+<li><strong><code>mailpit_smtp_accepted_size_bytes_total</code></strong> (counter) - Total size of accepted SMTP messages in bytes</li>
+</ul>
+<h4 id="system-statistics">System statistics</h4>
+<ul>
+<li><strong><code>mailpit_database_size_bytes</code></strong> (gauge) - Database size in bytes</li>
+<li><strong><code>mailpit_uptime_seconds</code></strong> (gauge) - Mailpit uptime in seconds</li>
+<li><strong><code>mailpit_memory_usage_bytes</code></strong> (gauge) - Current memory usage in bytes</li>
+</ul>
+<h4 id="tag-statistics">Tag statistics</h4>
+<ul>
+<li><strong><code>mailpit_tag_messages</code></strong> (gauge) - Number of messages per tag, labeled by tag name</li>
+</ul>
+<h2 id="prometheus-configuration">Prometheus configuration</h2>
+<p>To configure Prometheus to scrape Mailpit metrics, add the following to your <code>prometheus.yml</code>:</p>
+<h3 id="for-integrated-mode">For integrated mode</h3>
+<div><pre><code class="language-yaml"><span><span><span>scrape_configs</span><span>:</span><span>
+</span></span></span><span><span><span>    </span>- <span>job_name</span><span>:</span><span> </span><span>"mailpit"</span><span>
+</span></span></span><span><span><span>      </span><span>static_configs</span><span>:</span><span>
+</span></span></span><span><span><span>          </span>- <span>targets</span><span>:</span><span> </span><span>[</span><span>"localhost:8025"</span><span>]</span><span>
+</span></span></span><span><span><span>      </span><span>scrape_interval</span><span>:</span><span> </span><span>30s</span><span>
+</span></span></span><span><span><span>      </span><span>metrics_path</span><span>:</span><span> </span><span>"/metrics"</span><span>
+</span></span></span></code></pre></div><h3 id="for-separate-server-mode">For separate server mode</h3>
+<div><pre><code class="language-yaml"><span><span><span>scrape_configs</span><span>:</span><span>
+</span></span></span><span><span><span>    </span>- <span>job_name</span><span>:</span><span> </span><span>"mailpit"</span><span>
+</span></span></span><span><span><span>      </span><span>static_configs</span><span>:</span><span>
+</span></span></span><span><span><span>          </span>- <span>targets</span><span>:</span><span> </span><span>[</span><span>"localhost:9091"</span><span>]</span><span> </span><span># Use your custom port</span><span>
+</span></span></span><span><span><span>      </span><span>scrape_interval</span><span>:</span><span> </span><span>30s</span><span>
+</span></span></span><span><span><span>      </span><span>metrics_path</span><span>:</span><span> </span><span>"/metrics"</span><span>
+</span></span></span></code></pre></div>
+
+		
+		
+		
+	</main>

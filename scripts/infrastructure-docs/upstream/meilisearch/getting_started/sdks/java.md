@@ -1,0 +1,179 @@
+# Java quick start
+
+> Get started with Meilisearch using the Java SDK in 5 minutes.
+
+This guide walks you through setting up Meilisearch with Java.
+
+## Prerequisites
+
+* Java 17 or higher
+* Maven or Gradle
+* A Meilisearch instance ([Cloud](https://cloud.meilisearch.com) or [self-hosted](https://www.meilisearch.com/docs/resources/self_hosting/getting_started/quick_start))
+
+## 1. Install the SDK
+
+> [tab] Maven
+>
+> ```xml theme={null}
+> <dependency>
+>   <groupId>com.meilisearch.sdk</groupId>
+>   <artifactId>meilisearch-java</artifactId>
+>   <version>0.17.1</version>
+> </dependency>
+> ```
+
+> [tab] Gradle
+>
+> ```groovy theme={null}
+> implementation 'com.meilisearch.sdk:meilisearch-java:0.17.1'
+> ```
+
+## 2. Connect to Meilisearch
+
+```java
+import com.meilisearch.sdk.Client;
+import com.meilisearch.sdk.Config;
+
+public class Main {
+    public static void main(String[] args) {
+        Client client = new Client(new Config(
+            System.getenv("MEILISEARCH_URL"),
+            System.getenv("MEILISEARCH_KEY")
+        ));
+    }
+}
+```
+
+> [!NOTE]
+>
+> **Set your environment variables:**
+>
+> ```bash theme={null}
+> export MEILISEARCH_URL="https://your-instance.meilisearch.io"  # or http://localhost:7700
+> export MEILISEARCH_KEY="your_api_key"
+> ```
+>
+> [Get a free Cloud instance →](https://cloud.meilisearch.com)
+
+## 3. Add documents
+
+```java
+import com.meilisearch.sdk.Index;
+import com.meilisearch.sdk.model.TaskInfo;
+
+// Define your document class
+class Movie {
+    public int id;
+    public String title;
+    public String[] genres;
+    public int year;
+
+    public Movie(int id, String title, String[] genres, int year) {
+        this.id = id;
+        this.title = title;
+        this.genres = genres;
+        this.year = year;
+    }
+}
+
+// Add documents
+Movie[] movies = {
+    new Movie(1, "The Matrix", new String[]{"Action", "Sci-Fi"}, 1999),
+    new Movie(2, "Inception", new String[]{"Action", "Thriller"}, 2010),
+    new Movie(3, "Interstellar", new String[]{"Drama", "Sci-Fi"}, 2014)
+};
+
+Index index = client.index("movies");
+TaskInfo task = index.addDocuments(new Gson().toJson(movies));
+
+// Wait for indexing to complete
+client.waitForTask(task.getTaskUid());
+```
+
+## 4. Search
+
+```java
+import com.meilisearch.sdk.SearchRequest;
+import com.meilisearch.sdk.model.SearchResult;
+
+SearchResult results = index.search("matrix");
+
+System.out.println(results.getHits());
+// [{id=1, title=The Matrix, genres=[Action, Sci-Fi], year=1999}]
+```
+
+## 5. Search with filters
+
+First, configure filterable attributes:
+
+```java
+index.updateFilterableAttributesSettings(new String[]{"genres", "year"});
+```
+
+Then search with filters:
+
+```java
+SearchRequest searchRequest = new SearchRequest("matrix")
+    .setFilter(new String[]{"genres = \"Sci-Fi\"", "year > 2000"});
+
+SearchResult results = index.search(searchRequest);
+```
+
+## Full example
+
+```java
+import com.meilisearch.sdk.*;
+import com.meilisearch.sdk.model.*;
+import com.google.gson.Gson;
+
+public class Main {
+    public static void main(String[] args) throws Exception {
+        // Connect
+        Client client = new Client(new Config(
+            System.getenv("MEILISEARCH_URL"),
+            System.getenv("MEILISEARCH_KEY")
+        ));
+
+        // Add documents
+        String documents = "[" +
+            "{\"id\": 1, \"title\": \"The Matrix\", \"year\": 1999}," +
+            "{\"id\": 2, \"title\": \"Inception\", \"year\": 2010}," +
+            "{\"id\": 3, \"title\": \"Interstellar\", \"year\": 2014}" +
+        "]";
+
+        Index index = client.index("movies");
+        TaskInfo task = index.addDocuments(documents);
+        client.waitForTask(task.getTaskUid());
+
+        // Search
+        SearchResult results = index.search("inter");
+        System.out.println(results.getHits());
+    }
+}
+```
+
+## Next steps
+
+> [card] [Full-text search](https://www.meilisearch.com/docs/capabilities/full_text_search/relevancy/relevancy)
+>
+> Configure ranking and relevancy
+
+> [card] [Filtering](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/getting_started)
+>
+> Add filters and facets
+
+> [card] [AI-powered search](https://www.meilisearch.com/docs/capabilities/hybrid_search/getting_started)
+>
+> Add semantic search
+
+> [card] [API reference](https://www.meilisearch.com/docs/reference/api/search/search-with-post)
+>
+> Explore all search parameters
+
+## Resources
+
+* [meilisearch-java on GitHub](https://github.com/meilisearch/meilisearch-java)
+* [SDK documentation](https://github.com/meilisearch/meilisearch-java#readme)
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

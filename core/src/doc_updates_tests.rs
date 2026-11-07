@@ -1,4 +1,5 @@
 use super::*;
+use crate::install_doc_pack;
 use flate2::{write::GzEncoder, Compression};
 use std::{io::BufRead, net::TcpListener};
 
@@ -116,6 +117,47 @@ fn installs_verified_archive_caches_originals_and_rolls_back() {
     assert_eq!(preferences(&db).unwrap()["sample"], old.version);
     fs::write(path.join("documents.json"), b"tampered").unwrap();
     assert!(cached_pack(&ctx, "sample", Some(&release.pack.version)).is_err());
+}
+
+#[test]
+fn retention_purges_verified_older_revisions_and_their_search_entries() -> Result<()> {
+    let (_stage, ctx) = fixture();
+    let old = br#"[{"id":"old","title":"OldSymbol","body":"Superseded documentation","source_url":"https://example.org/docs/old"}]"#;
+    let new = br#"[{"id":"new","title":"NewSymbol","body":"Current documentation","source_url":"https://example.org/docs/new"}]"#;
+    let first = checked_release(&ctx, pack("1.9.0"), old, true);
+    install(&ctx, &json!({"id":"sample"}))?;
+    let second = checked_release(&ctx, pack("1.10.0"), new, true);
+    install(&ctx, &json!({"id":"sample"}))?;
+    rollback(&ctx, &json!({"id":"sample"}))?;
+    assert_eq!(preferences(&ctx.database()?)?["sample"], first.pack.version);
+
+    updates::retention(&ctx, &json!({"keep_latest":true}))?;
+    let invalid = checked_release(&ctx, pack("1.11.0"), new, false);
+    assert!(install(&ctx, &json!({"id":"sample"})).is_err());
+    assert_eq!(installed_versions(&ctx.database()?)?["sample"].len(), 2);
+    assert!(!pack_dir(&ctx, &invalid.pack)?.exists());
+
+    let third = checked_release(&ctx, pack("1.11.0"), new, true);
+    install(&ctx, &json!({"id":"sample"}))?;
+    let db = ctx.database()?;
+    assert_eq!(
+        installed_versions(&db)?["sample"].as_slice(),
+        std::slice::from_ref(&third.pack.version)
+    );
+    assert_eq!(preferences(&db)?["sample"], third.pack.version);
+    assert_eq!(installed_metadata(&db)?.len(), 1);
+    assert!(!pack_dir(&ctx, &first.pack)?.exists());
+    assert!(!pack_dir(&ctx, &second.pack)?.exists());
+    assert!(pack_dir(&ctx, &third.pack)?.is_dir());
+    assert_eq!(
+        db.query_row(
+            "SELECT count(*) FROM docs_fts WHERE docs_fts MATCH 'OldSymbol'",
+            [],
+            |row| row.get::<_, usize>(0)
+        )?,
+        0
+    );
+    Ok(())
 }
 
 #[test]

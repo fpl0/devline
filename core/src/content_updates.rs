@@ -209,7 +209,7 @@ fn compose(
         items.push(json!({"id":format!("docs:{}", text(pack,"id")),"kind":"docs","name":pack["name"],
             "current_version":pack["active_version"],"available_version":version,"state":state,
             "detail": if docs_failed { "The documentation channel check failed. Retry before applying saved offers." }
-                else if available { "Install the official release alongside previous versions. Project documentation pins are preserved." }
+                else if available { "Install the official release. Project documentation pins keep their selected versions." }
                 else if state == "current" { "Your active reference matches the checked documentation channel." }
                 else { "Check the official documentation channel for downloadable releases." },
             "action":available.then_some("install_docs"),
@@ -533,7 +533,7 @@ fn apply_item(
             }) {
                 return infrastructure::execute(
                     ctx,
-                    &json!({"command":"infra.verify","id":reference}),
+                    &json!({"command":"infra.verify","id":reference,"apply_retention":true}),
                     job.as_deref_mut(),
                 );
             }

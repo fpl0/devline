@@ -1,0 +1,7 @@
+<main><header><h1>batch</h1></header>
+<div>Available since NATS Server <code>2.12</code></div>
+<div><span><span>Hot Reloadable</span></span><div>Enforced when a batch publish starts, so a batch already in progress is unaffected. Only a batch started after the reload sees the new ceiling.</div></div>
+<p>Ceilings on atomic batch publishing.</p>
+<h2 id="properties">Properties</h2>
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Default</th><th>Reloadable</th></tr></thead><tbody><tr><td><a href="/reference/config/jetstream/limits/batch/max_msgs"><code>max_msgs</code></a></td><td>Messages allowed in a single batch.</td><td><code>integer</code></td><td><code>1000</code></td><td>Yes*</td></tr><tr><td><a href="/reference/config/jetstream/limits/batch/max_inflight_total"><code>max_inflight_total</code></a></td><td>Batches allowed in flight across the server.</td><td><code>integer</code></td><td><code>1000</code></td><td>Yes*</td></tr><tr><td><a href="/reference/config/jetstream/limits/batch/max_inflight_per_stream"><code>max_inflight_per_stream</code></a></td><td>Batches allowed in flight for one stream.</td><td><code>integer</code></td><td><code>50</code></td><td>Yes*</td></tr><tr><td><a href="/reference/config/jetstream/limits/batch/timeout"><code>timeout</code></a></td><td>How long an incomplete batch is held before it is discarded.</td><td><code>duration</code></td><td><code>10s</code></td><td>Yes*</td></tr></tbody></table>
+<p>* See the property page for reload caveats.</p></main>

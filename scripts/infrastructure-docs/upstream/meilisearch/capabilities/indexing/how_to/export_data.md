@@ -1,0 +1,75 @@
+# Export data to another instance
+
+> Use the export endpoint to migrate data from one Meilisearch instance to another without creating dump files.
+
+The export endpoint transfers data directly from one Meilisearch instance to another over the network. Unlike [dumps](https://www.meilisearch.com/docs/capabilities/indexing/tasks_and_batches/manage_task_database), which create a file on disk that you must manually move, exports push data straight to a remote instance in a single operation.
+
+## When to use exports
+
+* **Environment migration**: Move data from a staging instance to production (or vice versa).
+* **Creating replicas**: Set up a second instance with the same data for redundancy or load distribution.
+* **Scaling**: Transfer indexes to a larger instance when your data outgrows the current one.
+
+## Export data to a remote instance
+
+Send a `POST` request to `/export` on the source instance, specifying the destination URL and (optionally) an API key:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/export' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY' \
+  --data-binary '{
+    "url": "https://destination-instance.example.com",
+    "apiKey": "destination-api-key"
+  }'
+```
+
+Meilisearch returns a summarized task object:
+
+```json
+{
+  "taskUid": 42,
+  "indexUid": null,
+  "status": "enqueued",
+  "type": "export",
+  "enqueuedAt": "2025-01-01T00:00:00.000000Z"
+}
+```
+
+## Monitor the export task
+
+The export runs [asynchronously](https://www.meilisearch.com/docs/capabilities/indexing/tasks_and_batches/async_operations). Use the task UID to check its progress:
+
+```bash
+curl \
+  -X GET 'MEILISEARCH_URL/tasks/42' \
+  -H 'Authorization: Bearer MEILISEARCH_KEY'
+```
+
+When the task status changes to `succeeded`, all data has been transferred to the destination instance.
+
+## Export vs. dumps
+
+| | Export | Dump |
+| - | - | - |
+| **Mechanism** | Direct network transfer to a remote instance | Creates a file on the source instance's disk |
+| **Best for** | Live migration between running instances | Backups, version upgrades, offline transfers |
+| **Requires** | Network access to the destination | File system access to move the dump file |
+
+## Next steps
+
+> [card] [Export API reference](https://www.meilisearch.com/docs/reference/api/export/export-to-a-remote-meilisearch)
+>
+> Full API reference for the export endpoint
+
+> [card] [Monitor tasks](https://www.meilisearch.com/docs/capabilities/indexing/tasks_and_batches/monitor_tasks)
+>
+> Track the status of asynchronous operations
+
+> [card] [Indexing overview](https://www.meilisearch.com/docs/capabilities/indexing/overview)
+>
+> Learn more about how indexing works in Meilisearch
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

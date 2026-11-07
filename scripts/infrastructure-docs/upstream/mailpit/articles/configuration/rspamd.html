@@ -1,0 +1,39 @@
+<main>
+		
+		<h1>Rspamd</h1>
+		<p>Mailpit can optionally integrate with <a href="https://rspamd.com/">Rspamd</a> to display the “spamminess” of messages.
+This is an opt-in feature that must be enabled when starting Mailpit, and requires a running instance of Rspamd.</p>
+<p>Rspamd can be enabled together with <a href="../spamassassin/">SpamAssassin</a>. When both are enabled, Mailpit shows a separate tab for each.</p>
+<h2 id="enabling-rspamd-integration">Enabling Rspamd integration</h2>
+<p>To enable this feature, you must:</p>
+<ol>
+<li>Be running an instance of Rspamd that Mailpit can connect to over HTTP or HTTPS. Mailpit uses the <code>/checkv2</code> endpoint, which is served by both the Rspamd normal worker (default port <code>11333</code>) and the controller (default port <code>11334</code>).</li>
+<li>Start Mailpit with either the <code>--enable-rspamd &lt;address&gt;</code> flag or set the environment variable <code>MP_ENABLE_RSPAMD=&lt;address&gt;</code>.</li>
+</ol>
+<p>The address can be either:</p>
+<ul>
+<li><code>&lt;host&gt;:&lt;port&gt;</code>, for example <code>rspamd.example.com:11333</code>, which is assumed to be plain HTTP, or</li>
+<li>a full URL, for example <code>https://rspamd.example.com:11334</code>, which allows you to connect to Rspamd via HTTPS.</li>
+</ul>
+<h3 id="rspamd-password">Rspamd password</h3>
+<p>If your Rspamd server requires a password, include it in the address, either as <code>https://password@host:port</code> or <code>https://:password@host:port</code> (Rspamd has no username).
+For example:</p>
+<div><pre><code class="language-shell"><span><span><span>MP_ENABLE_RSPAMD</span><span>=</span>https://mypassword@rspamd.example.com:11334 mailpit
+</span></span></code></pre></div><p>If your password contains special characters (such as <code>@</code>, <code>:</code> or <code>/</code>), they must be <a href="https://developer.mozilla.org/en-US/docs/Glossary/Percent-encoding">percent-encoded</a> in the address.
+The password is sent to Rspamd in the <code>Password</code> header, and is not included in Mailpit’s logs.</p>
+<p>Whether a password is required depends on your Rspamd configuration (see the Rspamd <a href="https://docs.rspamd.com/workers/controller">controller worker</a> documentation).
+If your server does not require one, leave it out.</p>
+
+<div>
+	If you connect using plain HTTP, the password is sent unencrypted.
+Use HTTPS if the connection is not on a trusted network.
+</div>
+
+<h2 id="setting-up-rspamd">Setting up Rspamd</h2>
+<p>Rspamd is not provided by Mailpit. Please refer to the <a href="https://docs.rspamd.com/">Rspamd documentation</a> for installation and configuration instructions.</p>
+
+
+		
+		
+		
+	</main>

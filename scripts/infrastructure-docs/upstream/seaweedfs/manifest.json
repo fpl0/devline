@@ -1,0 +1,410 @@
+{
+  "publisher": "SeaweedFS contributors",
+  "version": "4.52",
+  "provenance": "Tagged upstream sources at https://github.com/seaweedfs/seaweedfs/tree/4.52 (984eac6a790be89e2a11de175a7413e1e3e32dd3). CLI reference reproduces weed help from the publisher's Darwin ARM64 4.52 release binary (https://github.com/seaweedfs/seaweedfs/releases/tag/4.52), with detected host and temporary directory defaults replaced by placeholders. Configuration examples are the tagged files wrapped in Markdown code fences.",
+  "license": "Apache-2.0",
+  "notices": [
+    "LICENSE"
+  ],
+  "coverage": "Single-node and Docker setup, Filer and master HTTP REST API, S3 SDK compatibility, IAM and STS, policy, retention, lifecycle, CORS, encryption, reverse proxy behavior, backup commands, and upstream configuration examples.",
+  "omissions": "The separately hosted wiki, its full S3 operation matrix, some illustrations, and AWS SDK API references remain online.",
+  "entry": "overview",
+  "documents": [
+    {
+      "id": "overview",
+      "path": "README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/README.md",
+      "title": "SeaweedFS",
+      "aliases": [
+        "seaweedfs"
+      ]
+    },
+    {
+      "id": "rest-api",
+      "path": "REST_API.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/REST_API.md",
+      "title": "SeaweedFS HTTP REST API",
+      "aliases": [
+        "seaweedfs http rest api"
+      ]
+    },
+    {
+      "id": "docker",
+      "path": "docker/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/docker/README.md",
+      "title": "SeaweedFS Docker",
+      "aliases": [
+        "seaweedfs docker"
+      ]
+    },
+    {
+      "id": "production-setup",
+      "path": "note/slides/seaweedfs-production-setup.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/note/slides/seaweedfs-production-setup.md",
+      "title": "SeaweedFS production setup",
+      "aliases": [
+        "seaweedfs production setup"
+      ]
+    },
+    {
+      "id": "security",
+      "path": "SECURITY.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/SECURITY.md",
+      "title": "SeaweedFS security policy",
+      "aliases": [
+        "seaweedfs security policy"
+      ]
+    },
+    {
+      "id": "credentials",
+      "path": "weed/credential/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/credential/README.md",
+      "title": "SeaweedFS credential store integration",
+      "aliases": [
+        "seaweedfs credential store integration"
+      ]
+    },
+    {
+      "id": "iam/policy-engine",
+      "path": "weed/s3api/policy_engine/README_POLICY_ENGINE.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/s3api/policy_engine/README_POLICY_ENGINE.md",
+      "title": "SeaweedFS S3 policy engine",
+      "aliases": [
+        "seaweedfs s3 policy engine"
+      ]
+    },
+    {
+      "id": "iam/policy-examples",
+      "path": "weed/s3api/policy_engine/POLICY_EXAMPLES.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/s3api/policy_engine/POLICY_EXAMPLES.md",
+      "title": "SeaweedFS S3 policy examples",
+      "aliases": [
+        "seaweedfs s3 policy examples"
+      ]
+    },
+    {
+      "id": "iam/governance-permissions",
+      "path": "weed/s3api/policy_engine/GOVERNANCE_PERMISSIONS.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/s3api/policy_engine/GOVERNANCE_PERMISSIONS.md",
+      "title": "SeaweedFS S3 governance permissions",
+      "aliases": [
+        "seaweedfs s3 governance permissions"
+      ]
+    },
+    {
+      "id": "iam/integration-example",
+      "path": "weed/s3api/policy_engine/INTEGRATION_EXAMPLE.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/s3api/policy_engine/INTEGRATION_EXAMPLE.md",
+      "title": "SeaweedFS S3 policy engine integration example",
+      "aliases": [
+        "seaweedfs s3 policy engine integration example"
+      ]
+    },
+    {
+      "id": "iam/docker",
+      "path": "test/s3/iam/README-Docker.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/iam/README-Docker.md",
+      "title": "SeaweedFS IAM and STS Docker example",
+      "aliases": [
+        "seaweedfs iam and sts docker example"
+      ]
+    },
+    {
+      "id": "iam/operations",
+      "path": "test/s3/iam/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/iam/README.md",
+      "title": "SeaweedFS IAM testing and examples",
+      "aliases": [
+        "seaweedfs iam testing and examples"
+      ]
+    },
+    {
+      "id": "iam/distributed-sts",
+      "path": "test/s3/iam/STS_DISTRIBUTED.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/iam/STS_DISTRIBUTED.md",
+      "title": "SeaweedFS distributed STS",
+      "aliases": [
+        "seaweedfs distributed sts"
+      ]
+    },
+    {
+      "id": "s3/sdk-compatibility",
+      "path": "test/s3/SDK_COMPATIBILITY.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/SDK_COMPATIBILITY.md",
+      "title": "SeaweedFS S3 SDK compatibility",
+      "aliases": [
+        "seaweedfs s3 sdk compatibility"
+      ]
+    },
+    {
+      "id": "s3/sse-kms",
+      "path": "test/s3/sse/README_KMS.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/sse/README_KMS.md",
+      "title": "SeaweedFS S3 SSE-KMS",
+      "aliases": [
+        "seaweedfs s3 sse-kms"
+      ]
+    },
+    {
+      "id": "s3/retention",
+      "path": "test/s3/retention/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/retention/README.md",
+      "title": "SeaweedFS S3 Object Lock and retention",
+      "aliases": [
+        "seaweedfs s3 object lock and retention"
+      ]
+    },
+    {
+      "id": "s3/lifecycle",
+      "path": "test/s3/lifecycle/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/lifecycle/README.md",
+      "title": "SeaweedFS S3 bucket lifecycle",
+      "aliases": [
+        "seaweedfs s3 bucket lifecycle"
+      ]
+    },
+    {
+      "id": "s3/tagging",
+      "path": "test/s3/tagging/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/tagging/README.md",
+      "title": "SeaweedFS S3 object tagging",
+      "aliases": [
+        "seaweedfs s3 object tagging"
+      ]
+    },
+    {
+      "id": "s3/copying",
+      "path": "test/s3/copying/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/copying/README.md",
+      "title": "SeaweedFS S3 object copying",
+      "aliases": [
+        "seaweedfs s3 object copying"
+      ]
+    },
+    {
+      "id": "s3/cors",
+      "path": "test/s3/cors/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/cors/README.md",
+      "title": "SeaweedFS S3 CORS",
+      "aliases": [
+        "seaweedfs s3 cors"
+      ]
+    },
+    {
+      "id": "s3/proxy-signature",
+      "path": "test/s3/proxy_signature/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/proxy_signature/README.md",
+      "title": "SeaweedFS S3 reverse proxy signatures",
+      "aliases": [
+        "seaweedfs s3 reverse proxy signatures"
+      ]
+    },
+    {
+      "id": "s3/etag",
+      "path": "test/s3/etag/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/test/s3/etag/README.md",
+      "title": "SeaweedFS S3 ETag behavior",
+      "aliases": [
+        "seaweedfs s3 etag behavior"
+      ]
+    },
+    {
+      "id": "helm",
+      "path": "k8s/charts/seaweedfs/README.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/k8s/charts/seaweedfs/README.md",
+      "title": "SeaweedFS Helm chart",
+      "aliases": [
+        "seaweedfs helm chart"
+      ]
+    },
+    {
+      "id": "cli/mini",
+      "path": "cli/mini.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/mini.go",
+      "title": "SeaweedFS CLI · weed mini",
+      "aliases": [
+        "weed mini"
+      ]
+    },
+    {
+      "id": "cli/s3",
+      "path": "cli/s3.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/s3.go",
+      "title": "SeaweedFS CLI · weed s3",
+      "aliases": [
+        "weed s3"
+      ]
+    },
+    {
+      "id": "cli/server",
+      "path": "cli/server.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/server.go",
+      "title": "SeaweedFS CLI · weed server",
+      "aliases": [
+        "weed server"
+      ]
+    },
+    {
+      "id": "cli/scaffold",
+      "path": "cli/scaffold.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold.go",
+      "title": "SeaweedFS CLI · weed scaffold",
+      "aliases": [
+        "weed scaffold"
+      ]
+    },
+    {
+      "id": "cli/shell",
+      "path": "cli/shell.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/shell.go",
+      "title": "SeaweedFS CLI · weed shell",
+      "aliases": [
+        "weed shell"
+      ]
+    },
+    {
+      "id": "cli/filer-backup",
+      "path": "cli/filer-backup.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/filer_backup.go",
+      "title": "SeaweedFS CLI · weed filer.backup",
+      "aliases": [
+        "weed filer.backup"
+      ]
+    },
+    {
+      "id": "cli/backup",
+      "path": "cli/backup.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/backup.go",
+      "title": "SeaweedFS CLI · weed backup",
+      "aliases": [
+        "weed backup"
+      ]
+    },
+    {
+      "id": "cli/filer-sync",
+      "path": "cli/filer-sync.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/filer_sync.go",
+      "title": "SeaweedFS CLI · weed filer.sync",
+      "aliases": [
+        "weed filer.sync"
+      ]
+    },
+    {
+      "id": "cli/filer-meta-backup",
+      "path": "cli/filer-meta-backup.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/filer_meta_backup.go",
+      "title": "SeaweedFS CLI · weed filer.meta.backup",
+      "aliases": [
+        "weed filer.meta.backup"
+      ]
+    },
+    {
+      "id": "configuration/admin",
+      "path": "configuration/admin.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold/admin.toml",
+      "title": "SeaweedFS configuration · admin.toml",
+      "aliases": [
+        "admin.toml"
+      ]
+    },
+    {
+      "id": "configuration/credential",
+      "path": "configuration/credential.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold/credential.toml",
+      "title": "SeaweedFS configuration · credential.toml",
+      "aliases": [
+        "credential.toml"
+      ]
+    },
+    {
+      "id": "configuration/filer",
+      "path": "configuration/filer.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold/filer.toml",
+      "title": "SeaweedFS configuration · filer.toml",
+      "aliases": [
+        "filer.toml"
+      ]
+    },
+    {
+      "id": "configuration/master",
+      "path": "configuration/master.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold/master.toml",
+      "title": "SeaweedFS configuration · master.toml",
+      "aliases": [
+        "master.toml"
+      ]
+    },
+    {
+      "id": "configuration/notification",
+      "path": "configuration/notification.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold/notification.toml",
+      "title": "SeaweedFS configuration · notification.toml",
+      "aliases": [
+        "notification.toml"
+      ]
+    },
+    {
+      "id": "configuration/replication",
+      "path": "configuration/replication.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold/replication.toml",
+      "title": "SeaweedFS configuration · replication.toml",
+      "aliases": [
+        "replication.toml"
+      ]
+    },
+    {
+      "id": "configuration/security",
+      "path": "configuration/security.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold/security.toml",
+      "title": "SeaweedFS configuration · security.toml",
+      "aliases": [
+        "security.toml"
+      ]
+    },
+    {
+      "id": "configuration/shell",
+      "path": "configuration/shell.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold/shell.toml",
+      "title": "SeaweedFS configuration · shell.toml",
+      "aliases": [
+        "shell.toml"
+      ]
+    },
+    {
+      "id": "configuration/volume",
+      "path": "configuration/volume.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/weed/command/scaffold/volume.toml",
+      "title": "SeaweedFS configuration · volume.toml",
+      "aliases": [
+        "volume.toml"
+      ]
+    },
+    {
+      "id": "configuration/docker-filer",
+      "path": "configuration/docker-filer.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/docker/filer.toml",
+      "title": "SeaweedFS configuration · filer.toml",
+      "aliases": [
+        "filer.toml"
+      ]
+    },
+    {
+      "id": "configuration/s3_static_users_example",
+      "path": "configuration/s3_static_users_example.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/docker/compose/s3_static_users_example.json",
+      "title": "SeaweedFS configuration · s3_static_users_example.json",
+      "aliases": [
+        "s3_static_users_example.json"
+      ]
+    },
+    {
+      "id": "configuration/local-filer-backup-compose",
+      "path": "configuration/local-filer-backup-compose.md",
+      "source_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/docker/compose/local-filer-backup-compose.yml",
+      "title": "SeaweedFS configuration · local-filer-backup-compose.yml",
+      "aliases": [
+        "local-filer-backup-compose.yml"
+      ]
+    }
+  ]
+}

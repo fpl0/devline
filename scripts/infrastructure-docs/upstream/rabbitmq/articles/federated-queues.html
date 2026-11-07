@@ -1,0 +1,175 @@
+<main><header><h1>Federated Queues</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide covers federated queues, a subset of functionality offered by the <a href="/docs/4.3/federation">Federation plugin</a>.</p>
+<p>Some covered topics include:</p>
+<ul>
+<li>An overview of queue federation</li>
+<li>Common <a href="#use-cases">use cases</a></li>
+<li><a href="#usage">Usage and configuration</a></li>
+<li><a href="#limitations">Limitations</a> and <a href="#pitfalls">pitfalls</a> of queue federation</li>
+<li><a href="#details">Implementation details</a></li>
+</ul>
+<p>A separate <a href="/docs/4.3/federation-reference">Federation plugin reference</a> guide is available.</p>
+<p>In addition to <a href="/docs/4.3/federated-exchanges">federated exchanges</a>, RabbitMQ supports federated queues.
+This feature provides a way of balancing the load of a single logical queue
+across nodes or clusters. It does so by moving messages to other federation
+peers (nodes or clusters) when the local queue has no consumers.</p>
+<p>While federated exchanges replicate their stream of messages from the upstream
+to one or more downstreams, federated queues move data where the consumers are,
+always preferring local consumers to remote ones. Federated queues are considered
+to be equal peers, there is no "leader/follower" relationship between them like with federated exchanges.</p>
+<p>A federated queue links to other of its federated peers (called <em>upstream</em> queues).
+It will retrieve messages from upstream queues in order to satisfy demand for
+messages from local consumers. The upstream queues do not
+need to be reconfigured. They are assumed to be located on a separate node or in a separate
+cluster.</p>
+<p>An upstream definition is a URI with certain recognised query parameters that
+control link connection parameters. Upstreams can be managed using <a href="/docs/4.3/cli">CLI tools</a>
+or the HTTP API with <a href="https://github.com/rabbitmq/rabbitmq-federation-management">an additional plugin</a>.</p>
+<p>The following diagram demonstrates several federated and unfederated
+queues in two RabbitMQ nodes connected using queue federation:</p>
+<figure><p><img alt="Overview of federated queues" src="/assets/images/federated_queues00-7038497e441a68ba58be726345b569dc.png"/></p></figure>
+<p>When queue federation is used, usually only a subset of queues in a cluster is federated.
+Some queues can be inherently local to the "site" (cluster) and its uses.</p>
+<h2 id="use-cases">Use Cases</h2>
+<p>The typical use would be to have the same "logical" queue
+distributed over many brokers. Each broker would declare a federated
+queue with all the other federated queues upstream. The links
+would form a complete bi-directional graph on the federated peers (nodes or clusters).</p>
+<p>Such a logical distributed queue is capable of having rather
+higher capacity than a single queue. It will perform best when
+there is some degree of locality; i.e. as many messages as
+possible are consumed from the same queue as they were published
+to, and the federation mechanism only needs to move messages
+around in order to perform load balancing.</p>
+<p>Brokers running different versions of RabbitMQ can be connected using federation.</p>
+<p>Queue federation is also an important component of <a href="/docs/4.3/blue-green-upgrade">Blue Green Deployments</a>,
+such as <a href="/blog/2025/07/29/latest-benefits-of-rmq-and-migrating-to-qq-along-the-way">migrations from RabbitMQ 3.x to 4.x</a>.</p>
+<h2 id="how-is-queue-federation-different-from-shovels">How is Queue Federation Different from Shovels?</h2>
+<p>Queue federation moves messages from a source queue in the upstream cluster to a destination queue in local (downstream) cluster.
+This, indeed, is very similar to what <a href="/docs/4.3/shovel">shovels</a> do, but with a number of key differences:</p>
+<table><thead><tr><th>Characteristic</th><th>Shovel</th><th>Queue Federation</th></tr></thead><tbody><tr><td>Message movement</td><td>Moves messages unconditionally</td><td>Only moves messages if the upstream has no local consumers</td></tr><tr><td>Directionality</td><td>Usually unidirectional</td><td>Can be bi-directional or N-directional with multiple clusters</td></tr></tbody></table>
+<h2 id="limitations">Limitations</h2>
+<p>Federated queues include a number of limitations or differences compared to their non-federated peers
+as well as federated exchanges.</p>
+<p>Queue federation will not propagate <a href="/tutorials/amqp-concepts">bindings</a> from the downstream to the upstreams.</p>
+<p>Applications that use <code>basic.get</code> (consume via polling, a highly discouraged practice)
+cannot retrieve messages over federation if there aren't any in a local queue (on the node the client is connected to).
+Since <code>basic.get</code> is a synchronous method, the node serving a request would have to
+block while contacting all the other nodes to retrieve more
+messages. This wouldn't sit well with federation's availability and partition tolerance-oriented
+design and use cases.</p>
+<h2 id="usage">Usage and Configuration</h2>
+<p>Federated queues are declared just like any other queue, by applications.
+In order for RabbitMQ to recognize that a queue needs to be federated,
+and what other nodes messages should be consumed from, <em>downstream</em>
+(consuming) nodes need to be configured.</p>
+<figure><p><img alt="Federated queue policies" src="/assets/images/federated_queues01-892135df5067a26a0f9f85e0c773e629.png"/></p></figure>
+<p>Federation configuration uses <a href="/docs/4.3/parameters">runtime parameters and policies</a>, which means it can be configured
+and reconfigured on the fly as system topology changes. There are two key pieces of configuration involved:</p>
+<ul>
+<li>Upstreams: these are remote endpoints in a federated system</li>
+<li>Federation policies: these control what queues are federated and what upstreams (peers) they will connect to</li>
+</ul>
+<p>Both of those are configured on the downstream nodes or clusters.</p>
+<p>To add an upstream, use the <code>rabbitmqctl set_parameter</code> command. It accepts three parameters:</p>
+<ul>
+<li>Parameter type, <code>federation-upstream</code></li>
+<li>An upstream name that federation policies will refer to</li>
+<li>An upstream definition JSON document with at least one mandatory key, <code>uri</code></li>
+</ul>
+<p>The following example configures an upstream named "origin" which can be contacted at <code>remote-host.local:5672</code>:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># Adds a federation upstream named "origin"
+rabbitmqctl set_parameter federation-upstream origin '{"uri":"amqp://remote-host.local:5672"}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># Adds a federation upstream named "origin"
+rabbitmqadmin federation declare_upstream_for_queues --name origin \
+    --uri "amqp://remote-host.local:5672"</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell"># Adds a federation upstream named "origin"
+rabbitmqctl.bat set_parameter federation-upstream origin '"{""uri"":""amqp://remote-host.local:5672""}"'</code></pre></div></div><h4>rabbitmqadmin.exe with PowerShell</h4><div><div><pre><code class="language-powershell"># Adds a federation upstream named "origin"
+rabbitmqadmin.exe federation declare_upstream_for_queues --name origin ^
+    --uri "amqp://remote-host.local:5672"</code></pre></div></div>
+<p>Once an upstream has been specified, a policy that controls federation can be added.
+It is added just like any other <a href="/docs/4.3/policies">policy</a>, using <code>rabbitmqctl set_policy</code>:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># Adds a policy named "queue-federation"
+rabbitmqctl set_policy queue-federation "^federated\." \
+    '{"federation-upstream-set":"all"}' \
+    --priority 10 \
+    --apply-to queues</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># Adds a policy named "queue-federation"
+rabbitmqadmin policies declare \
+    --name "queue-federation" \
+    --pattern "^federated\." \
+    --definition '{"federation-upstream-set":"all"}' \
+    --priority 10 \
+    --apply-to "queues"</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell"># Adds a policy named "queue-federation"
+rabbitmqctl.bat set_policy queue-federation '^federated\.' `
+    '"{""federation-upstream-set"":""all""}"' `
+    --priority 10 `
+    --apply-to queues</code></pre></div></div><h4>rabbitmqadmin.exe with PowerShell</h4><div><div><pre><code class="language-powershell"># Adds a policy named "queue-federation"
+rabbitmqadmin.exe policies declare ^
+    --name "queue-federation" ^
+    --pattern "^federated\." ^
+    --definition "{""federation-upstream-set"":""all""}" ^
+    --priority 10 ^
+    --apply-to "queues"</code></pre></div></div>
+<p>In the example above, the policy will match queues whose name begins with a <code>federated.</code> prefix
+in the default virtual host. Those queues will set up federation links for all declared upstreams.
+The name of the policy is <code>queue-federation</code>. As with any policy, if multiple policies match a queue,
+the one with the highest priority will be used. Multiple policy definitions will not be combined, even if their
+priorities are equal.</p>
+<p>Once configured, a federation link (connection) will be opened for every matching queue and upstream pair.
+By "matching queue" here we mean a queue that is matched by the <a href="/docs/4.3/policies">federation policy pattern</a>.
+If no queues matched, no links will be started.</p>
+<p>To deactivate federation for the matching queues, delete the policy using its name:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl clear_policy queue-federation</code></pre></div></div>
+<h2 id="loops">Complex Topologies and Loop Handling</h2>
+<p>A federated queue can be "upstream"
+from another federated queue. One can even form "loops", for
+example, queue A declares queue B to be upstream from it, and
+queue B declares queue A to be upstream from it. More complex
+multiple-connected arrangements are allowed. Such complex topologies
+will be increasingly difficult to reason about and troubleshoot, however.</p>
+<p>Unlike federated exchanges, queue federation does not replicate data and
+does not handle loops explicitly. There is no limit to how
+many times a message can be forwarded between federated queues.</p>
+<p>In a set of mutually-federated queues, messages will move to where
+the spare consuming capacity is so if the spare consuming
+capacity keeps moving around then so will the messages. Since messages are moved to remote nodes
+only when there are no local consumers, it is rare for a message to be moved
+across all nodes and "wrap around".</p>
+<h2 id="details">Implementation</h2>
+<p>The federated queue will connect to all its upstream queues
+using AMQP 0-9-1 (optionally <a href="/docs/4.3/ssl">secured with TLS</a>).</p>
+<p>The federated queue will only retrieve messages when it has run
+out of messages locally, it has consumers that need messages, and
+the upstream queue has "spare" messages that are not being
+consumed. The intent is to ensure that messages are only
+transferred between federated queues when needed. This is
+implemented using <a href="/docs/4.3/consumer-priority">consumer priorities</a>.</p>
+<p>If messages are forwarded from one queue to another then message
+ordering is only preserved for messages which have made exactly
+the same journey between nodes. In some cases messages which were
+adjacent when published may take different routes to the same node
+to be consumed; therefore messages can be reordered in the
+presence of queue federation.</p>
+<p>Each individual queue applies its arguments separately;
+for example if you set <code>x-max-length</code> on a federated
+queue then that queue will have its length limited (possibly
+discarding messages when it gets full) but other queues that are
+federated with it will not be affected. Note in particular that
+when <a href="/docs/4.3/ttl">per-queue or per-message TTL</a> is in
+use, a message will have its timer reset when it is transferred to
+another queue.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Federated queues cannot currently cause messages to
+traverse multiple hops between brokers based solely on need for
+messages in one place. For example, if you federate queues on
+nodes A, B and C, with A and B connected and B and C connected,
+but not A and C, then if messages are available at A and consumers
+waiting at C then messages will not be transferred from A to C via
+B unless there is also a consumer at B.</p>
+<p>It is possible to bind a federated queue to a federated
+exchange. However, the results may be unexpected to some.
+Since a federated exchange will retrieve messages from its
+upstream that match its bindings, any message published to a
+federated exchange will be copied to any nodes that matching
+bindings. A federated queue will then move these messages
+around between nodes, and it is therefore possible to end up
+with multiple copies of the same message on the same node.</p></main>

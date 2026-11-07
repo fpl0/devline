@@ -1,0 +1,281 @@
+<main><header><h1>RabbitMQ tutorial - Work Queues</h1></header>
+<h2 id="work-queues">Work Queues</h2>
+<h3 id="using-the-amqp-10-java-client">(using the AMQP 1.0 Java client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-one-java-amqp10">first tutorial</a> we
+wrote programs to send and receive messages from a named queue. In this
+one we'll create a <em>Work Queue</em> that will be used to distribute
+time-consuming tasks among multiple workers.</p>
+<p>The main idea behind Work Queues (aka: <em>Task Queues</em>) is to avoid
+doing a resource-intensive task immediately and having to wait for
+it to complete. Instead we schedule the task to be done later. We encapsulate a
+<em>task</em> as a message and send it to a queue. A worker process running
+in the background will pop the tasks and eventually execute the
+job. When you run many workers the tasks will be shared between them.</p>
+<p>This concept is especially useful in web applications where it's
+impossible to handle a complex task during a short HTTP request
+window.</p>
+<p>This tutorial uses the <a href="/client-libraries/amqp-client-libraries">RabbitMQ AMQP 1.0 Java client</a> (<code>com.rabbitmq.client:amqp-client</code>). It requires RabbitMQ <strong>4.0 or later</strong>. Runnable sources live in the <a href="https://github.com/rabbitmq/rabbitmq-tutorials">RabbitMQ tutorials</a> repository (<code>java-amqp</code> directory).</p>
+<h2 id="preparation">Preparation</h2>
+<p>In the previous part of this tutorial we sent a message containing
+"Hello World!". Now we'll be sending strings that stand for complex
+tasks. We don't have a real-world task, like images to be resized or
+pdf files to be rendered, so let's fake it by just pretending we're
+busy - by using the <code>Thread.sleep()</code> function. We'll take the number of dots
+in the string as its complexity; every dot will account for one second
+of "work".  For example, a fake task described by <code>Hello...</code>
+will take three seconds.</p>
+<p>We will slightly modify the <em>Send.java</em> pattern from our previous example,
+to allow arbitrary messages to be sent from the command line. This
+program will schedule tasks to our work queue, so let's name it
+<code>NewTask.java</code>:</p>
+<div><div><pre><code class="language-java">String message = String.join(" ", argv);
+// ... obtain a Publisher for the task queue, then:
+publisher.publish(
+    publisher.message(message.getBytes(StandardCharsets.UTF_8)).durable(true),
+    context -&gt; { /* wait for broker outcome; print on ACCEPTED */ });</code></pre></div></div>
+<p>Our old consumer program also requires some changes: it needs to
+fake a second of work for every dot in the message body. It will handle
+delivered messages and perform the task, so let's call it <code>Worker.java</code>:</p>
+<div><div><pre><code class="language-java">connection.consumerBuilder()
+    .queue(TASK_QUEUE_NAME)
+    .messageHandler((context, message) -&gt; {
+      String text = new String(message.body(), StandardCharsets.UTF_8);
+      System.out.println(" [x] Received '" + text + "'");
+      try {
+        doWork(text);
+      } finally {
+        System.out.println(" [x] Done");
+        context.accept();
+      }
+    })
+    .build();</code></pre></div></div>
+<p>Settlement (<code>accept</code>) is covered in more detail below; the worker must <strong>not</strong> use <code>preSettled()</code> delivery if tasks must survive worker failures.</p>
+<p>Our fake task to simulate execution time:</p>
+<div><div><pre><code class="language-java">private static void doWork(String task) throws InterruptedException {
+    for (char ch: task.toCharArray()) {
+        if (ch == '.') Thread.sleep(1000);
+    }
+}</code></pre></div></div>
+<p>Build and run with Maven as in <a href="/tutorials/tutorial-one-java-amqp10">tutorial one</a> (same <code>com.rabbitmq.client:amqp-client</code> dependency and Exec plugin).</p>
+<h2 id="round-robin-dispatching">Round-robin dispatching</h2>
+<p>One of the advantages of using a Task Queue is the ability to easily
+parallelise work. If we are building up a backlog of work, we can just
+add more workers and that way, scale easily.</p>
+<p>First, let's try to run two worker instances at the same time. They
+will both get messages from the queue, but how exactly? Let's see.</p>
+<p>You need three consoles open. Two will run the worker
+program. These consoles will be our two consumers - C1 and C2.</p>
+<div><div><pre><code class="language-bash"># shell 1
+mvn -q compile exec:java -Dexec.mainClass=Worker
+# =&gt; [*] Waiting for messages. To exit press CTRL+C</code></pre></div></div>
+<div><div><pre><code class="language-bash"># shell 2
+mvn -q compile exec:java -Dexec.mainClass=Worker
+# =&gt; [*] Waiting for messages. To exit press CTRL+C</code></pre></div></div>
+<p>In the third one we'll publish new tasks. Once you've started
+the consumers you can publish a few messages:</p>
+<div><div><pre><code class="language-bash"># shell 3
+mvn -q compile exec:java -Dexec.mainClass=NewTask -Dexec.args='First message.'
+# =&gt; [x] Sent 'First message.'
+mvn -q compile exec:java -Dexec.mainClass=NewTask -Dexec.args='Second message..'
+# =&gt; [x] Sent 'Second message..'</code></pre></div></div>
+<p>Use your shell's quoting rules so the task string is passed as program arguments to <code>NewTask</code> (the examples above work with <code>-Dexec.args</code> under Unix; on Windows you may prefer running from your IDE or a small script).</p>
+<p>Let's see what is delivered to our workers:</p>
+<div><div><pre><code class="language-bash">mvn -q compile exec:java -Dexec.mainClass=Worker
+# =&gt; [*] Waiting for messages. To exit press CTRL+C
+# =&gt; [x] Received 'First message.'
+# =&gt; [x] Received 'Third message...'
+# =&gt; [x] Received 'Fifth message.....'</code></pre></div></div>
+<div><div><pre><code class="language-bash">mvn -q compile exec:java -Dexec.mainClass=Worker
+# =&gt; [*] Waiting for messages. To exit press CTRL+C
+# =&gt; [x] Received 'Second message..'
+# =&gt; [x] Received 'Fourth message....'</code></pre></div></div>
+<p>By default, RabbitMQ will send each message to the next consumer,
+in sequence. On average every consumer will get the same number of
+messages. This way of distributing messages is called round-robin. Try
+this out with three or more workers.</p>
+<h2 id="message-acknowledgment">Message acknowledgment</h2>
+<p>Doing a task can take a few seconds, you may wonder what happens if
+a consumer starts a long task and it terminates before it completes.
+With the default <strong>at-least-once</strong> consumption mode, the consumer must <strong>settle</strong> each message (<code>accept</code>, <code>discard</code>, or <code>requeue</code>). Until you settle, the broker can redeliver the message if the worker stops.</p>
+<p>In order to make sure a message is not lost when a worker dies after receiving it but before finishing processing, settle only <strong>after</strong> the task is done. Here we call <code>context.accept()</code> in a <code>finally</code> block after <code>doWork</code> returns.</p>
+<p>If a consumer dies without settling, RabbitMQ will redeliver the message. If there are other consumers online at the same time, it will quickly redeliver it
+to another consumer. That way you can be sure that no message is lost,
+even if the workers occasionally die.</p>
+<p>A timeout is enforced on consumer delivery acknowledgement (see <a href="https://www.rabbitmq.com/docs/4.3/consumers#acknowledgement-timeout">Delivery Acknowledgement Timeout</a>).</p>
+<p>Do <strong>not</strong> enable <code>ConsumerBuilder.preSettled()</code> for this tutorial: that mode delivers messages already settled and they cannot be redelivered if the worker crashes.</p>
+<div><div><pre><code class="language-java">connection.consumerBuilder()
+    .queue(TASK_QUEUE_NAME)
+    .messageHandler((context, message) -&gt; {
+      String text = new String(message.body(), StandardCharsets.UTF_8);
+      System.out.println(" [x] Received '" + text + "'");
+      try {
+        doWork(text);
+      } finally {
+        System.out.println(" [x] Done");
+        context.accept();
+      }
+    })
+    .build();</code></pre></div></div>
+<p>Using this pattern, if you terminate a worker using
+CTRL+C while it was processing a message, the message can be redelivered to another consumer once the acknowledgement timeout elapses.</p>
+<blockquote>
+<h4 id="forgotten-settlement">Forgotten settlement</h4>
+<p>It's a common mistake to omit <code>context.accept()</code> (or to call it before work finishes). Messages will be redelivered
+when your client quits (which may look like random redelivery), and unacked deliveries accumulate on the broker.</p>
+<p>You can use <code>rabbitmqctl</code> to inspect queues:</p>
+<div><div><pre><code class="language-bash">sudo rabbitmqctl list_queues name messages_ready messages_unacknowledged</code></pre></div></div>
+<p>On Windows, drop the sudo:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl.bat list_queues name messages_ready messages_unacknowledged</code></pre></div></div>
+</blockquote>
+<h2 id="message-durability">Message durability</h2>
+<p>We have learned how to make sure that even if the consumer dies, the
+task isn't lost before settlement. But our tasks will still be lost if the RabbitMQ server stops.</p>
+<p>When RabbitMQ quits or crashes it will forget queues and messages unless you configure durability.
+In modern versions of RabbitMQ, that is 4.0 or later, transient non-exclusive queues are deprecated.
+In virtually all uses cases, you should use durable queues. Quorum Queues are <strong>always</strong> durable.
+Classic Queues can be made durable, which is a strong recommendation.</p>
+<p>This library makes durable queues by default. For messages, mark outbound messages as <strong>durable</strong> when publishing. Set <code>durable(true)</code> on the <code>Message</code> to mark messages as durable. This is important for
+Classic Queues. In Quorum Queues, messages are always durable.</p>
+<p>First, declare a <strong>quorum</strong> queue named <code>task_queue</code> (not <code>hello</code>, to avoid clashing with an existing non-durable queue from experiments):</p>
+<div><div><pre><code class="language-java">connection.management().queue("task_queue").quorum().queue().declare();</code></pre></div></div>
+<p>Apply the same declaration in both producer and consumer before publishing or consuming.</p>
+<p>When publishing, build a durable message:</p>
+<div><div><pre><code class="language-java">publisher.publish(
+    publisher.message(message.getBytes(StandardCharsets.UTF_8)).durable(true),
+    callback);</code></pre></div></div>
+<blockquote>
+<h4 id="note-on-message-persistence">Note on message persistence</h4>
+<p>Marking messages as durable does not fully guarantee that a message
+will never be lost. There is still a small window around broker I/O. For stronger guarantees consider <a href="https://www.rabbitmq.com/docs/4.3/confirms">publisher confirms</a> and the AMQP 1.0 client's per-publish callbacks (<code>Publisher.Status</code>).</p>
+</blockquote>
+<h2 id="fair-dispatch">Fair dispatch</h2>
+<p>You might have noticed that the dispatching still doesn't work exactly
+as we want. For example in a situation with two workers, when all
+odd messages are heavy and even messages are light, one worker will be
+constantly busy and the other one will do hardly any work. Well,
+RabbitMQ doesn't know anything about that and will still dispatch
+messages evenly.</p>
+<p>This happens because the broker may dispatch several messages before earlier ones are settled.</p>
+<!-- -->
+<p>With the AMQP 1.0 Java client, limit how many messages are <strong>in flight</strong> per consumer by setting <strong>initial credits</strong> to <code>1</code> on the consumer builder. This is the analogue of <code>basicQos(1)</code> / prefetch 1 in AMQP 0-9-1:</p>
+<div><div><pre><code class="language-java">connection.consumerBuilder()
+    .queue(TASK_QUEUE_NAME)
+    .initialCredits(1)
+    .messageHandler((context, message) -&gt; { ... })
+    .build();</code></pre></div></div>
+<blockquote>
+<h4 id="note-about-queue-size">Note about queue size</h4>
+<p>If all the workers are busy, your queue can fill up. You will want to keep an
+eye on that, and maybe add more workers, or have some other strategy.</p>
+</blockquote>
+<h2 id="putting-it-all-together">Putting it all together</h2>
+<p>Final outline of <code>NewTask.java</code>:</p>
+<div><div><pre><code class="language-java">import com.rabbitmq.client.amqp.Connection;
+import com.rabbitmq.client.amqp.Environment;
+import com.rabbitmq.client.amqp.Publisher;
+import com.rabbitmq.client.amqp.impl.AmqpEnvironmentBuilder;
+
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+public class NewTask {
+
+  private static final String TASK_QUEUE_NAME = "task_queue";
+
+  public static void main(String[] argv) throws Exception {
+    try (Environment environment = new AmqpEnvironmentBuilder()
+        .connectionSettings()
+        .uri("amqp://guest:guest@localhost:5672/%2f")
+        .environmentBuilder()
+        .build();
+        Connection connection = environment.connectionBuilder().build()) {
+
+      connection.management().queue(TASK_QUEUE_NAME).quorum().queue().declare();
+
+      String message = String.join(" ", argv);
+
+      try (Publisher publisher = connection.publisherBuilder().queue(TASK_QUEUE_NAME).build()) {
+        CountDownLatch latch = new CountDownLatch(1);
+        publisher.publish(
+            publisher.message(message.getBytes(StandardCharsets.UTF_8)).durable(true),
+            context -&gt; {
+              if (context.status() == Publisher.Status.ACCEPTED) {
+                System.out.println(" [x] Sent '" + message + "'");
+              }
+              latch.countDown();
+            });
+        if (!latch.await(5, TimeUnit.SECONDS)) {
+          throw new IllegalStateException("Timed out waiting for publish outcome");
+        }
+      }
+    }
+  }
+}</code></pre></div></div>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/java-amqp/src/main/java/NewTask.java">(NewTask.java source)</a></p>
+<p>And <code>Worker.java</code>:</p>
+<div><div><pre><code class="language-java">import com.rabbitmq.client.amqp.Connection;
+import com.rabbitmq.client.amqp.Consumer;
+import com.rabbitmq.client.amqp.Environment;
+import com.rabbitmq.client.amqp.impl.AmqpEnvironmentBuilder;
+
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+
+public class Worker {
+
+  private static final String TASK_QUEUE_NAME = "task_queue";
+
+  public static void main(String[] argv) throws Exception {
+    Environment environment = new AmqpEnvironmentBuilder()
+        .connectionSettings()
+        .uri("amqp://guest:guest@localhost:5672/%2f")
+        .environmentBuilder()
+        .build();
+    Connection connection = environment.connectionBuilder().build();
+
+    connection.management().queue(TASK_QUEUE_NAME).quorum().queue().declare();
+    System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
+
+    Consumer consumer = connection.consumerBuilder()
+        .queue(TASK_QUEUE_NAME)
+        .initialCredits(1)
+        .messageHandler((context, message) -&gt; {
+          String text = new String(message.body(), StandardCharsets.UTF_8);
+          System.out.println(" [x] Received '" + text + "'");
+          try {
+            doWork(text);
+          } finally {
+            System.out.println(" [x] Done");
+            context.accept();
+          }
+        })
+        .build();
+
+    new CountDownLatch(1).await();
+  }
+
+  private static void doWork(String task) {
+    for (char ch : task.toCharArray()) {
+      if (ch == '.') {
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException ignored) {
+          Thread.currentThread().interrupt();
+        }
+      }
+    }
+  }
+}</code></pre></div></div>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/java-amqp/src/main/java/Worker.java">(Worker.java source)</a></p>
+<p>Using explicit settlement and <code>initialCredits(1)</code> you can set up a
+work queue. Quorum queues and durable messages let tasks survive broker restarts as in the AMQP 0-9-1 tutorial.</p>
+<p>For API details see the <a href="https://rabbitmq.github.io/rabbitmq-amqp-java-client/stable/api/">AMQP 1.0 Java client Javadoc</a>.</p>
+<p>Now we can move on to <a href="/tutorials/tutorial-three-java-amqp10">tutorial 3</a> and learn how
+to deliver the same message to many consumers.</p></main>

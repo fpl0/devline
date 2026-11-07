@@ -1,0 +1,85 @@
+<main><header><h1>Topologies Deep Dive</h1></header>
+<p>A <strong>topology</strong> is the arrangement of NATS servers and the connections
+between them — the shape a deployment takes. NATS scales by composing
+servers, so growing a deployment means building bigger topologies out of
+smaller ones.</p>
+<p>This chapter walks through the shapes those servers form — single server,
+cluster, super-cluster, leaf nodes — in the order a real deployment grows
+through them.</p>
+<p>The idea that ties the whole chapter together is that the application
+never changes. The same server binary and the same client code run on
+every shape, so you change the deployment rather than the code.</p>
+<h2 id="the-growing-deployment">The growing deployment</h2>
+<p>We follow one company, Acme, and one workload: its ORDERS system. The
+application publishes order events on subjects under <code>orders.</code> (like
+<code>orders.created</code>) and consumes them from the ORDERS stream — the same small
+payload in every example.</p>
+<p>What grows across the chapter is the deployment under that workload, in
+four stages:</p>
+<ul>
+<li><strong>Single server.</strong> Acme starts with a single <code>nats-server</code>, <code>n1</code>, on a
+developer laptop. Clients connect to it directly. It's the simplest
+thing that works.</li>
+<li><strong>A cluster.</strong> Production needs to survive a server outage. Acme stands
+up the <code>east</code> cluster (three servers: <code>n1-east</code>, <code>n2-east</code>, and
+<code>n3-east</code>) joined into a full mesh by <strong><a href="/reference/protocols/route">routes</a></strong>. Clients connect to
+any one of them.</li>
+<li><strong>A super-cluster.</strong> Traffic arrives from a second region. Acme adds
+the <code>west</code> cluster and joins it to <code>east</code> with <strong><a href="/reference/protocols/gateway">gateways</a></strong>. The two
+clusters now form a super-cluster that spans regions, while keeping
+most traffic local to where it starts.</li>
+<li><strong>Leaf nodes.</strong> A factory floor needs NATS on-site with only outbound
+network access. Acme runs <code>factory-1</code> as a <strong><a href="/reference/protocols/leafnode">leaf node</a></strong> that connects
+outward to the <code>east</code> cluster and serves its own local edge clients.</li>
+</ul>
+<p>All of the examples in this chapter are runnable on a single machine.</p>
+<h2 id="two-layers-messaging-and-jetstream">Two layers: messaging and JetStream</h2>
+<p>Every shape in this chapter does two separate jobs, and it helps to keep
+them apart.</p>
+<p>The first is <strong>core messaging</strong>. A client publishes <code>orders.created</code>, and
+the server fabric — routes, gateways, and leaf connections — carries that
+message to whoever has a matching subscription, wherever they're
+connected. The animations on these pages show this layer: a message
+leaving one server and arriving at another.</p>
+<p>The second is <strong>JetStream</strong>. A stream stores messages on disk, and clients
+read them back through consumers instead of subscribing to the subject
+directly. JetStream replicates that stored copy across the servers the
+topology provides, so it survives a lost server. It's a separate layer on
+the same fabric: the topology moves messages, and JetStream persists and
+replicates them.</p>
+<p>Most of what a topology does is the first layer, and the animations
+reflect that. JetStream's cluster behavior — the meta layer and replication —
+enters on the
+<a href="/learn/topologies/jetstream-in-a-cluster">JetStream in a cluster</a> page.
+When a page talks about a message reaching a subscriber, that's core
+messaging; when it talks about a stream surviving a lost server, that's
+JetStream on top.</p>
+<h2 id="scope-of-this-chapter">Scope of this chapter</h2>
+<p>This chapter, in the Operate section of Learn, is the hands-on companion to
+the <a href="/concepts/topologies">Core Concepts → Topologies</a> primer. The concept
+page is the five-minute overview. This chapter wires each shape up for
+real, providing config you can copy-paste, <code>nats-server</code> processes you
+can run locally, and the "when and why" behind each step.</p>
+<p>This chapter teaches the shapes and the wiring, not the replication mechanics
+underneath: the Raft protocol, election timing, log replication, and stream
+placement. Those live in the
+<a href="/learn/clustering">Clustering &amp; Replication</a> deep dive.</p>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You've read the <a href="/concepts/what-is-nats">Core Concepts</a> primers,
+including <a href="/concepts/topologies">Topologies</a> and
+<a href="/concepts/jetstream">JetStream</a>. Ideally you've worked through the
+<a href="/learn/jetstream">JetStream deep dive</a> and know what a stream and a
+consumer are. This chapter reuses the <code>ORDERS</code> stream rather than
+re-introducing it.</p>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/topologies/single-server">Single server</a></td><td>The simplest deployment, when one server is enough, and its single-point-of-failure ceiling</td></tr><tr><td><a href="/learn/topologies/your-first-cluster">Your first cluster</a></td><td>Join servers with routes into a cluster, and what client reconnect and failover buy you</td></tr><tr><td><a href="/learn/topologies/jetstream-in-a-cluster">JetStream in a cluster</a></td><td>What changes for streams once there's a cluster: the meta layer and replicated streams</td></tr><tr><td><a href="/learn/topologies/super-clusters">Super-clusters</a></td><td>Join clusters with gateways across regions, and how geo-affinity keeps traffic local</td></tr><tr><td><a href="/learn/topologies/leaf-nodes">Leaf nodes</a></td><td>Attach a leaf node with an outbound leaf connection and how subject interest flows across it</td></tr><tr><td><a href="/learn/topologies/putting-it-together">Putting it together</a></td><td>Compose clusters, gateways, and leaf nodes into a full picture</td></tr><tr><td><a href="/learn/topologies/where-next">Where to go next</a></td><td>A map of what's beyond this chapter</td></tr></tbody></table>
+<p>Open a terminal and turn to <a href="/learn/topologies/single-server">Single server</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/concepts/topologies">Core Concepts → Topologies</a> — the five-minute
+overview of the same four shapes</li>
+<li><a href="/learn/jetstream">JetStream deep dive</a> — the <code>ORDERS</code> stream this
+chapter reuses</li>
+<li><a href="/learn/clustering">Clustering &amp; Replication</a> — the replication
+mechanics behind clusters</li>
+</ul></main>

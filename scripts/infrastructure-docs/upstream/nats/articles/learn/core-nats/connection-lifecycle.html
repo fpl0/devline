@@ -1,0 +1,269 @@
+<main><header><h1>Connection lifecycle</h1></header>
+<p>The <a href="/learn/core-nats/connecting">Connecting</a> page opened a client's
+connection: the handshake, a connection name, and the heartbeats that tell
+client and server the link is still alive. A connection doesn't stay up
+forever, though. The server it's attached to restarts, or a network blip
+cuts the socket, and the connection drops.</p>
+<p>This page answers one question: what happens to your client, and to your
+messages, when that drop happens. The client handles most of it for you.
+Knowing exactly what it does, and what it can't do, tells you which failures
+you can ignore and which you have to design around.</p>
+<p>Two ideas carry the page. First, the client owns reconnection: it re-dials
+and rebuilds its own state without your help. Second, you watch the whole
+lifecycle through a few callbacks. After that, two shorter sections point at
+where the tuning and hardening live, in the <a href="/learn/resilient-clients">Resilient
+clients</a> chapter.</p>
+<h2 id="the-client-owns-reconnection">The client owns reconnection</h2>
+<p>When the socket drops, the client reconnects for you rather than surfacing
+the failure and stopping. It re-dials a server, replays the connect
+handshake, and re-sends every subscription it had, so messages start flowing
+again. This is on by default in every client library.</p>
+<p>The client has to re-send its subscriptions because the server keeps no
+per-client memory. A subscription exists only as an entry in the server's
+in-memory interest graph, tied to one socket. When that socket dies the entry
+is gone, and to the server the reconnecting client is a brand-new connection.
+So a packer's interest in <code>orders.created</code> isn't restored
+by the server; the client library restores it by subscribing again.</p>
+<p>That leaves the messages, and the client treats the ones you send and the
+ones you'd receive very differently.</p>
+<p>The publishes <em>you</em> make while disconnected are held. A publish call during
+the gap doesn't fail; the client writes it to a <strong>reconnect buffer</strong>, an
+outbound queue that keeps your publishes during the outage and flushes them,
+in order, once the link returns. That buffer is bounded (8 MB by default),
+and a publish that would overflow it returns an error rather than growing
+without limit. Sizing it, and handling that overflow, belongs to
+<a href="/learn/resilient-clients/reconnection">Reconnection</a>.</p>
+<p>The messages <em>other</em> publishers send while you're away are gone, and no
+buffer on your side can change that. Core NATS is
+<a href="/learn/core-nats/publish-subscribe#at-most-once-delivery">at-most-once</a>:
+while your subscription is missing, an <code>orders.created</code> message
+from another service finds no interest to match, so the server discards it.
+When you reconnect your subscription is back, but that message was never kept
+and isn't coming.</p>
+<p>That gap is the reason to reach for a server-side store when missed messages
+actually matter, such as an order that must be handled even if the subscriber
+was restarting. That store is <a href="/learn/jetstream">JetStream</a>, the layer this
+chapter stops short of.</p>
+<h2 id="observing-the-lifecycle">Observing the lifecycle</h2>
+<p>A connection moves through states a single publish or subscribe call never
+shows you: CONNECTED, then RECONNECTING after a drop, then CONNECTED again,
+and eventually CLOSED. To see those transitions you register <strong>lifecycle
+callbacks</strong> when you open the connection, functions the client runs as the
+connection changes state.</p>
+<p>Three of them mark the transitions:</p>
+<ul>
+<li>a <strong>disconnect handler</strong> runs when the link drops and reconnection begins,</li>
+<li>a <strong>reconnect handler</strong> runs when the client re-establishes a connection,</li>
+<li>a <strong>closed handler</strong> runs once, when the connection is finished for good
+and won't come back.</li>
+</ul>
+<p>A disconnect followed by a reconnect is routine and needs nothing from you
+beyond a log line. The closed handler is the one that matters: it means the
+client gave up retrying, or you closed the connection deliberately, and this
+connection is over.</p>
+<p>A fourth callback isn't about state at all. The <strong>async error handler</strong> is
+where the client reports errors that don't belong to any single call you
+made, such as the server rejecting a subscription because your credentials
+don't permit that subject. An error a publish call can detect comes back
+from the call itself, but these arrive with no call to attach them to, so
+the client routes them all to this one handler. Wire it up in every real
+service; without it, those errors are invisible.</p>
+<p>Registering these four is the first thing a production connection does,
+before it publishes or subscribes a single message. The
+<a href="/learn/resilient-clients/reconnection">Reconnection</a> page shows a service
+registering a callback that logs every failed reconnect attempt through a
+long outage. A connection also reaches CLOSED the clean way, when you shut
+down on purpose; draining it first so in-flight work finishes is
+<a href="/learn/resilient-clients/drain-and-shutdown">Drain &amp; Shutdown</a>.</p>
+<h2 id="force-a-reconnect">Force a reconnect</h2>
+<p>Reconnection usually happens <em>to</em> a client: the server drops the link and the
+client reacts. A client can also start it deliberately. <strong>Force reconnect</strong> is
+a call that closes the current connection and immediately re-dials the pool,
+running the same path a real disconnect would: subscriptions are restored and
+buffered publishes flush, exactly as if the server had gone away.</p>
+<p>You use it when the connection is healthy but you want to move it. After you
+scale a cluster out, clients stay on the servers they first dialed and a new
+server sits idle; forcing a reconnect across the fleet spreads clients onto
+it. It's also how a client leaves a server you know is about to go down, on
+your schedule instead of waiting for the socket to close.</p>
+<p>nats.go exposes this as <code>Conn.ForceReconnect()</code>, and several other clients
+offer the same call under their own naming. There's nothing new to learn in
+the mechanics; it's the ordinary reconnect from the top of this page, started
+by you.</p>
+<h2 id="lame-duck-mode">Lame-duck mode</h2>
+<p>A server doesn't always vanish without warning. When an operator takes one
+down for an upgrade, the server can enter <strong>lame-duck mode</strong>: it stops
+accepting new connections, announces to every connected client that it's
+about to go away, and then closes the existing ones gradually rather than
+all at once.</p>
+<p>From the client's side this is a gentler disconnect. A client that watches
+for the notice can reconnect to another server in the pool <em>before</em> its
+socket is cut — the lame-duck callback wired to a forced reconnect — and
+move without ever seeing a hard drop. Even a client that does
+nothing special is disconnected in a spread-out wave, instead of every client
+on the server reconnecting at the same instant.</p>
+<p>An operator triggers it with a signal to the server process:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Lame-duck mode: tell a running server to step down gracefully instead of
+# dropping every client at once. Keep the local nats-server running, with a
+# subscriber (nats sub orders.created) attached in another terminal.
+#
+# Signal the server to enter lame-duck mode. With a single nats-server on the
+# box you don't pass a pid -- the CLI finds the one running process:
+nats-server --signal ldm
+
+# The running server logs that it is draining and stops taking new clients:
+#
+#   [INF] Entering lame duck mode, stop accepting new clients
+#
+# It then closes existing clients gradually rather than all at once. Across a
+# cluster, a client that watches for the lame-duck notice can move to another
+# server before its socket is cut; the rest are disconnected in a spread-out
+# wave and reconnect elsewhere on their own. Against this single server
+# there is nowhere else to go, so the subscriber is disconnected gracefully
+# and reconnects once you start the server again -- the same stop and start as
+# any restart.
+#
+# The grace period before clients are closed, and the window the disconnects
+# are spread over, are server settings an operator tunes. See the server-side
+# walkthrough in Deployment -&gt; Rolling upgrades.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Register a callback for the lame-duck notice. When an operator takes
+// the server down gracefully (nats-server --signal ldm), the server
+// stops accepting new connections and announces to every connected
+// client that it is about to go away; this callback is that notice.
+if (s == NATS_OK)
+    s = natsOptions_SetLameDuckModeCB(opts, onLameDuck, NULL);
+
+if (s == NATS_OK)
+    s = natsConnection_Connect(&amp;conn, opts);
+
+// Keep the client running. Signal the server from another terminal
+// with: nats-server --signal ldm
+if (s == NATS_OK)
+{
+    printf("connected, waiting for the lame-duck notice...\n");
+    while (natsConnection_Status(conn) != NATS_CONN_STATUS_CLOSED)
+        nats_Sleep(100);
+}</code></pre></div></div>
+<p>The server-side details, the signal itself and the timing it uses to spread
+the disconnects, are an operations task covered in <a href="/learn/deployment/rolling-upgrades">Deployment → Rolling
+upgrades</a>. Lame-duck mode matters most
+across a cluster, where the client has another server to move to. Against the
+single local server in this chapter there's nowhere else to go, so the client
+waits out the graceful shutdown and reconnects when the server comes back, the
+same stop and start as any other restart.</p>
+<h2 id="try-it">Try it</h2>
+<p>You can watch the client reconnect against the single local server. Subscribe
+in one terminal, then stop and restart the server underneath it. The
+subscriber logs the drop, reconnects on its own, and resumes, and you never
+restart the subscriber:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Watch the client reconnect on its own. Keep the local nats-server from
+# earlier in the chapter running in its own terminal.
+#
+# In this terminal, subscribe as the warehouse service on orders.created:
+nats sub orders.created
+
+# Now stop the nats-server (Ctrl-C in its terminal) and start it again. The
+# subscriber keeps running the whole time. It logs the drop -- the reason is
+# EOF because the server closed the socket cleanly on the way down:
+#
+#   14:02:11 Subscribing on orders.created
+#   14:02:19 &gt;&gt;&gt; Disconnected due to: EOF, will attempt reconnect
+#
+# You never restart the subscriber. Once the server is back, publish an order
+# and the subscriber prints it, because the client re-dialed and re-sent the
+# subscription itself. Add --trace to log an explicit reconnect line too,
+# along with the initial connect and each retry delay:
+#
+#   nats sub orders.created --trace
+#   14:02:21 &gt;&gt;&gt; Reconnected to nats://127.0.0.1:4222 (127.0.0.1:4222)
+#
+# Publishing WHILE the server is down fails instead: nats pub has no server
+# to connect to, and nothing queues the message server-side. The at-most-once
+# loss happens on a live server: a message that arrives before the
+# subscription is restored finds no interest and is discarded.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Register the lifecycle callbacks before connecting: one for the
+// drop, one for the recovery.
+if (s == NATS_OK)
+    s = natsOptions_SetDisconnectedCB(opts, onDisconnected, NULL);
+if (s == NATS_OK)
+    s = natsOptions_SetReconnectedCB(opts, onReconnected, NULL);
+
+if (s == NATS_OK)
+    s = natsConnection_Connect(&amp;conn, opts);
+
+// Subscribe as the warehouse service. Now stop and restart the
+// nats-server: the client logs the drop, re-dials, and re-sends this
+// subscription on its own -- you never restart this program. Publish
+// an orders.created message once the server is back and it prints,
+// proving the subscription was restored on the new connection.
+if (s == NATS_OK)
+    s = natsConnection_Subscribe(&amp;sub, conn, "orders.created", onMsg, NULL);
+
+if (s == NATS_OK)
+{
+    printf("subscribed to orders.created, restart the server underneath me\n");
+    while (natsConnection_Status(conn) != NATS_CONN_STATUS_CLOSED)
+        nats_Sleep(100);
+}</code></pre></div></div>
+<p>Publish an <code>orders.created</code> message once the server is back and the subscriber
+prints it, which proves the subscription was restored on the new connection.
+Publishing <em>while</em> the server is down fails instead: <code>nats pub</code> has no server
+to connect to, and nothing queues the message server-side. The at-most-once
+loss from earlier in the page happens on a live server: a message that arrives
+in the gap before your subscription is restored finds no interest, and the
+server discards it.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Each of these turns the automatic reconnect into a quiet way to lose data or
+stall a service.</p>
+<p><strong>Trusting the reconnect buffer as a delivery guarantee.</strong> The buffer holds
+your publishes through a disconnect, but it lives in your client's memory. It
+isn't written anywhere durable, and if the process itself dies, everything in
+the buffer dies with it. Treat it as a short-term hold over a brief outage,
+not as storage you can rely on. A publish that must survive regardless needs
+the server-side store from earlier in the page.</p>
+<p><strong>Doing real work inside a connection callback.</strong> The disconnect, reconnect,
+closed, and error handlers run on the client's own thread. Block one with a
+database write or a slow HTTP call, and every other callback on that
+connection waits behind it; in some clients the connection's processing does
+too. Keep the handlers to a log line or a signal on a channel, and do the
+actual work elsewhere.</p>
+<p><strong>Letting infinite reconnect hide a dead configuration.</strong> A long-lived service
+should retry forever, but "forever" also means a client pointed at a wrong
+address, or refused by auth, retries that mistake silently and looks healthy
+while it never connects. Log the drop from the disconnect handler and every
+failed attempt from the reconnect-error callback the Reconnection page wires
+up, so a misconfiguration shows up as constant errors in your logs instead of
+silence. The retry-limit setting and its defaults are in
+<a href="/learn/resilient-clients/reconnection">Reconnection</a>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now know what a dropped connection does to a client:</p>
+<ul>
+<li>The client owns reconnection. It re-dials, replays the handshake, and
+re-subscribes on its own, because the server keeps no per-client state.</li>
+<li>Your outgoing publishes are buffered through the gap and flushed on
+reconnect; messages others published while you were away are gone, which is
+at-most-once at work.</li>
+<li>You observe the whole cycle through the disconnect, reconnect, closed, and
+async error callbacks, wired up before the first message.</li>
+<li>A client can force its own reconnect, and a server in lame-duck mode lets
+clients leave gracefully before it stops.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>A connection can drop and heal without you noticing, which is usually what you
+want, but it also means a delivery problem can hide behind a healthy-looking
+client. The next page, <a href="/learn/core-nats/debugging-delivery">Debugging
+delivery</a>, is how you tell a message
+that reached no subscriber from one that never left the client at all, using
+the server's own view of the connection.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/resilient-clients/reconnection">Resilient clients → Reconnection</a> —
+tuning backoff, jitter, retry limits, and the reconnect buffer for a
+long-lived service.</li>
+<li><a href="/learn/resilient-clients/drain-and-shutdown">Resilient clients → Drain &amp; Shutdown</a> —
+closing a connection cleanly so in-flight work isn't dropped.</li>
+<li><a href="/learn/deployment/rolling-upgrades">Deployment → Rolling upgrades</a> — the
+server side of lame-duck mode: the signal, the grace period, and the timing.</li>
+<li><a href="/learn/core-nats/publish-subscribe#at-most-once-delivery">Publish-subscribe → At-most-once delivery</a> —
+why a message published with no interest is gone for good.</li>
+</ul></main>

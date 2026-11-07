@@ -1,0 +1,62 @@
+<main>
+		
+		<h1>Integration testing</h1>
+		<p>Depending on your requirements, integration testing can be achieved in different ways:</p>
+<ol>
+<li>Integrate your application with the Mailpit API (see <a href="../api-v1/">API documentation</a>).</li>
+<li>Return a rendered HTML or text version of a message (see below).</li>
+<li>Test your application’s handling of unexpected SMTP responses by invoking Mailpit’s <a href="chaos/">Chaos</a> feature.</li>
+</ol>
+<h2 id="return-a-rendered-text-or-html-message-part">Return a rendered text or HTML message part</h2>
+<p>To view either the HTML or text version of an email, append <code>.html</code> or <code>.txt</code> to the URL generated via the frontend. This would typically be something like
+<code>http://localhost:8025/view/B79PgsotENzGwk4CCbAcAq.html</code> or <code>http://localhost:8025/view/B79PgsotENzGwk4CCbAcAq.txt</code>.</p>
+<p>The format is <code>&lt;Mailpit URL&gt;/view/&lt;ID&gt;.(html|txt)</code>.</p>
+<p>Please <a href="#embedding-the-html-message-in-an-iframe">see this</a> if you intend to embed the HTML message in an iframe.</p>
+<h2 id="return-the-latest-text-or-html-message-part">Return the latest text or HTML message part</h2>
+<p>For convenience, you can also substitute the <code>&lt;ID&gt;</code> with <code>latest</code> to return the latest message instead, e.g., <code>http://localhost:8025/view/latest.html</code> or <code>http://localhost:8025/view/latest.txt</code>.</p>
+<p>You can optionally apply a <a href="../usage/search-filters/">search filter</a> to return the latest message matching a search by appending <code>?query=&lt;search&gt;</code>, for example, <code>http://localhost:8025/view/latest.html?query=from:user@example.com</code>.</p>
+
+<div>
+	<ol>
+<li>The HTML and text versions only return the message part, not any other data such as mail headers or attachments (you need to use the API for that).</li>
+<li>Inline image paths in the HTML part are modified to reference the Mailpit API so they load correctly on the frontend.</li>
+<li>If no message is found, then a 404 is returned.</li>
+<li>If requesting the HTML part for an existing message without an HTML part, then a 404 is returned.</li>
+</ol>
+
+</div>
+
+<h2 id="cypress-mailpit-package">Cypress Mailpit Package</h2>
+<p>For those using Cypress for integration testing, there is a convenient <a href="https://www.npmjs.com/package/cypress-mailpit">Cypress Mailpit package</a> available. This package allows you to easily interact with Mailpit within your Cypress tests, providing seamless integration and simplifying your testing workflows.</p>
+<h2 id="embedding-the-html-message-in-an-iframe">Embedding the HTML message in an iframe</h2>
+<p>If you are intending to embed the HTML message within an iframe, then append <code>?embed=1</code> to the URL (e.g., <code>http://localhost:8025/view/B79PgsotENzGwk4CCbAcAq.html?embed=1</code>)
+which will modify all links to open in <code>target="_blank"</code> and also set <code>rel="noreferrer noopener"</code> for security purposes.</p>
+<p>In addition to this, a small snippet of JavaScript is added to the message to send the page height to its parent page via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage">postMessage()</a>, which contains the height of the page via the <code>messageHeight</code> property.
+This can be used by the parent page to adjust the iframe height, for example:</p>
+<div><pre><code class="language-html"><span><span><span>&lt;</span><span>iframe</span> <span>src</span><span>=</span><span>"http://localhost:8025/view/B79PgsotENzGwk4CCbAcAq.html?embed=1"</span> <span>style</span><span>=</span><span>"width: 100%"</span> <span>id</span><span>=</span><span>"preview-html"</span><span>&gt;&lt;/</span><span>iframe</span><span>&gt;</span>
+</span></span><span><span>
+</span></span><span><span><span>&lt;</span><span>script</span> <span>type</span><span>=</span><span>"application/javascript"</span><span>&gt;</span>
+</span></span><span><span>    <span>window</span><span>.</span><span>addEventListener</span><span>(</span>
+</span></span><span><span>        <span>"message"</span><span>,</span>
+</span></span><span><span>        <span>(</span><span>event</span><span>)</span> <span>=&gt;</span> <span>{</span>
+</span></span><span><span>            <span>// Check sender origin to be trusted
+</span></span></span><span><span>            <span>// if (event.origin !== "http://example.com") { return }
+</span></span></span><span><span>            <span>const</span> <span>data</span> <span>=</span> <span>event</span><span>.</span><span>data</span><span>;</span>
+</span></span><span><span>            <span>if</span> <span>(</span><span>data</span><span>.</span><span>messageHeight</span><span>)</span> <span>{</span>
+</span></span><span><span>                <span>document</span><span>.</span><span>getElementById</span><span>(</span><span>"preview-html"</span><span>).</span><span>style</span><span>.</span><span>height</span> <span>=</span> <span>data</span><span>.</span><span>messageHeight</span> <span>+</span> <span>50</span> <span>+</span> <span>"px"</span><span>;</span>
+</span></span><span><span>            <span>}</span>
+</span></span><span><span>        <span>},</span>
+</span></span><span><span>        <span>false</span>
+</span></span><span><span>    <span>);</span>
+</span></span><span><span><span>&lt;/</span><span>script</span><span>&gt;</span>
+</span></span></code></pre></div>
+<div>
+	For browser security reasons, no JavaScript interaction is allowed between the parent page and the embedded page.
+</div>
+
+
+
+		
+		
+		
+	</main>

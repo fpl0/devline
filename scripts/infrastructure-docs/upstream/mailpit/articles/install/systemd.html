@@ -1,0 +1,53 @@
+<main>
+		
+		<h1>Systemd integration</h1>
+		<p>Mailpit can be easily configured via systemd to automatically start when your computer starts.
+There are a few points worth noting before you do:</p>
+<ol>
+<li>It is advisable not to run the service as “root” for security purposes. For this example, we will use a user and group called “mailpit”, but this could be any existing user on your machine.</li>
+<li>The database store must be readable and writable by this user; otherwise, Mailpit will fail to start. For this example, we use <code>/var/lib/mailpit/mailpit.db</code>.</li>
+</ol>
+<p>Create a systemd service configuration file in <code>/etc/systemd/system/mailpit.service</code>:</p>
+<div><pre><code class="language-shell"><span><span><span>[</span>Unit<span>]</span>
+</span></span><span><span><span>Description</span><span>=</span>Mailpit server
+</span></span><span><span>
+</span></span><span><span><span>[</span>Service<span>]</span>
+</span></span><span><span><span>ExecStart</span><span>=</span>/usr/local/bin/mailpit -d /var/lib/mailpit/mailpit.db
+</span></span><span><span><span>Restart</span><span>=</span>always
+</span></span><span><span><span># Restart service after 10 seconds if service crashes</span>
+</span></span><span><span><span>RestartSec</span><span>=</span><span>10</span>
+</span></span><span><span><span>SyslogIdentifier</span><span>=</span>mailpit
+</span></span><span><span><span>User</span><span>=</span>mailpit
+</span></span><span><span><span>Group</span><span>=</span>mailpit
+</span></span><span><span>
+</span></span><span><span><span>[</span>Install<span>]</span>
+</span></span><span><span><span>WantedBy</span><span>=</span>multi-user.target
+</span></span></code></pre></div><h2 id="enable-the-service">Enable the service</h2>
+<div><pre><code class="language-shell"><span><span>systemctl <span>enable</span> mailpit.service
+</span></span><span><span>Created symlink /etc/systemd/system/multi-user.target.wants/mailpit.service → /etc/systemd/system/mailpit.service.
+</span></span></code></pre></div><h2 id="start-the-service">Start the service</h2>
+<div><pre><code class="language-shell"><span><span>systemctl start mailpit.service
+</span></span></code></pre></div><h2 id="verify-mailpit-is-running">Verify Mailpit is running</h2>
+<div><pre><code class="language-shell"><span><span>systemctl status mailpit.service
+</span></span><span><span>● mailpit.service - Mailpit server
+</span></span><span><span>     Loaded: loaded <span>(</span>/etc/systemd/system/mailpit.service<span>;</span> enabled<span>;</span> vendor preset: enabled<span>)</span>
+</span></span><span><span>     Active: active <span>(</span>running<span>)</span> since Fri 2023-12-08 16:46:29 NZDT<span>;</span> 6s ago
+</span></span><span><span>   Main PID: <span>41913</span> <span>(</span>mailpit<span>)</span>
+</span></span><span><span>      Tasks: <span>10</span> <span>(</span>limit: 18768<span>)</span>
+</span></span><span><span>     Memory: 3.3M
+</span></span><span><span>        CPU: 27ms
+</span></span><span><span>     CGroup: /system.slice/mailpit.service
+</span></span><span><span>             └─41913 /usr/local/bin/mailpit -d /tmp/mailpit.db
+</span></span><span><span>
+</span></span><span><span>Dec <span>08</span> 16:46:29 mailpit systemd<span>[</span>1<span>]</span>: Started Mailpit server.
+</span></span><span><span>Dec <span>08</span> 16:46:29 mailpit mailpit<span>[</span>41913<span>]</span>: INFO<span>[</span>2023/12/08 16:46:29<span>]</span> <span>[</span>smtpd<span>]</span> starting on <span>[</span>::<span>]</span>:1025
+</span></span><span><span>Dec <span>08</span> 16:46:29 mailpit mailpit<span>[</span>41913<span>]</span>: INFO<span>[</span>2023/12/08 16:46:29<span>]</span> <span>[</span>http<span>]</span> starting on <span>[</span>::<span>]</span>:8025
+</span></span><span><span>Dec <span>08</span> 16:46:29 mailpit mailpit<span>[</span>41913<span>]</span>: INFO<span>[</span>2023/12/08 16:46:29<span>]</span> <span>[</span>http<span>]</span> accessible via http://localhost:8025/
+</span></span></code></pre></div><h2 id="stop-the-service">Stop the service</h2>
+<div><pre><code class="language-shell"><span><span>systemctl stop mailpit.service
+</span></span></code></pre></div>
+
+		
+		
+		
+	</main>

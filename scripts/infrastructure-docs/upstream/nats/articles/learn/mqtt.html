@@ -1,0 +1,101 @@
+<main><header><h1>Connect MQTT devices to NATS</h1></header>
+<p><code>nats-server</code> speaks MQTT. Add one configuration block and the same
+binary that serves your NATS clients also accepts MQTT connections, on
+its own listener. There's no bridge process to deploy and
+no second broker to run.</p>
+<p>An MQTT device keeps its own client library, its topics, and its QoS
+settings. It connects to <code>nats-server</code> the way it would connect to any
+MQTT broker. The server converts each topic to a NATS subject, so a
+temperature reading published on the MQTT topic
+<code>sensors/warehouse/cold-1/temp</code> reaches a NATS subscriber on
+<code>sensors.warehouse.cold-1.temp</code>.</p>
+<p>NATS implements <a href="https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html">MQTT
+v3.1.1</a>
+and supports QoS 0, 1, and 2. A device that requests MQTT v5 is
+rejected at connect: it receives a CONNACK with return code 1,
+"unacceptable protocol version".</p>
+<h2 id="when-to-use-it">When to use it</h2>
+<p>MQTT support exists so you can keep an investment you already have.
+Updating software on devices in the field is slow and risky, especially
+when the application is embedded. If your endpoints already speak MQTT,
+or can only ever speak MQTT, pointing them at <code>nats-server</code> gets them
+onto a NATS backbone without touching the device code.</p>
+<p>For a greenfield deployment, prefer NATS end to end where you can. One
+technology from device to cloud gives you a single security model and
+one set of observability tools. The NATS clients are efficient enough
+for constrained hardware.</p>
+<h2 id="what-you-gain-over-a-standalone-broker">What you gain over a standalone broker</h2>
+<p>A standalone MQTT broker scales by making one node bigger. <code>nats-server</code>
+scales by adding servers: clusters, superclusters, and leaf nodes carry
+MQTT traffic the same way they carry everything else, so capacity for
+connections and messages grows with the deployment rather than being
+bounded by one broker process. Delivery is subject-based fan-out, so one
+sensor reading reaches any number of consumers without a per-subscriber
+queue on the broker. And where a broker's persistence stops at a
+last-value cache per topic, device traffic on NATS lands in JetStream
+streams, with retention limits, replay, and consumers written long after
+the message arrived.</p>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You have MQTT devices and a NATS system, and you want them on one
+backbone: sensors, gateways, or vehicles that speak MQTT, publishing
+into the same subjects your NATS applications already consume.</p>
+<p>That covers:</p>
+<ul>
+<li>replacing a standalone MQTT broker with <code>nats-server</code></li>
+<li>putting an existing fleet onto NATS without reflashing firmware</li>
+<li>routing device traffic into JetStream so it survives a restart</li>
+</ul>
+<h2 id="the-running-scenario">The running scenario</h2>
+<p>The examples follow one fictional company. Acme runs its ORDERS
+platform on NATS. Two groups of devices don't:
+cold-chain temperature sensors in the warehouse and telemetry units in
+the delivery fleet, both bought with MQTT firmware that Acme can't
+change.</p>
+<p>This chapter puts those devices on the same backbone. They publish MQTT
+topics like <code>sensors/warehouse/cold-1/temp</code> and <code>fleet/truck-17/telemetry</code>;
+the NATS side subscribes to <code>sensors.&gt;</code> and <code>fleet.&gt;</code> and treats the
+readings like any other NATS message.</p>
+<p>Once the readings are NATS
+messages, they go into a stream like anything else, and the ORDERS
+platform consumes them: a cold-chain excursion flags the order for that
+shipment, and truck telemetry updates a delivery's position. The devices
+keep speaking plain MQTT throughout.</p>
+<h2 id="by-the-end-youll-have">By the end you'll have</h2>
+<ul>
+<li>an MQTT sensor publishing to <code>nats-server</code>, and a NATS subscriber
+receiving its readings</li>
+<li>a <code>DEVICES</code> stream capturing that traffic for the ORDERS platform to
+consume</li>
+<li>a working model of how a topic becomes a subject, wildcards included</li>
+<li>QoS 1 delivery you can reason about, and the two settings that shape it</li>
+<li>an MQTT user restricted to MQTT connections, running on the <code>east</code>
+cluster</li>
+</ul>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/mqtt/your-first-mqtt-client">Your first MQTT client</a></td><td>Enable MQTT, connect a device, and watch its message reach a NATS subscriber</td></tr><tr><td><a href="/learn/mqtt/topics-and-subjects">Topics and subjects</a></td><td>The conversion rules, wildcards, and which characters are rejected</td></tr><tr><td><a href="/learn/mqtt/qos-sessions-and-retained">QoS, sessions, and retained messages</a></td><td>Delivery guarantees, redelivery, sessions, will messages, and retained messages</td></tr><tr><td><a href="/learn/mqtt/auth-and-clustering">Auth and clustering</a></td><td>Restrict a user to MQTT, write fleet permissions, and run MQTT on a cluster</td></tr><tr><td><a href="/learn/mqtt/where-next">Where to go next</a></td><td>A map of what's beyond this chapter</td></tr></tbody></table>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need:</p>
+<ul>
+<li><strong><code>nats-server</code> 2.10 or later</strong>, with JetStream enabled. MQTT support
+landed in 2.2, but this chapter uses the <code>.</code>-in-topic conversion and
+covers QoS 2, both of which arrived in 2.10. A single local server is
+enough until
+<a href="/learn/mqtt/auth-and-clustering">Auth and clustering</a>, which uses the
+<code>east</code> cluster.</li>
+<li><strong>An MQTT client.</strong> The examples use
+<a href="https://mosquitto.org/download/"><code>mosquitto_pub</code> and <code>mosquitto_sub</code></a>,
+which are small and available everywhere. Any MQTT v3.1.1 client works.</li>
+<li><strong>The <code>nats</code> CLI</strong>, pointed at the same server, for the NATS side of
+every example.</li>
+</ul>
+<p>Open a terminal and turn to
+<a href="/learn/mqtt/your-first-mqtt-client">Your first MQTT client</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/mqtt/">Reference → mqtt</a> — every field of the
+<code>mqtt {}</code> block, versioned and exhaustive</li>
+<li><a href="/learn/core-nats/subjects-and-wildcards">Core NATS → Subjects and wildcards</a>
+— the subject rules that MQTT topics are converted into</li>
+<li><a href="/learn/jetstream">JetStream deep dive</a> — the persistence layer MQTT
+sessions and retained messages are stored in</li>
+</ul></main>

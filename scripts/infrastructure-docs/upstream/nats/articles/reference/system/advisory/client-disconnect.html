@@ -1,0 +1,8 @@
+<main><header><h1>Client Disconnect</h1></header>
+<p>Client disconnection events.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$SYS.ACCOUNT.{account}.DISCONNECT</code></p>
+<p>Where <code>{account}</code> is the account name.</p>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>Advisory published a client disconnects to the NATS Server</p><div></div><div><div><div><span>type</span><span>const: "io.nats.server.advisory.v1.client_disconnect"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>server</span><span>object</span><span>required</span></div><div>Details about the server the client connected to</div></div><div><div><span>client</span><span>object</span><span>required</span></div><div>Details about the client that connected to the server</div></div><div><div><span>sent</span><span>object</span><span>required</span></div><div>Data sent by the client</div></div><div><div><span>received</span><span>object</span><span>required</span></div><div>Data sent to the client</div></div><div><div><span>reason</span><span>string</span><span>required</span></div><div>The reason the client disconnected</div></div></div></div></main>

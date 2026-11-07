@@ -1,0 +1,141 @@
+<main><header><h1>Route</h1></header>
+<p>Route connections are used to form a cluster of NATS servers. The route protocol is very similar to the <a href="/reference/protocols/client">client protocol</a>. In the context of a cluster, it can be helpful to visualize a server being a proxy operating on behalf of its connected clients, subscribing, unsubscribing, sending and receiving messages.</p>
+<h2 id="overview">Overview</h2>
+<p>The following table lists the route protocol messages. As with the client protocol, the NATS protocol operation names are case insensitive, thus <code>SUB foo 1\r\n</code> and <code>sub foo 1\r\n</code> are equivalent.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Message</th><th>Sent By</th><th>Description</th></tr></thead><tbody><tr><td><a href="#info"><code>INFO</code></a></td><td>All Servers</td><td>Sent after initial TCP/IP connection and to update cluster knowledge</td></tr><tr><td><a href="#connect"><code>CONNECT</code></a></td><td>All Servers</td><td>Sent to establish a route</td></tr><tr><td><a href="#rs"><code>RS+</code></a></td><td>All Servers</td><td>Subscribes to a subject for a given account on behalf of interested clients.</td></tr><tr><td><a href="#rs"><code>RS-</code></a></td><td>All Servers</td><td>Unsubscribe (or auto-unsubscribe) from subject for a given account.</td></tr><tr><td><a href="#rmsg"><code>RMSG</code></a></td><td>Origin Server</td><td>Delivers a message for a given subject and account to another server.</td></tr><tr><td><a href="#ping-pong"><code>PING</code></a></td><td>All Servers</td><td>PING keep-alive message</td></tr><tr><td><a href="#ping-pong"><code>PONG</code></a></td><td>All Servers</td><td>PONG keep-alive response</td></tr><tr><td><a href="#err"><code>-ERR</code></a></td><td>All Servers</td><td>Indicates a protocol error. May cause the remote server to disconnect.</td></tr></tbody></table>
+<h2 id="info">INFO</h2>
+<p>As soon as the server accepts a connection from another server, it will send information about itself and the configuration and security requirements that are necessary for the other server to successfully authenticate with the server and exchange messages.</p>
+<p>The connecting server also sends an <code>INFO</code> message. The accepting server will add an <code>ip</code> field containing the address and port of the connecting server, and forward the new server's <code>INFO</code> message to all servers it is routed to.</p>
+<p>Any servers in a cluster receiving an <code>INFO</code> message with an <code>ip</code> field will attempt to connect to the server at that address, unless already connected. This propagation of <code>INFO</code> messages on behalf of a connecting server provides automatic discovery of new servers joining a cluster.</p>
+<h3 id="syntax">Syntax</h3>
+<div><div><pre><code class="language-text">INFO {&lt;key&gt;:&lt;value&gt;,...}</code></pre></div></div>
+<p>The valid options are as follows:</p>
+<ul>
+<li><code>server_id</code>: The unique identifier of the NATS server</li>
+<li><code>version</code>: The version of the NATS server</li>
+<li><code>go</code>: The version of golang the NATS server was built with</li>
+<li><code>host</code>: The host specified in the cluster parameter/options</li>
+<li><code>port</code>: The port number specified in the cluster parameter/options</li>
+<li><code>auth_required</code>: If this is set, then the server should try to authenticate upon connect.</li>
+<li><code>tls_required</code>: If this is set, then the server must authenticate using TLS.</li>
+<li><code>max_payload</code>: Maximum payload size that the server will accept.</li>
+<li><code>connect_urls</code> : A list of server urls that a client can connect to.</li>
+<li><code>ip</code>: Optional route connection address of a server, <code>nats-route://&lt;hostname&gt;:&lt;port&gt;</code></li>
+</ul>
+<h3 id="example">Example</h3>
+<p>Below is an example of an <code>INFO</code> string received by a NATS server, with the <code>ip</code> field.</p>
+<div><div><pre><code class="language-text">INFO {"server_id":"KP19vTlB417XElnv8kKaC5","version":"2.0.0","go":"","host":"localhost","port":5222,"auth_required":false,"tls_required":false,"tls_verify":false,"max_payload":1048576,"ip":"nats-route://127.0.0.1:5222/","connect_urls":["localhost:4222"]}</code></pre></div></div>
+<h2 id="connect">CONNECT</h2>
+<p>The <code>CONNECT</code> message is analogous to the <code>INFO</code> message. Once the NATS server has established a TCP/IP socket connection with another server, and an <code>INFO</code> message has been received, the server will send a <code>CONNECT</code> message to provide more information about the current connection as well as security information.</p>
+<h3 id="syntax-1">Syntax</h3>
+<div><div><pre><code class="language-text">CONNECT {&lt;key&gt;:&lt;value&gt;,...}</code></pre></div></div>
+<p>The valid options are as follows:</p>
+<ul>
+<li><code>tls_required</code>: Indicates whether the server requires an SSL connection.</li>
+<li><code>auth_token</code>: Authorization token</li>
+<li><code>user</code>: Connection username (if <code>auth_required</code> is set)</li>
+<li><code>pass</code>: Connection password (if <code>auth_required</code> is set)</li>
+<li><code>name</code>: Generated Server Name</li>
+<li><code>lang</code>: The implementation language of the server (go).</li>
+<li><code>version</code>: The version of the server.</li>
+</ul>
+<h3 id="example-1">Example</h3>
+<p>Here is an example from the default string from a server.</p>
+<div><div><pre><code class="language-text">CONNECT {"tls_required":false,"name":"wt0vffeQyoDGMVBC2aKX0b"}\r\n</code></pre></div></div>
+<h2 id="rs">RS+</h2>
+<p><code>RS+</code> initiates a subscription to a subject on on a given account, optionally with a distributed queue group name and weighting factor. Note that queue subscriptions will use RS+ for increases and descreases to queue weight except when the weighting factor is 0.</p>
+<h3 id="syntax-2">Syntax</h3>
+<p><strong>Subscription</strong></p>
+<div><div><pre><code class="language-text">RS+ &lt;account&gt; &lt;subject&gt;\r\n</code></pre></div></div>
+<p><strong>Queue Subscription</strong></p>
+<div><div><pre><code class="language-text">RS+ &lt;account&gt; &lt;subject&gt; &lt;queue&gt; &lt;weight&gt;\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>account</code>: The account associated with the subject interest</li>
+<li><code>subject</code>: The subject</li>
+<li><code>queue</code>: Optional queue group name</li>
+<li><code>weight</code>: Optional queue group weight representing how much interest/subscribers</li>
+</ul>
+<h2 id="rs-">RS-</h2>
+<p><code>RS-</code> unsubcribes from the specified subject on the given account. It is sent by a server when it no longer has interest in a given subject.</p>
+<h3 id="syntax-3">Syntax</h3>
+<p><strong>Subscription</strong></p>
+<div><div><pre><code class="language-text">RS- &lt;account&gt; &lt;subject&gt;\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>account</code>: The account associated with the subject interest</li>
+<li><code>subject</code>: The subject</li>
+</ul>
+<h2 id="rmsg">RMSG</h2>
+<p>The <code>RMSG</code> protocol message delivers a message to another server.</p>
+<h3 id="syntax-4">Syntax</h3>
+<div><div><pre><code class="language-text">RMSG &lt;account&gt; &lt;subject&gt; [reply-to] &lt;bytes&gt;\r\n[payload]\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>account</code>: The account associated with the subject interest</li>
+<li><code>subject</code>: Subject name this message was received on</li>
+<li><code>reply-to</code>: The optional reply subject</li>
+<li><code>bytes</code>: Size of the payload in bytes</li>
+<li><code>payload</code>: The message payload data</li>
+</ul>
+<h2 id="ping-pong">PING/PONG</h2>
+<p><code>PING</code> and <code>PONG</code> implement a simple keep-alive mechanism between servers. Once two servers establish a connection with each other, the NATS server will continuously send <code>PING</code> messages to other servers at a configurable interval. If another server fails to respond with a <code>PONG</code> message within the configured response interval, the server will terminate its connection. If your connection stays idle for too long, it is cut off.</p>
+<p>If the another server sends a ping request, a server will reply with a pong message to notify the other server that it is still present.</p>
+<h3 id="syntax-5">Syntax</h3>
+<div><div><pre><code class="language-text">PING\r\n</code></pre></div></div>
+<div><div><pre><code class="language-text">PONG\r\n</code></pre></div></div>
+<h2 id="err">-ERR</h2>
+<p>The <code>-ERR</code> message is used by the server indicate a protocol, authorization, or other runtime connection error to the client. Most of these errors result in the server closing the connection.</p>
+<p>Handling of these errors usually has to be done asynchronously.</p>
+<h3 id="syntax-6">Syntax</h3>
+<div><div><pre><code class="language-text">-ERR &lt;error message&gt;</code></pre></div></div></main>

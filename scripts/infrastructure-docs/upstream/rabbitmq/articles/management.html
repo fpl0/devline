@@ -1,0 +1,975 @@
+<main><header><h1>Management Plugin</h1></header>
+<h2 id="overview">Overview</h2>
+<p>The RabbitMQ management plugin provides an HTTP-based API
+for management and <a href="/docs/4.3/monitoring">monitoring</a> of RabbitMQ nodes and clusters, along
+with a browser-based UI and a command line tool, <a href="/docs/4.3/management-cli">rabbitmqadmin</a>.</p>
+<p>It periodically collects and aggregates data about many aspects of the system. Those metrics
+are exposed to human operators in the UI. The API it provides can be used by <a href="/docs/4.3/monitoring">monitoring systems</a>,
+however, <a href="/docs/4.3/prometheus">Prometheus</a> is the <strong>recommended option</strong> for long term storage,
+alerting, visualisation, chart analysis and so on.</p>
+<p>The plugin also provides tools for <a href="#memory">analysing memory usage</a> of the node,
+and other features related to monitoring, metrics, user, permission, and topology management.
+Previously it also provided <a href="/docs/4.3/definitions">definition export and import functionality</a>. Those are now
+core RabbitMQ features and do not require or rely on this plugin.</p>
+<p>This guide covers:</p>
+<ul>
+<li><a href="#usage">Basic usage</a> of management UI</li>
+<li>The <a href="#http-api">HTTP API</a> provided by the management plugin</li>
+<li>General plugin <a href="#configuration">configuration</a></li>
+<li><a href="#http-api-proxy">Reverse proxy (Nginx or Apache)</a> in front of the HTTP API</li>
+<li>How to <a href="#single-listener-https">enable HTTPS for management UI</a> and its underlying API</li>
+<li>How this plugin <a href="#clustering">operates in multi-node clusters</a></li>
+<li>How to <a href="#disable-stats">disable metric collection</a> to use <a href="/docs/4.3/prometheus">Prometheus</a>
+exclusively for monitoring</li>
+<li>How to create <a href="#monitoring-permissions">a user with limited permissions for monitoring purposes</a>
+only</li>
+<li><a href="#oauth2-authentication">Authenticating with OAuth 2</a></li>
+<li><a href="#hsts">Strict transport security</a>, <a href="#csp">Content security policy</a>,
+<a href="#cors">cross-origin resource sharing</a>, and <a href="#other-security-headers">other security-related headers</a>
+including <a href="#hide-allow-header">hiding the Allow response header</a></li>
+<li><a href="#statistics-interval">Statistics collection interval</a></li>
+<li><a href="#rates-mode">Message rate mode</a> (rate fidelity) and <a href="#sample-retention">data retention intervals</a></li>
+<li><a href="#http-logging">HTTP API request logging</a></li>
+<li>How to set a <a href="#login-session-timeout">management UI login session timeout</a></li>
+<li>How to <a href="#reset-stats">reset statistics database</a> used by this plugin</li>
+</ul>
+<p>The plugin also provides extension points that other plugins, such as
+<a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_top">rabbitmq-top</a> or
+<a href="https://github.com/rabbitmq/rabbitmq-shovel-management">rabbitmq-shovel-management</a>,
+use to extend the UI.</p>
+<h2 id="external-monitoring">Management UI and External Monitoring Systems</h2>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>Prefer external monitoring options where possible.
+<a href="/docs/4.3/monitoring">Infrastructure and kernel-level monitoring</a> is also crucially important to have
+in any production system.</p></div></div>
+<p>The management UI and its <a href="#http-api">HTTP API</a> is a built-in <a href="/docs/4.3/monitoring">monitoring option</a> for RabbitMQ.
+This is a convenient option for development and in environments where
+external monitoring is difficult or impossible to introduce.</p>
+<p>However, the management UI has a number of limitations:</p>
+<ul>
+<li>The monitoring system is intertwined with the system being monitored</li>
+<li>A certain amount of overhead</li>
+<li>It only stores recent data (think hours, not days or months)</li>
+<li>It has a basic user interface</li>
+<li>Its design <a href="/docs/4.3/management#clustering">emphasizes ease of use over best possible availability</a>.</li>
+<li>Management UI access is controlled via the <a href="/docs/4.3/access-control">RabbitMQ permission tags system</a>
+(or a convention on JWT token scopes)</li>
+</ul>
+<p>Long term metric storage and visualisation services such as <a href="/docs/4.3/prometheus">Prometheus and Grafana</a>
+or the <a href="https://www.elastic.co/elastic-stack/">ELK stack</a> are more suitable options for production systems. They offer:</p>
+<ul>
+<li>Decoupling of the monitoring system from the system being monitored</li>
+<li>Lower overhead</li>
+<li>Long term metric storage</li>
+<li>Access to additional related metrics such as those of the <a href="/docs/4.3/runtime">Erlang runtime</a> ones</li>
+<li>More powerful and customizable user interface</li>
+<li>Ease of metric data sharing: both metric state and dashboards</li>
+<li>Metric access permissions are not specific to RabbitMQ</li>
+<li>Collection and aggregation of node-specific metrics which is more resilient to individual node failures</li>
+</ul>
+<p>RabbitMQ provides first class support for <a href="/docs/4.3/prometheus">Prometheus and Grafana</a> as of 3.8.
+It is recommended for production environments.</p>
+<h2 id="getting-started">Getting Started</h2>
+<p>The management plugin is included in the RabbitMQ
+distribution. Like any other <a href="/docs/4.3/plugins">plugin</a>, it must
+be enabled before it can be used. That's done using <a href="/docs/4.3/man/rabbitmq-plugins.8">rabbitmq-plugins</a>:</p>
+<div><div><pre><code class="language-bash">rabbitmq-plugins enable rabbitmq_management</code></pre></div></div>
+<p>Node restart is not required after plugin activation.</p>
+<p>During automated deployments, the plugin can be enabled via
+<a href="/docs/4.3/plugins#enabled-plugins-file">enabled plugin file</a>.</p>
+<h2 id="usage">Usage</h2>
+<h3 id="usage-ui">Management UI Access</h3>
+<p>The management UI can be accessed using a Web browser at <code>http://<i>node-hostname</i>:15672/</code>.</p>
+<p>For example, for a node running on a machine with the hostname of <code>warp10.local</code>,
+it can be accessed by users with <a href="#permissions">sufficient privileges</a> at either <code>http://warp10.local:15672/</code>
+or <code>http://localhost:15672/</code> (provided that <code>localhost</code> resolves correctly).</p>
+<p>Note that the UI and HTTP API port — typically 15672 — does not support AMQP 0-9-1, AMQP 1.0, STOMP or MQTT connections.
+<a href="/docs/4.3/networking#ports">Separate ports</a> should be used by those clients.</p>
+<p>Users must be <a href="#permissions">granted permissions</a> for management UI access.</p>
+<h3 id="usage-highlights">Notable Features</h3>
+<p>The management UI is implemented as a single page application which relies on the <a href="#http-api">HTTP API</a>.
+Some of the features include:</p>
+<ul><li><p>Declare, list and delete exchanges, <a href="./queues">queues</a>, bindings,
+users, <a href="./vhosts">virtual hosts</a> and <a href="./access-control">user permissions</a>.</p></li><li><p>Monitor queue length, message rates (globally and per queue, exchange or channel), resource usage of queue,
+node GC activity, data rates of client connections, and more.</p></li><li><p>Monitor node resource use: <a href="./networking#open-file-handle-limit">sockets and file descriptors</a>,
+<a href="./memory-use">memory usage breakdown</a>, available disk space and bandwidth usage on inter-node communication
+links.</p></li><li><p>Manage users (provided administrative permissions of the current user).</p></li><li><p>Manage <a href="./parameters">policies and runtime parameters</a> (provided sufficient permissions of the current user).</p></li><li><p><a href="./backup">Export schema</a> (vhosts, users, permissions, queues, exchanges, bindings, parameters,
+policies) and <a href="./definitions">import it on node start</a>. This can be used for <a href="./backup">recovery purposes</a>
+or setup automation of new nodes and clusters.</p></li><li><p>Force close client connections, purge queues.</p></li><li><p>Send and receive messages (useful in development environments
+and for troubleshooting).</p></li></ul>
+<p>The UI application supports recent versions of Google Chrome, Safari, Firefox, and Microsoft Edge browsers.</p>
+<h3 id="usage-ui-clusters">Management UI Access in Clusters</h3>
+<p>Any cluster node with <code>rabbitmq_management</code> plugin enabled can be
+used for management UI access or data collection by monitoring tools.
+It will reach out to other nodes and collect their stats, then aggregate and return a response
+to the client.</p>
+<p>To access management UI the user has to authenticate and have certain permissions (be authorised).
+This is covered in the <a href="#permissions">following section</a>.</p>
+<h2 id="permissions">Access and Permissions</h2>
+<p>The management UI requires <a href="/docs/4.3/access-control">authentication and authorisation</a>, much like RabbitMQ requires
+it from connecting clients. In addition to successful authentication, management UI access is controlled by user tags.
+The tags are managed using <a href="/docs/4.3/man/rabbitmqctl.8#set_user_tags">rabbitmqctl</a>.
+Newly created users do not have any tags set on them by default.</p>
+<p>See <a href="/docs/4.3/production-checklist">Deployment Guidelines</a> for general recommendations on user and credential
+management.</p>
+<table><tbody><tr><th>Tag</th><th>Capabilities</th></tr><tr><td>(None)</td><td>No access to the management plugin</td></tr><tr><td>management</td><td><p>Anything the user could do via messaging protocols plus:</p><ul><li>List virtual hosts to which they can log in via AMQP</li><li><p>View all queues, exchanges and bindings in "their"
+virtual hosts</p></li><li>View and close their own channels and connections</li><li><p>View "global" statistics covering all their
+virtual hosts, including activity by other users
+within them</p></li></ul></td></tr><tr><td>policymaker</td><td><p>Everything "management" can plus:</p><ul><li><p>View, create and delete policies and parameters for virtual
+hosts to which they can log in via AMQP</p></li></ul></td></tr><tr><td>monitoring</td><td><p>Everything "management" can plus:</p><ul><li><p>List all virtual hosts, including ones they could
+not access using messaging protocols</p></li><li>View other users's connections and channels</li><li>View node-level data such as memory use and clustering</li><li>View truly global statistics for all virtual hosts</li></ul></td></tr><tr><td>administrator</td><td><p>Everything "policymaker" and "monitoring" can plus:</p><ul><li>Create and delete virtual hosts</li><li>View, create and delete users</li><li>View, create and delete permissions</li><li>Close other users's connections</li></ul></td></tr></tbody></table>
+<p>Note that since "administrator" does everything "monitoring"
+does, and "monitoring" does everything "management" does,
+each user often needs a maximum of one tag.</p>
+<p>Normal RabbitMQ <a href="/docs/4.3/access-control">permissions to resources</a> still apply to monitors and
+administrators; just because a user is a monitor or
+administrator does not grant them full access to exchanges,
+queues and bindings through the management
+plugin or other means.</p>
+<p>All users can only list objects within the virtual
+hosts they have any permissions for.</p>
+<h3 id="monitoring-permissions">Monitoring-Only (Read-Only) Access</h3>
+<p>Some users are created exclusively for <a href="/docs/4.3/monitoring">observability purposes</a>. More specifically,
+such users need to list all objects and inspect their metrics but not have the <a href="/docs/4.3/access-control">permissions</a>
+to add or delete entities (<a href="/docs/4.3/queues">queues</a>, <a href="/docs/4.3/streams">streams</a>, exchanges, bindings, and so on).
+Such users also do not need to publish or consume messages.</p>
+<p>This can be accomplished by</p>
+<ol>
+<li>Creating a user tagged as <code>monitoring</code></li>
+<li>Granting it permissions (<code>configure</code>, <code>read</code>, <code>write</code>) that are empty (will match no objects)</li>
+</ol>
+<p>Both steps can be accomplished using the management UI or the <a href="#http-api">HTTP API</a>, or, if
+those options are not available or optimal, using <a href="/docs/4.3/cli">CLI tools</a>:</p>
+<ul>
+<li><a href="/docs/4.3/man/rabbitmqctl.8#add_user"><code>rabbitmqctl add_user</code></a> can be used to create the user</li>
+<li><a href="/docs/4.3/man/rabbitmqctl.8#set_permissions"><code>rabbitmqctl set_permissions</code></a> to grant the
+user the desired permissions and finally,</li>
+<li><a href="/docs/4.3/man/rabbitmqctl.8#set_user_tags"><code>rabbitmqctl set_user_tags</code></a>
+to tag it with <code>monitoring</code>, which will grant them management UI access</li>
+</ul>
+<h3 id="command-line-examples-create-a-user-with-monitoring-only-access">Command Line Examples: Create a User with Monitoring-Only Access</h3>
+<p>The following example creates a user with complete access to the management UI/HTTP API (as in,
+all virtual hosts and management features):</p>
+<h4>bash</h4><div><div><pre><code class="language-bash"># See the Access Control guide to learn about user management.
+#
+# Password is provided as a command line argument.
+# Note that certain characters such as !, &amp;, $, #, and so on must be escaped to avoid
+# special interpretation by the shell.
+rabbitmqctl add_user 'monitoring' '2a55f70a841f18b97c3a7db939b7adc9e34a0f1b'
+
+# tag user 'monitoring' with a tag of the same name
+rabbitmqctl set_user_tags 'monitoring' 'monitoring'
+
+# grant the user empty permissions
+rabbitmqctl set_permissions --vhost 'vhost-name' 'monitoring' '^$' '^$' '^$'</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell"># See the Access Control guide to learn about user management.
+#
+# password is provided as a command line argument
+rabbitmqctl.bat add_user 'monitoring' '9a55f70a841f18b97c3a7db939b7adc9e34a0f1d'
+
+# passwords with special characters must be quoted correctly
+rabbitmqctl.bat add_user 'monitoring' '"w63pnZ&amp;LnYMO(t"'
+
+# grant the user empty permissions
+rabbitmqctl.bat set_permissions --vhost 'vhost-name' 'monitoring' '^$' '^$' '^$'</code></pre></div></div><h4>cmd</h4><div><div><pre><code class="language-batch">rem See the Access Control guide to learn about user management.
+
+rem password is provided as a command line argument
+rabbitmqctl.bat add_user "monitoring" "9a55f70a841f18b97c3a7db939b7adc9e34a0f1d"
+
+rem passwords with special characters must be quoted correctly
+rabbitmqctl.bat add_user "monitoring" "w63pnZ&amp;LnYMO(t"
+
+rem grant the user empty permissions
+rabbitmqctl set_permissions --vhost "vhost-name" "monitoring" "^$" "^$" "^$"</code></pre></div></div>
+<h2 id="oauth2-authentication">Authenticating with OAuth 2</h2>
+<p>You can configure RabbitMQ to use <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_auth_backend_oauth2">JWT-encoded OAuth 2.0 access tokens</a> to authenticate client applications, however, to use OAuth 2.0 authentication in the management UI, you have to configure it separately.</p>
+<p>There are two ways to initiate OAuth 2.0 authentication in the management UI:</p>
+<ul>
+<li>
+<p><em>Service-Provided Initiated login</em>. The is the OAuth method and the default way to initiate
+authentication in the management UI. It uses the
+<a href="https://datatracker.ietf.org/doc/html/rfc7636">OAuth 2.0 Authorization Code Flow with PKCE</a> to
+redirect users to the configured OAuth 2.0
+provider to authenticate. When they are authenticated, users get an access token, and are then
+returned back to the management UI where they are automatically logged in. The management UI is
+tested against these OAuth 2.0 providers:</p>
+<ul>
+<li><a href="https://github.com/cloudfoundry/uaa">UAA</a></li>
+<li><a href="https://www.keycloak.org/">Keycloak</a></li>
+<li><a href="https://auth0.com/">Auth0</a></li>
+<li><a href="https://docs.microsoft.com/en-us/azure/active-directory/fundamentals/auth-oauth2">Azure</a></li>
+<li><a href="https://oauth2-proxy.github.io/oauth2-proxy/">OAuth2 Proxy</a></li>
+<li><a href="https://www.okta.com">Okta</a></li>
+</ul>
+</li>
+<li>
+<p><em>Identity-Provider Initiated login</em>. For this type of login, users must come to RabbitMQ with an
+access token.This type of authentication is typical in portals which offers access to various
+applications/services to authenticated users. One of those services could be one or many RabbitMQ
+clusters. When a user requests access to a RabbitMQ cluster, the portal forwards the user to
+RabbitMQ's management UI with an access token issued for the user and RabbitMQ cluster. This type
+of authentication is covered in the sub-section
+<a href="#idp-initiated-logon">Identity-Provider initiated logon</a>.</p>
+</li>
+</ul>
+<p>To configure OAuth 2.0 in the management UI you need a
+<a href="#minimum-configuration">minimum configuration</a>. However, you may require additional configuration
+depending on your use case:</p>
+<ul>
+<li><a href="#configure-client-secret">Client secret</a></li>
+<li><a href="#allow-basic-auth-for-http-api">Allow Basic and OAuth 2 authentication for management HTTP API</a></li>
+<li><a href="#allow-basic-auth-for-mgt-ui">Allow Basic and OAuth 2 authentication for management UI</a></li>
+<li><a href="#about-logout-workflow">Logging out of the management UI</a></li>
+<li><a href="#extra-endpoint-params">Configure extra parameters for authorization and token endpoints</a></li>
+<li><a href="#csp-header">Special attention to CSP header <code>connect-src</code></a></li>
+<li><a href="#idp-initiated-logon">Identity-Provider initiated logon</a></li>
+<li><a href="#idp-initiated-logout">Logout from Identity-Provider initiated logon</a></li>
+<li><a href="#support-multiple-resources">Support multiple OAuth 2.0 resources</a></li>
+<li><a href="#preselect-auth-mechanism">Preselect or predetermine authentication mechanism</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+<h3 id="minimum-configuration">Minimum configuration</h3>
+<p>The first section is the minimum configuration required to use OAuth 2.0 authentication in the management UI. The following sections explain how to further configure OAuth 2.0 depending of the use cases.</p>
+<p>Given the following configuration of the <a href="/docs/4.3/oauth2">OAuth 2.0 plugin</a>:</p>
+<div><div><pre><code class="language-ini">auth_oauth2.resource_server_id = new_resource_server_id
+auth_oauth2.issuer = https://my-oauth2-provider.com/realm/rabbitmq</code></pre></div></div>
+<p>To use OAuth 2.0 authentication, apply the following configuration in the management UI:</p>
+<div><div><pre><code class="language-ini">management.oauth_enabled = true
+management.oauth_client_id = rabbit_user_client
+management.oauth_scopes = &lt;SPACE-SEPARATED LIST OF SCOPES. See below&gt;</code></pre></div></div>
+<ul>
+<li>
+<p><code>oauth_enabled</code> is a mandatory field</p>
+</li>
+<li>
+<p><code>oauth_client_id</code> is a mandatory field. It is the OAuth Client Id associated with this RabbitMQ
+cluster in the OAuth Provider, and it is used to request a token on behalf of the user.</p>
+</li>
+<li>
+<p><code>oauth_scopes</code> is a mandatory field which must be set at all times except in the case when OAuth
+providers automatically grant scopes associated to the <code>oauth_client_id</code>. <code>oauth_scopes</code> is a list
+of space-separated strings that indicate which permissions the application is requesting. Most
+OAuth providers only issue tokens with the scopes requested during the user authentication.
+RabbitMQ sends this field along with its <code>oauth_client_id</code> during the user authentication. If this
+field is not set, RabbitMQ defaults to <code>openid profile</code>.</p>
+</li>
+</ul>
+<p>Given above configuration, when a user visits the management UI, the following two events take place:</p>
+<ol>
+<li>
+<p>RabbitMQ uses the URL found in <code>auth_oauth2.issuer</code> to download the OpenID Provider
+configuration. Learn more in the <a href="/docs/4.3/oauth2#discovery-endpoint-params">OAuth 2.0 guide</a></p>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>If RabbitMQ cannot download the OpenID provider configuration, it shows an error message and the OAuth 2.0 authentication option will be disabled in the management UI</p></div></div>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p><code>management.oauth_metadata_url</code> and <code>management.oauth_resource_servers.$id.oauth_metadata_url</code> are deprecated. You should configure the OpenId Discovery endpoint's path as it is explained <a href="/docs/4.3/oauth2#discovery-endpoint-params">here</a>.
+These two settings will no longer exist in RabbitMQ 4.2.0. In the meantime, RabbitMQ will support them until you update your configuration.</p></div></div>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>If you used to configure <code>auth_oauth2.metadata_url</code> because your provider used a slightly different OpenId Discovery endpoint url, since RabbitMQ 4.1 you should instead configure the correct path and/or include any additional parameters. Please read <a href="/docs/4.3/oauth2#discovery-endpoint-params">this section of the documentation</a> where it is explained how to do it. <code>auth_oauth2.metadata_url</code> may be deprecated in future versions.</p></div></div>
+</li>
+<li>
+<p>RabbitMQ displays a button with the label "Click here to login". When the user clicks on the
+button, the management UI initiates the OAuth 2.0 Authorization Code Flow, which redirects the
+user to the identity provider to authenticate and get a token.</p>
+</li>
+</ol>
+<h3 id="configure-client-secret">Configure client secret</h3>
+<p><strong>Important</strong>: From the OAuth 2.0 point of view, the management UI is a <strong>public app</strong> which
+means it cannot securely store credentials such as the <em>client_secret</em>. This means that RabbitMQ should not need to present a client_secret when authenticating users.</p>
+<p>However, there could be OAuth Providers which requires a <em>client_secret</em> either for the initial user authentication request or for the token refresh request. For instance, UAA server requires <code>client_secret</code> to refresh the token. For these cases, it is possible to configure <code>oauth_client_secret</code> like shown below:</p>
+<div><div><pre><code class="language-ini">management.oauth_enabled = true
+management.oauth_client_id = rabbit_user_client
+management.oauth_client_secret = rabbit_user_client
+management.oauth_scopes = openid profile rabbitmq.*</code></pre></div></div>
+<h3 id="allow-basic-auth-for-http-api">Allow Basic and OAuth 2 authentication for Management HTTP API</h3>
+<p>When using <code>management.oauth_enabled = true</code>, it is still possible to authenticate
+with <a href="https://en.wikipedia.org/wiki/Basic_access_authentication">HTTP basic authentication</a>
+against the HTTP API. This means both of the following examples will work:</p>
+<div><div><pre><code class="language-bash"># swap &lt;token&gt; for an actual token
+curl -i -u ignored:&lt;token&gt; http://localhost:15672/api/vhosts</code></pre></div></div>
+<p>as well as</p>
+<div><div><pre><code class="language-bash">curl -i --header "authorization: Basic &lt;encoded credentials&gt;" http://localhost:15672/api/vhosts</code></pre></div></div>
+<p>To switch to authenticate using OAuth 2 exclusively for management HTTP access, set the
+<code>management.disable_basic_auth</code> configuration key to <code>true</code>:</p>
+<div><div><pre><code class="language-ini">...
+management.disable_basic_auth = true
+...</code></pre></div></div>
+<p>When setting <code>management.disable_basic_auth</code> to <code>true</code>, only the <code>Bearer</code> (token-based) authorization method will
+work, for example:</p>
+<div><div><pre><code class="language-bash"># swap &lt;token&gt; for an actual token
+curl -i --header "authorization: Bearer &lt;token&gt;" http://localhost:15672/api/vhosts</code></pre></div></div>
+<p>This is true for all endpoints except <code>GET /definitions</code> and <code>POST /definitions</code>. Those
+endpoints require the token to be passed in the <code>token</code> query string parameter.</p>
+<h3 id="allow-basic-auth-for-mgt-ui">Allow Basic and OAuth 2 authentication for management UI</h3>
+<p>When using <code>management.oauth_enabled = true</code>, it is still possible to authenticate
+with <a href="https://en.wikipedia.org/wiki/Basic_access_authentication">HTTP basic authentication</a>
+in the management UI.</p>
+<p>By default, <code>management.oauth_disable_basic_auth</code> has the value <code>true</code>, meaning that when OAuth 2 is
+enabled, the management UI only accepts OAuth 2 authentication. The management UI shows a button with the label <strong>Click here to login</strong> like shown in the screenshot below:
+<img alt="Single OAuth 2.0 resource, with oauth_disable_basic_auth = true" src="/assets/images/management-oauth-7a67c725e6f1331772904ddf6f21bc75.png"/></p>
+<p>To support OAuth 2.0 and Basic Authentication, set the
+<code>management.oauth_disable_basic_auth</code> configuration key to <code>false</code>:</p>
+<div><div><pre><code class="language-ini">...
+management.oauth_disable_basic_auth = false
+...</code></pre></div></div>
+<p>The management UI shows now a username/password login form for Basic Authentication in addition to the <strong>Click here to login</strong> button for OAuth 2 authentication:</p>
+<p><img alt="Single OAuth 2.0 resource, with oauth_disable_basic_auth = false" src="/assets/images/management-oauth-with-basic-auth-3711e59ce457ceb2900716d53e5cd731.png"/></p>
+<h3 id="about-logout-workflow">Logging out of the management UI</h3>
+<p>RabbitMQ implements the <a href="https://openid.net/specs/openid-connect-rpinitiated-1_0.html">OpenID Connect RP-Initiated Logout 1.0</a>
+specification to logout users from the management UI and from the OAuth Provider. It works as follows:</p>
+<ol>
+<li>The user clicks <strong>Logout</strong>.</li>
+<li>If the <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest">OpenId Connect Discovery endpoint</a> returns an <code>end_session_endpoint</code>, the management UI sends a logout request to that endpoint to close the user's session in the OAuth Provider. When the request completes, the user is also logged out from the management ui.</li>
+<li>If there is no <code>end_session_endpoint</code> returned, then the user is only logged out from the management UI.</li>
+</ol>
+<div class="admonition info"><div class="admonition-title">info</div><div><p>If the <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest">OpenId Connect Discovery endpoint</a> does not return an <code>end_session_endpoint</code>, you can configure it in the <a href="/docs/4.3/oauth2#configure-end-session-endpoint">OAuth 2.0 authentication backend plugin</a>.</p></div></div>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>RabbitMQ 3.13.1 and earlier versions require the <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest">OpenId Connect Discovery endpoint</a> <code>end_session_endpoint</code> returned for OAuth 2.0 authentication to work.</p></div></div>
+<p>There are other two additional scenarios which can trigger a logout. One scenario occurs when the OAuth Token expires. Although RabbitMQ renews the token in the background before it expires, if the token expires, the user is logged out.
+The second scenario is when the management UI session exceeds the maximum allowed time configured on the <a href="#login-session-timeout">Login Session Timeout</a>.</p>
+<h3 id="extra-endpoint-params">Configure extra parameters for authorization and token endpoints</h3>
+<p>There are some OAuth 2.0 providers which require extra parameters in the request sent to the <strong>authorization endpoint</strong> and/or to the <strong>token endpoint</strong>. These parameters are custom parameters. The Management UI already sends all the parameters required by the OAuth 2.0 Authorization Code flow.</p>
+<p>Here is an example of setting an extra parameter called <code>audience</code> for both endpoints, the <strong>authorization</strong> and <strong>token</strong> endpoint:</p>
+<div><div><pre><code class="language-ini">management.oauth_authorization_endpoint_params.audience = some-audience-id
+management.oauth_token_endpoint_params.audience = some-audience-id</code></pre></div></div>
+<p>You can configure as many parameters as you need.</p>
+<h3 id="csp-header">Special attention to CSP header <code>connect-src</code></h3>
+<p>To support the OAuth 2.0 protocol, RabbitMQ makes asynchronous REST calls to the <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest">OpenId Connect Discovery endpoint</a>. If you override the default <a href="#csp">CSP headers</a>, you have to make sure that the <code>connect-src</code> CSP directive whitelists the <a href="https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfigurationRequest">OpenId Connect Discovery endpoint</a>.</p>
+<p>For instance, if you configured the CSP header with the value <code>default-src 'self'</code>, you are, by default, setting <code>connect-src 'self'</code> which means you are denying RabbitMQ access to any external endpoint; hence disabling OAuth 2.0.</p>
+<p>In addition to the <code>connect-src</code> CSP header, RabbitMQ also needs the CSP directives <code>unsafe-eval</code> <code>unsafe-inline</code>, otherwise the OAuth 2.0 functionality may not work.</p>
+<h3 id="idp-initiated-logon">Identity-Provider initiated logon</h3>
+<p>By default, the management UI uses the OAuth 2.0 <strong>authorization code flow</strong> to authenticate and authorize users.
+However, there are scenarios where users prefer to be automatically redirected to RabbitMQ without getting involved in additional logon flows. By using OAuth 2.0 proxies and web portals, these additional logon flows can be avoided. With a single click, users navigate straight to the management UI with a token obtained under the covers. This is known as <strong>Identity-Provider initiated logon</strong>.</p>
+<p>RabbitMQ exposes a setting called <code>management.oauth_initiated_logon_type</code> whose default value <code>sp_initiated</code>.
+To use an <strong>Identity-Provider initiated logon</strong> you set it to <code>idp_initiated</code>.</p>
+<div><div><pre><code class="language-ini">management.oauth_enabled = true
+management.oauth_initiated_logon_type = idp_initiated
+management.oauth_provider_url = https://my-web-portal</code></pre></div></div>
+<p>With the previous settings, the management UI exposes the HTTP endpoint <code>/login</code> which accepts <code>content-type: application/x-www-form-urlencoded</code> and it expects the JWT token in the <code>access_token</code> form field. This is the endpoint where the Web portal will redirect users to the management UI.
+Additionally, RabbitMQ also accepts a JWT token in the HTTP <code>Authorization</code> header when the user lands on the management UI.</p>
+<p>With <code>sp_initiated</code> logon types, there is no need to configure the <code>oauth_provider_url</code> if <code>auth_oauth2.issuer</code> was set. However, for <code>idp_initiated</code> flows the <code>auth_oauth2.issuer</code> url may not necessarily be the url where to send users to authenticate. When this occurs, the <code>management.oauth_provider_url</code> overrides the <code>auth_oauth2.issuer</code> url.</p>
+<h3 id="idp-initiated-logout">Logout from Identity-Provider logon</h3>
+<p>If <code>end_session_endpoint</code> is configured, on logout the user is redirected to that endpoint. Otherwise, the user is redirected to <code>management.oauth_provider_url</code>.
+Use <code>end_session_endpoint</code> when the identity provider must close the user's session and perform cleanup before redirecting to the identity provider's root URL.</p>
+<p>The following example uses a <code>keycloak</code> identity provider. The <code>end_session_endpoint</code> points to a proxy's <code>sign_out</code> endpoint:</p>
+<div><div><pre><code class="language-ini">auth_oauth2.issuer = https://keycloak:8443/realms/test
+auth_oauth2.end_session_endpoint = https://localhost:8442/oauth2/sign_out?rd=https://keycloak:8443/realms/test/protocol/openid-connect/logout</code></pre></div></div>
+<h3 id="support-multiple-resources">Support multiple OAuth 2.0 resources</h3>
+<h4 id="prerequisite">Prerequisite</h4>
+<p>To configure multiple OAuth 2.0 resources in the management UI, you first <a href="/docs/4.3/oauth2#multiple-resource-servers">configure them in the OAuth 2.0 plugin</a>. Let's say you have the following OAuth 2.0 plugin configuration which consists of four OAuth 2.0 resources:</p>
+<div><div><pre><code class="language-ini">auth_oauth2.issuer = http://some_idp_url
+auth_oauth2.scope_prefix = rabbitmq.
+auth_oauth2.resource_servers.1.id = rabbit_prod
+auth_oauth2.resource_servers.2.id = rabbit_dev
+auth_oauth2.resource_servers.3.id = rabbit_qa
+auth_oauth2.resource_servers.4.id = rabbit_internal</code></pre></div></div>
+<p>The next sections configure these resources in the management UI.</p>
+<h4 id="how-oauth-20-resources-are-presented-to-users">How OAuth 2.0 resources are presented to users</h4>
+<p>When there is more than one OAuth 2.0 resource configured in the management UI, RabbitMQ shows a
+drop-down menu in addition to the button with the label <strong>Click here to logon</strong>. The drop-down menu
+has one option per resource. The label of the option is the resource's ID by default, but you can
+override it.</p>
+<div class="admonition info"><div class="admonition-title">info</div><div><p>Resources are listed in the order in which they were configured.</p></div></div>
+<p>You can have some resources configured with <code>sp_initiated</code> log-on and others with <code>idp_initiated</code>
+log-on. You can disable a resource so that the resource does not appear as an option in the
+drop-down menu.</p>
+<h4 id="optionally-set-common-settings-for-all-resources">Optionally set common settings for all resources</h4>
+<p>If the majority of resources have in common some configuration values, you set them like shown below:</p>
+<div><div><pre><code class="language-ini">management.oauth_enabled = true
+management.oauth_initiated_logon_type = sp_initiated
+management.oauth_scopes = openid rabbitmq.tag:management rabbitmq.read:*/*</code></pre></div></div>
+<p>Here we have configured that all resources, or the majority of them, requires <code>sp_initiated</code> logon type and the scopes claimed to the Authorization Server are <code>openid rabbitmq.tag:management rabbitmq.read:*/*</code>.</p>
+<div class="admonition info"><div class="admonition-title">info</div><div><p><code>sp_initiated</code> is the default value for <code>management.oauth_initiated_logon_type</code>, therefore you would not need to configure it.</p></div></div>
+<h4 id="override-default-oauth_initiated_logon_type-for-each-resource">Override default oauth_initiated_logon_type for each resource</h4>
+<p>Let's say that the resource <code>rabbit_qa</code> requires <code>idp_initiated</code> logon however the logon type configured for all resources is <code>sp_initiated</code>. The configuration below overrides the logon type and also the URL of the OAuth Provider.</p>
+<div><div><pre><code class="language-ini">management.oauth_resource_servers.3.id = rabbit_qa
+management.oauth_resource_servers.3.label = RabbitMQ QA
+management.oauth_resource_servers.3.oauth_initiated_logon_type = idp_initiated
+management.oauth_resource_servers.3.oauth_provider_url = http://qa_url</code></pre></div></div>
+<h4 id="set-oauth_client_id-setting-if-required-and-the-label-for-each-resource">Set oauth_client_id setting, if required, and the label for each resource</h4>
+<p>Next, configure the <code>oauth_client_id</code> for each resource which uses <code>sp_initiated</code> logon type.</p>
+<p>This is the minimum setting required for <code>sp_initiated</code> logon type. The following example that exposes the resource <code>rabbit_prod</code> with its <code>oauth_client_id</code> and its <code>label</code>. If you do not specify the <code>label</code>, the management UI uses the <code>id</code> instead.</p>
+<div><div><pre><code class="language-ini">management.oauth_resource_servers.1.id = rabbit_prod
+management.oauth_resource_servers.1.oauth_client_id = rabbit_prod_mgt_ui
+management.oauth_resource_servers.1.label = RabbitMQ Production</code></pre></div></div>
+<p>With this configuration, when the user chooses to option <code>RabbitMQ Production</code>, RabbitMQ initiates the <em>Authorization Code flow</em> which takes the user to the URL configured in <code>auth_oauth2.issuer</code> with
+the following settings:</p>
+<ul>
+<li><code>client_id</code> : <code>rabbit_prod_mgt_ui</code></li>
+<li><code>resource</code> : <code>rabbit_prod</code></li>
+<li><code>scopes</code> : <code>openid rabbitmq.tag:management rabbitmq.read:*/*</code></li>
+</ul>
+<h4 id="configure-extra-parameters-for-authorization-and-token-endpoints">Configure extra parameters for authorization and token endpoints</h4>
+<p>There are some OAuth 2.0 providers which require extra parameters in the request sent to the <strong>authorization endpoint</strong> and/or to the <strong>token endpoint</strong>. These parameters are custom parameters and specified per resource. The Management UI already sends all the parameters required by the OAuth 2.0 Authorization Code flow.</p>
+<p>Here is an example of setting an extra parameter called <code>audience</code> for both endpoints for the resource <code>some-resource-id</code>:</p>
+<div><div><pre><code class="language-ini">management.oauth_resource_servers.2.id = some-resource-id
+management.oauth_resource_servers.2.oauth_authorization_endpoint_params.audience = some-resource-id
+management.oauth_resource_servers.2.oauth_token_endpoint_params.audience = some-resource-id</code></pre></div></div>
+<h4 id="optionally-do-not-expose-some-resources-in-the-management-ui">Optionally do not expose some resources in the management UI</h4>
+<p>You may not want to expose all configured resources in the OAuth 2.0 plugin. For instance, in the following example, you are not exposing the resource <code>rabbit_internal</code> which is left for applications to authenticate via one of the messaging protocols.</p>
+<div><div><pre><code class="language-ini">management.oauth_resource_servers.4.id = rabbit_internal
+management.oauth_resource_servers.4.disabled = true</code></pre></div></div>
+<h4 id="management-ui-screenshot-without-basic-authentication">Management UI screenshot without Basic Authentication</h4>
+<p>This is the management UI layout for the previous configuration with basic authentication deactivated in the management UI (<code>management.oauth_disable_basic_auth = true</code>).</p>
+<p><img alt="More than one OAuth 2.0 resource, with oauth_disable_basic_auth = true" src="/assets/images/management-oauth-many-0a60adee2c18b5c6f6f58250fa73ed11.png"/></p>
+<h4 id="management-ui-screenshot-with-basic-authentication">Management UI screenshot with Basic Authentication</h4>
+<p>And this is the management UI with Basic Authentication activated (<code>management.oauth_disable_basic_auth = false</code>).</p>
+<p><img alt="More than one OAuth 2.0 resource, with oauth_disable_basic_auth = false" src="/assets/images/management-oauth-many-with-basic-auth-ec243b1ca456ca28e362190a3dce2c1b.png"/></p>
+<h3 id="preselect-auth-mechanism">Preselect or predetermine authentication mechanism</h3>
+<p>By default, when users navigate to the management UI home page they see all available authentication
+mechanisms and can choose which one to use. However, in some scenarios, users might be routed to the
+management UI with an authentication mechanism already preselected or predefined. This allows
+external systems to guide users to a specific authentication flow.</p>
+<p>To preselect or predetermine the authentication mechanism, users must be sent to the <code>/login</code> endpoint
+with the appropriate request parameters. The management UI then redirects them back to the home page
+configured according to their preferred authentication mechanism.</p>
+<p>The following request parameters control the behaviour:</p>
+<h4 id="preselection-mode-preferred_auth_mechanism">Preselection Mode (<code>preferred_auth_mechanism</code>)</h4>
+<p>Use the <code>preferred_auth_mechanism</code> request parameter to preselect an authentication method while
+still showing all options.</p>
+<ul>
+<li>
+<p><strong>OAuth 2.0 resource</strong>: <code>/login?preferred_auth_mechanism=oauth2:rabbit_dev</code></p>
+<ul>
+<li>Expands the OAuth 2.0 section and collapses the basic authentication section in the home page</li>
+<li>Preselects the OAuth 2.0 resource server, such as <code>rabbit_dev</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Basic authentication</strong>: <code>/login?preferred_auth_mechanism=basic</code></p>
+<ul>
+<li>Expands the basic authentication section and collapses the OAuth 2.0 section</li>
+</ul>
+</li>
+</ul>
+<h4 id="strict-mode-strict_auth_mechanism">Strict Mode (<code>strict_auth_mechanism</code>)</h4>
+<p>Use the <code>strict_auth_mechanism parameter</code> to show only the specified authentication method. Other methods are hidden.</p>
+<ul>
+<li>
+<p><strong>OAuth 2.0 resource only</strong>: <code>/login?strict_auth_mechanism=oauth2:rabbit_dev</code></p>
+<ul>
+<li>Shows only the <strong>Click here to login</strong> button for the <code>rabbit_dev</code> resource server</li>
+<li>No other authentication options are displayed</li>
+</ul>
+</li>
+<li>
+<p><strong>Basic authentication only</strong>: <code>/login?strict_auth_mechanism=basic</code></p>
+<ul>
+<li>Shows only the basic authentication form</li>
+<li>No OAuth 2.0 options are displayed</li>
+</ul>
+</li>
+</ul>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<p><a href="/docs/4.3/troubleshooting-oauth2#management-ui">Troubleshooting management UI access in OAuth 2-enabled clusters</a> is a companion guide
+dedicated to common OAuth 2-specific issues.</p>
+<h2 id="http-api">HTTP API</h2>
+<h3 id="http-api-endpoints">API Endpoints</h3>
+<p>See <a href="/docs/4.3/http-api-reference">HTTP API reference</a>.</p>
+<h3 id="http-api-monitoring">HTTP API and Monitoring</h3>
+<p>The API is intended to be used for basic observability tasks. <a href="/docs/4.3/prometheus">Prometheus and Grafana</a>
+are recommended for long term metric storage, alerting, anomaly detection, and so on.</p>
+<p>Any cluster node with <code>rabbitmq-management</code> plugin activated can be used for management UI access or
+HTTP API access. It will reach out to other nodes and collect their stats, then aggregate and return
+a response to the client.</p>
+<p>When using the API in a cluster of nodes, there is no need to contact each node via HTTP API
+individually. Instead, contact a random node or a load balancer that sits in front
+of the cluster.</p>
+<h3 id="http-api-clients">HTTP API Clients and Tooling</h3>
+<p><a href="/docs/4.3/management-cli">rabbitmqadmin v2</a> is a command-line tool that interacts with the HTTP API.</p>
+<p>For HTTP API clients in several languages,
+see <a href="/client-libraries/devtools">Developer Tools</a>.</p>
+<h3 id="http-body-size-limit">Maximum HTTP Request Body Limit</h3>
+<p>A few RabbitMQ HTTP API endpoints can potentially receive large payloads,
+most notably the endpoint used for <a href="/docs/4.3/definitions">definition import</a>.</p>
+<p>The default HTTP request body limit is 20 MiB. If such large definition
+files are not used in a cluster, the limit can be reduced:</p>
+<div><div><pre><code class="language-ini"># lowers the maximum HTTP request body size that will be accepted
+# to 1 MiB
+management.http.max_body_size = 1000000</code></pre></div></div>
+<p>When a client issues requests with a body that exceeds the limit, a <code>400 Bad Request</code> response will be returned.</p>
+<h3 id="http-api-proxy">Using a Reverse Proxy in front of the HTTP API</h3>
+<p>It may be necessary to put a reverse proxy in front of a RabbitMQ cluster. Reverse proxy setup for RabbitMQ
+may require careful handling of encoded slashes in paths if default virtual host (<code>/</code>) is used.</p>
+<p>If default virtual host is not used, the additional settings to support encoded URIs
+will not be necessary. In other words, both Nginx and Apache configuration will require
+the standard minimum for any HTTP-based service.</p>
+<h4 id="nginx">Nginx</h4>
+<p>If RabbitMQ HTTP API access is configured for the root location (<code>/</code>),
+the location must not have a slash at the end:</p>
+<div><div><pre><code class="language-nginxconf"># trailing slash in the location must be omitted only if default RabbitMQ virtual host is used
+location / {
+    proxy_pass http://rabbitmq-host:15672;
+}</code></pre></div></div>
+<p>If a different location will be used to proxy requests to the HTTP API,
+a <a href="https://nginx.org/en/docs/http/ngx_http_rewrite_module.html#rewrite">URI rewrite</a> rule must be used:</p>
+<div><div><pre><code class="language-nginxconf"># these rewrites are only if default RabbitMQ virtual host is used
+location ~* /rabbitmq/api/(.*?)/(.*) {
+    proxy_pass http://rabbitmq-host:15672/api/$1/%2F/$2?$query_string;
+}
+
+location ~* /rabbitmq/(.*) {
+    rewrite ^/rabbitmq/(.*)$ /$1 break;
+    proxy_pass http://rabbitmq-host:15672;
+}</code></pre></div></div>
+<h4 id="apache">Apache</h4>
+<p>To support encoded slashes in URIs, Apache requires users to explicitly enable
+<a href="https://httpd.apache.org/docs/2.4/mod/core.html"><code>AllowEncodedSlashes</code></a>.</p>
+<div><div><pre><code class="language-apacheconf"># required only if default RabbitMQ virtual host is used
+AllowEncodedSlashes On</code></pre></div></div>
+<p>for the Apache virtual host. Apache needs both <a href="https://httpd.apache.org/docs/2.4/mod/mod_proxy.html">mod_proxy</a> and <a href="https://httpd.apache.org/docs/2.4/mod/mod_proxy_http.html">mod_proxy_http</a> enabled. The location also needs a <a href="https://httpd.apache.org/docs/2.4/mod/mod_proxy.html"><code>nocanon</code> setting</a>:</p>
+<div><div><pre><code class="language-apacheconf">ProxyPassReverse / http://rabbitmq-host:15672/
+# "nocanon" is required only if default RabbitMQ virtual host is used
+ProxyPass / http://rabbitmq-host:15672/ nocanon</code></pre></div></div>
+<h2 id="configuration">Configuration</h2>
+<p>There are several configuration options which affect the
+management plugin. These are managed through the main
+RabbitMQ <a href="/docs/4.3/configure#configuration-files">configuration file</a>.</p>
+<p>It is possible to configure HTTP API and management UI to
+use a different port or network interface, enable HTTPS
+and so on.</p>
+<p>While rarely needed, it is possible to configure multiple listeners (ports), for example to both enable HTTPS and
+retain support for clients that can only use HTTP (without TLS).</p>
+<h3 id="single-listener-port">Port</h3>
+<p>The port is configured using the <code>management.tcp.port</code> key:</p>
+<div><div><pre><code class="language-ini">management.tcp.port = 15672</code></pre></div></div>
+<p>It is possible to configure what interface the API endpoint will use, similarly
+to <a href="/docs/4.3/networking#interfaces">messaging protocol listeners</a>, using
+the <code>management.tcp.ip</code> key:</p>
+<div><div><pre><code class="language-ini">management.tcp.ip = 0.0.0.0</code></pre></div></div>
+<p>To check what interface and port is used by a running node, use
+<code>rabbitmq-diagnostics</code>:</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics -s listeners
+# =&gt; Interface: [::], port: 15672, protocol: http, purpose: HTTP API
+# =&gt; Interface: [::], port: 15671, protocol: https, purpose: HTTP API over TLS (HTTPS)</code></pre></div></div>
+<p>or <a href="/docs/4.3/troubleshooting-networking#ports">tools such as <code>lsof</code>, <code>ss</code> or <code>netstat</code></a>.</p>
+<h3 id="single-listener-https">HTTPS</h3>
+<p>The management plugin can be configured to use HTTPS. See the guide <a href="/docs/4.3/ssl">on TLS</a>
+to learn more about certificate authorities, certificates and private key files.</p>
+<div><div><pre><code class="language-ini">management.ssl.port       = 15671
+management.ssl.cacertfile = /path/to/ca_certificate.pem
+management.ssl.certfile   = /path/to/server_certificate.pem
+management.ssl.keyfile    = /path/to/server_key.pem
+## This key must only be used if private key is password protected
+# management.ssl.password   = bunnies</code></pre></div></div>
+<p>More <a href="/docs/4.3/ssl">TLS options</a> can be configured for the HTTPS listener.</p>
+<div><div><pre><code class="language-ini">management.ssl.port       = 15671
+management.ssl.cacertfile = /path/to/ca_certificate.pem
+management.ssl.certfile   = /path/to/server_certificate.pem
+management.ssl.keyfile    = /path/to/server_key.pem
+## This key must only be used if private key is password protected
+# management.ssl.password   = bunnies
+
+management.ssl.honor_cipher_order   = true
+management.ssl.honor_ecc_order      = true
+management.ssl.client_renegotiation = false
+management.ssl.secure_renegotiate   = true
+
+management.ssl.versions.1 = tlsv1.2
+management.ssl.versions.2 = tlsv1.1
+
+management.ssl.ciphers.1 = ECDHE-ECDSA-AES256-GCM-SHA384
+management.ssl.ciphers.2 = ECDHE-RSA-AES256-GCM-SHA384
+management.ssl.ciphers.3 = ECDHE-ECDSA-AES256-SHA384
+management.ssl.ciphers.4 = ECDHE-RSA-AES256-SHA384
+management.ssl.ciphers.5 = ECDH-ECDSA-AES256-GCM-SHA384
+management.ssl.ciphers.6 = ECDH-RSA-AES256-GCM-SHA384
+management.ssl.ciphers.7 = ECDH-ECDSA-AES256-SHA384
+management.ssl.ciphers.8 = ECDH-RSA-AES256-SHA384
+management.ssl.ciphers.9 = DHE-RSA-AES256-GCM-SHA384
+
+## Usually RabbitMQ nodes do not perform peer verification of HTTP API clients
+## but it can be enabled if needed. Clients then will have to be configured with
+## a certificate and private key pair.
+##
+## See ./ssl#peer-verification for details.
+# management.ssl.verify = verify_peer
+# management.ssl.fail_if_no_peer_cert = true</code></pre></div></div>
+<p>Below is the same example in the <a href="/docs/4.3/configure#erlang-term-config-file">classic config format</a>.</p>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>The classic config format example is provided primarily for completeness sake,
+using the modern <code>rabbitmq.conf</code> format for configuring this plugin is <strong>highly recommended</strong>.</p></div></div>
+<div><div><pre><code class="language-erlang">%% The classic config format example is provided primarily for completeness sake,
+%% using the modern `rabbitmq.conf` format for configuring this plugin is highly recommended.
+[
+  {rabbitmq_management,
+   [
+    {ssl_config, [{port,     15671},
+                  {ssl,      true},
+                  {cacertfile, "/path/to/ca_certificate.pem"},
+                  {certfile,   "/path/to/server_certificate.pem"},
+                  {keyfile,    "/path/to/server_key.pem"},
+
+                  %% don't do peer verification to HTTPS clients
+                  {verify,               verify_none},
+                  {fail_if_no_peer_cert, false},
+
+                  {client_renegotiation, false},
+                  {secure_renegotiate,   true},
+                  {honor_ecc_order,      true},
+                  {honor_cipher_order,   true},
+
+                  {versions,['tlsv1.2']},
+                  {ciphers, ["ECDHE-ECDSA-AES256-GCM-SHA384",
+                             "ECDHE-RSA-AES256-GCM-SHA384",
+                             "ECDHE-ECDSA-AES256-SHA384",
+                             "ECDHE-RSA-AES256-SHA384",
+                             "ECDH-ECDSA-AES256-GCM-SHA384",
+                             "ECDH-RSA-AES256-GCM-SHA384",
+                             "ECDH-ECDSA-AES256-SHA384",
+                             "ECDH-RSA-AES256-SHA384",
+                             "DHE-RSA-AES256-GCM-SHA384"
+                            ]}
+                ]}
+   ]}
+ ].</code></pre></div></div>
+<h3 id="multiple-listeners">Using HTTP and HTTPS Together</h3>
+<p>It is possible to use both HTTP and HTTPS on different ports:</p>
+<div><div><pre><code class="language-ini">management.tcp.port       = 15672
+
+management.ssl.port       = 15671
+management.ssl.cacertfile = /path/to/ca_certificate.pem
+management.ssl.certfile   = /path/to/server_certificate.pem
+management.ssl.keyfile    = /path/to/server_key.pem</code></pre></div></div>
+<p>The same configuration keys can be used to configure a single listener (just HTTP or HTTPS)
+and match those used by the <a href="/docs/4.3/web-stomp">Web STOMP</a> and <a href="/docs/4.3/web-mqtt">Web MQTT</a>.</p>
+<h3 id="advanced-options">Advanced HTTP Options</h3>
+<p><a href="https://github.com/ninenines/cowboy">Cowboy</a>, the embedded Web server used by
+the management plugin, provides a number of options that can be used to customize the behavior of the server.
+Most of the options were introduced in RabbitMQ 3.7.9.</p>
+<h4 id="response-compression">Response Compression</h4>
+<p>Response compression is enabled by default. To enable it explicitly, use <code>management.tcp.compress</code>:</p>
+<div><div><pre><code class="language-ini">management.tcp.compress = true</code></pre></div></div>
+<h4 id="client-inactivity-timeouts">Client Inactivity Timeouts</h4>
+<p>Some HTTP API endpoints respond quickly, others may need to return or stream
+a sizeable data set to the client (for example many thousands of connections) or perform
+an operation that takes time proportionally to the input (for example <a href="/docs/4.3/definitions">import a large definitions file</a>).
+In those cases the amount of time it takes to process the request can exceed certain
+timeouts in the Web server as well as HTTP client.</p>
+<p>It is possible to bump Cowboy timeouts using the <code>management.tcp.idle_timeout</code>,
+<code>management.tcp.inactivity_timeout</code>, <code>management.tcp.request_timeout</code> options.</p>
+<ul>
+<li><code>management.tcp.inactivity_timeout</code> controls HTTP(S) client's TCP connection inactivity timeout.
+When it is reached, the connection will be closed by the HTTP server.</li>
+<li><code>management.tcp.request_timeout</code> controls the window of time in which the client has to send an HTTP
+request.</li>
+<li><code>management.tcp.idle_timeout</code> controls the window of time in which the client has to send more data (if any)
+within the context of an HTTP request.</li>
+</ul>
+<p>If a load balancer or proxy is used between HTTP clients and the management HTTP server,
+the <code>inactivity_timeout</code> and <code>idle_timeout</code> values should be at least as large, and often greater than,
+the timeout and inactivity values used by the load balancer.</p>
+<p>Here are some example configuration snippets that modify the timeouts:</p>
+<div><div><pre><code class="language-ini"># Configures HTTP (non-encrypted) listener timeouts
+management.tcp.idle_timeout       = 120000
+management.tcp.inactivity_timeout = 120000
+management.tcp.request_timeout    = 10000</code></pre></div></div>
+<div><div><pre><code class="language-ini"># Configures HTTPS (TLS-enabled) listener timeouts
+management.ssl.idle_timeout       = 120000
+management.ssl.inactivity_timeout = 120000
+management.ssl.request_timeout    = 10000</code></pre></div></div>
+<p>All values are in milliseconds. Their defaults vary:</p>
+<ul>
+<li><code>management.tcp.inactivity_timeout</code> has the default of 300 seconds</li>
+<li><code>management.tcp.request_timeout</code> has the default of 60 seconds</li>
+<li><code>management.tcp.idle_timeout</code> has the default of 5 seconds</li>
+</ul>
+<p>It is recommended that if the inactivity or idle timeout need changing,
+<code>management.tcp.inactivity_timeout</code> value should match or be greater than that
+of <code>management.tcp.idle_timeout</code>.</p>
+<p><code>management.tcp.request_timeout</code> typically does not need increasing as clients send a request
+shortly after establishing a TCP connection.</p>
+<h3 id="http-logging">HTTP Request Logging</h3>
+<p>RabbitMQ nodes do not <a href="/docs/4.3/logging">log</a> any HTTP API requests by default.</p>
+<p>To enable HTTP API access logging, use the <code>management.http_log_dir</code> key to
+configure the path of a directory in which the access log log files can be created
+by the node:</p>
+<div><div><pre><code class="language-ini">management.http_log_dir = /path/to/a/writeable/directory</code></pre></div></div>
+<p>For the change to have an effect, restart the plugin or the node.</p>
+<h3 id="statistics-interval">Statistics Interval</h3>
+<p>By default the server will emit statistics events every
+5 seconds (<code>5000</code> ms). The message rate values shown in the management
+plugin are calculated over this period.</p>
+<p>Increasing this value will reduce CPU resource consumption of
+stats collection in environments with a large number of stats emitting
+entities such as <a href="/docs/4.3/connections">connections</a>, <a href="/docs/4.3/channels">channels</a>, <a href="/docs/4.3/queues">queues</a>.</p>
+<p>In order to do so, set the value of the <code>collect_statistics_interval</code> configuration key
+to the desired interval in milliseconds and restart the node:</p>
+<div><div><pre><code class="language-ini"># 15s
+collect_statistics_interval = 15000</code></pre></div></div>
+<h3 id="rates-mode">Message Rates</h3>
+<p>The management plugin by default shows message rates
+globally, and for each queue, channel, exchange, and
+vhost. These are known as the <em>basic</em> message rates.</p>
+<p>It can also show message rates for all the combinations of
+channel to exchange, exchange to queue, and queue to
+channel. These are known as <em>detailed</em> message rates.
+Detailed message rates are disabled by default as they can
+have a large memory footprint when there are a large
+number of combinations of channels, queues and exchanges.</p>
+<p>Alternatively, the message rates can be disabled
+altogether. This can help get reduce CPU resource
+consumption of the plugin.</p>
+<p>The message rate mode is controlled by the
+<code>management.rates_mode</code> configuration key:</p>
+<div><div><pre><code class="language-ini"># supported values: basic, detailed, none
+management.rates_mode = basic</code></pre></div></div>
+<p>Supported values are <code>basic</code> (the default), <code>detailed</code>, and <code>none</code>.</p>
+<h3 id="sample-retention">Sample (Data Point) Retention</h3>
+<p>The management plugin will retain samples of some data
+such as message rates and queue lengths. Depending on how long the
+data is retained, some time
+range options on UI charts may be incomplete or unavailable.</p>
+<p>There are three policies:</p>
+<ul>
+<li><code>global</code>: how long to retain data for the overview and virtual host pages</li>
+<li><code>basic</code>: how long to retain data for individual connections, channels, exchanges and queues</li>
+<li><code>detailed</code>: how long to retain data for message rates between pairs of connections, channels, exchanges and queues (as shown under "Message rates breakdown")</li>
+</ul>
+<p>Below is a configuration example:</p>
+<div><div><pre><code class="language-ini">management.sample_retention_policies.global.minute  = 5
+management.sample_retention_policies.global.hour    = 60
+management.sample_retention_policies.global.day = 1200
+
+management.sample_retention_policies.basic.minute = 5
+management.sample_retention_policies.basic.hour   = 60
+
+management.sample_retention_policies.detailed.10 = 5</code></pre></div></div>
+<p>The configuration in the example above retains global
+data at a 5 second resolution (sampling happens every 5 seconds) for a minute,
+then at a 1 minute (60 second) resolution for 1 hour, then at a 20 minute
+resolution for one day. It retains basic data at a 5 second
+resolution for 1 minute, at a 1 minute (60 second) resolution for
+1 hour, and detailed data only for 10 seconds.</p>
+<p>All three policies are mandatory, and must contain
+at least one retention setting (period).</p>
+<h3 id="disable-stats">Disable Statistics and Metric Collection</h3>
+<p>It is possible to disable the statistics in the UI and <a href="#http-api">HTTP API</a> in order for these to be used only for operations. This can be a useful feature if external monitoring solutions such as <a href="/docs/4.3/prometheus">Prometheus and Grafana</a> are being used. If statistics are disabled in any of the following ways, all charts and detailed statistics will be hidden in the UI.</p>
+<p>In order to completely disable the internal metrics collection, the <code>disable_metrics_collector</code> flag must be set in the <code>rabbitmq_management_agent</code> plugin.
+The <a href="/docs/4.3/prometheus">Prometheus plugin</a> will still work even if collection is disabled.</p>
+<div><div><pre><code class="language-ini">management_agent.disable_metrics_collector = true</code></pre></div></div>
+<p>Disabling the metrics collection is the preferred option if it is being used with an external monitoring system, as this reduced the overhead that statistics collection and aggregation causes in the broker. If the statistics are only temporary disabled, or are not required in some <a href="#http-api">HTTP API</a> queries, the aggregation of the stats can be disabled in the <code>rabbitmq_management</code> plugin. The disable flag can be also passed as part of the query string in the URI.</p>
+<p>As at the moment the <a href="/docs/4.3/prometheus">Prometheus plugin</a> cannot report individual queue totals, there is a configuration option that allows to list <code>messages</code>, <code>messages_ready</code> and <code>messages_unacknowledged</code> in the <code>queues</code> endpoint.</p>
+<p>Below is a configuration example that disables the statistics but returns individual queue totals in the <code>queues</code> page:</p>
+<div><div><pre><code class="language-ini">management.disable_stats = true
+management.enable_queue_totals = true</code></pre></div></div>
+<h3 id="csp">Content Security Policy (CSP)</h3>
+<p>It is possible to configure what <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP">CSP header</a> value
+is used by HTTP API responses. The default value is <code>script-src 'self' 'unsafe-eval' 'unsafe-inline'; object-src 'self'</code>:</p>
+<div><div><pre><code class="language-ini">management.csp.policy = script-src 'self' 'unsafe-eval' 'unsafe-inline'; object-src 'self'</code></pre></div></div>
+<p>The value can be any valid CSP header string:</p>
+<div><div><pre><code class="language-ini">management.csp.policy = default-src https://rabbitmq.eng.example.local</code></pre></div></div>
+<p>Wildcards are also allowed:</p>
+<div><div><pre><code class="language-ini">management.csp.policy = default-src 'self' *.eng.example.local</code></pre></div></div>
+<p>A CSP policy <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/frame-ancestors"><code>frame-ancestors</code> directive</a> can be used
+to prevent frame embedding of the management UI, mitigating
+certain types of cross-frame scripting attacks:</p>
+<div><div><pre><code class="language-ini"># prohibits iframe embedding of the UI
+management.csp.policy = frame-ancestors 'none'</code></pre></div></div>
+<h3 id="hsts">Strict Transport Security (HSTS)</h3>
+<p>It is possible to configure what <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security">Strict Transport Security header</a> value
+is used by HTTP API responses:</p>
+<div><div><pre><code class="language-ini">management.hsts.policy = max-age=31536000; includeSubDomains</code></pre></div></div>
+<h3 id="cors">Cross-origin Resource Sharing (CORS)</h3>
+<p>The management UI application will by default refuse access to
+websites hosted on origins different from its own using the <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS">Cross-Origin Resource Sharing</a> mechanism,
+also known as CORS. It is possible to white list origins:</p>
+<div><div><pre><code class="language-ini">management.cors.allow_origins.1 = https://origin1.org
+management.cors.allow_origins.2 = https://origin2.org</code></pre></div></div>
+<p>It is possible to allow any origin to use the API using a wildcard.
+This is <strong>highly discouraged</strong> for deployments where the UI
+application may be exposed to the public.</p>
+<div><div><pre><code class="language-ini">management.cors.allow_origins.1 = *</code></pre></div></div>
+<p>The CORS pre-flight requests are cached by the browser.
+The management plugin defines a timeout of 30 minutes
+by default. The value can be changed. It is configured in seconds:</p>
+<div><div><pre><code class="language-ini">management.cors.allow_origins.1 = https://origin1.org
+management.cors.allow_origins.2 = https://origin2.org
+management.cors.max_age         = 3600</code></pre></div></div>
+<h3 id="other-security-headers">Other Security-related Headers</h3>
+<p>It is possible to set a few more security-related headers for management UI and HTTP API responses.
+Note that some of them have been superseded by CORS and other newer development in the
+browser security space.</p>
+<p>The supported headers are:</p>
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options"><code>X-Frame-Options</code></a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-XSS-Protection"><code>X-Xss-Protection</code></a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options"><code>X-Content-Type-Options</code></a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy"><code>Referrer-Policy</code></a>: <code>no-referrer</code> and <code>same-origin</code> prevent the management UI origin from being sent to external sites; without this header, browsers default to <code>strict-origin-when-cross-origin</code>, which does send the origin</li>
+</ul>
+<div><div><pre><code class="language-ini">management.headers.content_type_options = nosniff
+management.headers.xss_protection = 1; mode=block
+management.headers.frame_options = DENY
+management.headers.referrer_policy = no-referrer</code></pre></div></div>
+<p>They can be combined with the aforementioned CORS, HSTS, CSP headers:</p>
+<div><div><pre><code class="language-ini">management.hsts.policy = max-age=31536000; includeSubDomains
+management.csp.policy = default-src 'self'; script-src 'self' 'unsafe-eval'
+
+management.headers.content_type_options = nosniff
+management.headers.xss_protection = 1; mode=block
+management.headers.frame_options = DENY
+management.headers.referrer_policy = no-referrer</code></pre></div></div>
+<h4 id="hide-allow-header">Hiding the Allow Response Header</h4>
+<p>By default, the management plugin includes an
+<a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Allow"><code>Allow</code></a> response header on
+every HTTP response. The header lists all HTTP methods accepted by the matched route. In some
+cases, operations would prefer to hide this information.</p>
+<p>When <code>management.http.hide_allow_header</code> is set to <code>true</code>, the <code>Allow</code> header is removed from
+all responses <strong>except</strong> <code>405 Method Not Allowed</code>, where <a href="https://www.rfc-editor.org/rfc/rfc9110#section-10.2.1">RFC 9110</a>
+requires it to be present:</p>
+<div><div><pre><code class="language-ini">management.http.hide_allow_header = true</code></pre></div></div>
+<p>This setting is disabled (<code>false</code>) by default.</p>
+<h3 id="login-session-timeout">Login Session Timeout</h3>
+<p>After the user logs in, the user's web UI login session will expire after 8 hours by default.
+It is possible to configure a different timeout using the
+<code>login_session_timeout</code> setting.</p>
+<p>The value should be an integer: it controls the length of login
+session in minutes. When the time is up, the user will be signed out.</p>
+<p>The following example sets the session timeout to 1 hour:</p>
+<div><div><pre><code class="language-ini">management.login_session_timeout = 60</code></pre></div></div>
+<h3 id="path-prefix">Path Prefix</h3>
+<p>Some environments require the use of a custom prefix for
+all HTTP requests to the management plugin. The
+<code>management.path_prefix</code> setting allows an arbitrary
+prefix to be set for all HTTP request handlers in the
+management plugin.</p>
+<p>Setting <code>management.path_prefix</code> to <code>/my-prefix</code>
+specifies all API requests to use the URI
+<code>host:port/my-prefix/api/[...]</code></p>
+<p>The management UI login page will have the URI
+<code>host:port/my-prefix/</code> - note that the
+trailing slash is <em>required</em> in this case.</p>
+<div><div><pre><code class="language-ini">management.path_prefix = /my-prefix</code></pre></div></div>
+<h3 id="require-definition-json-extension">Restricting Definition Upload to JSON Files</h3>
+<p>Some deployments require strict filename extension validation for definition file uploads.
+When enabled, the management UI and the server both validate that the uploaded file has a <code>.json</code> extension.</p>
+<p>On the client side, the management UI sets the <code>accept=".json"</code> attribute on the file input,
+which tells the browser to filter the file picker to <code>.json</code> files only. On the server side,
+the filename extension is independently validated before the file is processed.</p>
+<p>The new configuration setting is <code>management.require_definition_json_extension</code>. It defaults
+to <code>false</code> for backwards compatibility. Regardless of its value, the server always validates
+that the uploaded content is valid JSON before importing it.</p>
+<div><div><pre><code class="language-ini">management.require_definition_json_extension = true</code></pre></div></div>
+<p>When enabled, files with a different extension or no extension at all are rejected with an
+HTTP 400 error.</p>
+<h3 id="example-config">Example</h3>
+<p>An example configuration file for RabbitMQ that switches
+on request logging, increases the statistics interval to
+10 seconds and explicitly sets some other relevant parameters
+to their default values, would look like this:</p>
+<div><div><pre><code class="language-ini">listeners.tcp.default = 5672
+
+collect_statistics_interval = 10000
+
+## Note: this uses the core `load_definitions` key over
+## now deprecated `management.load_definitions`
+# load_definitions = /path/to/exported/definitions.json
+
+management.tcp.port = 15672
+management.tcp.ip   = 0.0.0.0
+
+management.ssl.port       = 15671
+management.ssl.ip         = 0.0.0.0
+management.ssl.cacertfile = /path/to/ca_certificate.pem
+management.ssl.certfile   = /path/to/server_certificate.pem
+management.ssl.keyfile    = /path/to/server_key.pem
+
+management.http_log_dir = /path/to/rabbit/logs/http
+
+management.rates_mode = basic
+
+# Configure how long aggregated data (such as message rates and queue
+# lengths) is retained.
+# Your can use 'minute', 'hour' and 'day' keys or integer key (in seconds)
+management.sample_retention_policies.global.minute    = 5
+management.sample_retention_policies.global.hour  = 60
+management.sample_retention_policies.global.day = 1200
+
+management.sample_retention_policies.basic.minute   = 5
+management.sample_retention_policies.basic.hour = 60
+
+management.sample_retention_policies.detailed.10 = 5</code></pre></div></div>
+<h2 id="load-definitions">Loading Definitions (Schema) at Startup</h2>
+<p>Nodes and clusters store information that can be thought of as schema, metadata or topology.
+Users, vhosts, queues, exchanges, bindings, runtime parameters all fall into this category.</p>
+<p>Definitions can be exported and imported via <a href="/docs/4.3/cli"><code>rabbitmqctl</code></a>, <a href="/docs/4.3/management-cli"><code>rabbitmqadmin</code></a> or the HTTP API
+provided by this plugin.</p>
+<p>Please refer to the <a href="/docs/4.3/definitions">Definitions guide</a>.</p>
+<h2 id="clustering">Metrics Collection and HTTP API in Clusters</h2>
+<h3 id="clustering-client-requests">Client Requests</h3>
+<p>The management plugin is aware of clusters. It can be enabled
+on one or more nodes in a cluster, and see information
+pertaining to the entire cluster no matter which node you
+connect to.</p>
+<h3 id="clustering-subset-of-nodes">Running Management Plugin on a Subset of Nodes</h3>
+<p>It is possible to deploy management plugin only on a subset of cluster nodes.
+In that case only the nodes running the plugin would be able to serve client HTTP API requests.
+For every cluster node to have its metrics collected, it is still required that the
+<code>rabbitmq-management-agent</code> plugin is enabled on each node, otherwise
+the metrics from the node won't be available.</p>
+<h3 id="clustering-inter-node-connectivity">Aggregation Queries in Clusters</h3>
+<p>In cluster, HTTP API performs cluster-wide queries when handling client
+requests, which means it can be affected by network partitions, network slowdowns,
+and unresponsive nodes.</p>
+<p>Timeouts for inter-node aggregation queries are controlled via the
+<a href="/docs/4.3/nettick">net tick mechanism</a>. Lowering the value may help reduce
+the delay introduced by nodes that have recently become unresponsive.
+Values lower than 10s <strong>can produce false positives and must be avoided</strong>.</p>
+<p>In contrast to the HTTP API, the <a href="/docs/4.3/prometheus">Prometheus monitoring endpoint</a> only serves
+node-local data and is generally not affected by failures or unavailability of other nodes
+in the cluster.</p>
+<h2 id="proxy">(Reverse HTTP) Proxy Setup</h2>
+<p>It is possible to make the web UI available via any proxy that
+conforms with RFC 1738. The following sample Apache configuration
+illustrates the minimum necessary directives to coax Apache into
+conformance. It assumes a management web UI on the default port of 15672:</p>
+<div><div><pre><code class="language-ini">AllowEncodedSlashes      NoDecode
+ProxyPass         "/api" http://localhost:15672/api nocanon
+ProxyPass         "/"    http://localhost:15672/
+ProxyPassReverse  "/"    http://localhost:15672/</code></pre></div></div>
+<h2 id="reset-stats">Restarting Statistics Database</h2>
+<p>Statistics database is stored entirely in memory. All of its contents
+is transient and should be treated as such.</p>
+<p>In modern versions, ach node has its own statistics database
+containing a fraction of stats recorded on this node.</p>
+<p>It is possible to restart the stats database on a given node using
+<code>rabbitmqctl</code> or an HTTP API endpoint:</p>
+<div><div><pre><code class="language-text">DELETE /api/reset/:node</code></pre></div></div>
+<div><div><pre><code class="language-bash">rabbitmqctl eval 'rabbit_mgmt_storage:reset().'</code></pre></div></div>
+<p>To reset the entire statistics database on all nodes, use</p>
+<div><div><pre><code class="language-text">DELETE /api/reset</code></pre></div></div>
+<div><div><pre><code class="language-bash">rabbitmqctl eval 'rabbit_mgmt_storage:reset_all().'</code></pre></div></div>
+<h2 id="memory">Memory Usage Analysis and Memory Management</h2>
+<p>Management UI can be used to inspect node's memory use, including displaying
+a per-category breakdown. See the <a href="/docs/4.3/memory-use">Memory Use Analysis</a> guide
+for details.</p>
+<p>Management database builds around periodically emitted stats,
+regulated by the statistics interval described above, or when certain components are
+created/declared (for example a new connection or channel is
+opened, or a queue declared) or closed/deleted.  Message
+rates do not directly affect management database memory
+usage.</p>
+<p>Total amount of memory consumed by the stats database
+depends on the topology size (for example the number of queues), number of concurrent connections
+and channels, event emission interval, effective rates mode and
+retention policies.</p>
+<p>Entities that emit stats (connections, channels, queues, nodes) do so periodically.
+The interval can be configured using the <code>collect_statistics_interval</code> key:</p>
+<div><div><pre><code class="language-ini"># sets the interval to 30 seconds
+collect_statistics_interval = 30000</code></pre></div></div>
+<p>Increasing the interval value to 30-60s will reduce CPU footprint and peak memory
+consumption for systems with large amounts of connections, channels and queues.
+This comes with a downside: metrics of said entities will refresh every 30-60 seconds.
+This can be perfectly reasonable in an <a href="/docs/4.3/monitoring#monitoring-frequency">externally monitored</a> production system
+but will make management UI less convenient to use for operators.</p>
+<p>The memory usage of the channel and stats collector processes can be limited
+by setting the maximum backlog queue size using the parameter
+<code>stats_event_max_backlog</code>. If the backlog queue is full, new channel
+and queue stats will be dropped until the previous ones have been processed.</p>
+<p>The statistics interval can also be changed at runtime. Doing so will have no
+effect on existing connections, channels or queues. Only new stats
+emitting entities are affected.</p>
+<div><div><pre><code class="language-bash">rabbitmqctl eval 'application:set_env(rabbit, collect_statistics_interval, 60000).'</code></pre></div></div>
+<p>The statistics database can be restarted (see above) and thus forced to release all memory.
+Management UI's Overview page contains buttons that reset stats database for individual nodes as well as
+all nodes in the cluster.</p>
+<h2 id="publishing-consuming">Publishing and Consuming over HTTP API</h2>
+<p>It is possible to publish and consume messages using the <a href="#http-api">HTTP API</a>.
+This way of messaging is discouraged: prefer one of the binary messaging protocols supported
+by RabbitMQ. Publishing and consuming that way will be significantly more efficient and will
+provide access to various messaging protocol features such as <a href="/docs/4.3/confirms">confirmations</a>.</p>
+<p>Publishing over HTTP API can be useful in environments where
+<a href="/docs/4.3/connections">long lived messaging protocol connections</a> is not an option.</p></main>

@@ -1,0 +1,28 @@
+<main>
+		
+		<h1>Deleting messages</h1>
+		<p>To conserve space and maintain <a href="../../configuration/email-storage/">database performance</a> on busy Mailpit instances, Mailpit automatically prunes the database.
+This can, of course, be configured to suit your storage and/or privacy requirements.</p>
+<h2 id="maximum-number-of-messages">Maximum number of messages</h2>
+<p><strong>By default</strong>, Mailpit keeps only the latest 500 messages, silently deleting the oldest messages at regular intervals once this total number is reached.
+This limit is configurable in the <a href="../../configuration/runtime-options/">runtime options</a>, and can be disabled entirely by setting <code>--max 0</code> (@env <code>MP_MAX_MESSAGES=0</code>) if
+you wish to keep messages indefinitely, or alternatively set to a value that suits your requirements.</p>
+<p>Mailpit can easily store more than 100,000 messages and still perform relatively well; however, some actions such as searching will become gradually slower as your database grows.</p>
+<h2 id="delete-by-age">Delete by age</h2>
+<p>Mailpit can also be optionally configured to automatically delete messages after a set period of time by using the <code>--max-age &lt;age&gt;</code> flag (@env <code>MP_MAX_AGE=&lt;age&gt;</code>),
+where <code>&lt;age&gt;</code> is specified either in hours (<code>h</code>) or in days (<code>d</code>). An example would be <code>--max-age 6h</code> to delete messages after 6 hours, or <code>--max-age 7d</code> after 7 days.</p>
+<h2 id="manually-deleting-messages">Manually deleting messages</h2>
+<p>There are various ways to manually delete messages:</p>
+<ol>
+<li>Individual messages can be deleted by clicking the <code>Delete</code> button while previewing a message.</li>
+<li>Select one or more messages by holding down <code>Ctrl</code>/<code>Cmd</code> or <code>Shift</code> and clicking on the messages in the list. These can then be deleted via the <code>Delete selected</code> button, or alternatively marked as read/unread.</li>
+<li>In the Inbox (main) view, the <code>Delete all</code> button will delete all messages (everything). <strong>*</strong></li>
+<li>While filtering messages, either by a search or viewing a tag, clicking the <code>Delete all</code> button will delete all matching results. <strong>*</strong></li>
+</ol>
+<p><strong>*</strong> Please note that if Mailpit has been started with the <code>--hide-delete-all-button</code> option, then the <code>Delete all</code> button will not be visible.</p>
+
+
+		
+		
+		
+	</main>

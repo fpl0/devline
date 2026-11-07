@@ -1,0 +1,92 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This is part of the <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting">Troubleshooting using metrics</a> guide.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Metrics need to be enabled for Keycloak. Follow the <a href="https://www.keycloak.org/observability/configuration-metrics">Gaining insights with metrics</a> guide for more details.</p>
+</li>
+<li>
+<p>A monitoring system collecting the metrics.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_database_connection_pool_metrics"><a class="anchor" href="#_database_connection_pool_metrics"></a>Database connection pool metrics</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Configure Keycloak to use a fixed size database connection pool.
+See the <a href="https://www.keycloak.org/high-availability/single-cluster/concepts-database-connections">Concepts for database connection pools</a> guide for more information.</p>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-tip" title="Tip"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If there is a high count of threads waiting for a database connection, increasing the database connection pool size is not always the best option. It might overload the database which would then become the bottleneck. Consider the following options instead:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Reduce the number of HTTP worker threads using the option <code>http-pool-max-threads</code> to make it match the available database connections, and thereby reduce contention and resource usage in Keycloak and increase throughput.</p>
+</li>
+<li>
+<p>Check which database statements are executed on the database. If you see, for example, a lot of information about clients and groups being fetched, and the <code>users</code> and <code>realms</code> cache are full, this might indicate that it is time to increase the sizes of those caches and see if this reduces your database load.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>agroal_available_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Idle database connections.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>agroal_active_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Database connections used in ongoing transactions.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>agroal_awaiting_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Threads waiting for a database connection to become available.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_next_steps"><a class="anchor" href="#_next_steps"></a>Next steps</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Return back to the <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting">Troubleshooting using metrics</a> or proceed to <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-http">HTTP metrics</a>.</p>
+</div>
+</div>
+</div> </div>
+</main>

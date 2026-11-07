@@ -1,0 +1,73 @@
+<main><header><h1>Learn</h1></header>
+<p>This section holds the long-form deep dives in the NATS documentation.
+Each deep dive walks through one subsystem from first encounter to
+working confidence, building up a single running scenario, the Acme
+<code>ORDERS</code> platform, step by step.</p>
+<p>Deep dives sit between two other layers of the docs:</p>
+<ul>
+<li><strong><a href="/concepts/intro/">Concepts</a></strong> Short primers and Getting
+Started. Read those first if you're new to NATS.</li>
+<li><strong><a href="/reference/">Reference</a></strong> Exhaustive, versioned catalog of
+every configuration option, header, and wire-protocol detail. Deep
+dives link out to Reference for the full surface area, since Reference
+is a catalog rather than a teaching resource.</li>
+</ul>
+<p>Every deep dive follows the same pattern: it uses one running scenario,
+introduces at most two new concepts per page, provides runnable examples
+in CLI and the client libraries, and links out to Reference for the
+remaining detail.</p>
+<h2 id="develop">Develop</h2>
+<p>Build applications with NATS.</p>
+<ul>
+<li><strong><a href="/learn/core-nats/">Core NATS</a></strong> the foundation:
+connections, publish-subscribe, subjects and wildcards,
+request-reply, queue groups, scatter-gather, headers, and
+server-side subject mapping.</li>
+<li><strong><a href="/learn/services/">Services</a></strong> the micro request-reply
+framework: endpoints, groups, discovery, observability, and scaling.</li>
+<li><strong><a href="/learn/jetstream/">JetStream</a></strong> the persistence layer:
+streams, consumers, and the acknowledgment loop, built up from a
+single <code>ORDERS</code> stream.</li>
+<li><strong><a href="/learn/resilient-clients/">Resilient Clients</a></strong>
+production-grade connections: reconnection, drain, slow consumers,
+request-reply resilience, and TLS plus auth.</li>
+<li><strong><a href="/learn/key-value/">Key-Value Store</a></strong> buckets,
+watches, history and revisions, TTLs, and how KV sits on top of a
+stream.</li>
+<li><strong><a href="/learn/object-store/">Object Store</a></strong> chunked blobs over
+JetStream, with metadata, links, and listing.</li>
+</ul>
+<h2 id="operate">Operate</h2>
+<p>Run, scale, and secure NATS.</p>
+<ul>
+<li><strong><a href="/learn/topologies/">Topologies</a></strong> Topological shapes: a single
+server growing into a cluster, a super-cluster, and leaf nodes at the
+edge.</li>
+<li><strong><a href="/learn/security/">Security</a></strong> authentication, authorization,
+and accounts: centralized and decentralized auth, TLS, and auth
+callout.</li>
+<li><strong><a href="/learn/clustering/">Clustering &amp; Replication</a></strong> the
+mechanism under a cluster: routes and gossip, RAFT and leaders, <code>R=3</code>
+quorum, placement, and peer management.</li>
+<li><strong><a href="/learn/monitoring/">Monitoring &amp; Observability</a></strong> the
+monitoring endpoints, JetStream health, advisories and events, and
+Prometheus with dashboards.</li>
+<li><strong><a href="/learn/backup-recovery/">Backup &amp; Recovery</a></strong> stream
+snapshots, mirrors for disaster recovery, a recovery runbook, and
+backing up identity.</li>
+<li><strong><a href="/learn/deployment/">Deployment &amp; Upgrades</a></strong>
+production: sizing, Kubernetes, config management, rolling upgrades,
+and hardening.</li>
+<li><strong><a href="/learn/mqtt/">MQTT</a></strong> running <code>nats-server</code> as the MQTT
+broker for your devices: topic-to-subject conversion, QoS, sessions
+and retained messages, and MQTT users on a cluster.</li>
+<li><strong><a href="/learn/websocket/">WebSocket</a></strong> the NATS protocol over a
+WebSocket transport: browser clients, origin checking and cookie
+credentials, TLS behind a proxy, and leaf nodes over port 443.</li>
+</ul>
+<h2 id="where-to-start">Where to start</h2>
+<p>If you're new to NATS, start with the
+<a href="/learn/core-nats/">Core NATS deep dive</a>; it's the foundation every
+other chapter builds on. If you're already comfortable with the basics
+and here for persistence, go straight to the
+<a href="/learn/jetstream/">JetStream deep dive</a>.</p></main>

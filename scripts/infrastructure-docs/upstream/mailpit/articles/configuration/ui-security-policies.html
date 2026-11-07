@@ -1,0 +1,20 @@
+<main>
+		
+		<h1>UI security policies</h1>
+		<h2 id="content-security-policy">Content security policy</h2>
+<p>HTML content can embed JavaScript or iframes, or link to remote scripts, stylesheets, and fonts. While email programs usually have either no or very limited support for such features, web browsers will typically load everything. Mailpit removes any base tags (<code>&lt;base href="...."&gt;</code>) from HTML emails to ensure embedded images are displayed correctly; however, the remainder is left intact.</p>
+<p>The Mailpit UI enforces a strict <code>Content-Security-Policy</code> header, which prevents your browser from loading any remote content except for images, stylesheets, and fonts. This means your web browser will block all iframes and both inline and remote JavaScript within the UI.</p>
+<p>To disable remote CSS stylesheets and fonts (e.g., Google Fonts), use the <code>--block-remote-css-and-fonts</code> <a href="../runtime-options/">runtime option</a>.</p>
+<p>This security measure should not impact how an email displays and is for your privacy and protection. Emails should not use these features anyway, as they are predominantly blocked by both email and webmail clients.</p>
+<h2 id="referrer-policy">Referrer policy</h2>
+<p>The Mailpit UI also uses a <code>Referrer-Policy: no-referrer</code>, meaning that any remote requests (when loading remote images) will not provide the remote server with the origin of the request (i.e., your Mailpit UI web address).</p>
+<h2 id="tracking-images">Tracking images</h2>
+<p>Tracking images (e.g., in campaign emails) are not blocked. If you wish to block these, you will need to use a browser ad-blocker. All remote images are allowed.</p>
+<h2 id="external-links">External links</h2>
+<p>External links from HTML emails will always open in a new window/tab automatically (<code>target="_blank"</code>), regardless of whether a <code>target</code> is set in the anchor link.</p>
+
+
+		
+		
+		
+	</main>

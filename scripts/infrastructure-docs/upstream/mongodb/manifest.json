@@ -1,0 +1,414 @@
+{
+  "publisher": "MongoDB, Inc. and Docker Official Images contributors",
+  "version": "8.0.34",
+  "provenance": "MongoDB server 8.0.34 (source tag https://github.com/mongodb/mongo/tree/a1cb58fa746233febef0da3e8034533ed4320c22), MongoDB Shell 2.14.0 (https://github.com/mongodb-js/mongosh/tree/b3cedd7573ce3e7954699be46fe490a25048092e), and MongoDB Database Tools 100.20.0 (https://github.com/mongodb/mongo-tools/tree/7536fd7f3d67f5115de3eb2e271b327b7ce329b9) help were captured from Devline's pinned image sha256:4ceaf589fde84b5581be60626bff57ab8d48b1eb66ab4eeb6a807908546ff2f9 with external networking disabled. Devline wrapped verbatim CLI help in preformatted blocks and presented built-in mongosh help signatures and descriptions as Markdown. The image's server build reports gitVersion 51db4515a6597aedcf6188ee4e48a27e65b065ae. The Docker Official Image manual applies across tags and comes from https://github.com/docker-library/docs/tree/08674146b7122fa57ed72ac70860f74c47d68697/mongo. Devline substituted the upstream Compose example and image name into that manual and omitted the logo.",
+  "license": "SSPL-1.0 (server CLI help), Apache-2.0 (shell and Database Tools help), and MIT (Docker Official Image manual)",
+  "notices": [
+    "LICENSE-SERVER",
+    "LICENSE-MONGOSH",
+    "LICENSE-MONGOSH-I18N",
+    "LICENSE-DATABASE-TOOLS",
+    "LICENSE-DOCKER"
+  ],
+  "coverage": "The image manual and exact-version server, shell, and Database Tools help cover initialization, configuration, connections, CRUD and aggregation methods, maintenance, and logical backups and restores.",
+  "omissions": "The full 8.0 database manual, query and aggregation operator guides, driver manuals, and specifications remain online under the publisher's separate documentation terms.",
+  "entry": "image",
+  "documents": [
+    {
+      "id": "image",
+      "path": "image.md",
+      "source_url": "https://github.com/docker-library/docs/blob/08674146b7122fa57ed72ac70860f74c47d68697/mongo/content.md",
+      "title": "MongoDB · Docker Official Image",
+      "aliases": [
+        "mongodb setup",
+        "mongodb docker",
+        "MONGO_INITDB_ROOT_PASSWORD"
+      ]
+    },
+    {
+      "id": "cli/mongod",
+      "path": "cli/mongod.md",
+      "source_url": "https://github.com/mongodb/mongo/blob/a1cb58fa746233febef0da3e8034533ed4320c22/src/mongo/db/mongod_options_general.idl",
+      "title": "MongoDB 8.0.34 · mongod server options",
+      "aliases": [
+        "mongod"
+      ]
+    },
+    {
+      "id": "cli/mongos",
+      "path": "cli/mongos.md",
+      "source_url": "https://github.com/mongodb/mongo/blob/a1cb58fa746233febef0da3e8034533ed4320c22/src/mongo/s/mongos_options.idl",
+      "title": "MongoDB 8.0.34 · mongos router options",
+      "aliases": [
+        "mongos"
+      ]
+    },
+    {
+      "id": "cli/mongosh",
+      "path": "cli/mongosh.md",
+      "source_url": "https://github.com/mongodb-js/mongosh/blob/b3cedd7573ce3e7954699be46fe490a25048092e/packages/arg-parser/src/arg-parser.ts",
+      "title": "MongoDB Shell 2.14.0 · mongosh options",
+      "aliases": [
+        "mongosh"
+      ]
+    },
+    {
+      "id": "cli/bsondump",
+      "path": "cli/bsondump.md",
+      "source_url": "https://github.com/mongodb/mongo-tools/blob/7536fd7f3d67f5115de3eb2e271b327b7ce329b9/bsondump/options.go",
+      "title": "MongoDB Database Tools 100.20.0 · bsondump",
+      "aliases": [
+        "bsondump"
+      ]
+    },
+    {
+      "id": "cli/mongodump",
+      "path": "cli/mongodump.md",
+      "source_url": "https://github.com/mongodb/mongo-tools/blob/7536fd7f3d67f5115de3eb2e271b327b7ce329b9/mongodump/options.go",
+      "title": "MongoDB Database Tools 100.20.0 · mongodump",
+      "aliases": [
+        "mongodump"
+      ]
+    },
+    {
+      "id": "cli/mongoexport",
+      "path": "cli/mongoexport.md",
+      "source_url": "https://github.com/mongodb/mongo-tools/blob/7536fd7f3d67f5115de3eb2e271b327b7ce329b9/mongoexport/options.go",
+      "title": "MongoDB Database Tools 100.20.0 · mongoexport",
+      "aliases": [
+        "mongoexport"
+      ]
+    },
+    {
+      "id": "cli/mongofiles",
+      "path": "cli/mongofiles.md",
+      "source_url": "https://github.com/mongodb/mongo-tools/blob/7536fd7f3d67f5115de3eb2e271b327b7ce329b9/mongofiles/options.go",
+      "title": "MongoDB Database Tools 100.20.0 · mongofiles",
+      "aliases": [
+        "mongofiles"
+      ]
+    },
+    {
+      "id": "cli/mongoimport",
+      "path": "cli/mongoimport.md",
+      "source_url": "https://github.com/mongodb/mongo-tools/blob/7536fd7f3d67f5115de3eb2e271b327b7ce329b9/mongoimport/options.go",
+      "title": "MongoDB Database Tools 100.20.0 · mongoimport",
+      "aliases": [
+        "mongoimport"
+      ]
+    },
+    {
+      "id": "cli/mongorestore",
+      "path": "cli/mongorestore.md",
+      "source_url": "https://github.com/mongodb/mongo-tools/blob/7536fd7f3d67f5115de3eb2e271b327b7ce329b9/mongorestore/options.go",
+      "title": "MongoDB Database Tools 100.20.0 · mongorestore",
+      "aliases": [
+        "mongorestore"
+      ]
+    },
+    {
+      "id": "cli/mongostat",
+      "path": "cli/mongostat.md",
+      "source_url": "https://github.com/mongodb/mongo-tools/blob/7536fd7f3d67f5115de3eb2e271b327b7ce329b9/mongostat/options.go",
+      "title": "MongoDB Database Tools 100.20.0 · mongostat",
+      "aliases": [
+        "mongostat"
+      ]
+    },
+    {
+      "id": "cli/mongotop",
+      "path": "cli/mongotop.md",
+      "source_url": "https://github.com/mongodb/mongo-tools/blob/7536fd7f3d67f5115de3eb2e271b327b7ce329b9/mongotop/options.go",
+      "title": "MongoDB Database Tools 100.20.0 · mongotop",
+      "aliases": [
+        "mongotop"
+      ]
+    },
+    {
+      "id": "shell/shell",
+      "path": "shell/shell.md",
+      "source_url": "https://github.com/mongodb-js/mongosh/blob/b3cedd7573ce3e7954699be46fe490a25048092e/packages/i18n/src/locales/en_US.ts#L1",
+      "title": "MongoDB Shell 2.14.0 · Shell commands",
+      "aliases": [
+        "log",
+        "use",
+        "show",
+        "exit",
+        "quit",
+        "Mongo",
+        "connect",
+        "it",
+        "version",
+        "load",
+        "enableTelemetry",
+        "disableTelemetry",
+        "passwordPrompt",
+        "sleep",
+        "print",
+        "printjson",
+        "convertShardKeyToHashed",
+        "cls",
+        "isInteractive"
+      ]
+    },
+    {
+      "id": "shell/mongo",
+      "path": "shell/mongo.md",
+      "source_url": "https://github.com/mongodb-js/mongosh/blob/b3cedd7573ce3e7954699be46fe490a25048092e/packages/i18n/src/locales/en_US.ts#L207",
+      "title": "MongoDB Shell 2.14.0 · Connection methods",
+      "aliases": [
+        "connect",
+        "getDB",
+        "getCollection",
+        "getURI",
+        "getDBs",
+        "bulkWrite",
+        "getDBNames",
+        "close",
+        "getReadPrefMode",
+        "getReadPrefTagSet",
+        "getReadPref",
+        "getReadConcern",
+        "getWriteConcern",
+        "setReadPref",
+        "setReadConcern",
+        "setWriteConcern",
+        "startSession",
+        "setCausalConsistency",
+        "isCausalConsistency",
+        "setSlaveOk",
+        "setSecondaryOk",
+        "watch",
+        "getClientEncryption",
+        "getKeyVault",
+        "convertShardKeyToHashed"
+      ]
+    },
+    {
+      "id": "shell/database",
+      "path": "shell/database.md",
+      "source_url": "https://github.com/mongodb-js/mongosh/blob/b3cedd7573ce3e7954699be46fe490a25048092e/packages/i18n/src/locales/en_US.ts#L1293",
+      "title": "MongoDB Shell 2.14.0 · Database methods",
+      "aliases": [
+        "getMongo",
+        "getName",
+        "getCollectionNames",
+        "getCollectionInfos",
+        "runCommand",
+        "adminCommand",
+        "aggregate",
+        "getSiblingDB",
+        "getCollection",
+        "dropDatabase",
+        "createUser",
+        "updateUser",
+        "changeUserPassword",
+        "logout",
+        "dropUser",
+        "dropAllUsers",
+        "auth",
+        "grantRolesToUser",
+        "revokeRolesFromUser",
+        "getUser",
+        "getUsers",
+        "createCollection",
+        "createEncryptedCollection",
+        "createView",
+        "createRole",
+        "updateRole",
+        "dropRole",
+        "dropAllRoles",
+        "grantRolesToRole",
+        "revokeRolesFromRole",
+        "grantPrivilegesToRole",
+        "revokePrivilegesFromRole",
+        "getRole",
+        "getRoles",
+        "currentOp",
+        "killOp",
+        "shutdownServer",
+        "fsyncLock",
+        "fsyncUnlock",
+        "version",
+        "serverBits",
+        "isMaster",
+        "hello",
+        "serverBuildInfo",
+        "serverStatus",
+        "stats",
+        "hostInfo",
+        "serverCmdLineOpts",
+        "rotateCertificates",
+        "printCollectionStats",
+        "getProfilingStatus",
+        "setProfilingLevel",
+        "setLogLevel",
+        "getLogComponents",
+        "cloneDatabase",
+        "cloneCollection",
+        "copyDatabase",
+        "commandHelp",
+        "listCommands",
+        "getLastErrorObj",
+        "getLastError",
+        "printShardingStatus",
+        "printSecondaryReplicationInfo",
+        "getReplicationInfo",
+        "printReplicationInfo",
+        "printSlaveReplicationInfo",
+        "setSecondaryOk",
+        "watch",
+        "sql",
+        "checkMetadataConsistency"
+      ]
+    },
+    {
+      "id": "shell/collection",
+      "path": "shell/collection.md",
+      "source_url": "https://github.com/mongodb-js/mongosh/blob/b3cedd7573ce3e7954699be46fe490a25048092e/packages/i18n/src/locales/en_US.ts#L542",
+      "title": "MongoDB Shell 2.14.0 · Collection methods",
+      "aliases": [
+        "aggregate",
+        "bulkWrite",
+        "count",
+        "countDocuments",
+        "deleteMany",
+        "deleteOne",
+        "distinct",
+        "estimatedDocumentCount",
+        "find",
+        "findAndModify",
+        "findOne",
+        "renameCollection",
+        "findOneAndDelete",
+        "findOneAndReplace",
+        "findOneAndUpdate",
+        "insert",
+        "insertMany",
+        "insertOne",
+        "isCapped",
+        "remove",
+        "replaceOne",
+        "update",
+        "updateMany",
+        "updateOne",
+        "compactStructuredEncryptionData",
+        "convertToCapped",
+        "createIndexes",
+        "createIndex",
+        "ensureIndex",
+        "getIndexes",
+        "getIndexSpecs",
+        "getIndices",
+        "getIndexKeys",
+        "dropIndexes",
+        "dropIndex",
+        "totalIndexSize",
+        "reIndex",
+        "getDB",
+        "getMongo",
+        "dataSize",
+        "storageSize",
+        "totalSize",
+        "drop",
+        "exists",
+        "getFullName",
+        "getName",
+        "runCommand",
+        "explain",
+        "stats",
+        "latencyStats",
+        "initializeOrderedBulkOp",
+        "initializeUnorderedBulkOp",
+        "getPlanCache",
+        "mapReduce",
+        "validate",
+        "getShardVersion",
+        "getShardDistribution",
+        "getShardLocation",
+        "watch",
+        "hideIndex",
+        "unhideIndex",
+        "analyzeShardKey",
+        "configureQueryAnalyzer",
+        "checkMetadataConsistency",
+        "getSearchIndexes",
+        "createSearchIndex",
+        "createSearchIndexes",
+        "dropSearchIndex",
+        "updateSearchIndex"
+      ]
+    },
+    {
+      "id": "shell/cursor",
+      "path": "shell/cursor.md",
+      "source_url": "https://github.com/mongodb-js/mongosh/blob/b3cedd7573ce3e7954699be46fe490a25048092e/packages/i18n/src/locales/en_US.ts#L991",
+      "title": "MongoDB Shell 2.14.0 · Query cursor methods",
+      "aliases": [
+        "addOption",
+        "allowDiskUse",
+        "allowPartialResults",
+        "collation",
+        "comment",
+        "count",
+        "hasNext",
+        "hint",
+        "limit",
+        "max",
+        "maxAwaitTimeMS",
+        "min",
+        "next",
+        "noCursorTimeout",
+        "oplogReplay",
+        "readPref",
+        "returnKey",
+        "size",
+        "tailable",
+        "maxScan",
+        "showRecordId",
+        "readConcern"
+      ]
+    },
+    {
+      "id": "shell/aggregate",
+      "path": "shell/aggregate.md",
+      "source_url": "https://github.com/mongodb-js/mongosh/blob/b3cedd7573ce3e7954699be46fe490a25048092e/packages/i18n/src/locales/en_US.ts#L278",
+      "title": "MongoDB Shell 2.14.0 · Aggregation cursor methods",
+      "aliases": []
+    },
+    {
+      "id": "shell/bulk",
+      "path": "shell/bulk.md",
+      "source_url": "https://github.com/mongodb-js/mongosh/blob/b3cedd7573ce3e7954699be46fe490a25048092e/packages/i18n/src/locales/en_US.ts#L2661",
+      "title": "MongoDB Shell 2.14.0 · Bulk write methods",
+      "aliases": [
+        "execute",
+        "find",
+        "insert",
+        "toString",
+        "getOperations"
+      ]
+    },
+    {
+      "id": "shell/session",
+      "path": "shell/session.md",
+      "source_url": "https://github.com/mongodb-js/mongosh/blob/b3cedd7573ce3e7954699be46fe490a25048092e/packages/i18n/src/locales/en_US.ts#L2265",
+      "title": "MongoDB Shell 2.14.0 · Session and transaction methods",
+      "aliases": [
+        "getDatabase",
+        "advanceOperationTime",
+        "advanceClusterTime",
+        "endSession",
+        "hasEnded",
+        "getClusterTime",
+        "getOperationTime",
+        "getOptions",
+        "startTransaction",
+        "commitTransaction",
+        "abortTransaction",
+        "withTransaction",
+        "bulkWrite"
+      ]
+    }
+  ]
+}

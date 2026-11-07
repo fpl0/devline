@@ -1,0 +1,168 @@
+<main><header><h1>Your first WebSocket connection</h1></header>
+<p>Acme's warehouse dashboard runs in a browser and needs to see <code>orders.&gt;</code>
+as orders arrive. This page gets there in two steps: open a WebSocket
+listener, then connect to it — first with the <code>nats</code> CLI, because it
+proves the listener works without any HTML, then with the browser page
+itself.</p>
+<h2 id="open-the-listener">Open the listener</h2>
+<p>The <code>websocket {}</code> block takes its own host and port, separate from the
+client port on 4222:</p>
+<div><div><pre><code class="language-conf"># ws-dev.conf — one server, two listeners
+listen: 127.0.0.1:4222
+
+websocket {
+  listen: 127.0.0.1:8080
+  no_tls: true
+}</code></pre></div></div>
+<p><code>no_tls: true</code> is what makes this run on a laptop. The listener requires
+TLS otherwise, and leaving out both a <code>tls {}</code> block and this flag stops
+the server before it starts:</p>
+<div><div><pre><code class="language-text">nats-server: websocket requires TLS configuration</code></pre></div></div>
+<p><a href="/learn/websocket/tls-and-proxies">TLS and proxies</a> sets up the
+production shape. Until then everything here is plaintext on localhost.</p>
+<p>Start it:</p>
+<div><div><pre><code class="language-bash">nats-server -c ws-dev.conf</code></pre></div></div>
+<p>Two log lines confirm the state you're in:</p>
+<div><div><pre><code class="language-text">[INF] Listening for websocket clients on ws://127.0.0.1:8080
+[WRN] Websocket not configured with TLS. DO NOT USE IN PRODUCTION!</code></pre></div></div>
+<p>The warning is accurate. A WebSocket client sending a bearer token over
+<code>ws://</code> sends it in the clear.</p>
+<h3 id="set-the-port-or-theres-no-listener">Set the port, or there's no listener</h3>
+<p>There's no default port. Write the block without one and the server
+starts, logs nothing about WebSocket, and listens on 4222 only:</p>
+<div><div><pre><code class="language-conf">websocket {
+  no_tls: true
+}</code></pre></div></div>
+<div><div><pre><code class="language-text">[INF] Listening for client connections on 127.0.0.1:4222</code></pre></div></div>
+<p>No error, no warning, no listener. If a WebSocket client can't connect
+and the log says nothing about WebSocket at all, this is why. Set <code>port</code>,
+or <code>listen</code>, which sets host and port together.</p>
+<h2 id="connect-the-cli-over-ws">Connect the CLI over ws</h2>
+<p>The <code>nats</code> CLI is built on the Go client, which accepts <code>ws://</code>. Subscribe
+through the WebSocket listener:</p>
+<div><div><pre><code class="language-bash">nats -s ws://127.0.0.1:8080 sub "orders.&gt;"</code></pre></div></div>
+<div><div><pre><code class="language-text">16:15:11 Subscribing on orders.&gt;</code></pre></div></div>
+<p>In a second terminal, publish over the ordinary client port:</p>
+<div><div><pre><code class="language-bash">nats -s nats://127.0.0.1:4222 pub orders.new "ord_8w2k"</code></pre></div></div>
+<p>The subscriber receives it:</p>
+<div><div><pre><code class="language-text">[#1] Received on "orders.new"
+ord_8w2k</code></pre></div></div>
+<p>One publisher on 4222, one subscriber on 8080, same subject, same
+server. Neither side knows or cares which transport the other used.
+There's no bridging step and no separate subject space — the WebSocket
+listener is another door into the same server.</p>
+<div></div>
+<h2 id="what-the-transport-changes">What the transport changes</h2>
+<p>Only the URL. Every client that supports WebSocket takes the same server
+list it always did, with a different scheme:</p>
+<table><thead><tr><th>Client</th><th>Server URL</th></tr></thead><tbody><tr><td><code>nats</code> CLI</td><td><code>nats -s ws://127.0.0.1:8080</code></td></tr><tr><td>Go</td><td><code>nats.Connect("ws://127.0.0.1:8080")</code></td></tr><tr><td>JavaScript/TypeScript</td><td><code>wsconnect({ servers: "ws://127.0.0.1:8080" })</code></td></tr><tr><td>Python</td><td><code>nats.client.connect("ws://127.0.0.1:8080")</code> — needs <code>pip install nats-core[websocket]</code></td></tr><tr><td>Java</td><td><code>Nats.connect("ws://127.0.0.1:8080")</code></td></tr><tr><td>Rust</td><td><code>async_nats::connect("ws://127.0.0.1:8080")</code></td></tr><tr><td>C#/.NET</td><td><code>new NatsOpts { Url = "ws://127.0.0.1:8080" }</code></td></tr></tbody></table>
+<p>Python is the one that needs more than a URL. The <code>nats-core</code> client
+keeps its WebSocket transport behind an optional extra, so plain
+<code>pip install nats-core</code> can't open a <code>ws://</code> connection — install
+<code>nats-core[websocket]</code>. It's the new Python client and needs Python
+3.13 or later.</p>
+<p>Use <code>wss://</code> where the listener holds a certificate. Subjects, queue
+groups, request-reply, JetStream, and headers all behave as they do on a
+<code>nats://</code> connection, because the protocol above the transport is the
+same protocol.</p>
+<h2 id="connect-the-browser">Connect the browser</h2>
+<p>Now the dashboard. This is one file, no build step — save it as
+<code>dashboard.html</code> and open it:</p>
+<div><div><pre><code class="language-html">&lt;!doctype html&gt;
+&lt;title&gt;Acme orders&lt;/title&gt;
+&lt;ul id="orders"&gt;&lt;/ul&gt;
+
+&lt;script type="module"&gt;
+  import { wsconnect } from "https://esm.sh/@nats-io/nats-core";
+
+  const nc = await wsconnect({ servers: "ws://127.0.0.1:8080" });
+  const list = document.getElementById("orders");
+
+  for await (const m of nc.subscribe("orders.&gt;")) {
+    const li = document.createElement("li");
+    li.textContent = `${m.subject} — ${m.string()}`;
+    list.append(li);
+  }
+&lt;/script&gt;</code></pre></div></div>
+<p>Publish again from the CLI:</p>
+<div><div><pre><code class="language-bash">nats -s nats://127.0.0.1:4222 pub orders.new "ord_2zr9"</code></pre></div></div>
+<p>The line appears on the page. The subscription is an ordinary NATS
+subscription, and <code>orders.&gt;</code> is an ordinary wildcard.</p>
+<p>Loading the file straight from disk works because the server accepts any
+origin by default. That stops being true the moment you configure origin
+checking, which is where <a href="/learn/websocket/browsers-and-origins">Browsers and
+origins</a> starts.</p>
+<h3 id="always-give-natsjs-an-explicit-port">Always give nats.js an explicit port</h3>
+<p><code>wsconnect()</code> fills in a port you leave out, and the value it picks is
+never 4222:</p>
+<table><thead><tr><th>What you pass</th><th>What it connects to</th></tr></thead><tbody><tr><td><code>ws://host:8080</code></td><td><code>ws://host:8080</code></td></tr><tr><td><code>ws://host</code></td><td><code>ws://host:80</code></td></tr><tr><td><code>wss://host</code></td><td><code>wss://host:443</code></td></tr><tr><td><code>host</code></td><td><code>wss://host:443</code></td></tr><tr><td><code>nats://host:4222</code></td><td><code>ws://host:4222</code></td></tr></tbody></table>
+<p>A bare hostname is treated as TLS on 443. Dropping the port from a
+<code>ws://</code> URL gets you port 80. Neither is likely to be your listener, and
+the failure looks like the server being down. The last row is a trap of
+its own: the port survives but the scheme doesn't, so the client sends a
+WebSocket handshake to the plain client port, which won't answer it.
+Write the scheme and the port every time.</p>
+<h2 id="binary-frames-and-why-a-frame-isnt-a-message">Binary frames, and why a frame isn't a message</h2>
+<p>Two protocol details matter, one for everyone and one only if you're
+writing a client.</p>
+<p>NATS uses WebSocket data frames in <strong>binary</strong>. The server always sends
+binary, and clients are expected to do the same.</p>
+<p>If you're implementing a client library: a WebSocket frame is not
+guaranteed to contain a whole NATS protocol message, and generally
+won't. One frame can carry part of a <code>MSG</code>, or several messages at once.
+Feed frame payloads to a parser that handles partial protocol rather
+than assuming frame boundaries mean anything. The <a href="/reference/protocols/client">client protocol
+reference</a> describes what that parser has
+to accept.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>Pointing a client at the wrong listener.</strong> <code>nats://</code> to 8080 and
+<code>ws://</code> to 4222 both fail, and neither failure names the real problem.
+The listeners are separate: WebSocket clients use the <code>websocket {}</code>
+port, everything else uses the client port.</p>
+<p><strong>A <code>websocket {}</code> block with no port.</strong> The server starts and the
+listener doesn't exist. There is no default. Check the log for
+<code>Listening for websocket clients</code> — if it's absent, the block set no
+port.</p>
+<p><strong>A <code>websocket {}</code> block with neither <code>tls {}</code> nor <code>no_tls: true</code>.</strong> The
+listener requires TLS by default, so the server exits at startup with
+<code>websocket requires TLS configuration</code>.</p>
+<p><strong>A client URL without an explicit port.</strong> nats.js fills one in and never
+picks 4222 — a bare host becomes <code>wss://host:443</code>, and <code>ws://host</code>
+becomes port 80. Write the port every time.</p>
+<p><strong>Shipping <code>no_tls: true</code>.</strong> It's a development flag. The <code>DO NOT USE IN PRODUCTION!</code> warning is the only thing the server will say about it, and
+it says it once at startup.</p>
+<p><strong>A FIPS-140 build made with an older Go toolchain.</strong> The WebSocket
+handshake computes a SHA-1 over <code>Sec-WebSocket-Key</code>, which a FIPS build
+from Go 1.25 or earlier won't permit, so the server refuses the whole
+listener:</p>
+<div><div><pre><code class="language-text">websocket: cannot be used in FIPS-140 mode when built with this Go
+version, use Go 1.26 or later</code></pre></div></div>
+<p>The same build rejects <code>ws://</code> and <code>wss://</code> leafnode remotes for the
+same reason. Built with Go 1.26 or later, WebSocket works under FIPS
+normally — SHA-1 here only derives the handshake key and isn't
+protecting anything.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You have one server with two listeners:</p>
+<ul>
+<li>NATS clients on 4222, WebSocket clients on 8080</li>
+<li><code>nats -s ws://127.0.0.1:8080 sub "orders.&gt;"</code> receiving what a
+<code>nats://</code> publisher sends</li>
+<li>a browser page showing <code>orders.&gt;</code> live</li>
+<li><code>no_tls: true</code>, which is fine on a laptop and wrong everywhere else</li>
+</ul>
+<p>Keep the server and <code>dashboard.html</code>; the next two pages build on both.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The dashboard works because the server currently accepts a connection
+from any origin. A page served from anywhere — including a page you
+didn't write — can connect to it. <a href="/learn/websocket/browsers-and-origins">Browsers and
+origins</a> covers what to do about
+that, and how a browser proves who it is without a credentials file.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/websocket/">Reference → websocket</a> — every field of
+the <code>websocket {}</code> block</li>
+<li><a href="/learn/core-nats/connecting">Core NATS → Connecting</a> — the connection
+model this page changes the transport of</li>
+<li><a href="/reference/protocols/client">Reference → client protocol</a> — what the
+frames carry</li>
+</ul></main>

@@ -1,0 +1,180 @@
+<main><header><h1>6. Store state in Key-Value</h1></header>
+<p>You'll create a Key-Value bucket, put a value into it, read it back, and
+then watch the bucket from a second terminal so you see changes the moment
+they happen. By the end you'll have a tiny live state store you can read,
+write, and observe.</p>
+<h2 id="what-youll-need">What you'll need</h2>
+<ul>
+<li><code>nats-server</code> and the <code>nats</code> CLI installed (see <a href="/tutorials/hello-nats">1. Hello NATS</a>).</li>
+<li>A Key-Value bucket is backed by a JetStream stream, so you'll start the
+server with JetStream enabled in Step 1.</li>
+</ul>
+<h2 id="step-1-start-the-server-with-jetstream">Step 1: Start the server with JetStream</h2>
+<p>A Key-Value bucket is stored in JetStream, so start the server with the
+<code>-js</code> flag.</p>
+<div><div><pre><code class="language-bash">nats-server -js</code></pre></div></div>
+<p>You should see a startup log line confirming JetStream is on:</p>
+<div><div><pre><code class="language-text">[INF] Starting JetStream
+[INF] Server is ready</code></pre></div></div>
+<p>Leave this running and open a new terminal for the next steps.</p>
+<h2 id="step-2-create-a-bucket">Step 2: Create a bucket</h2>
+<p>Create a bucket called <code>profiles</code>. This is where your values will live.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Create a Key-Value bucket called profiles. A bucket is where your
+# values live.
+
+nats kv add profiles
+
+# You should see a confirmation with the bucket name and config:
+#
+#   Information for Key-Value Store Bucket profiles created 2026-06-09 10:13:41
+#
+#   Configuration:
+#
+#              Bucket Name: profiles
+#             History Kept: 1
+#                      ...
+#       Backing Store Kind: JetStream</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Create a Key-Value bucket called profiles. A bucket is where your
+// values live.
+kvConfig cfg;
+
+kvConfig_Init(&amp;cfg);
+cfg.Bucket = "profiles";
+
+s = js_CreateKeyValue(&amp;kv, js, &amp;cfg);
+if (s == NATS_OK)
+    printf("Created bucket %s\n", kvStore_Bucket(kv));</code></pre></div></div>
+<p>You should see a confirmation with the bucket's configuration:</p>
+<div><div><pre><code class="language-text">Information for Key-Value Store Bucket profiles created 2026-06-09 10:13:41
+
+Configuration:
+
+           Bucket Name: profiles
+          History Kept: 1
+                   ...
+    Backing Store Kind: JetStream</code></pre></div></div>
+<h2 id="step-3-put-a-value-and-read-it-back">Step 3: Put a value and read it back</h2>
+<p>Store a value under a key, then get it back. The key is <code>sue.color</code> and the
+value is <code>blue</code>.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Put a value: the key is sue.color, the value is blue.
+
+nats kv put profiles sue.color blue
+
+# You should see the value echoed back with its revision:
+#
+#   blue
+
+# Get the value back out by its key.
+
+nats kv get profiles sue.color
+
+# You should see the full entry, including the value:
+#
+#   profiles &gt; sue.color revision: 1 created @ ...
+#
+#   blue</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Put a value: the key is sue.color, the value is blue. The bucket
+// assigns the write a revision; the first write lands at 1.
+uint64_t rev   = 0;
+kvEntry  *e    = NULL;
+
+s = kvStore_PutString(&amp;rev, kv, "sue.color", "blue");
+if (s == NATS_OK)
+    printf("stored sue.color at revision %llu\n",
+           (unsigned long long) rev);
+
+// Get the value back out by its key. A get returns the full entry:
+// the value together with its revision.
+if (s == NATS_OK)
+    s = kvStore_Get(&amp;e, kv, "sue.color");
+if (s == NATS_OK)
+{
+    printf("sue.color revision: %llu value: %.*s\n",
+           (unsigned long long) kvEntry_Revision(e),
+           kvEntry_ValueLen(e), (const char*) kvEntry_Value(e));
+    kvEntry_Destroy(e);
+}</code></pre></div></div>
+<p>The put echoes the value back, and the get returns the full entry:</p>
+<div><div><pre><code class="language-text">blue
+profiles &gt; sue.color revision: 1 created @ ...
+
+blue</code></pre></div></div>
+<p>You now have one value stored and confirmed.</p>
+<h2 id="step-4-watch-the-bucket-from-a-second-terminal">Step 4: Watch the bucket from a second terminal</h2>
+<p>A watch streams every change to the bucket as it happens. Open a <strong>second
+terminal</strong> and start watching <code>profiles</code>.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Watch the whole profiles bucket. On start it replays the current value
+# of every key, then blocks and prints each change live until you stop it
+# with Ctrl-C. Run this in its own terminal.
+
+nats kv watch profiles
+
+# You should see the current value first, then it waits:
+#
+#   [2026-06-09 10:14:22] PUT profiles &gt; sue.color: blue</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Watch the whole profiles bucket. The watch first replays the
+// current value of every key, then delivers each change live the
+// moment it lands.
+kvEntry *e = NULL;
+
+s = kvStore_WatchAll(&amp;w, kv, NULL);
+while (s == NATS_OK)
+{
+    s = kvWatcher_Next(&amp;e, w, 60000);
+    if (s != NATS_OK)
+        break;
+    // A NULL entry marks the end of the initial replay. Skip it
+    // and keep reading: everything after it is a live change.
+    if (e == NULL)
+        continue;
+    printf("PUT %s: %.*s\n", kvEntry_Key(e),
+           kvEntry_ValueLen(e), (const char*) kvEntry_Value(e));
+    kvEntry_Destroy(e);
+    e = NULL;
+}</code></pre></div></div>
+<p>The watch first replays the current value, then waits:</p>
+<div><div><pre><code class="language-text">[2026-06-09 10:14:22] PUT profiles &gt; sue.color: blue</code></pre></div></div>
+<p>Leave the watch running. Here's the flow you've just set up: a writer puts
+a value, and the watcher receives it live.</p>
+<div></div>
+<h2 id="step-5-update-the-value-and-see-the-watch-fire">Step 5: Update the value and see the watch fire</h2>
+<p>Back in your <strong>first terminal</strong>, put a new value for the same key.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Put a new value for the same key. This is a normal put: it overwrites
+# whatever was there.
+
+nats kv put profiles sue.color green
+
+# You should see the new value echoed back:
+#
+#   green
+#
+# In the terminal running the watch, a new line appears the instant this
+# lands:
+#
+#   [2026-06-09 10:15:03] PUT profiles &gt; sue.color: green</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Put a new value for the same key. This is a normal put: it
+// overwrites whatever was there, and the watcher in the other
+// terminal sees the change the instant it lands.
+uint64_t rev = 0;
+
+s = kvStore_PutString(&amp;rev, kv, "sue.color", "green");
+if (s == NATS_OK)
+    printf("stored sue.color at revision %llu\n",
+           (unsigned long long) rev);</code></pre></div></div>
+<p>The put returns the new value:</p>
+<div><div><pre><code class="language-text">green</code></pre></div></div>
+<p>Switch to the watch terminal. A new line appears the instant the change
+lands:</p>
+<div><div><pre><code class="language-text">[2026-06-09 10:15:03] PUT profiles &gt; sue.color: green</code></pre></div></div>
+<p>Stop the watch with <code>Ctrl-C</code> when you're done.</p>
+<h2 id="what-you-built">What you built</h2>
+<p>You have a Key-Value bucket holding live state: you put and got a value,
+and a watcher in a second terminal received every change the moment it
+happened.</p>
+<h2 id="next">Next</h2>
+<ul>
+<li>Capstone: <a href="/tutorials/build-an-app">7. Build an app</a> — combine
+publish/subscribe, request/reply, and a stream in one program.</li>
+<li>Now understand how this works: the <a href="/learn/key-value">Key-Value deep dive</a>
+explains buckets, revisions, watching, and the stream underneath.</li>
+</ul></main>

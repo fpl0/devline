@@ -1,0 +1,338 @@
+<main><header><h1>Placement</h1></header>
+<p>By now the <code>ORDERS</code> stream runs <code>R=3</code> on the <code>east</code> cluster, and the meta
+leader chose which three servers hold it. So far you haven't had a say in
+that choice: the meta leader picked any three servers with room.</p>
+<p>This page lets you control that choice. It constrains <em>where</em> a stream's replicas
+land: onto a named cluster, or onto servers carrying labels you assign.
+Two concepts do all the work, and nothing here changes the payload
+<code>order-svc</code> publishes or the subjects it uses.</p>
+<h2 id="placement-constrains-which-servers-hold-the-replicas">Placement constrains which servers hold the replicas</h2>
+<p><strong>Placement</strong> is a rule attached to a stream that limits which servers may
+hold its replicas. Without it, the meta leader is free to put the three
+copies of <code>ORDERS</code> on any servers in <code>east</code> that have capacity. With it,
+the meta leader must honor your constraint or refuse to create the stream.</p>
+<p>Placement has two levers. The first is the <strong>cluster</strong>: name a cluster and
+every replica must live there. In a single cluster like <code>east</code> this is a
+no-op, since there's only one cluster to choose. It's useful across
+clusters, where a stream is pinned to one region; that cross-cluster case
+is covered in <a href="/learn/topologies/super-clusters">Super-clusters</a>, not here.</p>
+<p>The second lever is the one that matters inside <code>east</code>, namely <strong>tags</strong>.</p>
+<h2 id="tags-label-servers-placement-matches-them">Tags label servers; placement matches them</h2>
+<p>A <strong>tag</strong> is a label you attach to a server in its configuration. The
+server advertises its tags to the rest of the cluster, and placement uses
+them to pick servers. A tag is freeform text: a region, a disk class, a
+hardware tier, whatever distinction you want placement to respect.</p>
+<p>You set tags with <code>server_tags</code> in each server's config. Give the three
+production servers a region tag and a disk-class tag:</p>
+<div><div><pre><code class="language-conf"># n1-east.conf — tag this server for placement
+server_name: n1-east
+listen: "0.0.0.0:4222"
+
+server_tags: ["region:us-east", "disk:ssd"]
+
+cluster {
+  name: east
+  listen: "0.0.0.0:6222"
+  routes: [
+    "nats://127.0.0.1:6223"
+    "nats://127.0.0.1:6224"
+  ]
+}
+
+jetstream { store_dir: "/data/n1-east" }</code></pre></div></div>
+<p>Repeat the same <code>server_tags</code> line on <code>n2-east</code> and <code>n3-east</code>, keeping
+their own <code>server_name</code>, ports, and <code>store_dir</code>. After a restart, confirm
+a server actually carries the tags you expect. <code>nats server info</code> queries
+the system account (<code>$SYS</code>), so connect with a system user (see
+<a href="/learn/clustering/forming-a-cluster">Forming a cluster</a>); name the server
+you mean, or the command answers for whichever server replies to the <code>$SYS</code>
+ping first:</p>
+<div><div><pre><code class="language-bash">nats server info n1-east</code></pre></div></div>
+<p>The <code>Tags</code> line in the output lists the server's tags. Read them back
+rather than assuming the config took. A typo in <code>server_tags</code> is silent
+until a placement asks for a tag no server advertises.</p>
+<h3 id="placing-the-stream-on-tagged-servers">Placing the stream on tagged servers</h3>
+<p>With the servers tagged, constrain <code>ORDERS</code> to land only on servers
+carrying both <code>region:us-east</code> and <code>disk:ssd</code>. The CLI flag is <code>--tag</code>,
+passed once per required tag; the client libraries set <code>Placement.Tags</code> to
+a list. The example also names the cluster with <code>--cluster east</code>, a no-op
+in a single cluster, shown so the syntax is familiar when you place across
+clusters later:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Place the ORDERS stream on servers carrying specific tags.
+#
+# This assumes the 3-node "east" cluster is running with JetStream
+# enabled, and that n1-east, n2-east, n3-east each advertise the tags
+# region:us-east and disk:ssd via server_tags in their config. See the
+# server config block on the placement page for the tag setup.
+
+# Create ORDERS at R=3, constrained to servers carrying BOTH tags.
+# --tag is passed once per required tag; the match is an intersection,
+# so every listed tag must be present on a server for it to qualify.
+# Tag matching folds case (ssd == SSD) but spelling is exact.
+#
+# --cluster names the cluster every replica must live in. In a single
+# cluster like "east" it is a no-op (there is only one cluster), but it
+# is shown here so the syntax is familiar when you place across clusters
+# later. The match is an intersection of cluster AND tags.
+nats --server nats://127.0.0.1:4222 stream add ORDERS \
+  --subjects "orders.&gt;" \
+  --replicas 3 \
+  --cluster east \
+  --tag region:us-east \
+  --tag disk:ssd \
+  --defaults
+
+# If ORDERS already exists, change its placement instead of recreating
+# it. The same flags apply on edit; the meta leader re-assigns the
+# replicas to servers matching the new constraint.
+#
+#   nats --server nats://127.0.0.1:4222 stream edit ORDERS \
+#     --cluster east --tag region:us-east --tag disk:ssd
+
+# Read the result. The Cluster block names the leader and the two other
+# peers — every one of them is a server you tagged.
+nats --server nats://127.0.0.1:4222 stream info ORDERS
+
+# Publish the canonical order to confirm the placed stream accepts
+# writes exactly as before — placement changes where, not what.
+nats --server nats://127.0.0.1:4222 pub orders.created \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Create ORDERS at R=3, constrained to servers carrying BOTH tags.
+// Placement.Tags is a list and the match is an intersection: every
+// listed tag must be present on a server for it to qualify. Tag
+// matching folds case (ssd == SSD) but spelling is exact.
+//
+// Placement.Cluster names the cluster every replica must live in.
+// In a single cluster like "east" it is a no-op (there is only one
+// cluster), but it is shown here so the syntax is familiar when you
+// place across clusters later. The match is an intersection of
+// cluster AND tags.
+jsStreamConfig  cfg;
+jsPlacement     placement;
+const char      *subjects[] = {"orders.&gt;"};
+const char      *tags[]     = {"region:us-east", "disk:ssd"};
+
+jsPlacement_Init(&amp;placement);
+placement.Cluster = "east";
+placement.Tags    = tags;
+placement.TagsLen = 2;
+
+jsStreamConfig_Init(&amp;cfg);
+cfg.Name        = "ORDERS";
+cfg.Subjects    = subjects;
+cfg.SubjectsLen = 1;
+cfg.Replicas    = 3;
+cfg.Placement   = &amp;placement;
+
+s = js_AddStream(&amp;si, js, &amp;cfg, NULL, &amp;jerr);
+if (jerr == JSStreamNameExistErr)
+{
+    // ORDERS already exists: change its placement instead of
+    // recreating it. The same config applies on update; the meta
+    // leader re-assigns the replicas to servers matching the new
+    // constraint.
+    s = js_UpdateStream(&amp;si, js, &amp;cfg, NULL, &amp;jerr);
+}
+
+// Read the result. The Cluster block names the leader and the two
+// other peers — every one of them is a server you tagged.
+if ((s == NATS_OK) &amp;&amp; (si-&gt;Cluster != NULL))
+{
+    printf("Cluster: %s, leader: %s\n",
+           si-&gt;Cluster-&gt;Name, si-&gt;Cluster-&gt;Leader);
+    for (i = 0; i &lt; si-&gt;Cluster-&gt;ReplicasLen; i++)
+        printf("Replica: %s\n", si-&gt;Cluster-&gt;Replicas[i]-&gt;Name);
+}
+
+// Publish the canonical order to confirm the placed stream accepts
+// writes exactly as before — placement changes where, not what.
+if (s == NATS_OK)
+    s = natsConnection_PublishString(conn, "orders.created",
+            "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+            "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}");</code></pre></div></div>
+<p>The meta leader now picks three servers that carry <em>both</em> tags. Read the
+result in the <code>Cluster</code> block of <code>nats stream info ORDERS</code>: the leader and
+the two other peers are all servers you tagged.</p>
+<h2 id="tag-matching-is-an-intersection">Tag matching is an intersection</h2>
+<p>When placement lists more than one tag, a server qualifies only if it
+carries <em>every</em> tag in the list. The match is an intersection, not a union:
+<code>region:us-east</code> <strong>and</strong> <code>disk:ssd</code>, never either-or.</p>
+<p>The match folds case: <code>disk:ssd</code>, <code>disk:SSD</code>, and <code>disk:Ssd</code> are the same
+tag. Spelling, though, is exact, so <code>disk:sdd</code> matches nothing. The problem to
+watch for is typos rather than case. Ask for a tag that no server carries (a misspelling,
+or a tag you meant to add but didn't) and the intersection is empty. No
+server qualifies, and the meta leader refuses the stream. The error names
+the tag no server carried, in brackets:</p>
+<div><div><pre><code class="language-text">nats: error: could not create Stream: no suitable peers for placement, tags not matched ['disk:sdd'] (10005)</code></pre></div></div>
+<p>The same error appears if you ask for three replicas but only two servers
+carry the required tags. Placement doesn't relax the constraint to fit the
+replica count; it fails so you notice.</p>
+<p>The full set of placement and server-tag options is documented in
+<a href="/reference/config/server_tags">Reference</a>. We only need the cluster
+constraint and the tag intersection here.</p>
+<h2 id="asking-a-chosen-server-to-lead">Asking a chosen server to lead</h2>
+<p>Placement decides which servers hold the replicas. It does not decide which
+of them leads. When you create a placed stream, the meta leader picks the
+initial leader itself, and there's no placement field that names one: set a
+<code>preferred</code> server in a stream's placement and the server rejects the config
+with <code>preferred server not permitted in placement</code>. No client library
+exposes such a field either — <code>Placement</code> carries only a cluster and tags.</p>
+<p>What you can do is ask the current leader to hand off to a named peer once
+the group is running. That's a <strong>stepdown</strong> request with a preferred target:</p>
+<div><div><pre><code class="language-bash">nats stream cluster step-down ORDERS --preferred n2-east</code></pre></div></div>
+<p>The leader yields and the group runs an election that tries to place the new
+leader on <code>n2-east</code>. It's a request, not a lock: the quorum election still
+decides, so read <code>nats stream info ORDERS</code> afterward to see who won.
+<code>--preferred</code> needs NATS Server 2.11 or newer. Its full syntax lives in
+<a href="/reference/jetstream/api/stream">Reference</a>.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two mistakes are common the first time you place a stream. Both come from
+treating placement as more forgiving than it is.</p>
+<p><strong>Tags are an intersection; a missing tag fails the placement.</strong> Asking for
+a tag no server carries leaves the meta leader with nothing to pick: the
+stream fails with <code>no suitable peers for placement</code> rather than falling back
+to any server. Matching folds case, so <code>ssd</code> and <code>SSD</code> are the same tag, but
+spelling is exact — <code>sdd</code> matches nothing. Don't guess at tag spelling.
+Read the tags back from the servers first, then place against exactly what
+they advertise.</p>
+<p>Verify the tags exist before you trust a placement, and watch the placement
+either succeed or name the missing tag:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Verify server tags BEFORE placing a stream, then place against exactly
+# what the servers advertise — so a typo fails loudly instead of silently
+# placing nowhere.
+#
+# This assumes the 3-node "east" cluster is running with JetStream
+# enabled. Tag matching folds case (ssd == SSD) but is matched as an exact
+# intersection: every requested tag must be present, spelled correctly, on a
+# server for it to qualify.
+
+# Read the tags each server actually advertises. Do not assume the config
+# took — a typo in server_tags is silent until a placement asks for a tag
+# no server carries. The Tags line in the output is the source of truth.
+#
+# `nats server info` queries the system account ($SYS), so connect with a
+# system user. Name the server you want, or the command answers for whichever
+# server replies to the $SYS ping first.
+nats server info n1-east
+nats server info n2-east
+nats server info n3-east
+
+# Now place ORDERS against exactly the tags you just read back.
+nats --server nats://127.0.0.1:4222 stream add ORDERS \
+  --subjects "orders.&gt;" \
+  --replicas 3 \
+  --tag region:us-east \
+  --tag disk:ssd \
+  --defaults
+
+# If a requested tag is misspelled or missing on every server, the
+# intersection is empty and the create fails — it does NOT fall back to
+# any server. The error names the tag no server carried, in brackets:
+#
+#   nats: error: could not create Stream: no suitable peers for placement, tags not matched ['disk:sdd'] (10005)
+#
+# Fix the spelling to match what the servers advertise (case does not
+# matter) and re-run. Confirm the placement landed where you intended:
+nats --server nats://127.0.0.1:4222 stream info ORDERS</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the tags each server actually advertises. Do not assume the
+// config took — a typo in server_tags is silent until a placement
+// asks for a tag no server carries. There is no dedicated client
+// API for this: it is a plain request on the system account's
+// $SYS.REQ.SERVER.PING.VARZ subject, filtered by server name. The
+// "tags" field of the reply is the source of truth.
+const char *names[] = {"n1-east", "n2-east", "n3-east"};
+
+for (i = 0; (s == NATS_OK) &amp;&amp; (i &lt; 3); i++)
+{
+    natsMsg     *reply = NULL;
+    char        req[64];
+
+    snprintf(req, sizeof(req), "{\"server_name\":\"%s\"}", names[i]);
+    s = natsConnection_RequestString(&amp;reply, sysConn,
+            "$SYS.REQ.SERVER.PING.VARZ", req, 2000);
+    if (s == NATS_OK)
+    {
+        // Print just the "tags" list out of the VARZ reply.
+        const char *tags = strstr(natsMsg_GetData(reply), "\"tags\":");
+        const char *end  = (tags != NULL) ? strchr(tags, ']') : NULL;
+
+        if (end != NULL)
+            printf("%s %.*s]\n", names[i], (int)(end - tags), tags);
+        natsMsg_Destroy(reply);
+    }
+}
+
+// Now place ORDERS against exactly the tags you just read back.
+// If a requested tag is misspelled or missing on every server, the
+// intersection is empty and the create fails — it does NOT fall
+// back to any server. The error names the tag no server carried:
+//
+//   no suitable peers for placement, tags not matched ['disk:sdd']
+//   (error code 10005)
+if (s == NATS_OK)
+{
+    jsStreamConfig  cfg;
+    jsPlacement     placement;
+    const char      *subjects[] = {"orders.&gt;"};
+    const char      *tags[]     = {"region:us-east", "disk:ssd"};
+
+    jsPlacement_Init(&amp;placement);
+    placement.Tags    = tags;
+    placement.TagsLen = 2;
+
+    jsStreamConfig_Init(&amp;cfg);
+    cfg.Name        = "ORDERS";
+    cfg.Subjects    = subjects;
+    cfg.SubjectsLen = 1;
+    cfg.Replicas    = 3;
+    cfg.Placement   = &amp;placement;
+
+    s = js_AddStream(&amp;si, js, &amp;cfg, NULL, &amp;jerr);
+    if (jerr == JSStreamNameExistErr)
+        s = js_UpdateStream(&amp;si, js, &amp;cfg, NULL, &amp;jerr);
+}
+
+// Confirm the placement landed where you intended: the leader and
+// both replicas are servers that advertised the tags.
+if ((s == NATS_OK) &amp;&amp; (si-&gt;Cluster != NULL))
+{
+    printf("Leader: %s\n", si-&gt;Cluster-&gt;Leader);
+    for (i = 0; i &lt; si-&gt;Cluster-&gt;ReplicasLen; i++)
+        printf("Replica: %s\n", si-&gt;Cluster-&gt;Replicas[i]-&gt;Name);
+}</code></pre></div></div>
+<p><strong>You can't name a leader at placement time.</strong> Placement constrains which
+servers hold the replicas; it can't say which one leads, and setting a
+<code>preferred</code> server in placement is rejected outright. Don't build an
+operational assumption ("the leader is always <code>n1-east</code>") on where the group
+first landed; the moment a leader dies, the next election is quorum-based and
+picks a leader from the survivors. If you need leadership on a specific
+server, ask for it explicitly with <code>nats stream cluster step-down --preferred &lt;server&gt;</code> (see <a href="/learn/clustering/raft-and-leaders">Raft and leaders</a>), then
+re-check with <code>nats stream info</code> — it's a request the election can still
+overrule.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The <code>ORDERS</code> stream is no longer placed on whichever servers the meta leader
+chose freely. You tagged <code>n1-east</code>, <code>n2-east</code>, and <code>n3-east</code>, and constrained
+the stream to servers carrying both <code>region:us-east</code> and <code>disk:ssd</code>. You
+know the tag match is an intersection that folds case, that a missing or
+misspelled tag yields <code>no suitable peers for placement</code>, and that placement
+can't name a leader — you move leadership after the fact with a stepdown
+request.</p>
+<p>The cluster is still three servers. Nothing on this page changed the peer
+count.</p>
+<h2 id="whats-next">What's next</h2>
+<p>Changing the peer count is the next page. <strong>Scaling and peer management</strong>
+grows the group by raising the replica count, watches a new peer catch up
+before you lean on it, and moves a replica off a server without ever losing
+the majority that keeps <code>ORDERS</code> writable.</p>
+<p>Continue to <a href="/learn/clustering/scaling-and-peers">Scaling and peer management</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/server_tags">Reference → Server tags</a> — every
+server-tag and placement option and its syntax.</li>
+<li><a href="/reference/jetstream/api/meta">Reference → Meta API</a> — how the meta
+leader assigns a placed stream to servers.</li>
+<li><a href="/learn/topologies/super-clusters">Super-clusters</a> — placing replicas
+across clusters for geo-affinity.</li>
+</ul></main>

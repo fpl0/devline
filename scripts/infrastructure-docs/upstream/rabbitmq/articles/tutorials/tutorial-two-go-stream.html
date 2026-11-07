@@ -1,0 +1,248 @@
+<main><header><h1>RabbitMQ Stream tutorial - Offset Tracking</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a>, running on
+<code>localhost</code> and the <a href="https://www.rabbitmq.com/docs/4.3/stream#enabling-plugin">stream plugin</a>  enabled.
+The <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard stream port</a> is 5552. In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="using-docker">Using docker</h3><p>If you don't have RabbitMQ installed, you can run it in a Docker container:</p><div><div><pre><code class="language-bash">docker run -it --rm --name rabbitmq -p 5552:5552 -p 15672:15672 -p 5672:5672  \
+    -e RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS='-rabbitmq_stream advertised_host localhost' \
+    rabbitmq:4-management</code></pre></div></div><p>wait for the server to start and then enable the stream and stream management plugins:</p><div><div><pre><code class="language-bash">docker exec rabbitmq rabbitmq-plugins enable rabbitmq_stream rabbitmq_stream_management </code></pre></div></div><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through the <a href="https://groups.google.com/forum/#!forum/rabbitmq-users">mailing
+list</a> or <a href="https://www.rabbitmq.com/discord">discord community server</a>.</p></div></div>
+<p>RabbitMQ Streams was introduced in RabbitMQ 3.9.
+More information is available <a href="https://www.rabbitmq.com/docs/4.3/streams">here</a>.</p>
+<h2 id="offset-tracking">Offset Tracking</h2>
+<h3 id="setup">Setup</h3>
+<p>This part of the tutorial consists in writing two programs in Go; a producer that sends a wave of messages with a marker message at the end, and a consumer that receives messages and stops when it gets the marker message.
+It shows how a consumer can navigate through a stream and can even restart where it left off in a previous execution.</p>
+<p>This tutorial uses <a href="/tutorials/tutorial-one-go-stream#using-the-go-stream-client">the stream Go client</a>.
+Make sure to follow <a href="/tutorials/tutorial-one-go-stream#setup">the setup steps</a> from the first tutorial.</p>
+<p>An executable version of this tutorial can be found in the <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-stream/">RabbitMQ tutorials repository</a>.
+The sending program is called <code>offset_tracking_send.go</code> and the receiving program is called <code>offset_tracking_receive.go</code>.
+The tutorial focuses on the usage of the client library, so the final code in the repository should be used to create the scaffolding of the files (e.g. imports, main function, etc).</p>
+<h3 id="sending">Sending</h3>
+<p>The sending program starts by creating the environment and declaring the stream:</p>
+<div><div><pre><code class="language-go">env, _ := stream.NewEnvironment(
+    stream.NewEnvironmentOptions().
+        SetHost("localhost").
+        SetPort(5552).
+        SetUser("guest").
+        SetPassword("guest"))
+
+streamName := "stream-offset-tracking-go"
+env.DeclareStream(streamName,
+    &amp;stream.StreamOptions{
+        MaxLengthBytes: stream.ByteCapacity{}.GB(2),
+    },
+)</code></pre></div></div>
+<p>Note the error handling code is omitted for brevity.</p>
+<p>The program then creates a producer and publishes 100 messages.
+The body value of the last message is set to <code>marker</code>; this is a marker for the consumer to stop consuming.</p>
+<p>The program uses a <code>handlePublishConfirm</code> function and a channel to make sure all messages make it to the broker before exiting.
+Let's skip this part for now and see the bulk of the sending first:</p>
+<div><div><pre><code class="language-java">producer, _ := env.NewProducer(streamName, stream.NewProducerOptions())
+
+messageCount := 100
+ch := make(chan bool)
+chPublishConfirm := producer.NotifyPublishConfirmation()
+handlePublishConfirm(chPublishConfirm, messageCount, ch)
+
+fmt.Printf("Publishing %d messages\n", messageCount)
+for i := 0; i &lt; messageCount; i++ {
+    var body string
+    if i == messageCount-1 {
+        body = "marker"
+    } else {
+        body = "hello"
+    }
+    producer.Send(amqp.NewMessage([]byte(body)))
+}
+_ = &lt;-ch
+fmt.Println("Messages confirmed")
+
+producer.Close()</code></pre></div></div>
+<p>The sending program uses 2 channels and a Go routine to move on and exit when the broker confirmed the messages.
+Let's focus on this part.</p>
+<p>The producer <code>NotifyPublishConfirmation</code> function returns the first channel.
+The client library sends the broker confirmations on this channel and a routine declared in <code>handlePublishConfirm</code> receives these confirmations:</p>
+<div><div><pre><code class="language-go">messageCount := 100
+chPublishConfirm := producer.NotifyPublishConfirmation()
+ch := make(chan bool)
+handlePublishConfirm(chPublishConfirm, messageCount, ch)</code></pre></div></div>
+<p>The routine deals with the messages and sends <code>true</code> to the second channel when the expected number of confirmations is reached:</p>
+<div><div><pre><code class="language-go">func handlePublishConfirm(confirms stream.ChannelPublishConfirm, messageCount int, ch chan bool) {
+    go func() {
+        confirmedCount := 0
+        for confirmed := range confirms {
+            for _, msg := range confirmed {
+                if msg.IsConfirmed() {
+                    confirmedCount++
+                    if confirmedCount == messageCount {
+                        ch &lt;- true
+                    }
+                }
+            }
+        }
+    }()
+}</code></pre></div></div>
+<p>The main program is waiting on the second channel just after the sending loop, so it moves on as soon as something arrives on the channel (the <code>true</code> value the routine sent).</p>
+<p>There is no risk the program stops before all the messages made it to the broker thanks to this synchronization mechanism.</p>
+<p>Let's now create the receiving program.</p>
+<h3 id="receiving">Receiving</h3>
+<p>The receiving program creates the environment and declares the stream as well.
+This part of the code is the same as in the sending program, so it is skipped in the next code snippets for brevity's sake.</p>
+<p>The receiving program starts a consumer that attaches at the beginning of the stream (<code>stream.OffsetSpecification{}.First()</code>).
+It uses variables to output the offsets of the first and last received messages at the end of the program.</p>
+<p>The consumer stops when it receives the marker message: it assigns the offset to a variable, closes the consumer, and sends <code>true</code> to a channel.
+Like for the sender, the channel tells the program to move on when the consumer is done with its job.</p>
+<div><div><pre><code class="language-go">var firstOffset int64 = -1
+var lastOffset atomic.Int64
+ch := make(chan bool)
+messagesHandler := func(consumerContext stream.ConsumerContext, message *amqp.Message) {
+    if atomic.CompareAndSwapInt64(&amp;firstOffset, -1, consumerContext.Consumer.GetOffset()) {
+        fmt.Println("First message received.")
+    }
+    if string(message.GetData()) == "marker" {
+        lastOffset.Store(consumerContext.Consumer.GetOffset())
+        _ = consumerContext.Consumer.Close()
+        ch &lt;- true
+    }
+}
+
+offsetSpecification := stream.OffsetSpecification{}.First()
+_, _ = env.NewConsumer(streamName, messagesHandler,
+    stream.NewConsumerOptions().
+        SetOffset(offsetSpecification))
+
+fmt.Println("Started consuming...")
+_ = &lt;-ch
+
+fmt.Printf("Done consuming, first offset %d, last offset %d.\n", firstOffset, lastOffset.Load())</code></pre></div></div>
+<h3 id="exploring-the-stream">Exploring the Stream</h3>
+<p>In order to run both examples, open two terminal (shell) tabs.</p>
+<p>In the first tab, run the sender to publish a wave of messages:</p>
+<div><div><pre><code class="language-shell">go run offset_tracking_send.go</code></pre></div></div>
+<p>The output is the following:</p>
+<div><div><pre><code class="language-shell">Publishing 100 messages
+Messages confirmed.</code></pre></div></div>
+<p>Let's run now the receiver.
+Open a new tab.
+Remember it should start from the beginning of the stream because of the <code>first</code> offset specification.</p>
+<div><div><pre><code class="language-shell">go run offset_tracking_receive.go</code></pre></div></div>
+<p>Here is the output:</p>
+<div><div><pre><code class="language-shell">Started consuming...
+First message received.
+Done consuming, first offset 0, last offset 99.</code></pre></div></div>
+<div class="admonition note"><div class="admonition-title">What is an offset?</div><div><p>A stream can be seen as an array where elements are messages.
+The offset is the index of a given message in the array.</p></div></div>
+<p>A stream is different from a queue: consumers can read and re-read the same messages and the messages stay in the stream.</p>
+<p>Let's try this feature by using the <code>offset</code> specification to attach at a given offset.
+Set the <code>offsetSpecification</code> variable from <code>stream.OffsetSpecification{}.First()</code> to <code>stream.OffsetSpecification{}.Offset(42)</code>:</p>
+<div><div><pre><code class="language-go">offsetSpecification := stream.OffsetSpecification{}.Offset(42)</code></pre></div></div>
+<p>Offset 42 is arbitrary, it could have been any number between 0 and 99.
+Run the receiver again:</p>
+<div><div><pre><code class="language-shell">go run offset_tracking_receive.go</code></pre></div></div>
+<p>The output is the following:</p>
+<div><div><pre><code class="language-shell">Started consuming...
+First message received.
+Done consuming, first offset 42, last offset 99.</code></pre></div></div>
+<p>There is also a way to attach at the very end of stream to see only new messages at the time of the consumer creation.
+This is the <code>next</code> offset specification.
+Let's try it:</p>
+<div><div><pre><code class="language-go">offsetSpecification := stream.OffsetSpecification{}.Next()</code></pre></div></div>
+<p>Run the receiver:</p>
+<div><div><pre><code class="language-shell">go run offset_tracking_receive.go</code></pre></div></div>
+<p>This time the consumer does not get any messages:</p>
+<div><div><pre><code class="language-shell">Started consuming...</code></pre></div></div>
+<p>It is waiting for new messages in the stream.
+Let's publish some by running the sender again.
+Back to the first tab:</p>
+<div><div><pre><code class="language-shell">go run offset_tracking_send.go</code></pre></div></div>
+<p>Wait for the program to exit and switch back to the receiver tab.
+The consumer received the new messages:</p>
+<div><div><pre><code class="language-shell">Started consuming...
+First message received.
+Done consuming, first offset 100, last offset 199.</code></pre></div></div>
+<p>The receiver stopped because of the new marker message the sender put at the end of the stream.</p>
+<p>This section showed how to "browse" a stream: from the beginning, from any offset, even for new messages.
+The next section covers how to leverage server-side offset tracking to resume where a consumer left off in a previous execution.</p>
+<h3 id="server-side-offset-tracking">Server-Side Offset Tracking</h3>
+<p>RabbitMQ Streams provide server-side offset tracking to store the progress of a given consumer in a stream.
+If the consumer were to stop for any reason (crash, upgrade, etc), it would be able to re-attach where it stopped previously to avoid processing the same messages.</p>
+<p>RabbitMQ Streams provides an API for offset tracking, but it is possible to use other solutions to store the progress of consuming applications.
+It may depend on the use case, but a relational database can be a good solution as well.</p>
+<p>Let's modify the receiver to store the offset of processed messages.
+The updated lines are outlined with comments:</p>
+<div><div><pre><code class="language-go">var firstOffset int64 = -1
+var messageCount int64 = -1 // number of received messages
+var lastOffset atomic.Int64
+ch := make(chan bool)
+messagesHandler := func(consumerContext stream.ConsumerContext, message *amqp.Message) {
+    if atomic.CompareAndSwapInt64(&amp;firstOffset, -1, consumerContext.Consumer.GetOffset()) {
+        fmt.Println("First message received.")
+    }
+    if atomic.AddInt64(&amp;messageCount, 1)%10 == 0 {
+        consumerContext.Consumer.StoreOffset() // store offset every 10 messages
+    }
+    if string(message.GetData()) == "marker" {
+        lastOffset.Store(consumerContext.Consumer.GetOffset())
+        consumerContext.Consumer.StoreOffset() // store the offset on consumer closing
+        consumerContext.Consumer.Close()
+        ch &lt;- true
+    }
+}
+
+var offsetSpecification stream.OffsetSpecification
+consumerName := "offset-tracking-tutorial" // name of the consumer
+storedOffset, err := env.QueryOffset(consumerName, streamName) // get last stored offset
+if errors.Is(err, stream.OffsetNotFoundError) {
+    // start consuming at the beginning of the stream if no stored offset
+    offsetSpecification = stream.OffsetSpecification{}.First()
+} else {
+    // start just after the last stored offset
+    offsetSpecification = stream.OffsetSpecification{}.Offset(storedOffset + 1)
+}
+
+_, err = env.NewConsumer(streamName, messagesHandler,
+    stream.NewConsumerOptions().
+        SetManualCommit(). // activate manual offset tracking
+        SetConsumerName(consumerName). // the consumer must a have name
+        SetOffset(offsetSpecification))
+fmt.Println("Started consuming...")
+_ = &lt;-ch
+
+fmt.Printf("Done consuming, first offset %d, last offset %d.\n", firstOffset, lastOffset.Load())</code></pre></div></div>
+<p>The most relevant changes are:</p>
+<ul>
+<li>The program looks up the last stored offset before creating the consumer.
+If there is no stored offset (it is likely the very first time this consumer starts), it uses <code>first</code>.
+If there is a stored offset, it uses the <code>offset</code> specification to start just after (<code>stored offset + 1</code>), which assumes the message with the stored offset has been processed in the previous instance of the application.</li>
+<li>The consumer must have a name.
+It is the key to store and retrieve the last stored offset value.</li>
+<li>The manual tracking strategy is activated, which implies explicit calls to store offsets.</li>
+<li>The offset is stored every 10 messages.
+This is an unusually low value for offset storage frequency, but this is OK for this tutorial.
+Values in the real world are rather in the hundreds or in the thousands.</li>
+<li>The offset is stored before closing the consumer, just after getting the marker message.</li>
+</ul>
+<p>Let's run the updated receiver:</p>
+<div><div><pre><code class="language-shell">go run offset_tracking_receive.go</code></pre></div></div>
+<p>Here is the output:</p>
+<div><div><pre><code class="language-shell">Started consuming...
+First message received.
+Done consuming, first offset 0, last offset 99.</code></pre></div></div>
+<p>There is nothing surprising there: the consumer got the messages from the beginning of the stream and stopped when it reached the marker message.</p>
+<p>Let's start it another time:</p>
+<div><div><pre><code class="language-shell">go run offset_tracking_receive.go</code></pre></div></div>
+<p>Here is the output:</p>
+<div><div><pre><code class="language-shell">Started consuming...
+First message received.
+Done consuming, first offset 100, last offset 199.</code></pre></div></div>
+<p>The consumer restarted exactly where it left off: the last offset in the first run was 99 and the first offset in this second run is 100.
+The consumer stored offset tracking information in the first run, so the client library uses it to resume consuming at the right position in the second run.</p>
+<p>This concludes this tutorial on consuming semantics in RabbitMQ Streams.
+It covered how a consumer can attach anywhere in a stream.
+Consuming applications are likely to keep track of the point they reached in a stream.
+They can use the built-in server-side offset tracking feature as demonstrated in this tutorial.
+They are also free to use any other data store solution for this task.</p>
+<p>See the <a href="https://www.rabbitmq.com/blog/2021/09/13/rabbitmq-streams-offset-tracking">RabbitMQ blog</a> and the <a href="https://github.com/rabbitmq/rabbitmq-stream-go-client?tab=readme-ov-file#manual-track-offset">stream Go client documentation</a> for more information on offset tracking.</p></main>

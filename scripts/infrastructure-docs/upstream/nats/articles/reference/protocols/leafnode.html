@@ -1,0 +1,287 @@
+<main><header><h1>Leafnode</h1></header>
+<p>Leafnode connections extend NATS clusters by creating lightweight, unidirectional connections from edge servers to a central cluster. The leafnode protocol is optimized for hub-and-spoke topologies, enabling edge deployments while maintaining low overhead. Unlike cluster routes, leafnodes create asymmetric connections where the edge initiates and maintains the connection to the hub.</p>
+<h2 id="overview">Overview</h2>
+<p>The following table lists the leafnode protocol messages. Leafnode protocol operations are case insensitive, thus <code>LS+ foo\r\n</code> and <code>ls+ foo\r\n</code> are equivalent.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Message</th><th>Sent By</th><th>Description</th></tr></thead><tbody><tr><td><a href="#info"><code>INFO</code></a></td><td>All Servers</td><td>Sent after initial connection with leafnode-specific extensions</td></tr><tr><td><a href="#connect"><code>CONNECT</code></a></td><td>Leafnode</td><td>Sent to establish and authenticate a leafnode connection</td></tr><tr><td><a href="#ls"><code>LS+</code></a></td><td>All Servers</td><td>Subscribes to a subject, optionally with queue group and weight</td></tr><tr><td><a href="#ls-1"><code>LS-</code></a></td><td>All Servers</td><td>Unsubscribes from a subject, optionally with queue group</td></tr><tr><td><a href="#lmsg"><code>LMSG</code></a></td><td>All Servers</td><td>Delivers a message with subject, optional reply, and queue groups</td></tr><tr><td><a href="#lds"><code>LDS</code></a></td><td>Hub Server</td><td>Loop detection subjects to prevent routing loops</td></tr><tr><td><a href="#ping-pong"><code>PING</code></a></td><td>All Servers</td><td>PING keep-alive message</td></tr><tr><td><a href="#ping-pong"><code>PONG</code></a></td><td>All Servers</td><td>PONG keep-alive response</td></tr><tr><td><a href="#err"><code>-ERR</code></a></td><td>All Servers</td><td>Indicates a protocol error. May cause the leafnode to disconnect.</td></tr></tbody></table>
+<h2 id="info">INFO</h2>
+<p>The <code>INFO</code> message for leafnodes includes server capabilities and configuration needed for connection establishment. Both the hub and leafnode exchange INFO messages upon connection.</p>
+<h3 id="syntax">Syntax</h3>
+<div><div><pre><code class="language-text">INFO {&lt;key&gt;:&lt;value&gt;,...}</code></pre></div></div>
+<p>Leafnode-specific fields include:</p>
+<ul>
+<li><code>server_id</code>: The unique identifier of the NATS server</li>
+<li><code>version</code>: The version of the NATS server</li>
+<li><code>proto</code>: Protocol version (1 for current leafnode protocol)</li>
+<li><code>go</code>: The version of golang the NATS server was built with</li>
+<li><code>host</code>: The host specified in the leafnode configuration</li>
+<li><code>port</code>: The port number for leafnode connections</li>
+<li><code>headers</code>: Whether headers are supported (true/false)</li>
+<li><code>jetstream</code>: Whether JetStream is enabled</li>
+<li><code>compression</code>: Compression mode (<code>off</code>, <code>accept</code>, <code>s2_auto</code>, <code>s2_fast</code>, <code>s2_better</code>, <code>s2_uncompressed</code>)</li>
+<li><code>cluster</code>: Name of the cluster (if part of a cluster)</li>
+<li><code>domain</code>: JetStream domain name</li>
+<li><code>xkey</code>: Server's public xkey for encryption</li>
+<li><code>auth_required</code>: If set, authentication is required</li>
+<li><code>tls_required</code>: If set, TLS is required</li>
+<li><code>tls_verify</code>: If set, TLS certificate verification is required</li>
+<li><code>max_payload</code>: Maximum payload size accepted</li>
+<li><code>client_id</code>: Client ID for compression negotiation</li>
+<li><code>nonce</code>: Nonce for security operations</li>
+<li><code>connect_urls</code>: Alternative servers to connect to</li>
+</ul>
+<h3 id="example">Example</h3>
+<div><div><pre><code class="language-text">INFO {"server_id":"NCXU7YJOG5XAU","version":"2.10.0","proto":1,"go":"go1.21","host":"localhost","port":7422,"headers":true,"max_payload":1048576,"jetstream":true,"compression":"s2_auto","cluster":"hub-cluster","domain":"hub","connect_urls":["localhost:7422"]}</code></pre></div></div>
+<h2 id="connect">CONNECT</h2>
+<p>The <code>CONNECT</code> message is sent by the leafnode to authenticate and establish the connection parameters. It includes leafnode-specific configuration and capabilities.</p>
+<h3 id="syntax-1">Syntax</h3>
+<div><div><pre><code class="language-text">CONNECT {&lt;key&gt;:&lt;value&gt;,...}</code></pre></div></div>
+<p>Valid options include:</p>
+<ul>
+<li><code>version</code>: The version of the leafnode server</li>
+<li><code>server_id</code>: The unique identifier of the leafnode</li>
+<li><code>name</code>: Server name of the leafnode</li>
+<li><code>domain</code>: JetStream domain of the leafnode</li>
+<li><code>cluster</code>: Cluster name of the leafnode (if clustered)</li>
+<li><code>hub</code>: Whether this is a hub connection (true/false)</li>
+<li><code>headers</code>: Whether headers are supported</li>
+<li><code>jetstream</code>: Whether JetStream is enabled on the leafnode</li>
+<li><code>compression</code>: Requested compression mode</li>
+<li><code>remote_account</code>: Account to bind the leafnode connection to</li>
+<li><code>proto</code>: Protocol version</li>
+<li><code>nkey</code>: Public NKey for authentication</li>
+<li><code>jwt</code>: JWT for authentication</li>
+<li><code>sig</code>: Signature for nkey authentication</li>
+<li><code>user</code>: Username for basic authentication</li>
+<li><code>pass</code>: Password for basic authentication</li>
+<li><code>auth_token</code>: Token for token authentication</li>
+<li><code>tls_required</code>: Whether TLS is required</li>
+</ul>
+<h3 id="example-1">Example</h3>
+<div><div><pre><code class="language-text">CONNECT {"version":"2.10.0","server_id":"NATS123","name":"edge-1","cluster":"edge","hub":false,"headers":true,"jetstream":false,"compression":"s2_auto","remote_account":"EDGE_ACCOUNT","proto":1}\r\n</code></pre></div></div>
+<h2 id="ls">LS+</h2>
+<p><code>LS+</code> registers interest in a subject on the leafnode connection, optionally with a queue group and weight for distributed queues.</p>
+<h3 id="syntax-2">Syntax</h3>
+<p><strong>Simple Subscription</strong></p>
+<div><div><pre><code class="language-text">LS+ &lt;subject&gt;\r\n</code></pre></div></div>
+<p><strong>Queue Subscription</strong></p>
+<div><div><pre><code class="language-text">LS+ &lt;subject&gt; &lt;queue_group&gt;\r\n</code></pre></div></div>
+<p><strong>Weighted Queue Subscription</strong></p>
+<div><div><pre><code class="language-text">LS+ &lt;subject&gt; &lt;queue_group&gt; &lt;weight&gt;\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>subject</code>: The subject to subscribe to (supports wildcards)</li>
+<li><code>queue_group</code>: Optional queue group name</li>
+<li><code>weight</code>: Optional weight for queue distribution (default 1)</li>
+</ul>
+<h3 id="examples">Examples</h3>
+<div><div><pre><code class="language-text">LS+ orders.new\r\n
+LS+ orders.&gt; fulfillment\r\n
+LS+ orders.&gt; fulfillment 4\r\n</code></pre></div></div>
+<h3 id="origin-cluster-support">Origin Cluster Support</h3>
+<p>With LNOCU (Leaf Node Origin Cluster Unsub) support, LS+ can include origin cluster information to prevent loops:</p>
+<div><div><pre><code class="language-text">LS+ &lt;subject&gt; &lt;queue_group&gt; &lt;weight&gt; &lt;origin_cluster&gt;\r\n</code></pre></div></div>
+<h2 id="ls-1">LS-</h2>
+<p><code>LS-</code> removes interest in a subject on the leafnode connection, optionally for a specific queue group.</p>
+<h3 id="syntax-3">Syntax</h3>
+<p><strong>Simple Unsubscription</strong></p>
+<div><div><pre><code class="language-text">LS- &lt;subject&gt;\r\n</code></pre></div></div>
+<p><strong>Queue Unsubscription</strong></p>
+<div><div><pre><code class="language-text">LS- &lt;subject&gt; &lt;queue_group&gt;\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>subject</code>: The subject to unsubscribe from</li>
+<li><code>queue_group</code>: Optional queue group name</li>
+</ul>
+<h3 id="examples-1">Examples</h3>
+<div><div><pre><code class="language-text">LS- orders.old\r\n
+LS- orders.cancelled fulfillment\r\n</code></pre></div></div>
+<h3 id="origin-cluster-support-1">Origin Cluster Support</h3>
+<p>With LNOCU support, LS- can include origin cluster information:</p>
+<div><div><pre><code class="language-text">LS- &lt;subject&gt; &lt;queue_group&gt; &lt;origin_cluster&gt;\r\n</code></pre></div></div>
+<h2 id="lmsg">LMSG</h2>
+<p>The <code>LMSG</code> protocol message delivers a message through the leafnode connection. It supports reply subjects, queue group targeting, and headers.</p>
+<h3 id="syntax-4">Syntax</h3>
+<p><strong>Simple Message</strong></p>
+<div><div><pre><code class="language-text">LMSG &lt;subject&gt; &lt;size&gt;\r\n[payload]\r\n</code></pre></div></div>
+<p><strong>Message with Reply</strong></p>
+<div><div><pre><code class="language-text">LMSG &lt;subject&gt; + &lt;reply&gt; &lt;size&gt;\r\n[payload]\r\n</code></pre></div></div>
+<p><strong>Message with Queue Groups</strong></p>
+<div><div><pre><code class="language-text">LMSG &lt;subject&gt; | &lt;queue_group1&gt; [queue_group2...] &lt;size&gt;\r\n[payload]\r\n</code></pre></div></div>
+<p><strong>Message with Reply and Queue Groups</strong></p>
+<div><div><pre><code class="language-text">LMSG &lt;subject&gt; + &lt;reply&gt; &lt;queue_group1&gt; [queue_group2...] &lt;size&gt;\r\n[payload]\r\n</code></pre></div></div>
+<p><strong>Message with Headers</strong></p>
+<div><div><pre><code class="language-text">LMSG &lt;subject&gt; [+ reply] [| queue_groups...] &lt;header_size&gt; &lt;total_size&gt;\r\n[headers]\r\n[payload]\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>subject</code>: The subject to deliver the message to</li>
+<li><code>+</code>: Indicator that a reply subject follows</li>
+<li><code>reply</code>: Optional reply subject</li>
+<li><code>|</code>: Indicator that queue groups follow</li>
+<li><code>queue_group</code>: Target queue groups for delivery</li>
+<li><code>header_size</code>: Size of headers in bytes (for messages with headers)</li>
+<li><code>total_size</code>: Total size of headers plus payload</li>
+<li><code>size</code>: Size of the payload in bytes (for messages without headers)</li>
+<li><code>headers</code>: NATS headers in standard format</li>
+<li><code>payload</code>: The message payload</li>
+</ul>
+<h3 id="examples-2">Examples</h3>
+<div><div><pre><code class="language-text">LMSG orders.new 11\r\nHello World\r\n</code></pre></div></div>
+<div><div><pre><code class="language-text">LMSG orders.new + _INBOX.123 11\r\nHello World\r\n</code></pre></div></div>
+<div><div><pre><code class="language-text">LMSG orders.new | fulfillment 11\r\nHello World\r\n</code></pre></div></div>
+<div><div><pre><code class="language-text">LMSG orders.new + _INBOX.123 fulfillment shipping 11\r\nHello World\r\n</code></pre></div></div>
+<div><div><pre><code class="language-text">LMSG orders.new 22 33\r\nNATS/1.0\r\nFoo: Bar\r\n\r\nHello World\r\n</code></pre></div></div>
+<h2 id="lds">LDS</h2>
+<p>Loop Detection Subjects (LDS) are special subjects used to detect and prevent routing loops in complex leafnode topologies.</p>
+<h3 id="format">Format</h3>
+<div><div><pre><code class="language-text">$LDS.&lt;unique_id&gt;</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>$LDS.</code>: Fixed prefix for loop detection subjects</li>
+<li><code>unique_id</code>: Unique identifier generated per account</li>
+</ul>
+<h3 id="purpose">Purpose</h3>
+<p>When a server receives its own LDS subject through a leafnode connection, it detects a routing loop and takes corrective action:</p>
+<ol>
+<li>Logs the loop detection</li>
+<li>Closes the connection</li>
+<li>Implements a 30-second reconnection delay</li>
+<li>Prevents message loops that could cause infinite routing</li>
+</ol>
+<h3 id="example-2">Example</h3>
+<div><div><pre><code class="language-text">$LDS.5XZq8bFpWH1234567890abcdef</code></pre></div></div>
+<h2 id="compression">Compression</h2>
+<p>Leafnodes support S2 compression to reduce bandwidth usage, especially valuable for WAN connections.</p>
+<h3 id="compression-modes">Compression Modes</h3>
+<ul>
+<li><code>off</code>: No compression</li>
+<li><code>accept</code>: Accept compressed connections but don't initiate</li>
+<li><code>s2_auto</code>: Automatically select compression based on RTT</li>
+<li><code>s2_fast</code>: S2 fast compression (lower CPU, less compression)</li>
+<li><code>s2_better</code>: S2 better compression (higher CPU, more compression)</li>
+<li><code>s2_uncompressed</code>: S2 framing without compression</li>
+</ul>
+<h3 id="negotiation">Negotiation</h3>
+<p>Compression is negotiated through the INFO protocol exchange:</p>
+<ol>
+<li>Both sides advertise compression capabilities in INFO</li>
+<li>Leafnode proposes compression mode in CONNECT</li>
+<li>Hub accepts or modifies the compression mode</li>
+<li>S2 compression begins after successful negotiation</li>
+</ol>
+<h3 id="auto-mode">Auto Mode</h3>
+<p>In <code>s2_auto</code> mode, compression is enabled based on RTT measurements:</p>
+<ul>
+<li>Enabled if RTT &gt; threshold (typically for WAN connections)</li>
+<li>Disabled for low-latency LAN connections</li>
+<li>Dynamically adjusts based on connection characteristics</li>
+</ul>
+<h2 id="websocket-support">WebSocket Support</h2>
+<p>Leafnodes can connect over WebSocket for firewall traversal and browser compatibility.</p>
+<h3 id="websocket-path">WebSocket Path</h3>
+<div><div><pre><code class="language-text">ws://server:port/leafnode</code></pre></div></div>
+<h3 id="features">Features</h3>
+<ul>
+<li>Standard leafnode protocol over WebSocket frames</li>
+<li>Optional per-message-deflate compression</li>
+<li>Frame masking (can be disabled for performance)</li>
+<li>Same authentication and protocol messages</li>
+</ul>
+<h3 id="example-connection-url">Example Connection URL</h3>
+<div><div><pre><code class="language-text">ws://hub.example.com:443/leafnode</code></pre></div></div>
+<h2 id="permission-and-security">Permission and Security</h2>
+<h3 id="account-binding">Account Binding</h3>
+<p>Leafnodes can be bound to specific accounts using <code>remote_account</code> in CONNECT:</p>
+<ul>
+<li>Messages are scoped to the bound account</li>
+<li>Prevents cross-account message leakage</li>
+<li>Enables multi-tenant edge deployments</li>
+</ul>
+<h3 id="permission-violations">Permission Violations</h3>
+<p>When permissions are violated:</p>
+<ul>
+<li>Connection is closed with <code>-ERR 'Permissions Violation'</code></li>
+<li>30-second reconnection delay is enforced</li>
+<li>Violations are logged for security auditing</li>
+</ul>
+<h3 id="authentication-methods">Authentication Methods</h3>
+<p>Leafnodes support multiple authentication methods:</p>
+<ul>
+<li>NKey with signature</li>
+<li>JWT with NKey</li>
+<li>Username/Password</li>
+<li>Auth Token</li>
+<li>TLS client certificates</li>
+</ul>
+<h2 id="ping-pong">PING/PONG</h2>
+<p><code>PING</code> and <code>PONG</code> implement keep-alive between leafnode and hub. Servers send <code>PING</code> messages at configurable intervals. Failure to respond with <code>PONG</code> results in connection termination.</p>
+<h3 id="syntax-5">Syntax</h3>
+<div><div><pre><code class="language-text">PING\r\n</code></pre></div></div>
+<div><div><pre><code class="language-text">PONG\r\n</code></pre></div></div>
+<h2 id="err">-ERR</h2>
+<p>The <code>-ERR</code> message indicates a protocol, authorization, or runtime error. Most errors result in the leafnode connection being closed.</p>
+<h3 id="syntax-6">Syntax</h3>
+<div><div><pre><code class="language-text">-ERR &lt;error message&gt;</code></pre></div></div>
+<h3 id="common-leafnode-errors">Common Leafnode Errors</h3>
+<ul>
+<li><code>-ERR 'Permissions Violation'</code>: Subject/publish permission denied</li>
+<li><code>-ERR 'Loop Detected'</code>: Routing loop detected via LDS</li>
+<li><code>-ERR 'Authorization Violation'</code>: Authentication/authorization failure</li>
+<li><code>-ERR 'Maximum Payload Exceeded'</code>: Message exceeds max_payload</li>
+<li><code>-ERR 'Invalid Subject'</code>: Malformed subject in protocol message</li>
+<li><code>-ERR 'Leafnode Not Allowed'</code>: Server not configured for leafnodes</li>
+</ul></main>

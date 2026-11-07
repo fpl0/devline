@@ -1,0 +1,55 @@
+<main><header><h1>Use Identity Provider Initiated Logon</h1></header>
+<p>This topic tells you how to set up Identity Provider Initiated Logon using UAA as the authorization
+server and a sample Node.js web application as a web portal.</p>
+<p>The web portal acts as an identity provider, allowing users to access the management UI with a
+single click by using an OAuth 2.0 token previously obtained from the authorization server.</p>
+<div><div><pre><code class="language-text">      | Idp (for example, UAA) |
+            /\
+             | 2. get token
+             |
+     | Web app Portal |  ---------&gt; | RabbitMQ | &lt;---+
+           /\                  |         |           | 4. 302 direct to overview page
+            |                  |         |           |    with cookie
+            |                  |         +-----------+
+            |                  |
+    1. user requests             3. POST https://rabbitmq:15671/login
+          access                    with access_token
+       to the management UI
+</code></pre></div></div>
+<p>Access the <a href="/docs/4.3/management">management UI</a> from a browser.</p>
+<h2 id="prerequisites-to-follow-this-guide">Prerequisites to follow this guide</h2>
+<ul>
+<li>Docker</li>
+<li>A local clone of a
+<a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/tree/next">GitHub repository</a> for branch
+<code>next</code> that contains all the configuration files and scripts used on this example</li>
+</ul>
+<div class="admonition info"><div class="admonition-title">info</div><div><p>The commands used to start UAA, RabbitMQ, and the web portal automatically generate their x.509
+certificates required for HTTPS.</p></div></div>
+<h2 id="deploy-uaa">Deploy UAA</h2>
+<p>To start UAA run:</p>
+<div><div><pre><code class="language-bash">make start-uaa</code></pre></div></div>
+<p>To check if UAA is running, run:</p>
+<div><div><pre><code class="language-bash">docker ps | grep uaa</code></pre></div></div>
+<h2 id="deploy-rabbitmq">Deploy RabbitMQ</h2>
+<p>To start RabbitMQ, run:</p>
+<div><div><pre><code class="language-bash">export MODE=portal
+OAUTH_PROVIDER=uaa make start-rabbitmq</code></pre></div></div>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>Ensure that RabbitMQ is deployed with the version you expect by searching for
+<code>Running RabbitMQ (&lt;image&gt;:&lt;image_tag&gt;) with</code> in <code>docker logs rabbitmq</code>.</p></div></div>
+<div class="admonition info"><div class="admonition-title">info</div><div><p>To start one specific version of RabbitMQ, run this command instead:</p><div><div><pre><code class="language-bash">MODE=portal OAUTH_PROVIDER=uaa IMAGE=rabbitmq IMAGE_TAG=&lt;YourVersion&gt; make start-rabbitmq</code></pre></div></div></div></div>
+<h2 id="deploy-portal">Deploy Portal</h2>
+<p>To start Portal, run:</p>
+<div><div><pre><code class="language-bash">make start-portal</code></pre></div></div>
+<h2 id="verify-management-ui-flows">Verify management UI flows</h2>
+<p>To verify management UI flows:</p>
+<ol>
+<li>Go to the portal <code>https://localhost:3000</code>.</li>
+<li>Click the button <strong><a href="https://localhost:15671">https://localhost:15671</a> for rabbit_idp_user</strong>, which redirects you to the
+RabbitMQ management UI fully authenticated.</li>
+</ol>
+<div class="admonition info"><div class="admonition-title">info</div><div><p><code>rabbit_idp_user</code> is the OAuth Client the portal uses to obtain an access token to test this flow.
+This OAuth Client is declared in UAA.</p></div></div>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>When you visit <code>https://localhost:3000</code> you get a browser warning because of the error
+<code>net::ERR_CERT_AUTHORITY_INVALID</code>. This is because the portal is using a self-signed certificate.
+Click on <code>Proceed to localhost (unsafe)</code> to accept it.</p></div></div></main>

@@ -1,0 +1,182 @@
+<main><header><h1>Altering stream state</h1></header>
+<p>Retention limits remove messages for you, on a schedule the server runs. Sometimes you need to remove something by hand:
+one bad message a buggy producer wrote, or every message in a stream
+you're clearing out for a fresh test run.</p>
+<p>JetStream gives you two manual tools for that. You can delete a single
+message, or purge many at once. Both change what the stream holds without
+touching its config or its consumers, and both leave the sequence
+numbers alone. How the numbers behave is worth understanding before you
+use either tool.</p>
+<h2 id="delete-one-message">Delete one message</h2>
+<p>Every stored message has a sequence number, the one the <code>PubAck</code> gave
+back when you published it. To remove a specific message, give the server
+that number:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Remove one stored message by its sequence number. `nats stream rmm` securely
+# erases it: the server overwrites the stored bytes so the old contents can't
+# be read back. It asks for confirmation first; add --force to skip the prompt.
+nats stream rmm ORDERS 2</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Remove the message stored at sequence 2 from ORDERS. This marks
+// it erased but leaves the stored bytes in place until they are
+// later overwritten, which is cheap.
+s = js_DeleteMsg(js, "ORDERS", 2, NULL, &amp;jerr);
+if (s == NATS_OK)
+    printf("Deleted message 2 from ORDERS\n");
+
+// For a message that held data it shouldn't have, use js_EraseMsg
+// instead: the server overwrites the stored bytes right away, the
+// way `nats stream rmm` does, so the old contents can't be read
+// back. It is slower for it.
+//
+//     s = js_EraseMsg(js, "ORDERS", 2, NULL, &amp;jerr);</code></pre></div></div>
+<p><code>rmm</code> is "remove message." It takes the stream and the sequence to drop,
+and it asks for confirmation first (<code>Really remove message 2 from Stream ORDERS</code>). Add <code>--force</code> to skip the prompt in a script.</p>
+<p><code>nats stream rmm</code> securely removes the message: the server overwrites the
+stored bytes so the old contents can't be read back. That's the right
+default for a message that held data it shouldn't have, such as a card
+number a producer logged by mistake.</p>
+<div></div>
+<p>From a client library you choose that cost yourself. <code>DeleteMsg(seq)</code>
+marks the message erased but leaves its bytes in place until they're
+later overwritten, which is cheap. <code>SecureDeleteMsg(seq)</code> overwrites them
+right away the way the CLI does, and is slower for it. The only difference
+the server sees is a single <code>no_erase</code> flag on the delete request; the
+full request is in <a href="/reference/jetstream/api/stream/msg-delete">Reference</a>.</p>
+<h2 id="purge-the-stream">Purge the stream</h2>
+<p>To clear a whole stream at once, purge it:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Clear every message from ORDERS. The stream itself stays — same config, same
+# consumers, same name — only the messages go. It asks for confirmation first;
+# add --force to skip the prompt in a script.
+nats stream purge ORDERS</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Clear every message from ORDERS. The stream itself stays -- same
+// config, same consumers, same name -- only the messages go.
+s = js_PurgeStream(js, "ORDERS", NULL, &amp;jerr);
+if (s == NATS_OK)
+    printf("Purged ORDERS\n");</code></pre></div></div>
+<p>That removes every message in <code>ORDERS</code> and reports how many it dropped
+(<code>Purged N messages from ORDERS</code>, for whatever the stream held). Like
+<code>rmm</code>, it asks for confirmation first; add <code>--force</code> to skip the prompt in
+a script. The stream itself stays: same config, same consumers, same
+name — only the messages are removed. (Don't confuse it with
+<code>nats stream rm ORDERS</code>, which deletes the whole stream, config and
+consumers included.)</p>
+<div></div>
+<p>A bare purge removes everything. Three optional flags narrow it:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# A bare purge removes everything. Three optional flags narrow it.
+
+# Remove only the shipped events, leave everything else.
+nats stream purge ORDERS --subject orders.shipped
+
+# Remove everything up to but not including sequence 100 (keep 100 onward).
+nats stream purge ORDERS --seq 100
+
+# Keep only the most recent 50 messages.
+nats stream purge ORDERS --keep 50</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// A bare purge removes everything. Three optional purge options
+// narrow it.
+jsOptions o;
+
+// Remove only the shipped events, leave everything else.
+jsOptions_Init(&amp;o);
+o.Stream.Purge.Subject = "orders.shipped";
+s = js_PurgeStream(js, "ORDERS", &amp;o, &amp;jerr);
+
+// Remove everything up to but not including sequence 100
+// (keep 100 onward).
+jsOptions_Init(&amp;o);
+o.Stream.Purge.Sequence = 100;
+if (s == NATS_OK)
+    s = js_PurgeStream(js, "ORDERS", &amp;o, &amp;jerr);
+
+// Keep only the most recent 50 messages.
+jsOptions_Init(&amp;o);
+o.Stream.Purge.Keep = 50;
+if (s == NATS_OK)
+    s = js_PurgeStream(js, "ORDERS", &amp;o, &amp;jerr);</code></pre></div></div>
+<p><code>--subject</code> limits the purge to one subject. <code>--seq</code> counts from the
+bottom (drop everything older than a sequence); <code>--keep</code> counts from the
+top (retain a number of the newest). You can't use <code>--seq</code> and <code>--keep</code>
+together, since one works from each end, but either one can pair with
+<code>--subject</code> to count within a single subject.</p>
+<h2 id="sequence-numbers-never-backfill">Sequence numbers never backfill</h2>
+<p>Delete a message or purge a range and you leave a hole. Sequence <code>2</code> is
+gone; <code>1</code> and <code>3</code> stay exactly where they were. The server does not
+renumber <code>3</code> down to close the gap, and it never hands <code>2</code> out again to a
+future message.</p>
+<p>This is the rule the <a href="/learn/jetstream/publishing">publishing page</a>
+promised: sequence numbers only ever climb. After a full purge of
+<code>ORDERS</code>, the next message you publish doesn't start over at <code>1</code>. It gets
+the number after the last one the stream ever held, because purge sets the
+stream's first sequence to one past its last.</p>
+<div></div>
+<p>Consumers handle the gaps without trouble. A consumer reading <code>ORDERS</code>
+skips the sequences that are gone; it never blocks waiting for a deleted
+message, and a missing <code>2</code> is not redelivered.</p>
+<p>This means a stored sequence is a stable address. If you saved "order
+<code>ord_8w2k</code> is at sequence 2" alongside your business record, that pointer
+either still points at the same message or points at nothing. It never
+points at a different message, because <code>2</code> never gets reused.</p>
+<h2 id="manual-removal-versus-automatic">Manual removal versus automatic</h2>
+<p>Everything on this page is manual: you ran a command to remove something
+deliberately. The server also removes messages on its own, and that lives
+on two other pages:</p>
+<ul>
+<li><a href="/learn/jetstream/shaping-the-stream">Shaping the stream</a> — <code>MaxAge</code>,
+<code>MaxBytes</code>, <code>MaxMsgs</code>, and discard policy trim the stream to stay within
+its limits.</li>
+<li><a href="/learn/jetstream/message-ttl">Per-message TTL</a> — a single message
+expires on its own clock.</li>
+</ul>
+<p>Use delete and purge for one-off removals. Use limits and TTL for the
+steady state.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Some ways manual removal goes wrong.</p>
+<p><strong><code>purge</code> empties the stream; <code>rm</code> destroys it.</strong> The two commands look
+similar but do different things. <code>nats stream purge ORDERS</code> removes the
+messages and leaves the stream ready for more. <code>nats stream rm ORDERS</code>
+deletes the stream itself, including its config and every consumer. Use
+<code>purge</code> when you only mean to clear messages; don't type <code>rm</code> for that,
+and read the confirmation prompt before answering it.</p>
+<p><strong>A deleted sequence is gone, not renumbered.</strong> Code that assumes messages
+run <code>1..N</code> with no holes breaks the first time anyone removes one. Do
+treat a sequence as a stable address that may or may not still hold a
+message; don't work out "the next message" as <code>count + 1</code>, and don't read
+a message count as the highest sequence.</p>
+<p><strong>A purge can't be undone.</strong> The messages are gone the moment the command
+returns. On a stream that matters, set <code>DenyPurge</code> in its config so a
+stray call can't wipe it, and keep a
+<a href="/learn/jetstream/mirrors-and-sources">mirror</a> if the data is worth
+recovering. Setting <code>DenyPurge</code> is permanent: the server refuses any later
+update that turns it off, so the only way to purge that stream again is to
+delete and recreate it. Try it on a throwaway stream, not <code>ORDERS</code>.</p>
+<div><div><pre><code class="language-bash"># Guard a stream so purge requests are refused
+nats stream add GUARDED --subjects "guarded.&gt;" --defaults
+nats stream edit GUARDED --deny-purge
+
+# A purge now fails instead of silently emptying the stream
+nats stream purge GUARDED</code></pre></div></div>
+<h2 id="where-you-are">Where you are</h2>
+<p>You can now remove messages from <code>ORDERS</code> by hand: one at a time with
+<code>nats stream rmm</code>, or many at once with <code>nats stream purge</code> and its
+<code>--subject</code>, <code>--seq</code>, and <code>--keep</code> flags. You saw that removal leaves gaps
+the server never fills back in, and that the sequence counter only ever
+climbs.</p>
+<p>If you ran a full <code>nats stream purge ORDERS</code> above, the stream is empty
+now; republish the orders from the <a href="/learn/jetstream/publishing">publishing
+page</a> to repopulate <code>ORDERS</code> for the next
+page. The new orders get fresh, higher sequence numbers, not <code>1</code>, <code>2</code>,
+<code>3</code> — purge left the counter where it was, so publishing continues from
+one past the stream's last sequence. Everything else about the stream, its
+config and its consumers, is exactly as the previous page left it.</p>
+<h2 id="whats-next">What's next</h2>
+<p>Manual and automatic removal are both covered, so the stream's contents
+are fully in your hands on a single server. The next page asks what
+happens to all of it when the server itself goes away.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/api/stream/purge">Reference → Stream Purge</a> — the
+exact purge request, <code>filter</code>, <code>seq</code>, and <code>keep</code>.</li>
+<li><a href="/reference/jetstream/api/stream/msg-delete">Reference → Delete Message</a>
+— the delete request and the <code>no_erase</code> flag.</li>
+<li><a href="/learn/jetstream/shaping-the-stream">Shaping the stream</a> — the limits
+that remove messages without you asking.</li>
+</ul></main>

@@ -1,0 +1,121 @@
+# Filter by geo polygon
+
+> Filter search results within a custom polygon shape defined by a series of coordinate points.
+
+The `_geoPolygon` filter returns documents located within a custom polygon shape. Use this for irregular geographic boundaries like delivery zones, school districts, or custom sales territories that cannot be represented by a simple circle or rectangle.
+
+## Syntax
+
+```
+_geoPolygon([lat1, lng1], [lat2, lng2], [lat3, lng3], ...)
+```
+
+| Parameter | Type | Description |
+| - | - | - |
+| `[lat, lng]` | Float pair | A vertex of the polygon |
+
+You must provide **at least 3 coordinate pairs** to define a valid polygon. Meilisearch automatically closes the polygon by connecting the last point back to the first, so you do not need to repeat the starting coordinate.
+
+## Filter by polygon
+
+The following example defines a triangular delivery zone in central Milan and searches for restaurants within it:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/restaurants/search' \
+  -H 'Content-type:application/json' \
+  --data-binary '{
+    "filter": "_geoPolygon([45.490, 9.170], [45.490, 9.210], [45.450, 9.190])"
+  }'
+```
+
+This creates a triangle with vertices at:
+
+* Northwest corner: 45.490, 9.170
+* Northeast corner: 45.490, 9.210
+* South center: 45.450, 9.190
+
+Meilisearch returns all documents located within this triangular area:
+
+```json
+{
+  "hits": [
+    {
+      "id": 1,
+      "name": "Nàpiz' Milano",
+      "address": "Viale Vittorio Veneto, 30, 20124, Milan, Italy",
+      "type": "pizza",
+      "rating": 9,
+      "_geo": {
+        "lat": 45.4777599,
+        "lng": 9.1967508
+      },
+      "_geoDistance": 0
+    },
+    {
+      "id": 3,
+      "name": "Artico Gelateria Tradizionale",
+      "address": "Via Dogana, 1, 20123 Milan, Italy",
+      "type": "ice cream",
+      "rating": 10,
+      "_geo": {
+        "lat": 45.4632046,
+        "lng": 9.1719421
+      },
+      "_geoDistance": 0
+    }
+  ]
+}
+```
+
+## Define complex shapes
+
+You can use as many points as needed to define complex boundaries. For example, a five-sided delivery zone:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/restaurants/search' \
+  -H 'Content-type:application/json' \
+  --data-binary '{
+    "filter": "_geoPolygon([45.495, 9.175], [45.495, 9.205], [45.475, 9.215], [45.450, 9.195], [45.460, 9.165])"
+  }'
+```
+
+> [!WARNING]
+>
+> Meilisearch does not support polygons that cross the 180th meridian (transmeridian shapes). If your polygon crosses this line, split it into two separate polygons and query each one individually.
+
+## Combine with other filters
+
+You can combine `_geoPolygon` with any other filter using `AND` and `OR` operators:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/restaurants/search' \
+  -H 'Content-type:application/json' \
+  --data-binary '{
+    "filter": "_geoPolygon([45.490, 9.170], [45.490, 9.210], [45.450, 9.190]) AND type = pizza"
+  }'
+```
+
+You can also combine `_geoPolygon` with `_geoRadius` or `_geoBoundingBox` for more precise geographic targeting:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/restaurants/search' \
+  -H 'Content-type:application/json' \
+  --data-binary '{
+    "filter": "_geoPolygon([45.490, 9.170], [45.490, 9.210], [45.450, 9.190]) AND _geoRadius(45.472735, 9.184019, 1000)"
+  }'
+```
+
+> [card] [Geo search overview](https://www.meilisearch.com/docs/capabilities/geo_search/getting_started)
+>
+> Learn about all geo search capabilities in Meilisearch.
+
+> [card] [Search API reference](https://www.meilisearch.com/docs/reference/api/search/search-with-post)
+>
+> Full reference for the search endpoint and filter parameter.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

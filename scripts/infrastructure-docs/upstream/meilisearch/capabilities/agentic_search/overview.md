@@ -1,0 +1,91 @@
+# What is agentic search?
+
+> Agentic search lets LLMs query your data using natural language to build AI agents and conversational interfaces that generate answers grounded in your indexed content.
+
+> [!WARNING]
+>
+> **Agentic search is still an early, fast-moving space, and the agents built on top of it can hallucinate.** LLMs may occasionally produce inaccurate or misleading answers even when the retrieved source documents are correct. Monitor responses closely in production, follow the [hallucination reduction guide](https://www.meilisearch.com/docs/capabilities/agentic_search/advanced/reduce_hallucination), and configure [guardrails](https://www.meilisearch.com/docs/capabilities/agentic_search/how_to/configure_guardrails) to minimize this risk.
+
+Agentic search covers any natural-language search experience where a Large Language Model (LLM) decides when and how to query your data, then uses the results to answer a question. Meilisearch acts as the retrieval layer when implementing Retrieval Augmented Generation (RAG): a fast, relevant search that an agent can call as a tool.
+
+With proper configuration, such as [system prompt engineering](https://www.meilisearch.com/docs/capabilities/agentic_search/advanced/reduce_hallucination#system-prompt-engineering) and [guardrails](https://www.meilisearch.com/docs/capabilities/agentic_search/how_to/configure_guardrails), you can help keep responses based on your indexed data rather than the LLM's general knowledge.
+
+This is similar to how [Perplexity](https://www.perplexity.ai/) works: every answer comes with source documents so users can verify the information. Meilisearch brings the same pattern to your own data and your own agents.
+
+## Use cases
+
+Agentic search covers a range of natural-language search experiences, from AI agents that call Meilisearch as a tool to conversational chat interfaces:
+
+### Agents with a search tool
+
+Give any AI agent or LLM application the ability to query your Meilisearch indexes as part of a larger task, tool call, or multi-step reasoning process. The agent decides when to search, what to search for, and how to use the results.
+
+**Example**: A support agent looks up your product catalog before answering a compatibility question, then combines the results with its own reasoning.
+
+### RAG pipelines
+
+Integrate Meilisearch as the retrieval layer in a broader RAG architecture that your agent or application controls. Meilisearch handles hybrid retrieval, while your code decides how to use the results and when to generate a response.
+
+**Example**: A product recommendation engine that retrieves matching products via Meilisearch, then uses a custom prompt to generate personalized suggestions.
+
+### Multi-turn chat
+
+Build a full conversational interface where users ask follow-up questions and the agent maintains context across the conversation. This is ideal for knowledge bases, customer support, and documentation search.
+
+**Example**: A user asks "What models do you support?", then follows up with "Which one is the fastest?" without restating the context.
+
+### One-shot answer summarization
+
+Generate a single, concise answer to a user's question without maintaining conversation history. This is useful when you want to display a summarized answer alongside traditional search results.
+
+**Example**: A user searches "How do I reset my password?" and gets a direct answer synthesized from your help articles, displayed above the regular search results.
+
+## How it works
+
+Here is how a typical agentic search workflow looks like:
+
+1. **Query understanding**: The LLM transforms the user's natural language question into optimized search parameters
+2. **Retrieval**: Search your indexes to find the most relevant documents using hybrid search for better relevancy
+3. **Answer generation**: The LLM generates a response using only the retrieved documents as context
+4. **Source attribution**: Every response can include references to the source documents used to generate the answer
+
+Depending on your application needs, you may give more or less autonomy to the LLM at each given step. Stricter control makes for more predictable behavior (for example, translating a question into search parameters), while looser control allows the model to reason and find more creative solutions (for example, multi-hop reasoning).
+
+## Implementation strategies
+
+### AI SDK (recommended)
+
+[`@meilisearch/ai-sdk`](https://github.com/meilisearch/ai-sdk) provides ready-made search tools for the [Vercel AI SDK](https://ai-sdk.dev), so any agent or LLM application can call Meilisearch directly. This is the recommended way to build agentic and conversational search on top of Meilisearch for production applications.
+
+This approach provides search as native agent tools: you get static typing, in-process execution, and full control over each tool's description, schema, and search parameters (filters, sorting, hybrid search). This approach allows for the most advanced retrieval configuration.
+
+Get started with the [agentic search getting started guide](https://www.meilisearch.com/docs/capabilities/agentic_search/getting_started).
+
+### Model Context Protocol (MCP)
+
+Meilisearch has a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server. It exposes four read-only search tools (`listIndexes`, `describeIndex`, `searchInIndexes`, and `facetSearch`) that an MCP client can call.
+
+MCP is the fastest way to get an agent talking to your data. It is a good fit when you want to experiment, or when you can add an MCP server to an agent but cannot change the agent's code.
+
+This approach avoids writing tool code: the agent discovers your indexes and learns how to search them. The trade-off is control: the agent sees the full search API instead of a tool scoped to your use case, and tools are loaded dynamically, so they are not typed.
+
+To connect an MCP client, follow the [MCP guide](https://www.meilisearch.com/docs/getting_started/integrations/mcp)
+
+### Chats API (experimental)
+
+The experimental [`/chats` route](https://www.meilisearch.com/docs/reference/api/chats/request-a-chat-completion) consolidates retrieval, context management, and generation into a single, engine-managed endpoint. Use it only if you specifically need Meilisearch to handle the LLM call for you.
+
+See the [Chats API guide](https://www.meilisearch.com/docs/capabilities/agentic_search/advanced/chats_api) for setup, chat patterns, streaming, and tools. Consult the [chat completions API reference](https://www.meilisearch.com/docs/reference/api/chats/request-a-chat-completion) for the full list of supported parameters.
+
+### Choose an approach
+
+| Your situation | Use |
+| - | - |
+| You are building an application for production, and you want typed tools and control over search parameters | [AI SDK](https://www.meilisearch.com/docs/capabilities/agentic_search/getting_started) |
+| You want something working fast, or you are experimenting | [MCP](https://www.meilisearch.com/docs/getting_started/integrations/mcp) |
+| You can configure an MCP server in your agent but cannot edit the agent's code | [MCP](https://www.meilisearch.com/docs/getting_started/integrations/mcp) |
+
+Apps built with the Vercel AI SDK can also connect to tools provided by MCP. So you can start with MCP and switch to `@meilisearch/ai-sdk` tools when you need more control.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

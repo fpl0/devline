@@ -1,0 +1,28 @@
+<main>
+		
+		<h1>SpamAssassin</h1>
+		<p>Mailpit can optionally integrate with <a href="https://spamassassin.apache.org/">SpamAssassin</a> (both version 3 and 4) to display the “spamminess” of messages.
+This is an opt-in feature that must be enabled when starting Mailpit, and requires either a running instance of SpamAssassin or, alternatively, the use of the free hosted <a href="https://spamcheck.postmarkapp.com/">Postmark service</a> (see below).
+Mailpit can also integrate with <a href="../rspamd/">Rspamd</a>, either instead of or alongside SpamAssassin.</p>
+<h2 id="enabling-spamassassin-integration">Enabling SpamAssassin integration</h2>
+<p>To enable this feature with a self-hosted SpamAssassin instance, you must:</p>
+<ol>
+<li>Be running an instance of SpamAssassin with an open port (default <code>783</code>) that Mailpit can connect to.</li>
+<li>Start Mailpit with either the <code>--enable-spamassassin &lt;ip:port&gt;</code> flag or set the environment variable <code>MP_ENABLE_SPAMASSASSIN=&lt;ip:port&gt;</code> to match the IP (or hostname) and port of the running SpamAssassin instance.</li>
+</ol>
+<p>Alternatively, if you prefer not to run your own SpamAssassin instance, Mailpit can integrate with the free hosted <a href="https://spamcheck.postmarkapp.com/">Postmark service</a>.
+To enable this, use <code>postmark</code> without any port: <code>--enable-spamassassin postmark</code> or set the environment variable <code>MP_ENABLE_SPAMASSASSIN=postmark</code>.</p>
+<h2 id="setting-up-spamassassin">Setting up SpamAssassin</h2>
+<p>For your convenience, you can use a lightweight pre-configured <a href="https://hub.docker.com/r/axllent/spamassassin">Docker image</a> of SpamAssassin (assuming you use Docker).
+This Docker image disables all DNS testing (by default), which greatly improves performance, but DNS testing can be enabled (see the Docker image documentation).</p>
+<p>If you are installing SpamAssassin yourself via other means, refer to the relevant installation documentation not provided here.</p>
+<h2 id="notes-on-using-postmark">Notes on using Postmark</h2>
+<p>Your email data is <a href="https://spamcheck.postmarkapp.com/doc/">posted</a> (over HTTPS) to their service for every check.
+Mailpit has no control over this service, and this integration (i.e., privacy) is provided purely for your convenience (see their <a href="https://postmarkapp.com/terms-of-service-spamcheck">terms</a>).</p>
+<p>Postmark can also be fairly slow, as the service includes DNS and rDNS (reverse DNS) tests for all IP addresses contained within the message (reputation), which can take a few seconds to run for each message.</p>
+
+
+		
+		
+		
+	</main>

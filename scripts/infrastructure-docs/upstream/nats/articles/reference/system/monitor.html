@@ -1,0 +1,139 @@
+<main><header><h1>Server Monitoring</h1></header>
+<p>Server monitoring endpoints provide detailed information about the NATS server state, performance metrics, and operational health.</p>
+<h2 id="overview">Overview</h2>
+<p>NATS Server exposes HTTP monitoring endpoints that return JSON-formatted data about server operations. These endpoints are essential for:</p>
+<ul>
+<li>Health checks and liveness probes</li>
+<li>Performance monitoring</li>
+<li>Troubleshooting issues</li>
+<li>Capacity planning</li>
+<li>Integration with monitoring systems</li>
+</ul>
+<h2 id="available-endpoints">Available Endpoints</h2>
+<h3 id="varz"><a href="/reference/system/monitor/varz">Varz</a></h3>
+<p>General server information including:</p>
+<ul>
+<li>Server version and configuration</li>
+<li>Current connections and subscriptions</li>
+<li>Message rates and data throughput</li>
+<li>Memory and CPU usage</li>
+<li>Cluster membership information</li>
+</ul>
+<h3 id="connz"><a href="/reference/system/monitor/connz">Connz</a></h3>
+<p>Detailed connection information for all clients connected to the server:</p>
+<ul>
+<li>Client connection details</li>
+<li>Connection state and statistics</li>
+<li>IP addresses and ports</li>
+<li>Subscription counts per connection</li>
+</ul>
+<h3 id="subsz"><a href="/reference/system/monitor/subsz">Subsz</a></h3>
+<p>Subscription routing details:</p>
+<ul>
+<li>Active subscriptions</li>
+<li>Queue group information</li>
+<li>Subscription statistics</li>
+<li>Filtering and pagination options</li>
+</ul>
+<h3 id="routez"><a href="/reference/system/monitor/routez">Routez</a></h3>
+<p>Cluster route information:</p>
+<ul>
+<li>Route connections between cluster nodes</li>
+<li>Route statistics and health</li>
+<li>Cluster topology information</li>
+</ul>
+<h3 id="gatewayz"><a href="/reference/system/monitor/gatewayz">Gatewayz</a></h3>
+<p>Gateway connections for superclusters:</p>
+<ul>
+<li>Gateway connection status</li>
+<li>Remote gateway information</li>
+<li>Traffic statistics between gateways</li>
+</ul>
+<h3 id="leafz"><a href="/reference/system/monitor/leafz">Leafz</a></h3>
+<p>Leafnode connections:</p>
+<ul>
+<li>Leafnode server connections</li>
+<li>Remote leafnode details</li>
+<li>Connection statistics</li>
+</ul>
+<h3 id="accountz"><a href="/reference/system/monitor/accountz">Accountz</a></h3>
+<p>Account information:</p>
+<ul>
+<li>Account configuration and limits</li>
+<li>Connection and subscription counts per account</li>
+<li>Import/export configurations</li>
+</ul>
+<h3 id="accstatz"><a href="/reference/system/monitor/accstatz">Accstatz</a></h3>
+<p>Account statistics:</p>
+<ul>
+<li>Detailed account usage statistics</li>
+<li>Message and byte counts</li>
+<li>Connection metrics per account</li>
+</ul>
+<h3 id="jsz"><a href="/reference/system/monitor/jsz">JSz</a></h3>
+<p>JetStream information:</p>
+<ul>
+<li>Stream and consumer details</li>
+<li>JetStream cluster status</li>
+<li>Memory and storage usage</li>
+</ul>
+<h3 id="healthz"><a href="/reference/system/monitor/healthz">Healthz</a></h3>
+<p>Health check endpoint:</p>
+<ul>
+<li>Server health status</li>
+<li>Suitable for liveness/readiness probes</li>
+<li>Simple OK/Error responses</li>
+</ul>
+<h3 id="statsz"><a href="/reference/system/monitor/statsz">Statsz</a></h3>
+<p>Server statistics summary:</p>
+<ul>
+<li>Aggregated server metrics</li>
+<li>Performance statistics</li>
+<li>System resource usage</li>
+</ul>
+<h3 id="ipqueuesz"><a href="/reference/system/monitor/ipqueuesz">IPQueuesz</a></h3>
+<p>IP queue information:</p>
+<ul>
+<li>Client IP-based queue statistics</li>
+<li>Connection queuing metrics</li>
+</ul>
+<h3 id="idz"><a href="/reference/system/monitor/idz">Idz</a></h3>
+<p>Server identification:</p>
+<ul>
+<li>Server identity information</li>
+<li>Unique server identifiers</li>
+</ul>
+<h3 id="profilez"><a href="/reference/system/monitor/profilez">Profilez</a></h3>
+<p>Server profiling data:</p>
+<ul>
+<li>CPU and memory profiling endpoints</li>
+<li>Performance debugging information</li>
+</ul>
+<h3 id="raftz"><a href="/reference/system/monitor/raftz">Raftz</a></h3>
+<p>Raft consensus information:</p>
+<ul>
+<li>JetStream Raft cluster details</li>
+<li>Leader election status</li>
+<li>Raft log information</li>
+</ul>
+<h2 id="access-configuration">Access Configuration</h2>
+<p>Monitoring endpoints are configured in the server configuration file:</p>
+<div><div><pre><code class="language-text">http_port: 8222</code></pre></div></div>
+<p>Endpoints are then accessible at:</p>
+<div><div><pre><code class="language-text">http://localhost:8222/varz</code></pre></div></div>
+<h2 id="security-considerations">Security Considerations</h2>
+<ul>
+<li>Use authentication to protect monitoring endpoints</li>
+<li>Consider TLS for encrypted monitoring traffic</li>
+<li>Limit access to monitoring endpoints via firewall rules</li>
+<li>Be aware that some endpoints may expose sensitive information</li>
+</ul>
+<h2 id="integration">Integration</h2>
+<p>Monitoring endpoints integrate well with:</p>
+<ul>
+<li>Prometheus for metrics collection</li>
+<li>Grafana for visualization</li>
+<li>Kubernetes liveness/readiness probes</li>
+<li>Custom monitoring solutions</li>
+<li>Alert managers</li>
+</ul></main>

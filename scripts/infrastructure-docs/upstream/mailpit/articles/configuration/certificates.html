@@ -1,0 +1,26 @@
+<main>
+		
+		<h1>TLS certificates</h1>
+		<p>While services such as <a href="https://letsencrypt.org/">Let’s Encrypt</a> allow you to generate authenticated TLS (HTTPS) certificates for publicly accessible domain names you manage, it is sometimes necessary to generate self-signed certificates for testing purposes.</p>
+<p>Self-signed certificates are just as secure, but they are not signed by an official authority, so web browsers and email clients will display warnings (you will have to allow the insecure connection/certificate).</p>
+<p>It is important to set the “Common Name” (when asked) to the same hostname you are using to access the Mailpit service (e.g., <code>localhost</code>).</p>
+<p>The following command will generate a self-signed certificate and key (both needed for Mailpit) which is valid for 10 years:</p>
+<div><pre><code class="language-shell"><span><span>openssl req -x509 -newkey rsa:4096 <span>\
+</span></span></span><span><span>-nodes -keyout key.pem -out cert.pem <span>\
+</span></span></span><span><span>-sha256 -days <span>3650</span>
+</span></span></code></pre></div><p>Additionally, some SMTP clients may require the SAN (Subject Alt Name) to also match the hostname you are using to access Mailpit in your client. In this case, append <code>-addext "subjectAltName = DNS:&lt;hostname&gt;"</code> to the command above, e.g.:</p>
+<div><pre><code class="language-shell"><span><span>openssl req -x509 -newkey rsa:4096 <span>\
+</span></span></span><span><span>-nodes -keyout key.pem -out cert.pem <span>\
+</span></span></span><span><span>-sha256 -days <span>3650</span> <span>\
+</span></span></span><span><span>-addext <span>"subjectAltName = DNS:localhost"</span>
+</span></span></code></pre></div><h2 id="auto-generate-self-signed-certificates">Auto-generate self-signed certificates</h2>
+<p>Mailpit allows you to automatically generate self-signed certificates by using the following comma-separated syntax when setting the TLS certificates for SMTP, HTTP and POP3: <code>sans:&lt;hostname&gt;[,&lt;another-hostname&gt;....]</code></p>
+<p>You must use the same sans configuration for both the public and private keys, for example:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --smtp-tls-cert sans:localhost --smtp-tls-key sans:localhost
+</span></span></code></pre></div><p>It is important to note that these auto-generated certificates will update every time Mailpit is restarted.</p>
+
+
+		
+		
+		
+	</main>

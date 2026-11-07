@@ -1,0 +1,73 @@
+<main><header><h1>Consumer Prefetch</h1></header>
+<h2 id="overview">Overview</h2>
+<p>Consumer prefetch is an extension to the <a href="/docs/4.3/confirms">channel prefetch mechanism</a>.</p>
+<p>AMQP 0-9-1 specifies the <code>basic.qos</code> method to make it possible to
+<a href="/docs/4.3/confirms">limit the number of unacknowledged messages</a> on a channel (or
+connection) when consuming (aka "prefetch count"). Unfortunately
+the channel is not the ideal scope for this - since a single
+channel may consume from multiple queues, the channel and the
+queue(s) need to coordinate with each other for every message
+sent to ensure they don't go over the limit. This is slow on a
+single machine, and very slow when consuming across a cluster.</p>
+<p>Furthermore for many uses it is simply more natural to specify
+a prefetch count that applies to each consumer.</p>
+<p>Therefore RabbitMQ slightly deviates from the AMQP 0-9-1 spec
+when it comes to how the prefetch is applied to multiple consumers
+on a channel:</p>
+<table><tbody><tr><th>Meaning of <code>prefetch_count</code> in AMQP 0-9-1</th><th>Meaning of <code>prefetch_count</code> in RabbitMQ</th></tr><tr><td>shared across all consumers on the channel</td><td>applied separately to each new consumer on the channel</td></tr></tbody></table>
+<h2 id="single-consumer">Single Consumer</h2>
+<p>The following basic example in Java will receive a maximum of 10
+unacknowledged messages at once:</p>
+<div><div><pre><code class="language-java">Channel channel = ...;
+Consumer consumer = ...;
+channel.basicQos(10); // Per consumer limit
+channel.basicConsume("my-queue", false, consumer);</code></pre></div></div>
+<p>A value of <code>0</code> is treated as infinite, allowing any number of unacknowledged
+messages.</p>
+<div><div><pre><code class="language-java">Channel channel = ...;
+Consumer consumer = ...;
+channel.basicQos(0); // No limit for this consumer
+channel.basicConsume("my-queue", false, consumer);</code></pre></div></div>
+<h2 id="independent-consumers">Independent Consumers</h2>
+<p>This example starts two consumers on the same channel, each of
+which will independently receive a maximum of 10 unacknowledged
+messages at once:</p>
+<div><div><pre><code class="language-java">Channel channel = ...;
+Consumer consumer1 = ...;
+Consumer consumer2 = ...;
+channel.basicQos(10); // Per consumer limit
+channel.basicConsume("my-queue1", false, consumer1);
+channel.basicConsume("my-queue2", false, consumer2);</code></pre></div></div>
+<h2 id="sharing-the-limit">Multiple Consumers Sharing the Limit</h2>
+<p>Global (per-channel) QoS prefetch is <a href="/docs/4.3/deprecated-features">deprecated</a> and
+disabled by default starting with RabbitMQ 4.3. Use per-consumer prefetch instead.
+The following example applies only when the deprecated feature is explicitly permitted.</p>
+<p>The AMQP 0-9-1 specification does not explain what happens if you
+invoke <code>basic.qos</code> multiple times with different
+<code>global</code> values. RabbitMQ interprets this as meaning
+that the two prefetch limits should be enforced independently of
+each other; consumers will only receive new messages when neither
+limit on unacknowledged messages has been reached.</p>
+<p>For example:</p>
+<div><div><pre><code class="language-java">Channel channel = ...;
+Consumer consumer1 = ...;
+Consumer consumer2 = ...;
+channel.basicQos(10, false); // Per consumer limit
+channel.basicQos(15, true);  // Per channel limit
+channel.basicConsume("my-queue1", false, consumer1);
+channel.basicConsume("my-queue2", false, consumer2);</code></pre></div></div>
+<p>These two consumers will only ever have 15 unacknowledged
+messages between them, with a maximum of 10 messages for each
+consumer. This will be slower than the above examples, due to
+the additional overhead of coordinating between the channel and
+the queues to enforce the global limit.</p>
+<h2 id="default-limit">Configurable Default Prefetch</h2>
+<p>RabbitMQ can use a default prefetch that will be applied if the consumer doesn't specify one.
+The value can be configured as <code>rabbit.default_consumer_prefetch</code> in the <a href="/docs/4.3/configure#advanced-config-file">advanced configuration file</a>:</p>
+<div><div><pre><code class="language-erlang">%% advanced.config file
+[
+ {rabbit, [
+       {default_consumer_prefetch, {false,250}}
+     ]
+ }
+].</code></pre></div></div></main>

@@ -1,0 +1,10 @@
+<main><header><h1>ocsp</h1></header>
+<div><span><span>Hot Reloadable</span></span></div>
+<p>OCSP Stapling is honored by default for certificates that have the
+<code>status_request</code> <code>Must-Staple</code> flag. If explicitly disabled, the
+server will not request staples even if <code>Must-Staple</code> is present.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>boolean</code></td><td></td><td><code>true</code>, <code>false</code></td></tr><tr><td><code>object</code></td><td>An object with a set of explicit properties that can be set.</td><td>-</td></tr></tbody></table>
+<h2 id="properties">Properties</h2>
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Default</th><th>Reloadable</th></tr></thead><tbody><tr><td><a href="/reference/config/ocsp/mode"><code>mode</code></a></td><td>The OCSP stapling mode to adhere to.</td><td><code>string</code></td><td>-</td><td>Yes</td></tr><tr><td><a href="/reference/config/ocsp/url"><code>url</code></a></td><td>An explicit override URL to request staples.</td><td><code>string</code></td><td>-</td><td>Yes</td></tr><tr><td><a href="/reference/config/ocsp/urls"><code>urls</code></a></td><td>An explicit list of override URLs to request staples.</td><td><code>string</code></td><td>-</td><td>Yes*</td></tr></tbody></table>
+<p>* See the property page for reload caveats.</p></main>

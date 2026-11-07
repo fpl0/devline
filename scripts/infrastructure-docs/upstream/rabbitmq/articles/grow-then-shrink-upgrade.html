@@ -1,0 +1,63 @@
+<main><header><h1>Grow-then-Shrink Upgrade</h1></header><div class="admonition note"><div class="admonition-title">note</div><div><p>This strategy involves node identity changes and replica transfers to the newly added nodes.</p><p>With quorum queues and streams that have large data sets, this means that the cluster will
+experience substantial network traffic volume and disk I/O spikes that a rolling in-place upgrade would not.</p><p>Consider using <a href="/docs/4.3/upgrade#rolling-upgrade">in-place upgrades</a> or <a href="/docs/4.3/blue-green-upgrade">Blue/Green
+deployment upgrades</a> instead.</p></div></div>
+<div class="admonition danger"><div class="admonition-title">danger</div><div><p>In order to safely perform a grow-then-shrink upgrade, several precautions must be taken</p></div></div>
+<p>A Grow-then-Shrink upgrade usually involves the following steps. Consider a three node cluster with nodes
+A, B, and C:</p>
+<ul>
+<li>Add a new node, node D, to the cluster</li>
+<li>Place a new replica of every quorum queue and every stream to the new node using commands such as <code>rabbitmq-queues grow</code></li>
+<li>Check that the cluster is in a good state: no <a href="/docs/4.3/alarms">alarms</a> are in effect, no ongoing queue or stream replica sync operations
+and the system is otherwise under a reasonable load</li>
+<li>Remove node A from the cluster using <code>rabbitmqctl forget_cluster_node</code></li>
+<li>Add a new node, node E, to the cluster</li>
+<li>Place a new replica of every quorum queue and every stream to the new node using commands such as <code>rabbitmq-queues grow</code></li>
+<li>Check that the cluster is in a good state</li>
+<li>Remove node B from the cluster using <code>rabbitmqctl forget_cluster_node</code></li>
+<li>and so on</li>
+</ul>
+<p>This approach may seem like one that strikes a good balance between the relative simplicity of
+in-place upgrades and the safety of Blue-Green deployment upgrades. However, in practice this
+strategy has comparable characteristics to the in-place upgrade option:</p>
+<ul>
+<li>Newly added nodes may affect the existing cluster state</li>
+<li>Replicas will migrate between nodes during the upgrade process</li>
+</ul>
+<p>In addition, this approach has its own unique potential risks:</p>
+<ul>
+<li>Node identities change during the upgrade process, which can affect <a href="/docs/4.3/monitoring">historical monitoring data</a></li>
+<li>Nodes must transfer their data sets to the newly added members, which can result in a <strong>very substantial increase
+in network traffic and disk I/O</strong></li>
+<li>Premature removal of nodes (see below) can lead to a quorum loss for a subset of quorum queues and streams</li>
+</ul>
+<div class="admonition danger"><div class="admonition-title">danger</div><div><p>In order to safely perform a grow-then-shrink upgrade, several precautions must be taken</p></div></div>
+<p>In order to safely perform a grow-then-shrink upgrade, several precautions must be taken:</p>
+<ul>
+<li>After a new node is added and a replica extension process is initiated, the process must
+be given enough time to complete</li>
+<li>Before a node is removed, a health check must be run to ensure that it is not quorum critical for any queues (or streams):
+that is, that the removal of the node will not leave any quorum queues or streams without an online majority</li>
+<li>Nodes must be removed from the cluster explicitly using <code>rabbitmqctl forget_cluster_node</code></li>
+</ul>
+<p><a href="/docs/4.3/streams">Streams</a> specifically were not designed for environments where replica (node) identity change is frequent,
+and all replicas can be transferred away and replaced over duration of a single cluster upgrade.</p>
+<h3 id="key-precautions">Key Precautions</h3>
+<p>To determine if a node is quorum critical, use the following <a href="/docs/4.3/monitoring#health-checks">health check</a>:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash"># exits with a non-zero code if any of the internal components, quorum queues or stream queues
+# will lose online quorum should the target node be shut down;
+# additionally, it will print which components and/or queues are affected
+rabbitmq-diagnostics check_if_node_is_quorum_critical</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell"># exits with a non-zero code if any of the internal components, quorum queues or stream queues
+# will lose online quorum should the target node be shut down;
+# additionally, it will print which components and/or queues are affected
+rabbitmq-diagnostics.bat check_if_node_is_quorum_critical</code></pre></div></div>
+<p>The following <a href="/docs/4.3/monitoring#health-checks">health check</a> must be used to determine if there may be
+any remaining initial quorum queue replica log transfers:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash"># exits with a non-zero status if there are any ongoing initial quorum queue
+# replica sync operations
+rabbitmq-diagnostics check_if_new_quorum_queue_replicas_have_finished_initial_sync</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell"># exits with a non-zero status if there are any ongoing initial quorum queue
+# replica sync operations
+rabbitmq-diagnostics.bat check_if_new_quorum_queue_replicas_have_finished_initial_sync</code></pre></div></div>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>Consider adding and removing a single node at a time</p></div></div>
+<p>If multiple nodes are added and removed at a time, the health checks must be performed on all of them.
+Removing multiple nodes at a time is more likely to leave certain quorum queues or streams without
+an online majority, therefore it is highly recommended to add and remove a single node at a time.</p></main>

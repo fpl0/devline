@@ -1,0 +1,156 @@
+# CLUSTER MIGRATION
+
+Start, monitor and cancel slot migration.
+
+## Syntax
+
+```text
+CLUSTER MIGRATION IMPORT start-slot end-slot [start-slot end-slot ...]|CANCEL ID task-id|ALL|STATUS [ID task-id]|[ALL]
+```
+
+
+**Available since** 8.4.0
+
+**Group** cluster
+
+**Time complexity** O(N) where N is the total number of the slots between the start slot and end slot arguments.
+
+**Arity** -4
+
+**Command flags** NO_ASYNC_LOADING, ADMIN, STALE
+
+## Arguments
+
+```json
+[
+  {
+    "name": "subcommand",
+    "type": "oneof",
+    "arguments": [
+      {
+        "name": "import",
+        "token": "IMPORT",
+        "type": "block",
+        "multiple": true,
+        "arguments": [
+          {
+            "name": "start-slot",
+            "type": "integer"
+          },
+          {
+            "name": "end-slot",
+            "type": "integer"
+          }
+        ]
+      },
+      {
+        "name": "cancel",
+        "token": "CANCEL",
+        "type": "oneof",
+        "arguments": [
+          {
+            "token": "ID",
+            "name": "task-id",
+            "type": "string"
+          },
+          {
+            "name": "all",
+            "token": "ALL",
+            "type": "pure-token"
+          }
+        ]
+      },
+      {
+        "name": "status",
+        "token": "STATUS",
+        "type": "oneof",
+        "arguments": [
+          {
+            "token": "ID",
+            "name": "task-id",
+            "type": "string",
+            "optional": true
+          },
+          {
+            "name": "all",
+            "token": "ALL",
+            "type": "pure-token",
+            "optional": true
+          }
+        ]
+      }
+    ]
+  }
+]
+```
+
+
+## Reply schema
+
+```json
+{
+  "oneOf": [
+    {
+      "description": "Reply to CLUSTER MIGRATION IMPORT, returns the task ID.",
+      "type": "string"
+    },
+    {
+      "description": "Reply to CLUSTER MIGRATION CANCEL, number of cancelled migration operations.",
+      "type": "integer"
+    },
+    {
+      "description": "Reply to CLUSTER MIGRATION STATUS, array of migration operation details.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slots": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "dest": {
+            "type": "string"
+          },
+          "operation": {
+            "oneOf": [
+              {
+                "const": "import"
+              },
+              {
+                "const": "migrate"
+              }
+            ]
+          },
+          "state": {
+            "type": "string"
+          },
+          "last_error": {
+            "type": "string"
+          },
+          "retries": {
+            "type": "integer"
+          },
+          "create_time": {
+            "type": "integer"
+          },
+          "start_time": {
+            "type": "integer"
+          },
+          "end_time": {
+            "type": "integer"
+          },
+          "write_pause_ms": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  ]
+}
+```

@@ -1,0 +1,6 @@
+<main><header><h1>memory_max_stream_bytes</h1></header>
+<div>Aliases:<!-- --> <code>mem_max_stream_bytes</code></div>
+<div><span><span>Hot Reloadable</span></span><div>Applied by replacing the account's whole limits map, so it is all-or-nothing: on a standalone server the update is rejected if it would put max_memory/max_file below already-reserved stream bytes, and the reload still reports success (the error is only logged). Worse, the account walk returns on the first such error, so accounts later in iteration order get no limit update at all. Enforced when assets are created or updated; existing streams/consumers above the new value are left running.</div></div>
+<p>Maximum bytes any given memory-based stream is allowed to be allocated.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>integer</code></td><td>-</td><td>-</td></tr></tbody></table></main>

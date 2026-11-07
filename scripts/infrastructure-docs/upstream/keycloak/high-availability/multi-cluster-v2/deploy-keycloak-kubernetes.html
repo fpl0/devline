@@ -1,0 +1,242 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This guide describes advanced Keycloak configurations for Kubernetes which are load tested and will recover from single Pod failures or site failures.</p>
+</div>
+<div class="paragraph">
+<p>These instructions are intended for use with the setup described in the <a href="https://www.keycloak.org/high-availability/multi-cluster-v2/concepts">Concepts for multi-cluster deployments (v2)</a> guide.
+Ensure that the <a href="https://www.keycloak.org/high-availability/multi-cluster-v2/introduction#multi-cluster-v2-infrastructure-requirements">Multi-cluster deployments (v2)</a> infrastructure requirements are met before proceeding.</p>
+</div>
+<div class="paragraph">
+<p>While this blueprint uses Kubernetes, the concepts are not limited to Kubernetes.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Kubernetes clusters running. Each Kubernetes cluster should have its own internal load balancing to leverage the startup, liveness and readiness probes of the Keycloak Pods.</p>
+</li>
+<li>
+<p>A load balancer in front of the clusters.
+Each Kubernetes cluster’s ingress routes traffic to Keycloak Pods based on the <code>/health/ready</code> readiness probe, while the external load balancer probes <code>/lb-check</code> on each cluster to detect site-level failures.</p>
+</li>
+<li>
+<p>A highly available database deployed with synchronous replication across sites, reachable from all Keycloak nodes in all clusters.
+The following example assumes a PostgreSQL database.
+Any Keycloak supported database may be used provided that the selected database deployment can satisfy the required high-availability, synchronous-replication, consistency and latency characteristics. Database HA design and failover behavior are outside Keycloak and must be validated with the database vendor.
+How to configure the database for high availability is out of scope for this guide.</p>
+</li>
+<li>
+<p>Understanding of a <a href="https://www.keycloak.org/operator/basic-deployment">Basic Keycloak deployment</a> of Keycloak with the Keycloak Operator.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The following setup assumes a TLS passthrough setup, though this is not limited to this configuration.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_procedure"><a class="anchor" href="#_procedure"></a>Procedure</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Perform the following steps in each Kubernetes cluster:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Determine the sizing of the deployment using the <a href="https://www.keycloak.org/high-availability/multi-cluster/concepts-memory-and-cpu-sizing">Concepts for sizing CPU and memory resources</a> guide.
+For this setup, you might see approximately twice the CPU usage and write IOPS on your database, though your results might vary based on your use case.</p>
+</li>
+<li>
+<p>Install the Keycloak Operator as described in the <a href="https://www.keycloak.org/operator/installation">Keycloak Operator Installation</a> guide.</p>
+</li>
+<li>
+<p>For a production-grade deployment, secure the database connection by creating a <code>ConfigMap</code> with the database certificate bundle:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl <span class="nt">--namespace</span> keycloak create configmap keycloak-db-rootcert <span class="nt">--from-file</span> db-ca.pem<span class="o">=</span>/path/to/certificate.pem</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Deploy the Keycloak CR with the following values, using the resource requests and limits calculated in the first step:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.keycloak.org/v2beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Keycloak</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">app</span><span class="pi">:</span> <span class="s">keycloak</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">keycloak</span>
+  <span class="na">namespace</span><span class="pi">:</span> <span class="s">keycloak</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">hostname</span><span class="pi">:</span>
+    <span class="na">hostname</span><span class="pi">:</span> <span class="s">&lt;KEYCLOAK_URL_HERE&gt;</span>
+  <span class="na">resources</span><span class="pi">:</span>
+    <span class="na">requests</span><span class="pi">:</span>
+      <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2"</span>
+      <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">1250M"</span>
+    <span class="na">limits</span><span class="pi">:</span>
+      <span class="na">cpu</span><span class="pi">:</span> <span class="s2">"</span><span class="s">6"</span>
+      <span class="na">memory</span><span class="pi">:</span> <span class="s2">"</span><span class="s">2250M"</span>
+  <span class="na">db</span><span class="pi">:</span>
+    <span class="na">vendor</span><span class="pi">:</span> <span class="s">postgres</span>
+    <span class="na">url</span><span class="pi">:</span> <span class="s">jdbc:postgresql://&lt;DATABASE_URL_HERE&gt;:5432/keycloak</span> <i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="na">poolMinSize</span><span class="pi">:</span> <span class="s">30</span> <i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="na">poolInitialSize</span><span class="pi">:</span> <span class="m">30</span>
+    <span class="na">poolMaxSize</span><span class="pi">:</span> <span class="m">30</span>
+    <span class="na">usernameSecret</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">keycloak-db-secret</span>
+      <span class="na">key</span><span class="pi">:</span> <span class="s">username</span>
+    <span class="na">passwordSecret</span><span class="pi">:</span>
+      <span class="na">name</span><span class="pi">:</span> <span class="s">keycloak-db-secret</span>
+      <span class="na">key</span><span class="pi">:</span> <span class="s">password</span>
+  <span class="na">image</span><span class="pi">:</span> <span class="s">&lt;KEYCLOAK_IMAGE_HERE&gt;</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">startOptimized</span><span class="pi">:</span> <span class="no">false</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">update</span><span class="pi">:</span>
+    <span class="na">strategy</span><span class="pi">:</span> <span class="s">Auto</span>
+  <span class="na">features</span><span class="pi">:</span>
+    <span class="na">enabled</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">stateless</span> <i class="conum" data-value="4"></i><b>(4)</b>
+  <span class="na">additionalOptions</span><span class="pi">:</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">cache-embedded-cluster-name</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s">&lt;CLUSTER_NAME_HERE&gt;</span> <i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">log-console-output</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s">json</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">metrics-enabled</span> <i class="conum" data-value="6"></i><b>(6)</b>
+      <span class="na">value</span><span class="pi">:</span> <span class="s1">'</span><span class="s">true'</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">event-metrics-user-enabled</span>
+      <span class="na">value</span><span class="pi">:</span> <span class="s1">'</span><span class="s">true'</span>
+    <span class="pi">-</span> <span class="na">name</span><span class="pi">:</span> <span class="s">db-tls-mode</span> <i class="conum" data-value="7"></i><b>(7)</b>
+      <span class="na">value</span><span class="pi">:</span> <span class="s">verify-server</span>
+  <span class="na">http</span><span class="pi">:</span>
+    <span class="na">tlsSecret</span><span class="pi">:</span> <span class="s">keycloak-tls-secret</span>
+  <span class="na">instances</span><span class="pi">:</span> <span class="m">3</span>
+  <span class="na">truststores</span><span class="pi">:</span>
+    <span class="na">db</span><span class="pi">:</span>
+      <span class="na">configMap</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">keycloak-db-rootcert</span> <i class="conum" data-value="8"></i><b>(8)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Set the database URL.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The database connection pool initial, max and min size should be identical to allow statement caching for the database.
+The values shown are a starting point for production deployments; adjust to meet the needs of your system.
+With the <code>stateless</code> feature, authentication sessions and action tokens are stored in the database, which increases database load compared to setups with an external Infinispan cluster. Adjust the pool size accordingly.
+See the <a href="https://www.keycloak.org/high-availability/multi-cluster/concepts-database-connections">Concepts for database connection pools</a> guide for details.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Specify the URL to your custom Keycloak image. If your image is optimized, set the <code>startOptimized</code> flag to <code>true</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Enable the <code>stateless</code> feature to remove the requirement for an external Infinispan cluster.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Set a unique cluster name that identifies this cluster. Each cluster must have a distinct name; no two clusters may share the same name.
+This option is only available if the <code>stateless</code> feature is enabled.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>To be able to analyze the system under load, enable the metrics endpoint.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>Secure the database connection. For non-production-grade environments without database TLS, set <code>db-tls-mode</code> to <code>disabled</code> in <code>additionalOptions</code> and omit the <code>truststores</code> block and the <code>keycloak-db-rootcert</code> <code>ConfigMap</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="8"></i><b>8</b></td>
+<td>Specify the <code>ConfigMap</code> name that contains the database certificate bundle.
+The Operator will automatically mount the file in the directory <code>/opt/keycloak/conf/truststores/configmap-&lt;config map name&gt;/&lt;file-name&gt;</code>.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+Set <code>spec.hostname.hostname</code> to the same public URL on every site, and use either the same TLS certificate, or the same subject alternative name in the certificate.
+This URL is the external load balancer’s address that clients use to access Keycloak.
+If the public URL uses a port other than 443, include the port in the hostname value (for example, <code>https://auth.example.com:8443</code>).
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-v2-verify-deployment"><a class="anchor" href="#multi-cluster-v2-verify-deployment"></a>Verify the deployment</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Confirm that the Keycloak deployment is ready.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl <span class="nb">wait</span> <span class="nt">--for</span><span class="o">=</span><span class="nv">condition</span><span class="o">=</span>Ready keycloaks.k8s.keycloak.org/keycloak
+kubectl <span class="nb">wait</span> <span class="nt">--for</span><span class="o">=</span><span class="nv">condition</span><span class="o">=</span><span class="nv">RollingUpdate</span><span class="o">=</span>False keycloaks.k8s.keycloak.org/keycloak</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To verify the hostname configuration, confirm that the OIDC issuer is identical on every site by querying each cluster’s internal load balancer:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">curl <span class="nt">-sk</span> https://&lt;SITE_LB_HOSTNAME&gt;/realms/master/.well-known/openid-configuration | jq .issuer</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Afterward, verify that the external load balancer routes traffic to both clusters.
+The external load balancer should probe <code>GET /lb-check</code> on each cluster and expect an HTTP <code>200 OK</code> response to determine if a site is healthy.
+When a site’s Keycloak nodes are all unavailable, <code>/lb-check</code> will not return <code>200 OK</code>, and the load balancer should stop routing traffic to that site.
+Kubernetes probes each Pod’s <code>/health/ready</code> endpoint on management port 9000 and removes unready Pods from the Service endpoints, allowing the cluster ingress to avoid nodes affected by failures such as split-brain or loss of database connectivity.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-v2-sticky-sessions"><a class="anchor" href="#multi-cluster-v2-sticky-sessions"></a>Optional: Disable sticky sessions</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When running on OpenShift and the default passthrough Ingress setup as provided by the Keycloak Operator, the load balancing done by HAProxy is done by using sticky sessions based on the IP address of the source.</p>
+</div>
+<div class="paragraph">
+<p>The recommended way to run Keycloak behind a load balancer is to disable sticky session to allow for an even distribution of requests across all nodes.</p>
+</div>
+<div class="paragraph">
+<p>Add the following supplementary configuration under the <code>spec</code> in the Keycloak Custom Resource to disable sticky sessions.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">spec</span><span class="pi">:</span>
+  <span class="na">ingress</span><span class="pi">:</span>
+    <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">annotations</span><span class="pi">:</span>
+      <span class="c1"># When running load tests, disable sticky sessions on the OpenShift HAProxy router</span>
+      <span class="c1"># to avoid receiving all requests on a single Keycloak Pod.</span>
+      <span class="na">haproxy.router.openshift.io/balance</span><span class="pi">:</span> <span class="s">roundrobin</span>
+      <span class="na">haproxy.router.openshift.io/disable_cookies</span><span class="pi">:</span> <span class="s1">'</span><span class="s">true'</span></code></pre>
+</div>
+</div>
+</div>
+</div> </div>
+</main>

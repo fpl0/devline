@@ -1,0 +1,16 @@
+<main><header><h1>allowed_connection_types</h1></header>
+<div><span><span>Hot Reloadable</span></span></div>
+<p>If specified, the user is constrained to the specified connection
+types.</p>
+<ul>
+<li><code>STANDARD</code> indicates a standard client TCP connection using the
+NATS protocol.</li>
+<li><code>WEBSOCKET</code> indicates a WebSocket-based connection to NATS if the
+<code>websockets</code> configuration is enabled.</li>
+<li><code>LEAFNODE</code> indicates a connection established by configured leafnode
+<code>remote</code> on a server.</li>
+<li><code>MQTT</code> indicates a connection established by an MQTT client to NATS
+if the <code>mqtt</code> configuration is enabled.</li>
+</ul>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>[ string ]</code></td><td>-</td><td><code>STANDARD</code>, <code>WEBSOCKET</code>, <code>LEAFNODE</code>, <code>MQTT</code></td></tr></tbody></table></main>

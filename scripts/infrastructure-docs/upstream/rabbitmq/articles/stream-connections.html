@@ -1,0 +1,161 @@
+<main><header><h1>Stream Client Connections</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This companion guide to the <a href="/docs/4.3/streams">main guide on streams</a> covers how <a href="https://github.com/rabbitmq/rabbitmq-server/blob/v4.2.x/deps/rabbitmq_stream/docs/PROTOCOL.adoc">RabbitMQ Stream Protocol</a> clients can connect to a cluster to consume from and publish to streams.</p>
+<p>The Stream Protocol has important differences from the other protocols supported
+by RabbitMQ, such as AMQP 1.0, AMQP 0-9-1, MQTT and STOMP.</p>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>With streams, understanding the basics of the protocol and what client libraries can do is essential when cluster deployments involve extra layers
+like containers and load balancers.</p><p>Streams are optimized for maximum throughput, so the topic of data locality and client connections becomes significantly more important
+to cover in details.</p></div></div>
+<h2 id="topology">Stream Topology and What it Means for Publishers and Consumers</h2>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p><a href="/docs/4.3/clustering#clustering-and-clients">How messaging protocol clients connect to cluster nodes</a> is covered in the Clustering guide.</p></div></div>
+<p>A stream is replicated and persistent, composed of a <strong>leader</strong> (primary member/replica) and <strong>followers</strong> (or secondary members/replicas).
+These replicas are distributed across multiple nodes of a RabbitMQ cluster, as shown in the following diagram:</p>
+<p><img alt="A stream is a replicated and persistent data structure. It has a leader process which accepts write operations and replicas which can dispatch messages to applications." src="/assets/images/stream-topology-4c19caa1a3dc590aeb99e653fb2221e6.svg"/></p>
+<p>Only the leader handles write operations, such as adding inbound messages to the stream. Any <strong>member</strong> of the stream – both the leader and any follower — can
+be used for read operations, that is, delivering (dispatching) messages to client applications.</p>
+<p>An application that publishes to a stream using the <a href="https://github.com/rabbitmq/rabbitmq-server/blob/v4.2.x/deps/rabbitmq_stream/docs/PROTOCOL.adoc">stream protocol</a>
+can connect to any node in the cluster: messages will automatically be routed
+from the node handling the client connection to the node that hosts the leader process.</p>
+<p>However, in this case traffic routing will not be optimal if the connection and the stream leader are not on the same node.
+For best data locality and efficiency, an application that publishes to a stream should connect to the node that hosts the leader of the stream,
+to avoid an extra network hop.</p>
+<h3 id="consumers">Consumers</h3>
+<p>The behavior differs for consuming applications. With the RabbitMQ Stream Protocol, messages are delivered (dispatched)
+to applications using the <a href="https://man7.org/linux/man-pages/man2/sendfile.2.html"><code>sendfile</code></a> system call: file chunks that contain messages are sent directly
+from the node file system to the network socket, without going through user space.</p>
+<p>This optimization is crucial to stream efficiency. However, it also requires that the node the consuming application is connected to hosts a member of the stream.
+Whether this member is the leader or a replica does not matter, as long as the data is on the file system, ready to be moved to the socket
+by the kernel executing a <code>sendfile</code> system call.</p>
+<p>This constraint for consuming applications is manageable in most cases. On the diagram above, each node has a member of the stream,
+so an application can connect to any node to consume. However, consider a 5-node cluster with streams using a replication factor of 2:
+each stream will have members only on 3 nodes out of the 5 nodes.</p>
+<p>In this case, consuming applications must select their connection node appropriately.</p>
+<h2 id="best-practices">Best Practices for Publishers and Consumers</h2>
+<p>Publishing applications can connect to any node of a cluster and will always reach the leader process.
+Consuming applications must connect to a node that hosts a member of the target stream,
+where this member can be either the leader or a follower. The following best practices should be enforced whenever possible:</p>
+<ul>
+<li>Publishing applications should always connect to the node that hosts the leader process of the target stream</li>
+<li>Consuming applications should always connect to a node that hosts a replica of the target stream</li>
+</ul>
+<p>The following diagram illustrates these best practices:</p>
+<p><img alt="Client applications that publish to a stream should connect to the node that hosts the stream leader, clients applications that consume from a stream should connect to a node that hosts a replica of this stream." src="/assets/images/well-behaved-clients-2cb798de6212bd9ba9a37810ad929a77.svg"/></p>
+<p>Connecting directly to the node of the stream leader avoids a network hop, as published messages ultimately must go to the leader.
+Using a replica for consuming relieves the leader from some load, allowing it to spend more resources handling all the write operations.</p>
+<p>These best practices are integrated into the official RabbitMQ Stream Protocol <a href="/client-libraries/devtools">client libraries</a>,
+keeping these details from complicating application code.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><ul>
+<li>Publishing applications should always connect to the node that hosts the leader process of the target stream</li>
+<li>Consuming applications should always connect to a node that hosts a replica of the target stream</li>
+</ul></div></div>
+<p>The stream protocol allows client libraries (and applications) to discover the topology of a given stream through the metadata command.</p>
+<h2 id="stream-distribution">Stream Distribution Across Cluster Nodes</h2>
+<p>Before examining the <code>metadata</code> command of the stream protocol, it is important to understand how streams distribute across the nodes of a RabbitMQ cluster.
+A stream has a leader Erlang process located on one node and replica Erlang processes located on other nodes.
+With multiple streams, the leader and follower processes are spread across the cluster nodes.</p>
+<p>With the exception of single node clusters, no single RabbitMQ node should host all the stream leaders.</p>
+<p>A set of stream members (replicas) can be thought of as a small cluster within the RabbitMQ cluster,
+as illustrated with several streams in the following diagram:</p>
+<p><img alt="Stream leaders spread across the nodes of a cluster. This means that a given node does not have to contain all the leaders at some point." src="/assets/images/stream-spread-cd9eff9b53ca90a91b1ee67adc6cb3b3.svg"/></p>
+<p>The distribution of leaders across the cluster depends on the <a href="/docs/4.3/streams#leader-election">leader locator strategy</a>
+in effect at stream declaration time.</p>
+<h2 id="metadata-command">Stream Topology Discovery Using the <code>metadata</code> Command</h2>
+<p>The stream protocol provides a <a href="https://github.com/rabbitmq/rabbitmq-server/blob/v4.2.x/deps/rabbitmq_stream/docs/PROTOCOL.adoc#metadata"><code>metadata</code> command</a> that
+allows clients to query the topology of one or several streams. For each queried stream, the response contains
+the hostname and port of the nodes that host the leader and replicas.</p>
+<p>The following diagram illustrates how a client application already connected to one of the nodes can discover the topology of a given stream:</p>
+<p><img alt="A client can find out about the topology of a stream by using the metadata command." src="/assets/images/metadata-command-0e46d66450897d6cdbcf45997f2bd124.svg"/></p>
+<p>A common pattern is to provide one or several node endpoints to a client library, then using the <code>metadata</code> command once connected
+to discover the topology of the target stream, and then connecting to the appropriate nodes depending on the operations (publishing or consuming).</p>
+<p><img alt="Once a client application knows about the topology of a stream, it can connect to the appropriate nodes to work with it: the node that hosts the stream leader to publish and nodes that host the stream replicas to consume." src="/assets/images/use-connection-hints-e4243348430033e5244ae5db8475ea3c.svg"/></p>
+<p>The <code>metadata</code> command is essential for client libraries to enforce the best practices mentioned above.</p>
+<p>Unfortunately, the metadata returned with all defaults will not always be accurate, or at least not accurate enough for the client application to connect successfully.</p>
+<h2 id="metadata-limitations">Limitations of the Metadata Command</h2>
+<p>RabbitMQ streams will return the hostname of each node for the host metadata (more specifically, the host part of the node name, the <code>{hostname}</code> part in <code>rabbit@{hostname}</code>).
+This works as long as the client can resolve the hostname of the target node.</p>
+<p>However, when RabbitMQ nodes are deployed in containerized environments, the hostname can be ambiguous and may not resolve on the hosts where applications
+are deployed.</p>
+<p>The following diagram illustrates a 3-node RabbitMQ cluster where the nodes are containers running on different VMs.
+A client application can connect to the nodes if the ports are mapped correctly, but cannot do so using the hostname of the containers.</p>
+<p><img alt="Using the hostname in metadata will not work when the nodes run in containers, as it is very unlikely the client and the nodes can see each other directly." src="/assets/images/use-connection-hints-with-docker-c4d7411314f6ffe6d10e7d57afe33486.svg"/></p>
+<p>The RabbitMQ node with the stream plugin enabled does its best but it cannot know what hostnames clients can or cannot resolve, and why.
+Fortunately, it is possible to configure what a node returns when asked for its "coordinates" for the <code>metadata</code> command.</p>
+<h2 id="advertised-host-port">Tuning the Metadata Command: Advertised Host and Port</h2>
+<p>The <a href="/docs/4.3/stream#advertised-host-port"><code>advertised_host</code> and <code>advertised_port</code> configuration entries</a> of the stream plugin should be used to specify
+what a node returns when asked how to be contacted. The plugin will return these values as given, without any validation.
+The DNS setup must allow client applications to connect to the node using these configured values. In practice this means
+that the overridden advertised hostnames must be stable and resolvable by application hosts.</p>
+<p><img alt="It is possible to configure advertised host and port if the default values are not appropriate." src="/assets/images/metadata-hints-b023812c1bf1ecdd8ac8e37b634b02a5.svg"/></p>
+<p>The <code>advertised_host</code> and <code>advertised_port</code> settings should resolve connection issues where client applications cannot connect to nodes due to
+using the hostnames advertised by default. These settings are important to consider when deploying a RabbitMQ cluster with containerized nodes and streams.</p>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>When RabbitMQ nodes use hostnames that applications cannot resolve, using the <code>advertised_host</code> and <code>advertised_port</code> settings
+becomes essential.</p></div></div>
+<p>There remains one common use case where this discovery mechanism can be problematic: when a load balancer sits between client applications and the cluster nodes.</p>
+<h2 id="load-balancer">Connecting to Nodes Behind a Load Balancer</h2>
+<p>Having a load balancer in front of a RabbitMQ cluster is a common scenario. A load balancer can make the data locality problem outlined above much worse.
+Fortunately, solutions exist.</p>
+<p>When using the metadata command with a load balancer, issues arise: the client will receive the nodes information and use it to connect <strong>directly</strong> to the nodes,
+bypassing the load balancer. The following diagram illustrates this situation:</p>
+<p><img alt="Metadata hints are less useful when a load balancer sits between the client and the nodes. The client application will skip the load balancer and try to connect directly to the nodes. This can be impossible or a security concern." src="/assets/images/load-balancer-18cf63114d0716feefd56d3f2fba497a.svg"/></p>
+<p>This behavior is usually undesirable.</p>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>Setting the <code>advertised_host</code> and <code>advertised_port</code> configuration entries to use the load balancer information so client applications always
+connect to the load balancer is not recommended.</p><p>This approach prevents enforcing the best practices (publishing to the leader, consuming from replica) and in deployments where streams are not on all nodes,
+consuming will fail if the application connects to a node without a stream member.</p></div></div>
+<p>Client libraries can implement a workaround to resolve this problem.</p>
+<h2 id="load-balancer-workaround">Client Workaround With a Load Balancer</h2>
+<p>A client application can always connect to the load balancer and end up connected to the appropriate node using the following approach:</p>
+<ul>
+<li>Use the <code>metadata</code> command but <strong>intentionally ignore</strong> the discovered result and always connect to the load balancer</li>
+<li>Retry connecting until connected to an appropriate node</li>
+</ul>
+<p>The "coordinates" of the node (hostname and port, or <code>advertised_host</code> and <code>advertised_port</code> if configured) are available in a stream protocol connection.
+A client application can determine to which node it is connected.</p>
+<p>This means that <code>advertised_host</code> and <code>advertised_port</code> should not be configured when a load balancer is in use.
+The "coordinates" of a node that the <code>metadata</code> command returns are not used to connect in this case, as the client always connects to the load balancer.
+They are used to <strong>correlate</strong> the connection the load balancer provides with the node the client expects, and the hostname is sufficient for this purpose.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p><strong>This means <code>advertised_host</code> and <code>advertised_port</code> should not be configured when a load balancer is in use.</strong></p></div></div>
+<p>Consider the following scenario:</p>
+<ul>
+<li>A publishing application knows the leader of its targeted stream is on <code>node-1</code> thanks to the response of a <code>metadata</code> request</li>
+<li>It creates a new connection using the load balancer address</li>
+<li>The load balancer chooses to connect to <code>node-3</code></li>
+<li>The connection is properly established but the client application discovers it is connected to <code>node-3</code>, it immediately closes the connection, and retries</li>
+<li>The load balancer chooses <code>node-1</code> on the next attempt</li>
+<li>The application is connected to the correct node and proceeds with publishing using this connection</li>
+</ul>
+<p>The following diagram illustrates this process:</p>
+<p><img alt="A client can choose to ignore the metadata hints and always use the load balancer. As stream connections convey the node hostname they originate from, the client can know whether it is connected to the right node or not, and keep the connection or close it and retry." src="/assets/images/load-balancer-ignore-metadata-9c9147b8395a556ba8c7859e6b8d407e.svg"/></p>
+<p>As stream connections are meant to be long-lived and stream applications do not typically have significant connection churn,
+retrying to connect will not lead to a <a href="/docs/4.3/connections#high-connection-churn">high connection churn</a> scenario and is not a concern.</p>
+<p>This solution assumes that the load balancer will not always connect to the same backend server.
+Round robin is an appropriate balancing strategy for this case.</p>
+<p>Setting <code>advertised_host</code> and <code>advertised_port</code> is not necessary when using this technique and setting them to the load balancer coordinates for all nodes can be
+impossible or difficult to achieve. Allowing each node to return its hostname is appropriate here, as the hostname should be unique in a network.</p>
+<p>This responsibility lies with the client library. The following section describes how this is implemented with the stream Java client.</p>
+<h2 id="java-client-load-balancer">Using the Stream Java Client With a Load Balancer</h2>
+<p>The <a href="https://github.com/rabbitmq/rabbitmq-stream-java-client">stream Java client</a> provides <a href="https://github.com/rabbitmq/rabbitmq-stream-java-client/blob/main/src/main/java/com/rabbitmq/stream/AddressResolver.java">an <code>AddressResolver</code> extension point</a>. It is used whenever a new connection is created: from the passed-in <code>Address</code> (the node to connect to based on the <code>metadata</code> query), the address resolver can provide logic to compute the actual address to use. The default implementation returns the given address. To implement the workaround presented above when a load balancer is in use, always return the address of the load balancer, as shown in the following code snippet:</p>
+<div><div><pre><code class="language-java">Address entryPoint = new Address("my-load-balancer", 5552);
+Environment environment = Environment.builder()
+    .host(entryPoint.host())
+    .port(entryPoint.port())
+    .addressResolver(address -&gt; entryPoint)
+    .build();</code></pre></div></div>
+<p>The <a href="https://rabbitmq.github.io/rabbitmq-stream-java-client/stable/htmlsingle/#the-performance-tool">stream PerfTest tool</a> also supports this mode when the <code>--load-balancer</code> option is enabled. The following commands configure the tool to always use the same entry point for publishers and consumers connections:</p>
+<div><div><pre><code class="language-shell"># with the Java binary
+java -jar stream-perf-test.jar --uris rabbitmq-stream://my-load-balancer:5552 --load-balancer
+
+# with Docker
+docker run -it --rm pivotalrabbitmq/stream-perf-test --uris rabbitmq-stream://my-load-balancer:5552 --load-balancer</code></pre></div></div>
+<h2 id="summary">Best Practices, Summarized</h2>
+<p>Client applications connecting using the stream protocol should follow these guidelines:</p>
+<ul>
+<li>Publishing applications should connect to the node that hosts the leader of the target stream</li>
+<li>Consuming applications should connect to a node that hosts a replica of the target stream</li>
+<li>Client applications must use the <a href="https://github.com/rabbitmq/rabbitmq-server/blob/v4.2.x/deps/rabbitmq_stream/docs/PROTOCOL.adoc#metadata"><code>metadata</code> stream protocol command</a> to learn about the topology of the streams they want to interact with</li>
+<li>The stream <a href="https://github.com/rabbitmq/rabbitmq-stream-java-client">Java</a> and <a href="https://github.com/rabbitmq/rabbitmq-stream-go-client">Go</a> clients enforce these best practices</li>
+<li>The <code>metadata</code> command returns by default the node's hostname and listener port, which can be problematic in containerized environments</li>
+<li>The <a href="/docs/4.3/stream#advertised-host-port"><code>advertised_host</code> and <code>advertised_port</code> configuration entries</a> allow specifying what values a node should return for the <code>metadata</code> command</li>
+<li>A load balancer can confuse a client library that will try to bypass it to connect directly to the nodes</li>
+<li>Client libraries can provide a workaround to work properly with a load balancer</li>
+<li>The stream <a href="https://github.com/rabbitmq/rabbitmq-stream-java-client">Java</a> and <a href="https://github.com/rabbitmq/rabbitmq-stream-go-client">Go</a> clients implement such a workaround</li>
+</ul></main>

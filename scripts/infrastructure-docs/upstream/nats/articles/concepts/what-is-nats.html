@@ -1,0 +1,87 @@
+<main><header><h1>What is NATS?</h1></header>
+<p>NATS is an open source messaging system. Applications connect to a NATS server and exchange messages by subject, without knowing each other's network addresses.</p>
+<h2 id="overview">Overview</h2>
+<p>At its core, NATS is about <strong>publishing and listening for messages</strong>. It provides a layer between application components, allowing them to communicate without being directly connected or even aware of each other's existence.</p>
+<p>NATS optimizes for a small single binary, low latency at high message rates, and secure defaults. It runs from one server on a laptop up to clusters of servers spanning regions.</p>
+<h2 id="how-nats-works">How NATS Works</h2>
+<p>NATS is a <strong>messaging fabric</strong> that connects all your applications and services:</p>
+<div></div>
+<h3 id="core-components">Core Components</h3>
+<ol>
+<li><strong>NATS Server</strong> - The messaging broker that routes messages</li>
+<li><strong>Publishers</strong> - Applications that send messages</li>
+<li><strong>Subscribers</strong> - Applications that receive messages</li>
+<li><strong>Subjects</strong> - Named channels for message organization</li>
+</ol>
+<h2 id="the-nats-ecosystem">The NATS Ecosystem</h2>
+<p>NATS ships as a small set of pieces you compose together: the server, a client for your language, and tooling you add as you need it.</p>
+<ul>
+<li><strong>Server</strong> — the single <a href="https://github.com/nats-io/nats-server"><code>nats-server</code></a> binary. Clustering, JetStream, leaf nodes, <a href="/learn/mqtt/">MQTT</a>, and <a href="/learn/websocket/">WebSocket</a> are all configuration on the same process.</li>
+<li><strong>Clients</strong> — official Tier 1 clients exist for Go, JavaScript/TypeScript, Python, Java, Rust, C#/.NET, and C. Tier 2 clients (may lag on new server features) cover Zig, Swift, Ruby, and Elixir.</li>
+<li><strong>Orbit</strong> — optional per-language extension libraries with higher-level utilities and experimental features built on top of the core client.</li>
+<li><strong>Tooling</strong> — the <code>nats</code> CLI with built-in <code>nats auth</code> identity commands, <code>nsc</code> as the standalone identity tool, NACK and Helm charts for Kubernetes, Prometheus exporter, surveyor, bridges to Kafka / JMS / Spark / Flink, and a Terraform provider.</li>
+</ul>
+<p>See the <a href="/concepts/ecosystem">ecosystem page</a> for the full list with links.</p>
+<h2 id="key-differentiators">Key Differentiators</h2>
+<h3 id="simplicity">Simplicity</h3>
+<p>NATS focuses on moving messages between applications. The server is one binary, and the client API is small.</p>
+<h3 id="performance">Performance</h3>
+<ul>
+<li>Process millions of messages per second</li>
+<li>Sub-millisecond latency</li>
+<li>Small memory footprint (typically ~15MB)</li>
+</ul>
+<h3 id="location-transparency">Location transparency</h3>
+<p>Applications don't need to know where other services are located. NATS handles:</p>
+<ul>
+<li>Service discovery</li>
+<li>Load balancing</li>
+<li>Fault tolerance</li>
+</ul>
+<h3 id="multi-tenancy">Multi-tenancy</h3>
+<p>Accounts isolate messaging domains within one server or cluster, which supports:</p>
+<ul>
+<li>Secure multi-tenant deployments</li>
+<li>Department or team isolation</li>
+<li>SaaS platform building</li>
+</ul>
+<h2 id="use-cases">Use Cases</h2>
+<p>NATS excels in scenarios requiring:</p>
+<h3 id="agentic-ai">Agentic AI</h3>
+<ul>
+<li>Agent-to-agent communication with automatic service discovery</li>
+<li>Real-time event streams for LLM inference and tool calls</li>
+<li>Multi-region GPU inference routing with scale-to-zero</li>
+</ul>
+<h3 id="real-time-data-streaming">Real-time Data Streaming</h3>
+<ul>
+<li>IoT telemetry collection</li>
+<li>Financial market data distribution</li>
+<li>Log and metrics aggregation</li>
+</ul>
+<h3 id="microservices-communication">Microservices Communication</h3>
+<ul>
+<li>Service mesh data plane</li>
+<li>Event-driven architectures</li>
+<li>CQRS and Event Sourcing patterns</li>
+</ul>
+<h3 id="edge-computing">Edge Computing</h3>
+<ul>
+<li>Edge-to-cloud connectivity</li>
+<li>Intermittent network handling</li>
+<li>Bandwidth and resource-constrained environments</li>
+</ul>
+<h3 id="command-and-control">Command and Control</h3>
+<ul>
+<li>Remote procedure calls</li>
+<li>Configuration management</li>
+<li>System orchestration</li>
+</ul>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li><a href="/learn/core-nats">Core NATS deep dive</a> — go hands-on with the messaging fundamentals</li>
+<li><a href="/learn">The full Learn section</a> — guided chapters across every NATS topic</li>
+<li><a href="/concepts/getting-started/">Getting Started Guide</a> — set up your first NATS application</li>
+<li><a href="/concepts/pub-sub-basics">Pub/Sub Basics</a> — deep dive into the publish-subscribe pattern</li>
+<li><a href="/concepts/request-reply">Request-Reply</a> — learn synchronous communication patterns</li>
+</ul></main>

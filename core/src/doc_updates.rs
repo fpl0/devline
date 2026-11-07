@@ -1,4 +1,7 @@
-use crate::{install_doc_pack, lock_library, updates::compare_doc_releases, Context, DocPack};
+use crate::{
+    install_doc_pack_with_preference, lock_library, updates, updates::compare_doc_releases,
+    Context, DocPack,
+};
 use anyhow::{bail, Context as _, Result};
 use flate2::read::GzDecoder;
 use fluent_uri::Iri;
@@ -448,6 +451,84 @@ fn installed_versions(db: &Connection) -> Result<BTreeMap<String, Vec<String>>> 
     Ok(versions)
 }
 
+pub(crate) fn remove_index(db: &Connection, id: &str, version: &str) -> Result<()> {
+    db.execute("INSERT INTO docs_fts(docs_fts,rowid,title,body,stack) SELECT 'delete',rowid,title,body,stack FROM documents WHERE pack_id=?1 AND version=?2", params![id,version])?;
+    db.execute("DELETE FROM aliases WHERE document_id IN (SELECT id FROM documents WHERE pack_id=?1 AND version=?2)", params![id,version])?;
+    db.execute(
+        "DELETE FROM documents WHERE pack_id=?1 AND version=?2",
+        params![id, version],
+    )?;
+    db.execute(
+        "DELETE FROM packs WHERE id=?1 AND version=?2",
+        params![id, version],
+    )?;
+    if table_exists(db, "doc_pack_metadata")? {
+        db.execute(
+            "DELETE FROM doc_pack_metadata WHERE id=?1 AND version=?2",
+            params![id, version],
+        )?;
+    }
+    Ok(())
+}
+
+pub(crate) fn prune_after_install(ctx: &Context, installed: &[(&str, &str)]) -> Result<()> {
+    if updates::keep_latest(ctx)? {
+        prune(ctx, Some(installed))
+            .context("Documentation was installed, but old versions could not be purged")?;
+    }
+    Ok(())
+}
+
+// The library lock serializes the index and published cache with installs.
+pub(crate) fn prune(ctx: &Context, installed: Option<&[(&str, &str)]>) -> Result<usize> {
+    let mut db = ctx.database()?;
+    let indexed = installed_versions(&db)?;
+    let cached = cached_packs(ctx)?;
+    let mut latest = BTreeMap::<&str, &str>::new();
+    for (id, versions) in &indexed {
+        latest.insert(id, &versions[0]);
+    }
+    for (pack, _) in &cached {
+        // A cached source can outlive its index (e.g. after docs remove).
+        // Prefer keeping the newest usable index when one exists.
+        if !indexed.contains_key(&pack.id) {
+            let version = latest.entry(&pack.id).or_insert(&pack.version);
+            if compare_doc_releases(&pack.version, version).is_gt() {
+                *version = &pack.version;
+            }
+        }
+    }
+    let superseded = |id: &str, version: &str| {
+        latest.get(id).is_some_and(|newest| {
+            installed.is_none_or(|installed| installed.contains(&(id, newest)))
+                && compare_doc_releases(version, newest).is_lt()
+        })
+    };
+    let mut removed = BTreeSet::new();
+    let tx = db.transaction()?;
+    for (id, versions) in &indexed {
+        for version in versions.iter().filter(|version| superseded(id, version)) {
+            remove_index(&tx, id, version)?;
+            removed.insert((id.as_str(), version.as_str()));
+        }
+    }
+    tx.commit()?;
+    for (pack, path) in &cached {
+        if superseded(&pack.id, &pack.version) {
+            fs::remove_dir_all(path).with_context(|| {
+                format!("Remove cached documentation {}@{}", pack.id, pack.version)
+            })?;
+            removed.insert((&pack.id, &pack.version));
+        }
+    }
+    if (!removed.is_empty() || installed.is_none())
+        && db.pragma_query_value(None, "freelist_count", |row| row.get::<_, u64>(0))? > 0
+    {
+        db.execute_batch("VACUUM")?;
+    }
+    Ok(removed.len())
+}
+
 // Only releases from an already checked, validated channel; this never connects.
 pub(crate) fn checked_packs(ctx: &Context) -> Result<Vec<DocPack>> {
     let state = feed(ctx)?;
@@ -820,10 +901,9 @@ fn publish_source(stage: Stage, destination: &Path, record: &CachedPack) -> Resu
     Ok(())
 }
 
+// The caller holds the library lock.
 pub(crate) fn store_original(ctx: &Context, pack: &DocPack, source: &Path) -> Result<PathBuf> {
     let destination = pack_dir(ctx, pack)?;
-    let lock = pack_lock_file(ctx, pack)?;
-    FileExt::lock_exclusive(&lock)?;
     if destination.try_exists()? && source.canonicalize()? == destination.canonicalize()? {
         verify_record(
             &destination,
@@ -1007,74 +1087,67 @@ pub(crate) fn install_with_progress(
         })
         .max_by(|a, b| compare_doc_releases(&a.pack.version, &b.pack.version))
         .context("This documentation release is not in the checked channel")?;
-    let destination = pack_dir(ctx, &release.pack)?;
-    {
-        let lock = pack_lock_file(ctx, &release.pack)?;
-        loop {
-            match FileExt::try_lock_exclusive(&lock) {
-                Ok(()) => break,
-                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                    progress("waiting for another download", 0, release.size)?;
-                    std::thread::sleep(Duration::from_millis(100));
-                }
-                Err(error) => return Err(error.into()),
+    let lock = pack_lock_file(ctx, &release.pack)?;
+    loop {
+        match FileExt::try_lock_exclusive(&lock) {
+            Ok(()) => break,
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                progress("waiting for another download", 0, release.size)?;
+                std::thread::sleep(Duration::from_millis(100));
             }
+            Err(error) => return Err(error.into()),
         }
-        let cached = if destination.try_exists()? {
-            Some(read_record(&destination, id, &release.pack.version)?)
-        } else {
-            None
-        };
-        if let Some(cached) =
-            cached.filter(|cached| cached.asset_sha256.as_deref() == Some(&release.sha256))
-        {
+    }
+    let library = lock_library(ctx)?;
+    let destination = pack_dir(ctx, &release.pack)?;
+    let install = |progress: &mut dyn FnMut(&str, u64, u64) -> Result<()>| {
+        progress("installing", release.size, release.size)?;
+        let mut result = install_doc_pack_with_preference(ctx, &release.pack, &destination, true)?;
+        result["active_version"] = json!(release.pack.version);
+        result["bytes"] = json!(release.size);
+        result["sha256"] = json!(release.sha256);
+        Ok(result)
+    };
+    if destination.try_exists()? {
+        let cached = read_record(&destination, id, &release.pack.version)?;
+        if cached.asset_sha256.as_deref() == Some(&release.sha256) {
             progress("verifying", release.size, release.size)?;
             verify_record(&destination, &cached)?;
-        } else {
-            let partial = download_dir(ctx)?.join(format!(
-                "{}@{}-{}.part",
-                id, release.pack.version, release.sha256
-            ));
-            download(
-                &release.url,
-                &partial,
-                release.size,
-                "=https",
-                &mut progress,
-            )?;
-            progress("verifying", release.size, release.size)?;
-            let archive = hash_file_limit(&partial, MAX_DOWNLOAD)?;
-            if archive.size != release.size || archive.sha256 != release.sha256 {
-                fs::remove_file(&partial)?;
-                bail!("Documentation release checksum did not match the channel");
-            }
-            let stage = Stage::new(destination.parent().unwrap())?;
-            let files = extract_archive(&partial, &stage.0)?;
-            if !files.contains_key("SOURCES.md") {
-                bail!("Documentation archive is missing source attribution");
-            }
-            let record = CachedPack {
-                pack: release.pack.clone(),
-                files,
-                asset_sha256: Some(release.sha256.clone()),
-            };
-            publish_source(stage, &destination, &record)?;
-            fs::remove_file(&partial)?;
+            return install(&mut progress);
         }
     }
-    progress("installing", release.size, release.size)?;
-    let mut result = install_doc_pack(ctx, &release.pack, &destination)?;
-    {
-        let _lock = lock_library(ctx)?;
-        let mut db = ctx.database()?;
-        let tx = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        prefer_release(&tx, id, &release.pack.version)?;
-        tx.commit()?;
+    drop(library);
+    let partial = download_dir(ctx)?.join(format!(
+        "{}@{}-{}.part",
+        id, release.pack.version, release.sha256
+    ));
+    download(
+        &release.url,
+        &partial,
+        release.size,
+        "=https",
+        &mut progress,
+    )?;
+    progress("verifying", release.size, release.size)?;
+    let archive = hash_file_limit(&partial, MAX_DOWNLOAD)?;
+    if archive.size != release.size || archive.sha256 != release.sha256 {
+        fs::remove_file(&partial)?;
+        bail!("Documentation release checksum did not match the channel");
     }
-    result["active_version"] = json!(release.pack.version);
-    result["bytes"] = json!(release.size);
-    result["sha256"] = json!(release.sha256);
-    Ok(result)
+    let stage = Stage::new(destination.parent().unwrap())?;
+    let files = extract_archive(&partial, &stage.0)?;
+    if !files.contains_key("SOURCES.md") {
+        bail!("Documentation archive is missing source attribution");
+    }
+    let record = CachedPack {
+        pack: release.pack.clone(),
+        files,
+        asset_sha256: Some(release.sha256.clone()),
+    };
+    let _library = lock_library(ctx)?;
+    publish_source(stage, &destination, &record)?;
+    fs::remove_file(&partial)?;
+    install(&mut progress)
 }
 
 #[cfg(test)]

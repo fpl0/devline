@@ -1,0 +1,182 @@
+<main><header><h1>Browsers and origins</h1></header>
+<p>The dashboard from the previous page works, but the listener it connects to
+will accept a connection from any web page on any site — including one
+you didn't write. It also has no way to tell who the connecting user is,
+because a browser has no credentials file to present.</p>
+<p>Those are the two things a browser changes: which pages may open a
+connection, and how a connection proves its identity. Everything else
+about the connection is unchanged.</p>
+<h2 id="restrict-which-pages-may-connect">Restrict which pages may connect</h2>
+<p>A browser attaches an <code>Origin</code> header to the WebSocket handshake, naming
+the site the page was served from. The server can require that header to
+match.</p>
+<p>In production Acme serves the dashboard from <code>https://ops.acme.example</code>
+and lists that. You can watch the mechanism work on your own machine
+without any DNS, because <code>localhost</code> counts as an origin like any other.</p>
+<p>Point the listener at a local origin:</p>
+<div><div><pre><code class="language-conf">websocket {
+  listen: 127.0.0.1:8080
+  no_tls: true
+
+  allowed_origins [
+    "http://localhost:8000"
+  ]
+}</code></pre></div></div>
+<p>Serve <code>dashboard.html</code> from the previous page on that origin:</p>
+<div><div><pre><code class="language-bash">python3 -m http.server 8000</code></pre></div></div>
+<p>Open <code>http://localhost:8000/dashboard.html</code> and it connects. Now open
+the same file as <code>http://127.0.0.1:8000/dashboard.html</code>. Same file, same
+machine, same port — and the connection is refused, because
+<code>127.0.0.1</code> isn't the string <code>localhost</code>.</p>
+<p>That's the rule in one experiment: the match is exact on scheme, host
+and port, and it's a string comparison, not a name resolution. Against
+<code>allowed_origins ["http://localhost:8000"]</code> the server answers:</p>
+<table><thead><tr><th><code>Origin</code> the browser sends</th><th>Handshake</th></tr></thead><tbody><tr><td><code>http://localhost:8000</code></td><td><code>101 Switching Protocols</code></td></tr><tr><td><code>http://127.0.0.1:8000</code></td><td><code>403 Forbidden</code></td></tr><tr><td><code>https://localhost:8000</code></td><td><code>403 Forbidden</code></td></tr><tr><td><code>http://localhost:8001</code></td><td><code>403 Forbidden</code></td></tr><tr><td><code>http://localhost</code></td><td><code>403 Forbidden</code></td></tr></tbody></table>
+<p><code>allowed_origins</code> can also be written <code>origins</code>, <code>origin</code>,
+<code>allowed_origin</code>, <code>allow_origins</code> or <code>allow_origin</code>; they're aliases for
+the same option.</p>
+<p>The last row is the one that catches people. A URL with no port means
+port 80 for <code>http://</code> and 443 for <code>https://</code>, so <code>https://ops.acme.example</code>
+and <code>https://ops.acme.example:8443</code> are different origins. Serving the
+same dashboard over both means listing both.</p>
+<p><code>same_origin: true</code> is the other form of the check: instead of a list,
+it requires the <code>Origin</code> header to match the host the request arrived
+on. It suits a setup where the page and the NATS endpoint are served
+from one hostname, and gets in the way as soon as they aren't.</p>
+<p>Set both and a request has to pass both checks. Leave both unset — the
+default — and any origin is accepted.</p>
+<h3 id="the-check-is-skipped-when-theres-no-origin-header">The check is skipped when there's no Origin header</h3>
+<p>Leave the config exactly as above and connect with the CLI:</p>
+<div><div><pre><code class="language-bash">nats -s ws://127.0.0.1:8080 sub "orders.&gt;"</code></pre></div></div>
+<p>It connects. <code>http://localhost:8000</code> is the only origin allowed, and the
+CLI is not that origin — but it sends no <code>Origin</code> header at all, and the
+server only runs the check when the header is present.</p>
+<p>That is not a bug, and it isn't something you can configure away. The
+<code>Origin</code> header is set by the browser, not by the person using it, which
+is exactly what makes it useful: a page on <code>evil.example</code> cannot lie
+about being <code>https://ops.acme.example</code>. Anything that isn't a browser
+sets its own headers, so an attacker writing a client simply omits it.</p>
+<p>So <code>allowed_origins</code> answers one question: <em>may this web page open a
+connection using a visitor's browser?</em> It does not answer <em>may this
+connection reach my subjects?</em> — permissions do that, and they apply to
+browser and non-browser connections alike. Configure both. A dashboard
+user restricted to <code>subscribe: orders.&gt;</code> is safe whether the request
+carried an <code>Origin</code> header or not.</p>
+<h2 id="give-the-browser-credentials">Give the browser credentials</h2>
+<p>A browser has no filesystem. The credentials file that a service uses
+isn't available, and putting an account seed in front-end code hands it
+to anyone who opens the developer tools. Two approaches work.</p>
+<h3 id="a-bearer-jwt-in-the-connection">A bearer JWT in the connection</h3>
+<p>In operator mode, the browser presents a JWT it was issued, and the user
+is marked as a bearer user so no nonce signature is required. The page
+never holds a signing key — only a token that expires.</p>
+<p>Issuing those tokens is the job of whatever already authenticates your
+users. The <a href="/learn/security/decentralized-auth">decentralized auth</a> page
+covers the user and account setup.</p>
+<h3 id="credentials-in-a-cookie">Credentials in a cookie</h3>
+<p>The other approach keeps the token out of JavaScript entirely. The HTTP
+server that authenticated the user sets a cookie with <code>HttpOnly</code>, so
+scripts on the page can't read it, and the browser attaches it to the
+WebSocket handshake. The NATS server reads the cookie and uses it as the
+credential:</p>
+<div><div><pre><code class="language-conf">websocket {
+  # Behind the TLS-terminating ingress from the next page: the browser
+  # reaches wss://nats.acme.example, the ingress speaks ws:// to here.
+  listen: 0.0.0.0:8080
+  no_tls: true
+
+  jwt_cookie: "acme_nats_jwt"
+
+  allowed_origins [
+    "https://ops.acme.example"
+  ]
+}</code></pre></div></div>
+<p><code>jwt_cookie</code> only works in operator mode. The server needs something to
+validate the JWT against, so it refuses to start when the cookie is set
+and no trusted operator or key is configured:</p>
+<div><div><pre><code class="language-text">trusted operators or trusted keys configuration is required for JWT
+authentication via cookie "acme_nats_jwt"</code></pre></div></div>
+<p>Four cookie names can be configured, matching the four things a client
+can present:</p>
+<table><thead><tr><th>Setting</th><th>Cookie holds</th></tr></thead><tbody><tr><td><a href="/reference/config/websocket/jwt_cookie/"><code>jwt_cookie</code></a></td><td>a NATS user JWT</td></tr><tr><td><a href="/reference/config/websocket/user_cookie/"><code>user_cookie</code></a></td><td>the user name</td></tr><tr><td><a href="/reference/config/websocket/pass_cookie/"><code>pass_cookie</code></a></td><td>the password</td></tr><tr><td><a href="/reference/config/websocket/token_cookie/"><code>token_cookie</code></a></td><td>the auth token</td></tr></tbody></table>
+<p><code>jwt_cookie</code> has always been available. The other three arrived in
+<code>nats-server</code> 2.11, so check the version you run before relying on them.</p>
+<p>Each one is only consulted when the client didn't supply that field
+itself. A JWT in the <code>CONNECT</code> protocol wins over <code>jwt_cookie</code>; a user
+name in <code>CONNECT</code> wins over <code>user_cookie</code>.</p>
+<p>This is the pattern to reach for when your web application already has a
+login. The session cookie your login sets is a credential the browser
+transmits automatically and JavaScript can't exfiltrate.</p>
+<p>For a dashboard that's genuinely public and read-only, <code>no_auth_user</code>
+names a user that unauthenticated WebSocket connections bind to. Give it
+subscribe permission on exactly the subjects the page shows and nothing
+else. It doesn't work in operator mode.</p>
+<h2 id="restrict-a-user-to-websocket">Restrict a user to WebSocket</h2>
+<p>A credential that reaches the dashboard shouldn't also work from a shell
+on port 4222. <code>allowed_connection_types</code> binds a user to the transports
+it may use:</p>
+<div><div><pre><code class="language-conf">authorization {
+  users [
+    { user: dashboard, password: s3cr3t, allowed_connection_types: ["WEBSOCKET"] }
+  ]
+}</code></pre></div></div>
+<p>The full value set, and the <code>_WS</code> variants for the other protocols, are
+covered in <a href="/learn/mqtt/auth-and-clustering#restrict-a-user-to-mqtt">MQTT → Auth and
+clustering</a>.
+For a leaf node that dials in over WebSocket the value is <code>LEAFNODE_WS</code>,
+which the <a href="/learn/websocket/leaf-nodes-over-websocket">last page</a> uses.</p>
+<h2 id="compression">Compression</h2>
+<p><code>compress: true</code> offers the <code>permessage-deflate</code> WebSocket extension.
+It's negotiated per connection: a client that doesn't ask for it gets an
+uncompressed connection, and the setting costs nothing on those.</p>
+<p><code>compress</code> can also be written <code>compression</code>; they're the same option.</p>
+<p>Where it's enabled, it trades CPU on both ends for bytes on the wire.
+Which way that comes out depends on how compressible your payloads are
+and how constrained the link is, so it's a measurement rather than a
+default — compare CPU and throughput on your own traffic before turning
+it on broadly.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>Treating <code>allowed_origins</code> as access control.</strong> It's evaluated only
+when an <code>Origin</code> header is present, so it constrains browsers and
+nothing else. A client that connects directly never sees the check.
+Permissions still do the real work.</p>
+<p><strong>Setting <code>same_origin: true</code> when the page and the endpoint differ.</strong>
+It requires the <code>Origin</code> header to match the host the request arrived on,
+so it fails as soon as the dashboard and the NATS endpoint sit on
+different hostnames — which is the normal case behind an ingress.</p>
+<p><strong>Serving the page from a host you didn't list.</strong> Scheme, host and port
+all have to match as strings — <code>localhost</code> and <code>127.0.0.1</code> are different
+origins even on one machine. Moving the dashboard to a different
+hostname, or adding a port, breaks the handshake for every user with a
+<code>403</code> until the list is updated.</p>
+<p><strong>Putting a seed or credentials file in front-end code.</strong> Anything the
+page can read, a visitor can read. Use a bearer JWT or a cookie the page
+can't see.</p>
+<p><strong>Giving the dashboard user publish permission.</strong> A page that only
+displays orders needs subscribe on <code>orders.&gt;</code>. Publish rights on a
+credential that ships to browsers is a much larger surface than the
+feature needs.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The dashboard is now a controlled client:</p>
+<ul>
+<li>only pages from <code>https://ops.acme.example</code> may open a connection</li>
+<li>the browser presents a JWT from an <code>HttpOnly</code> cookie rather than
+holding a key</li>
+<li>its user is restricted to <code>WEBSOCKET</code> connections</li>
+<li>you know the origin check constrains browsers and not the port</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>Everything so far has run with <code>no_tls: true</code> on localhost, which means
+the cookie holding a user's JWT crosses the network in the clear. <a href="/learn/websocket/tls-and-proxies">TLS
+and proxies</a> fixes that, both with a
+certificate on the listener and with TLS terminated at the ingress that
+already fronts Acme's web estate.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/websocket/">Reference → websocket</a> — <code>allowed_origins</code>,
+<code>same_origin</code>, the cookie settings, and <code>compress</code></li>
+<li><a href="/learn/security/authorization">Security → Authorization</a> — the
+permission model behind a restricted dashboard user</li>
+<li><a href="/learn/security/decentralized-auth">Security → Decentralized auth</a> —
+bearer users and issuing JWTs</li>
+</ul></main>

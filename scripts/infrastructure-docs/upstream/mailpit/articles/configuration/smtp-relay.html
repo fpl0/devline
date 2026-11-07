@@ -1,0 +1,92 @@
+<main>
+		
+		<h1>SMTP relaying</h1>
+		<p>Configuring an SMTP relay enables the message “release” feature, which allows you to relay the message via another pre-configured SMTP server.</p>
+<p><strong>Note</strong>: This differs significantly from <a href="../smtp-forward/">SMTP forwarding</a> which sends a copy to a predefined email address (or addresses).</p>
+<p>To enable SMTP relaying, the configuration file (yaml syntax) must be provided to Mailpit either via <code>--smtp-relay-config &lt;config-file&gt;</code> or the environment variable <code>MP_SMTP_RELAY_CONFIG=&lt;config-file&gt;</code>.</p>
+<h2 id="smtp-relay-configuration">SMTP relay configuration</h2>
+<div><pre><code class="language-yaml"><span><span><span>host</span><span>:</span><span> </span><span>&lt;hostname-or-ip&gt;</span><span> </span><span># required - SMTP host or IP to send via</span><span>
+</span></span></span><span><span><span>port</span><span>:</span><span> </span><span>&lt;port&gt;</span><span> </span><span># optional - SMTP port, default 25</span><span>
+</span></span></span><span><span><span>starttls</span><span>:</span><span> </span><span>&lt;true|false&gt;</span><span> </span><span># optional - connect using STARTTLS, default false</span><span>
+</span></span></span><span><span><span>tls</span><span>:</span><span> </span><span>&lt;true|false&gt;</span><span> </span><span># optional - connect using TLS, default false</span><span>
+</span></span></span><span><span><span>allow-insecure</span><span>:</span><span> </span><span>&lt;true|false&gt;</span><span> </span><span># optional - do not validate TLS certificate, default false</span><span>
+</span></span></span><span><span><span>auth</span><span>:</span><span> </span><span>&lt;none|plain|login|cram-md5&gt;</span><span> </span><span># optional - default none</span><span>
+</span></span></span><span><span><span>username</span><span>:</span><span> </span><span>&lt;username&gt;</span><span> </span><span># required for plain, login and cram-md5 auth</span><span>
+</span></span></span><span><span><span>password</span><span>:</span><span> </span><span>&lt;password&gt;</span><span> </span><span># required for plain &amp; login auth</span><span>
+</span></span></span><span><span><span>secret</span><span>:</span><span> </span><span>&lt;cram-secret&gt;</span><span> </span><span># required for cram-md5 auth</span><span>
+</span></span></span><span><span><span>return-path</span><span>:</span><span> </span><span>&lt;bounce-address&gt;</span><span> </span><span># optional - overrides Return-Path for all released emails</span><span>
+</span></span></span><span><span><span>override-from</span><span>:</span><span> </span><span>&lt;email-address&gt;</span><span> </span><span># optional - overrides the From email address</span><span>
+</span></span></span><span><span><span>subject-prefix</span><span>:</span><span> </span><span>&lt;text&gt;</span><span> </span><span># optional - text to prepend to the Subject of all relayed emails</span><span>
+</span></span></span><span><span><span>allowed-recipients</span><span>:</span><span> </span><span>'@example\.com$'</span><span> </span><span># optional - limit allowed relay addresses or domains</span><span>
+</span></span></span><span><span><span>blocked-recipients</span><span>:</span><span> </span><span>'@example2\.com$'</span><span> </span><span># optional - prevent relating to addresses or domains</span><span>
+</span></span></span><span><span><span>preserve-message-ids</span><span>:</span><span> </span><span>&lt;true|false&gt;</span><span> </span><span># optional - preserve the original Message-IDs when relaying, default false</span><span>
+</span></span></span><span><span><span>forward-smtp-errors</span><span>:</span><span> </span><span>&lt;true|false&gt;</span><span> </span><span># optional - whether to log smtp-errors or forward them to upstream-client</span><span>
+</span></span></span></code></pre></div><h3 id="notes">Notes</h3>
+<p>By default, messages relayed via the web UI / API are assigned a new, unique <code>Message-ID</code>.
+This helps when testing with services like Gmail, which may silently drop or hide emails with duplicate Message-IDs.
+To preserve (keep) the original Message-IDs when relaying, set <code>preserve-message-ids: true</code> in your configuration.</p>
+<p>The <code>return-path</code> configuration option will add or overwrite the <code>Return-Path</code> for all messages relayed via the web UI and API.
+This is useful for providing a valid email address to catch any accidental bounces and prevent SPF errors for email domain names.
+Servers such as Gmail have become very strict about the mail they accept, and unresolvable Return-Path addresses, or unauthorised Return-Path addresses (SPF / DMARC) get rejected very easily.
+Also see <a href="#override-from">Override From</a> to change the <code>From</code> email address on all relayed messages, and <a href="#subject-prefix">Subject prefix</a> to prepend text to the <code>Subject</code>.</p>
+<h4 id="override-from">Override From</h4>
+<p>Some SMTP servers require any messages to come from a specific address.
+If you set the <code>override-from</code> value, Mailpit will overwrite the original <code>From</code> <strong>email address</strong> (leaving the name intact where possible) and add a new <code>X-Original-From</code> header containing the original value.</p>
+<p>For example, if set to <code>me@mydomain.com</code>, then this will change</p>
+<div><pre><code class="language-shell"><span><span>From: <span>"Original Recipient"</span> &lt;original@example.com&gt;
+</span></span></code></pre></div><p>to</p>
+<div><pre><code class="language-shell"><span><span>X-Original-From: original@example.com
+</span></span><span><span>From: <span>"Original Recipient"</span> &lt;me@mydomain.com&gt;
+</span></span></code></pre></div><h4 id="allowed-recipients">Allowed recipients</h4>
+<p>The optional <code>allowed-recipients</code> allows you to set a regular expression (Go format) to restrict which addresses or domains can be manually released to via the web UI and API. This option does not apply to <code>--smtp-relay-all</code> or <code>--smtp-relay-matching</code> (see below).</p>
+<p>Please note that the regular expression should be written in the Go format and quoted with single apostrophes (<code>'</code>) to avoid parsing errors. You can use <a href="https://regex101.com/r/mfbicW/1">https://regex101.com/r/mfbicW/1</a> as a playground to test your expression.</p>
+<h4 id="blocked-recipients">Blocked recipients</h4>
+<p>The optional <code>blocked-recipients</code> allows you to set a regular expression (Go format) to prevent relaying to addresses or domains via the web UI and API. This option also applies to the <code>--smtp-relay-all</code> and <code>--smtp-relay-matching</code> (see below).</p>
+<p>Please note that the regular expression should be written in the Go format and quoted with single apostrophes (<code>'</code>) to avoid parsing errors. You can use <a href="https://regex101.com/r/mfbicW/1">https://regex101.com/r/mfbicW/1</a> as a playground to test your expression.</p>
+<h4 id="subject-prefix">Subject prefix</h4>
+<p>To make it clear that a message was sent from a test system, set <code>subject-prefix</code> and Mailpit will prepend it to the <code>Subject</code> of all relayed messages.
+The prefix is trimmed of leading and trailing whitespace, and is always separated from the original subject by a single space.
+It cannot contain line breaks.</p>
+<p>For example, if set to <code>[TEST]</code>, then this will change</p>
+<div><pre><code class="language-shell"><span><span>Subject: Purchase Order Request XYZ1234
+</span></span></code></pre></div><p>to</p>
+<div><pre><code class="language-shell"><span><span>Subject: <span>[</span>TEST<span>]</span> Purchase Order Request XYZ1234
+</span></span></code></pre></div><p>Encoded subjects (RFC 2047) are decoded before the prefix is added, and the result is re-encoded if it contains non-ASCII characters.
+If a message has no <code>Subject</code>, it will be set to the prefix alone.</p>
+<h4 id="setting-via-environment">Setting via environment</h4>
+<p>For convenience, the entire relay configuration can be set via environment variables. The only required value is the <code>MP_SMTP_RELAY_HOST</code> field, otherwise all other values are ignored.</p>
+<div><pre><code class="language-shell"><span><span><span>MP_SMTP_RELAY_HOST</span><span>=</span>&lt;hostname-or-ip&gt;                <span># required</span>
+</span></span><span><span><span>MP_SMTP_RELAY_PORT</span><span>=</span>&lt;port&gt;                          <span># optional - default 25</span>
+</span></span><span><span><span>MP_SMTP_RELAY_STARTTLS</span><span>=</span>&lt;true<span>|</span>false&gt;                <span># optional - connect using STARTTLS, default false</span>
+</span></span><span><span><span>MP_SMTP_RELAY_TLS</span><span>=</span>&lt;true<span>|</span>false&gt;                     <span># optional - connect using TLS, default false</span>
+</span></span><span><span><span>MP_SMTP_RELAY_ALLOW_INSECURE</span><span>=</span>&lt;true<span>|</span>false&gt;          <span># optional - do not validate TLS certificate, default false</span>
+</span></span><span><span><span>MP_SMTP_RELAY_AUTH</span><span>=</span>&lt;none<span>|</span>plain<span>|</span>login<span>|</span>cram-md5&gt;     <span># optional - default none</span>
+</span></span><span><span><span>MP_SMTP_RELAY_USERNAME</span><span>=</span>&lt;username&gt;                  <span># required for plain, login and cram-md5 auth</span>
+</span></span><span><span><span>MP_SMTP_RELAY_PASSWORD</span><span>=</span>&lt;password&gt;                  <span># required for plain &amp; login auth</span>
+</span></span><span><span><span>MP_SMTP_RELAY_SECRET</span><span>=</span>&lt;cram-secret&gt;                 <span># required for cram-md5 auth</span>
+</span></span><span><span><span>MP_SMTP_RELAY_RETURN_PATH</span><span>=</span>&lt;bounce-address&gt;         <span># optional - overrides Return-Path for all released emails</span>
+</span></span><span><span><span>MP_SMTP_RELAY_OVERRIDE_FROM</span><span>=</span>&lt;email-address&gt;        <span># optional - overrides the From email address</span>
+</span></span><span><span><span>MP_SMTP_RELAY_SUBJECT_PREFIX</span><span>=</span>&lt;text&gt;                <span># optional - text to prepend to the Subject of all released emails</span>
+</span></span><span><span><span>MP_SMTP_RELAY_ALLOWED_RECIPIENTS</span><span>=</span><span>"@example\.com</span>$<span>"</span>  <span># optional - regex to limit allowed relay addresses or domains via web UI &amp; API</span>
+</span></span><span><span><span>MP_SMTP_RELAY_BLOCKED_RECIPIENTS</span><span>=</span><span>"@example2\.com</span>$<span>"</span> <span># optional - regex to prevent relaying to addresses or domains via web UI &amp; API</span>
+</span></span><span><span><span>MP_SMTP_RELAY_PRESERVE_MESSAGE_IDS</span><span>=</span>&lt;true<span>|</span>false&gt;    <span># optional - preserve the original Message-IDs when relaying, default false</span>
+</span></span><span><span><span>MP_SMTP_RELAY_FWD_SMTP_ERRORS</span><span>=</span>&lt;true<span>|</span>false&gt;         <span># optional - whether to log smtp-errors or forward them to upstream-client</span>
+</span></span></code></pre></div><p>For security reasons, these options are not available as CLI flags.</p>
+<h2 id="automatically-relay-all-messages">Automatically relay all messages</h2>
+<p>The <code>--smtp-relay-all</code> flag (or <code>MP_SMTP_RELAY_ALL=true</code> environment variable) can be set to automatically relay all incoming messages via the configured SMTP relay server.</p>
+<p>This means that Mailpit will act like a caching proxy server, and automatically send any incoming email to all original recipients and store a local copy.
+The incoming email is not modified (unlike releasing via the web UI / API), and the message is simply passed through as-is. This option should be used with caution! If you only wish to relay messages to some recipients, then <a href="#automatically-relay-some-messages">see below</a>.</p>
+<p>This option cannot be used in conjunction with <code>--smtp-relay-matching</code>, and ignores the <code>allowed-recipients</code> option in your SMTP relay configuration.</p>
+<p>Any addresses matching <code>blocked-recipients</code> (if set) are silently ignored, however other remaining addresses (if any) will still be sent the message.</p>
+<h2 id="automatically-relay-some-messages">Automatically relay some messages</h2>
+<p>The <code>--smtp-relay-matching</code> flag (or <code>MP_SMTP_RELAY_MATCHING</code> environment variable) allows you to selectively relay messages to a pre-configured regular expression. An example would be <code>--smtp-relay-matching '(user1@host1\.com|user2@host2\.com|@host3\.com)$'</code> to only relay messages intended for recipients in that expression.</p>
+<p>This option cannot be used in conjunction with <code>--smtp-relay-all</code>, and ignores the <code>allowed-recipients</code> option in your SMTP relay configuration.</p>
+<p>Any addresses matching <code>blocked-recipients</code> (if set) are silently ignored, however other remaining addresses will still be sent the message provided they match the <code>--smtp-relay-matching</code>.</p>
+<h2 id="set-default-relay-addresses">Set default relay addresses</h2>
+<p>Default relay addresses can be set in the Mailpit UI settings screen. These addresses are set per web browser (using local storage) and are only applied when manually releasing messages via the web UI.</p>
+
+
+		
+		
+		
+	</main>

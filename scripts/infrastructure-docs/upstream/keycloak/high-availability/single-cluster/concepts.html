@@ -1,0 +1,267 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This topic describes a single-cluster setup and the behavior to expect.
+It outlines the requirements of the high availability architecture and describes the benefits and tradeoffs.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="single-cluster-when-to-use"><a class="anchor" href="#single-cluster-when-to-use"></a>When to use this setup</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Use this setup to deploy Keycloak to a setup with transparent networking.</p>
+</div>
+<div class="paragraph">
+<p>To provide a more concrete example, the following chapter assumes a deployment contained within a single Kubernetes cluster.
+The same concepts could be applied to a set of virtual or physical machines and a manual or scripted deployment.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_single_or_multiple_availability_zones"><a class="anchor" href="#_single_or_multiple_availability_zones"></a>Single or multiple availability-zones</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The behaviour and high-availability performance of the Keycloak deployment are ultimately determined by the configuration of
+the Kubernetes cluster. Typically, Kubernetes clusters are deployed on a single availability-zone, however in order to
+increase fault-tolerance, it is possible to <a href="https://kubernetes.io/docs/setup/best-practices/multiple-zones/">deploy the cluster across multiple availability-zones</a>.</p>
+</div>
+<div class="paragraph">
+<p>The Keycloak Operator defines the following topology spread constraints by default to prefer that Keycloak pods are
+deployed on distinct nodes and distinct availability-zones when possible:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml">      <span class="na">topologySpreadConstraints</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="na">maxSkew</span><span class="pi">:</span> <span class="m">1</span>
+          <span class="na">topologyKey</span><span class="pi">:</span> <span class="s2">"</span><span class="s">topology.kubernetes.io/zone"</span>
+          <span class="na">whenUnsatisfiable</span><span class="pi">:</span> <span class="s2">"</span><span class="s">ScheduleAnyway"</span>
+          <span class="na">labelSelector</span><span class="pi">:</span>
+            <span class="na">matchLabels</span><span class="pi">:</span>
+              <span class="na">app</span><span class="pi">:</span> <span class="s2">"</span><span class="s">keycloak"</span>
+              <span class="na">app.kubernetes.io/managed-by</span><span class="pi">:</span> <span class="s2">"</span><span class="s">keycloak-operator"</span>
+              <span class="na">app.kubernetes.io/instance</span><span class="pi">:</span> <span class="s2">"</span><span class="s">keycloak"</span>
+              <span class="na">app.kubernetes.io/component</span><span class="pi">:</span> <span class="s2">"</span><span class="s">server"</span>
+        <span class="pi">-</span> <span class="na">maxSkew</span><span class="pi">:</span> <span class="m">1</span>
+          <span class="na">topologyKey</span><span class="pi">:</span> <span class="s2">"</span><span class="s">kubernetes.io/hostname"</span>
+          <span class="na">whenUnsatisfiable</span><span class="pi">:</span> <span class="s2">"</span><span class="s">ScheduleAnyway"</span>
+          <span class="na">labelSelector</span><span class="pi">:</span>
+            <span class="na">matchLabels</span><span class="pi">:</span>
+              <span class="na">app</span><span class="pi">:</span> <span class="s2">"</span><span class="s">keycloak"</span>
+              <span class="na">app.kubernetes.io/managed-by</span><span class="pi">:</span> <span class="s2">"</span><span class="s">keycloak-operator"</span>
+              <span class="na">app.kubernetes.io/instance</span><span class="pi">:</span> <span class="s2">"</span><span class="s">keycloak"</span>
+              <span class="na">app.kubernetes.io/component</span><span class="pi">:</span> <span class="s2">"</span><span class="s">server"</span></code></pre>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>In order to configure high-availability with multiple availability-zones, it is crucial that the Database is also able to
+withstand zone failures as Keycloak depends on the underlying database to remain available.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_failures_which_this_setup_can_survive"><a class="anchor" href="#_failures_which_this_setup_can_survive"></a>Failures which this setup can survive</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Deploying Keycloak on a single cluster in a single zone, or across multiple availability-zones, or data centers with
+the required network latency and database configuration, changes the high-availability characteristics significantly,
+therefore we consider these architectures independently.</p>
+</div>
+<div class="sect2">
+<h3 id="_single_zone"><a class="anchor" href="#_single_zone"></a>Single Zone</h3>
+<div class="paragraph">
+<p>During testing of the high availability <a href="https://www.keycloak.org/high-availability/single-cluster/introduction#single-cluster-configuration">Single-cluster deployments</a>, we observed the following
+restore times for the events described:</p>
+</div>
+<table class="tableblock frame-all grid-all fit-content">
+<colgroup>
+<col/>
+<col/>
+<col/>
+<col/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Failure</th>
+<th class="tableblock halign-left valign-top">Expected behavior</th>
+<th class="tableblock halign-left valign-top">RPO<sup>1</sup></th>
+<th class="tableblock halign-left valign-top">RT<sup>2</sup></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Keycloak Pod</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multiple Keycloak Pods run in a cluster. If one instance fails some incoming requests might receive an error message or are delayed for some seconds.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Less than 30 seconds</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Kubernetes Node</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multiple Keycloak Pods run in a cluster. If the host node dies, then all pods on that node will fail and some incoming requests might receive an error message or are delayed for some seconds.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Less than 30 seconds</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Keycloak Clustering Connectivity</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If the connectivity between Kubernetes nodes is lost, data cannot be sent between Keycloak pods hosted on those nodes.
+Incoming requests might receive an error message or be delayed for some seconds.
+The Keycloak will eventually remove the unreachable pods from its local view and will stop sending data to them.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds to minutes</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<div class="title">Table footnotes:</div>
+<p><sup>1</sup> Tested Recovery Point Objective, assuming all parts of the setup were healthy at the time this occurred.<br/>
+<sup>2</sup> Maximum Recovery Time observed.<br/></p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_multiple_zones"><a class="anchor" href="#_multiple_zones"></a>Multiple Zones</h3>
+<div class="paragraph">
+<p>During testing of the high availability <a href="https://www.keycloak.org/high-availability/multi-cluster/introduction#multi-cluster-supported-configuration">Multi-cluster deployments (v1)</a>, we observed the following
+restore times for the events described:</p>
+</div>
+<table class="tableblock frame-all grid-all fit-content">
+<colgroup>
+<col/>
+<col/>
+<col/>
+<col/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Failure</th>
+<th class="tableblock halign-left valign-top">Expected behavior</th>
+<th class="tableblock halign-left valign-top">RPO<sup>1</sup></th>
+<th class="tableblock halign-left valign-top">RT<sup>2</sup></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Database node<sup>3</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If the writer instance fails, the database can promote a reader instance in the same or other zone to be the new writer.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds to minutes (depending on the database)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Keycloak pod</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multiple Keycloak instances run in a cluster. If one instance fails some incoming requests might receive an error message or are delayed for some seconds.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Less than 30 seconds</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Kubernetes Node</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multiple Keycloak pods run in a cluster. If the host node dies, then all pods on that node will fail and some incoming requests might receive an error message or are delayed for some seconds.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Less than 30 seconds</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Availability zone failure</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If an availability-zone fails, all Keycloak pods hosted in that zone will also fail. Deploying at least the same number
+of Keycloak replicas as availability-zones should ensure that no data is lost and minimal downtime occurs as there will
+be other pods available to service requests.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Connectivity database</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If the connectivity between availability-zones is lost, the synchronous replication will fail.
+Some requests might receive an error message or be delayed for a few seconds.
+Manual operations might be necessary depending on the database.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss<sup>3</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds to minutes (depending on the database)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Keycloak Clustering Connectivity</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">If the connectivity between Kubernetes nodes is lost, data cannot be sent between Keycloak pods hosted on those nodes.
+Incoming requests might receive an error message or be delayed for some seconds.
+The Keycloak will eventually remove the unreachable pods from its local view and will stop sending data to them.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No data loss</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Seconds to minutes</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<div class="title">Table footnotes:</div>
+<p><sup>1</sup> Tested Recovery Point Objective, assuming all parts of the setup were healthy at the time this occurred.<br/>
+<sup>2</sup> Maximum Recovery Time observed.<br/>
+<sup>3</sup> Assumes that the database is also replicated across multiple availability-zones</p>
+</div>
+<div class="paragraph">
+<p>For performance, Keycloak uses optimized database commit for ephemeral data such as sessions and events.
+On a database crash, in-flight session data within a sub-second window may be lost, requiring affected users to re-authenticate.
+Persistent data such as users, realms, and credentials always uses durable commit and is not affected.
+To disable the optimization, set <code>--spi-connections-jpa—​quarkus—​async-commit=false</code>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_known_limitations"><a class="anchor" href="#_known_limitations"></a>Known limitations</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Downtime during rollouts of Keycloak upgrades</p>
+<div class="paragraph">
+<p>This can be overcome for patch releases by enabling <a href="https://www.keycloak.org/server/update-compatibility#rolling-updates-for-patch-releases">Checking if rolling updates are possible</a>.</p>
+</div>
+</li>
+<li>
+<p>Multiple node failures can result in a loss of entries from the <code>authenticationSessions</code>, <code>loginFailures</code>
+and <code>actionTokens</code> caches if the number of node failures is greater than or equal to the cache’s configured <code>num_owners</code>,
+which by default is 2.</p>
+</li>
+<li>
+<p>Deployments using the default <code>topologySpreadConstraints</code> with <code>whenUnsatisfiable: ScheduleAnyway</code>, may experience
+data-loss on node/availability-zone failure if multiple pods are scheduled on the failed node/zone.</p>
+<div class="paragraph">
+<p>Users can mitigate against this scenario by defining <code>topologySpreadConstraints</code> with <code>whenUnsatisfiable: DoNotSchedule</code>,
+to ensure that pods are always evenly scheduled across zones and nodes. However, this can result in some Keycloak
+instances not being deployed if the constraints cannot be satisfied.</p>
+</div>
+<div class="paragraph">
+<p>As Infinispan is unaware of the network topology when distributing cache entries, it is still possible for data-loss to
+occur on node/availability-zone failure if all <code>num_owner</code> copies of cached data are stored in the failed node/zone.
+You can restrict the total number of Keycloak instances to the number of nodes or availability-zones available by
+defining a <code>requiredDuringSchedulingIgnoredDuringExecution</code> for nodes and zones. However, this comes at the expense of
+scalability as the number of Keycloak instances that can be provisioned will be restricted to the number of
+nodes/availability-zones in your Kubernetes cluster.</p>
+</div>
+<div class="paragraph">
+<p>See the Operator <a href="https://www.keycloak.org/operator/advanced-configuration#_scheduling">Advanced configuration</a> details of how to configure custom
+anti-affinity <code>topologySpreadConstraints</code> policies.</p>
+</div>
+</li>
+<li>
+<p>The Operator does not configure the site’s name (see <a href="https://www.keycloak.org/server/caching#cache-topology">Configuring distributed caches</a>) in the Pods as its value is not available via the <a href="https://kubernetes.io/docs/concepts/workloads/pods/downward-api/">Downward API</a>.
+The machine name option is configured using the <code>spec.nodeName</code> from the node where the Pod is scheduled.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_next_steps"><a class="anchor" href="#_next_steps"></a>Next steps</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Continue reading in the <a href="https://www.keycloak.org/high-availability/single-cluster/building-blocks">Building blocks single-cluster deployments</a> guide to find blueprints for the different building blocks.</p>
+</div>
+</div>
+</div> </div>
+</main>

@@ -1,0 +1,14 @@
+<main><header><h1>Installing on Solaris</h1></header>
+<p>The <a href="/docs/4.3/install-generic-unix">Generic binary build</a> installation instructions may be used to install
+RabbitMQ on Solaris, with two modifications.</p>
+<p>The RabbitMQ shell scripts assume a standard POSIX environment.
+On Solaris this requires that startup scripts be executed with
+the <code>/usr/xpg4/bin/sh</code> shell. This can
+be accomplished by replacing the first line of each script
+(which normally reads <code>#!/bin/sh</code>) with <code>#!/usr/xpg4/bin/sh</code>.</p>
+<p>The RabbitMQ shell scripts assume the existence of the
+"readlink" utility for resolving symbolic links. This can be
+obtained by installing the
+<a href="http://www.sunfreeware.com/">Sunfreeware</a>
+"coreutils" package or compiling
+<a href="http://www.gnu.org/software/coreutils/">GNU coreutils</a>.</p></main>

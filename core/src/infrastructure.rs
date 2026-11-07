@@ -271,6 +271,100 @@ impl Store {
         }
         Stamp::read(&fs::symlink_metadata(path)?)
     }
+
+    fn prune_after_install(
+        &self,
+        ctx: &Context,
+        index: &mut Index,
+        installed: &[String],
+    ) -> Result<()> {
+        if crate::updates::keep_latest(ctx)? {
+            self.prune(index, Some(installed))
+                .context("Image was archived, but old versions could not be purged")?;
+        }
+        Ok(())
+    }
+
+    // Callers hold the archive lock through both the index update and blob removal.
+    fn prune(&self, index: &mut Index, installed: Option<&[String]>) -> Result<usize> {
+        let mut newest = BTreeMap::new();
+        for (key, item) in index.iter() {
+            let family = (
+                item.service.id.as_str(),
+                item.service.image.platform.as_str(),
+            );
+            let latest: &mut (&String, &Stored) = newest.entry(family).or_insert((key, item));
+            if crate::updates::compare_doc_releases(
+                &item.service.version,
+                &latest.1.service.version,
+            )
+            .is_gt()
+            {
+                *latest = (key, item);
+            }
+        }
+        let mut keep = BTreeSet::new();
+        let mut remove = Vec::new();
+        for (key, item) in index.iter() {
+            let (latest, _) = newest[&(
+                item.service.id.as_str(),
+                item.service.image.platform.as_str(),
+            )];
+            if key != latest && installed.is_none_or(|installed| installed.contains(latest)) {
+                keep.insert(latest.clone());
+                remove.push(key.clone());
+            }
+        }
+        for key in keep {
+            let item = index.get_mut(&key).unwrap();
+            let path = self.blob(&item.receipt);
+            if archive_stamp(&path).ok().as_ref() != Some(&item.stamp) {
+                verify_saved(&path, &item.service.clone(), item, &mut None)?;
+            }
+        }
+        let removed: Vec<_> = remove.iter().filter_map(|key| index.remove(key)).collect();
+        if !removed.is_empty() {
+            self.write_index(index)?;
+        }
+        let live: BTreeSet<_> = index
+            .values()
+            .map(|item| item.receipt.archive_sha256.as_str())
+            .collect();
+        if installed.is_none() {
+            for entry in fs::read_dir(&self.images)? {
+                let entry = entry?;
+                let name = entry.file_name();
+                if name
+                    .to_str()
+                    .and_then(|name| name.strip_suffix(".tar.gz"))
+                    .is_some_and(|digest| hash(digest) && !live.contains(digest))
+                    && entry.file_type()?.is_file()
+                {
+                    fs::remove_file(entry.path())?;
+                }
+            }
+        } else {
+            for item in &removed {
+                if !live.contains(item.receipt.archive_sha256.as_str()) {
+                    unlink_blob(&self.blob(&item.receipt))?;
+                }
+            }
+        }
+        Ok(removed.len())
+    }
+}
+
+fn unlink_blob(path: &Path) -> Result<()> {
+    match fs::remove_file(path) {
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        result => Ok(result?),
+    }
+}
+
+pub(crate) fn prune(ctx: &Context) -> Result<usize> {
+    let store = Store::open(ctx)?;
+    let _lock = store.lock(&mut None)?;
+    store.prune(&mut store.index()?, None)
 }
 
 fn hash(value: &str) -> bool {
@@ -656,7 +750,7 @@ pub(crate) fn execute(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
             if command == "infra.import.inspect" {
                 return archive::inspect(&trusted, request);
             }
-            return archive::import(&store, &trusted, request, job);
+            return archive::import(&store, &trusted, request, ctx, job);
         }
         "infra.updates" | "infra.updates.check" => {
             return registry::status(
@@ -666,26 +760,30 @@ pub(crate) fn execute(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
                 command == "infra.updates.check",
             );
         }
-        "infra.update" => return registry::apply(&store, &services, text_arg(request, "id")?, job),
+        "infra.update" => {
+            return registry::apply(&store, &services, text_arg(request, "id")?, ctx, job)
+        }
         _ => {}
     }
     let service = select(&services, text_arg(request, "id")?)?;
     match command {
-        "infra.prepare" => prepare(&store, &service, job),
+        "infra.prepare" => prepare(&store, &service, ctx, job),
         "infra.restore" => restore(&store, &service, job),
         "infra.verify" => {
             stage(&mut job, "Verifying independent image archive")?;
             let _lock = store.lock(&mut job)?;
             let mut index = store.index()?;
-            let item = index
-                .get_mut(&service.key())
-                .context("Prepare this image first")?;
+            let key = service.key();
+            let item = index.get_mut(&key).context("Prepare this image first")?;
             verify_saved(&store.blob(&item.receipt), &service, item, &mut job)?;
             store.write_index(&index)?;
-            let item = index.get(&service.key());
+            let item = index.get(&key);
             let mut result = image_status(&store, &service, item, None, false);
             result["archive_verified"] = json!(true);
             result["status"] = json!("verified");
+            if request["apply_retention"] == true {
+                store.prune_after_install(ctx, &mut index, &[key])?;
+            }
             Ok(result)
         }
         "infra.remove" => {
@@ -698,13 +796,7 @@ pub(crate) fn execute(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
                     .values()
                     .any(|other| other.receipt.archive_sha256 == item.receipt.archive_sha256)
                 {
-                    fs::remove_file(store.blob(&item.receipt)).or_else(|error| {
-                        if error.kind() == io::ErrorKind::NotFound {
-                            Ok(())
-                        } else {
-                            Err(error)
-                        }
-                    })?;
+                    unlink_blob(&store.blob(&item.receipt))?;
                 }
             }
             Ok(json!({"id":service.id,"version":service.version,"removed":removed.is_some()}))
@@ -713,7 +805,12 @@ pub(crate) fn execute(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
     }
 }
 
-fn prepare(store: &Store, service: &Service, mut job: Option<&mut Job>) -> Result<Value> {
+fn prepare(
+    store: &Store,
+    service: &Service,
+    ctx: &Context,
+    mut job: Option<&mut Job>,
+) -> Result<Value> {
     stage(&mut job, "Checking local Docker and archive")?;
     let docker = docker::Docker::discover()?;
     docker.require_platform(&service.image.platform)?;
@@ -727,13 +824,15 @@ fn prepare(store: &Store, service: &Service, mut job: Option<&mut Job>) -> Resul
             verify_saved(&path, service, item, &mut job)?;
             store.write_index(&index)?;
         }
-        return Ok(image_status(
+        let result = image_status(
             store,
             service,
             index.get(&key),
             Some(&docker),
             docker.alias_loaded(service)?,
-        ));
+        );
+        store.prune_after_install(ctx, &mut index, &[key])?;
+        return Ok(result);
     }
     let source = service.image.source();
     if !docker.image_matches(&source, service)? {
@@ -768,13 +867,15 @@ fn prepare(store: &Store, service: &Service, mut job: Option<&mut Job>) -> Resul
         },
     );
     store.write_index(&index)?;
-    Ok(image_status(
+    let result = image_status(
         store,
         service,
         index.get(&service.key()),
         Some(&docker),
         docker.alias_loaded(service)?,
-    ))
+    );
+    store.prune_after_install(ctx, &mut index, &[key])?;
+    Ok(result)
 }
 
 fn restore(store: &Store, service: &Service, mut job: Option<&mut Job>) -> Result<Value> {

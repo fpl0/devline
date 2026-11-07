@@ -1,0 +1,155 @@
+<main><header><h1>Effectively-Once Stream Processing</h1></header>
+<h2 id="overview">Overview</h2>
+<p>Many stream applications are a <em>read-process-write</em> loop: they consume messages from one stream, compute something from them, and publish the result to another stream.</p>
+<p>This guide explains how to make such a loop <strong>effectively-once</strong>: a crash at any point never produces a duplicate result and never loses one.
+Effectively-once is what other stream processing systems, including Apache Kafka®, call <em>exactly-once</em> — see below for why this guide uses the more precise name.
+It uses only the <a href="/docs/4.3/stream">RabbitMQ Stream protocol</a> and two features that already exist: stream offsets and <a href="/docs/4.3/streams#deduplication-published-messages">deduplication of published messages</a>.</p>
+<h2 id="problem">The Problem</h2>
+<p>A read-process-write application has to remember how far it has got in the source stream — its <em>resume point</em> — so that it can carry on from there after a restart.
+The usual way is <a href="/docs/4.3/streams#offset-tracking">server-side offset tracking</a>: the application tells the broker the offset of the last message it processed, the broker stores that offset in the source stream, and the application asks for it again on startup.
+An external store, such as a database, amounts to the same thing.</p>
+<p>Either way, storing the offset is a <strong>second write</strong>, separate from publishing the result, and a crash can land in between the two:</p>
+<ul>
+<li><strong>Publish the result, then store the offset.</strong> If the application crashes in between, it restarts from the offset it stored earlier, re-processes the same source messages and publishes the result a second time. This is <em>at-least-once</em>: duplicates.</li>
+<li><strong>Store the offset, then publish the result.</strong> If the application crashes in between, it restarts past source messages whose result was never published. This is <em>at-most-once</em>: lost results.</li>
+</ul>
+<p>Retrying more carefully does not help, because after a restart the application cannot tell which of the two writes made it.</p>
+<h2 id="idea">The Idea</h2>
+<p>Make the resume point part of the result.</p>
+<p>When publishing the result to the target stream, use the <strong>offset of the last source message that was processed</strong> as the <strong><a href="/docs/4.3/streams#publishing-id">publishing ID</a></strong> of that result.</p>
+<p>This works because both sides fit together naturally:</p>
+<ul>
+<li>Stream offsets are, by definition, monotonically increasing.</li>
+<li>Publishing IDs must be a strictly increasing sequence, and <a href="/docs/4.3/streams#deduplication-published-messages">gaps are allowed</a>. This matters here: a processing step usually advances the offset by more than one, and consecutive messages in a stream do not necessarily have consecutive offsets.</li>
+</ul>
+<p>Three things follow from it:</p>
+<ol>
+<li>There is only <strong>one</strong> write per processing step, so there is nothing that can get out of sync.</li>
+<li>The broker's deduplication <strong>discards any result that is published again</strong> after a restart, because its publishing ID is not greater than the one the broker already stored.</li>
+<li>The publishing ID that the broker stored <strong>is</strong> the resume point. On startup, ask the broker for the last publishing ID of the producer name and resume consuming the source stream from the next offset.</li>
+</ol>
+<div class="admonition note"><div class="admonition-title">Effectively-once, not exactly-once execution</div><div><p>"Effectively-once" describes the <strong>effect</strong> on the target stream: the result appears there exactly once, never duplicated, never lost.
+It does not mean the processing step executes exactly one time: after a crash, the application may run it again for source messages it already produced a result for.</p><p>Other stream processing systems have the same characteristic under a different name.
+Kafka's transactional exactly-once semantics, for example, can also re-execute a processing step after a crash — what is guaranteed is the effect it commits downstream, not the number of times it runs.
+Effectively-once is the more precise name for that guarantee.</p></div></div>
+<!-- -->
+<h2 id="atomicity">Why the Result and the Resume Point Are Stored Together</h2>
+<p>The guarantee rests on the broker storing the message and its publishing ID atomically.
+It does.</p>
+<p>A stream is a sequence of <em>chunks</em> written to <a href="/docs/4.3/stream-filtering#on-disk-stream-layout">segment files</a>.
+A chunk holds a batch of messages plus a small trailer, and the highest publishing ID of every producer that contributed to that chunk is recorded in the trailer.
+The whole chunk — header, messages and trailer — is written in a single write, and a chunk only becomes part of the stream once its index entry is in place.
+So a crash either leaves both the message and its publishing ID in the stream, or neither.</p>
+<p>After a restart the broker rebuilds its publishing IDs by reading them back out of the stream itself.
+There is no separate store that could drift from the messages.</p>
+<h2 id="recovery">Recovery After a Crash</h2>
+<p>On startup, the application:</p>
+<ol>
+<li>Creates a producer on the target stream with the same producer name as before.</li>
+<li>Asks the broker for the last publishing ID of that producer name.</li>
+<li>Resumes consuming the source stream at that offset plus one. See the note below for the special case of <code>0</code>.</li>
+</ol>
+<p>If the target is a super stream, the last publishing ID has to be collected from every partition — see <a href="#super-stream">Publishing to a Super Stream</a>.</p>
+<p>The interesting case is a crash between publishing a result and receiving its confirmation, because the application cannot know whether the result was stored.
+It does not need to know.
+Both outcomes end up correct:</p>
+<ul>
+<li>The result <strong>was</strong> stored. The broker returns its publishing ID, the application resumes past those source messages, and the result exists exactly once.</li>
+<li>The result was <strong>not</strong> stored. The broker returns the previous publishing ID, the application re-processes the same source messages and publishes the result again — this time for real.</li>
+</ul>
+<p>If the application re-processes source messages it had already published a result for, that result is published again with an already used publishing ID and the broker discards it, while still confirming it.</p>
+<div class="admonition note"><div class="admonition-title">note</div><div><p>A broker that returns <code>0</code> for the last publishing ID is either reporting that this producer name has never published, or that its last publishing ID was genuinely <code>0</code> (offset <code>0</code> of the source stream).
+The two cannot be told apart, so treat <code>0</code> as "start from the beginning of the source stream".
+Re-processing offset <code>0</code> is harmless: the result is published with publishing ID <code>0</code>, which the broker discards.</p></div></div>
+<h2 id="batching">Processing Several Source Messages at a Time</h2>
+<p>The loop does <strong>not</strong> have to process one source message at a time.
+It can consume and process any number of source messages, as long as it publishes a single result for them, carrying a single publishing ID: the offset of the last source message the result covers.</p>
+<h2 id="result">Publishing One Result per Processing Step</h2>
+<p>Whether a processing step covers one source message or a thousand, publish <strong>one message</strong> to the target stream as its result.
+That is what the vast majority of applications need, and it is all this guide requires: one message, one publishing ID, one atomic write.</p>
+<p>Only rarely does a step have to make several logically independent messages appear in the target stream atomically.
+Publishing them as separate messages with separate publishing IDs is not an option — a crash can leave only some of them stored.
+There are two ways to keep them together instead:</p>
+<ul>
+<li><strong>Pack them into a single message.</strong> Streams store messages in the <a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#section-message-format">AMQP 1.0 message format</a>, which allows several <a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#type-data">data sections</a> in one message — one section per logical message. Consumers read the sections back out of the single message they receive.</li>
+<li><strong>Use <a href="https://rabbitmq.github.io/rabbitmq-stream-java-client/snapshot/htmlsingle/#sub-entry-batching-and-compression">sub-entry batching</a>.</strong> It groups several messages into one chunk entry under one publishing ID, so the whole group is written, and deduplicated, together, while consumers still see the individual messages at their own offsets.</li>
+</ul>
+<h3 id="super-stream">Publishing to a Super Stream</h3>
+<p>The target can be a <a href="/docs/4.3/streams#super-streams">super stream</a>.
+A super stream is not a single stream but a set of partitions, each a regular stream that keeps its own last publishing ID per producer name, so the loop has one resume point per partition instead of a single one.</p>
+<p>Two rules turn them back into one:</p>
+<ul>
+<li><strong>Publish one result at a time.</strong> Wait for the confirmation of a result before publishing the next one, so that there is never more than one un-confirmed result across the whole super stream.</li>
+<li><strong>Resume from the highest publishing ID.</strong> On startup, query the last publishing ID of the producer name on every partition and resume consuming the source stream at the highest of these values plus one.</li>
+</ul>
+<h2 id="requirements">Requirements</h2>
+<p>Effectively-once holds only if all of the following are true.</p>
+<ul>
+<li><strong>The target stream receives one write, carrying one publishing ID, per processing step.</strong> A single message is the common case; a sub-entry batch works too, since it is written and deduplicated as one unit. See <a href="#result">above</a>.</li>
+<li><strong>Publishing to the target stream is the only side effect.</strong> Deduplication protects the target stream, nothing else. A processing step that also writes to a database or calls an HTTP API can repeat that side effect after a crash.</li>
+<li><strong>Only one instance publishes under a given producer name at a time.</strong> Deduplication does not support concurrent publishing under the same name. Use the <a href="/docs/4.3/streams#single-active-consumer">single active consumer</a> feature on the source stream to make sure only one instance is processing.</li>
+<li><strong>The producer name is stable across restarts and unique per target stream.</strong> Publishing IDs are tracked per stream and producer name. Use a descriptive name such as <code>invoicer</code>, not a value that changes on every start.</li>
+<li><strong>Results are published in order and none is skipped.</strong> Publishing the next result moves the resume point past the previous one, so a result that fails to be published must not be silently dropped. Configure the producer to keep retrying rather than to time out, and stop the loop on a permanent publishing error. This does not mean waiting for each confirmation before publishing the next result: pipelining several results at once, from the same producer, is fine — the broker still processes them in the order they were sent.</li>
+</ul>
+<div class="admonition note"><div class="admonition-title">note</div><div><p>Combining this pattern with the single active consumer feature needs one extra step in most client libraries.
+A single active consumer has a name, and a name usually turns on automatic server-side <a href="/docs/4.3/streams#offset-tracking">offset tracking</a>, which would make the instance resume from the tracked offset instead of the one derived from the last publishing ID.
+Turn automatic offset tracking off, and compute the start offset from the last publishing ID whenever the instance becomes the active one.
+With the stream Java client this means <code>noTrackingStrategy()</code> plus a <code>consumerUpdateListener</code> that returns that offset.</p></div></div>
+<h2 id="use-cases">Use Cases</h2>
+<p>The pattern fits whenever a processing step naturally produces a single result.</p>
+<ul>
+<li><strong>Windowed aggregation.</strong> Read all events of a time window or a fixed count and publish one aggregate: a per-minute rollup, an hourly summary, a running total. Many messages in, one message out.</li>
+<li><strong>Batching for a slower downstream stage.</strong> Read many small events and publish one envelope message, so the next stage does fewer and larger units of work.</li>
+<li><strong>Compacting a change stream.</strong> Read a burst of updates for the same entity and publish only the resulting state, instead of every intermediate step.</li>
+<li><strong>Transformations where duplicates are expensive.</strong> Normalize, re-encode or redact each source message and publish one result. A duplicate in the target stream is seen by every downstream consumer, and in financial or billing pipelines it is double counted.</li>
+<li><strong>Multi-stage pipelines.</strong> Each stage is its own read-process-write loop with its own producer name. If every stage is effectively-once, the pipeline is.</li>
+</ul>
+<h2 id="java-example">Java Example</h2>
+<p>The following example uses the <a href="https://github.com/rabbitmq/rabbitmq-stream-java-client">stream Java client</a>.
+It aggregates source messages in batches of ten and publishes one result per batch.</p>
+<div><div><pre><code class="language-java">Environment environment = Environment.builder().build();
+
+Producer producer = environment.producerBuilder()
+    .stream("target-stream")
+    .name("invoicer")                  // a name activates deduplication
+    .confirmTimeout(Duration.ZERO)     // never stop retrying
+    .build();
+
+// The last publishing ID is the offset of the last source message whose
+// result is stored in the target stream.
+long lastPublishingId = producer.getLastPublishingId();
+OffsetSpecification start = lastPublishingId == 0
+    ? OffsetSpecification.first()      // nothing processed yet, or offset 0 was:
+                                       // re-processing it is safe
+    : OffsetSpecification.offset(lastPublishingId + 1);
+
+final Object windowLock = new Object();
+List&lt;Message&gt; window = new ArrayList&lt;&gt;(10);
+
+environment.consumerBuilder()
+    .stream("source-stream")
+    .offset(start)
+    .messageHandler((context, message) -&gt; {
+        synchronized (windowLock) {
+            window.add(message);
+            if (window.size() == 10) {
+                // The aggregate should be stable across re-runs: a crash can replay this window.
+                byte[] result = aggregate(window);
+                Message out = producer.messageBuilder()
+                    // the offset of the last source message in this window
+                    .publishingId(context.offset())
+                    .addData(result)
+                    .build();
+                producer.send(out, confirmationStatus -&gt; { });
+                window.clear();
+            }
+        }
+    })
+    .build();</code></pre></div></div>
+<p>Note that the application stores no offset of its own, and does not use <a href="/docs/4.3/streams#offset-tracking">server-side offset tracking</a> for the source stream.
+The publishing ID in the target stream is the only resume point, which is what makes the loop effectively-once.</p>
+<p>A partially filled window at the moment of a crash is simply consumed again after the restart, because its source messages are past the last publishing ID.</p>
+<h2 id="limitations">Limitations</h2>
+<ul>
+<li><strong>Keep the number of producer names per stream small.</strong> A stream tracks the publishing IDs of at most 255 producer names.</li>
+</ul></main>

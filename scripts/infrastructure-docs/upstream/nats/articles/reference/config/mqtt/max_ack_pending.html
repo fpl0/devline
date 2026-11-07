@@ -1,0 +1,16 @@
+<main><header><h1>max_ack_pending</h1></header>
+<div>Aliases:<!-- --> <code>max_pending</code>, <code>max_inflight</code></div>
+<div><span><span>Hot Reloadable</span></span><div>Existing sessions pick up the new value, but each subscription captures its own limit when it is created, so only subscriptions made after the reload are governed by it.</div></div>
+<p>This is the amount of QoS 1 messages the server can send to
+a subscription without receiving any <code>PUBACK</code> for those messages.
+The valid range is [0..65535].</p>
+<p>The total of subscriptions' max_ack_pending on a given session cannot
+exceed 65535. Attempting to create a subscription that would bring
+the total above the limit would result in the server returning <code>0x80</code>
+in the <code>SUBACK</code> for this subscription.</p>
+<p>Due to how the NATS Server handles the MQTT <code>#</code> wildcard, each
+subscription ending with <code>#</code> will use 2 times the <code>max_ack_pending</code>
+value. Note that changes to this option is applied only to new
+subscriptions.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>integer</code></td><td>-</td><td>-</td></tr></tbody></table></main>

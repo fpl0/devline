@@ -1,0 +1,223 @@
+<main><header><h1>Monitoring endpoints</h1></header>
+<p>Every number this chapter reads comes from a read-only
+HTTP port on each NATS server. Before you reach for Prometheus or
+Grafana, you can ask a running node what it sees, right now, with a
+plain <code>curl</code>. This page covers where the numbers come from on the wire.</p>
+<p>We observe the <code>east</code> cluster you already have running (<code>n1-east</code>,
+<code>n2-east</code>, <code>n3-east</code>) and nothing more. You'll query one node's
+monitoring port, read who's connected and how the cluster is wired,
+and meet <code>/jsz</code>, which reports JetStream state and which the next page builds on.</p>
+<h2 id="the-monitoring-port-serves-json-on-demand">The monitoring port serves JSON on demand</h2>
+<p>Each NATS server can serve a <strong>monitoring port</strong>, separate from the
+<code>:4222</code> clients use. It's off until you turn it on: set <code>http_port: 8222</code>
+in the node's config, or pass <code>-m 8222</code> on the command line. <code>8222</code> is the
+conventional choice, but the port is whatever you set. It speaks plain
+HTTP, and it answers only when you ask; nothing is pushed. You send a
+<code>GET</code>, the server returns a JSON snapshot of its state at that instant, and
+the connection closes. The model is a synchronous request answered by an
+on-demand response.</p>
+<p>A <strong>monitoring endpoint</strong> is one HTTP path on that port. Each path
+returns a different slice of state. The four you'll use most are
+<code>/varz</code> (the server itself), <code>/connz</code> (its clients), <code>/routez</code> (its
+cluster routes), and <code>/jsz</code> (its JetStream). Each one is an HTTP path,
+not a call into a client library, so any HTTP tool can reach it.</p>
+<div></div>
+<p>Start with the server itself. <code>/varz</code> returns a snapshot of the
+process: its version, uptime, memory, and a handful of counters that
+matter more than the rest.</p>
+<div><div><pre><code class="language-bash">curl -s http://localhost:8222/varz | jq</code></pre></div></div>
+<div><div><pre><code class="language-json">{
+  "server_name": "n1-east",
+  "version": "2.10.x",
+  "connections": 4,
+  "total_connections": 118,
+  "in_msgs": 84213,
+  "out_msgs": 251004,
+  "slow_consumers": 0
+}</code></pre></div></div>
+<p>Three counters are worth a second look. <code>connections</code> is how many clients
+are connected <em>right now</em>: here, the four Acme services. The
+<code>total_connections</code> next to it is the count since the server started, so
+it only ever goes up. And <code>slow_consumers</code> is the number of clients the
+server has disconnected for not keeping up; on a healthy node it stays
+at <code>0</code>. The difference between those first two is easy to get wrong, and the
+Pitfalls section returns to it.</p>
+<p>The full set of <code>/varz</code> fields is documented in
+<a href="/reference/system/monitor/varz">Reference → varz</a>. We only need the
+connection counters and <code>slow_consumers</code> here.</p>
+<h2 id="every-endpoint-takes-query-parameters">Every endpoint takes query parameters</h2>
+<p>A bare endpoint returns everything, which on a busy server is a lot.
+Each one accepts <strong>query parameters</strong> to filter, page, and sort the
+result, so you fetch only the slice you care about.</p>
+<p><code>/connz</code> lists the connected clients. On its own it returns every
+connection on the node. Scope it to the <code>ORDERS</code> account with <code>?acc=</code>,
+ask for each connection's subscriptions with <code>?subs=true</code>, and add
+<code>?auth=true</code>, which is what fills in the account and user each connection
+authenticated as:</p>
+<div><div><pre><code class="language-bash">curl -s 'http://localhost:8222/connz?acc=ORDERS&amp;subs=true&amp;auth=true' | jq</code></pre></div></div>
+<div><div><pre><code class="language-json">{
+  "num_connections": 4,
+  "total": 4,
+  "connections": [
+    {
+      "cid": 7,
+      "account": "ORDERS",
+      "authorized_user": "order-svc",
+      "rtt": "412µs",
+      "pending_bytes": 0,
+      "subscriptions_list": ["_INBOX.&gt;"]
+    },
+    {
+      "cid": 9,
+      "account": "ORDERS",
+      "authorized_user": "order-svc",
+      "rtt": "388µs",
+      "subscriptions_list": ["orders.shipped"]
+    }
+  ]
+}</code></pre></div></div>
+<p>Each entry names one client: its connection id (<code>cid</code>), the account and
+user it authenticated as, its round-trip time (<code>rtt</code>), and how many
+bytes are queued for it (<code>pending_bytes</code>). This is where you confirm
+that the <code>ORDERS</code> account's services, connecting as <code>order-svc</code>, are
+actually connected, and which subjects each one holds interest in.</p>
+<p>The two counts at the top describe the response. <code>num_connections</code> is how many
+connections this response actually returned; <code>total</code> is how many matched
+the query in all. They're equal here because four connections fit in
+one response, but once you add <code>?limit</code> and <code>?offset</code> to page a long
+list, <code>total</code> stays put while <code>num_connections</code> shrinks to the page
+size.</p>
+<p>When a node carries hundreds of connections, page through them. <code>?limit</code>
+caps the result, <code>?offset</code> skips ahead, and <code>?sort</code> orders the list by
+idle time, pending bytes, or subscription count:</p>
+<div><div><pre><code class="language-bash">curl -s 'http://localhost:8222/connz?sort=pending&amp;limit=10' | jq</code></pre></div></div>
+<p>That returns the ten connections with the most data queued: the
+clients most likely to fall behind. The full set of <code>/connz</code>
+parameters is documented in
+<a href="/reference/system/monitor/connz">Reference → connz</a>. We use only
+<code>acc</code>, <code>subs</code>, <code>sort</code>, and <code>limit</code> here.</p>
+<p><code>/routez</code> answers the cluster question. Each entry is one <strong>route</strong>:
+the link from this node to another node in <code>east</code>. It reports the
+remote node's name (<code>remote_name</code>) alongside its generated server id
+(<code>remote_id</code>), the link's round-trip time, and how much data is
+pending on it:</p>
+<div><div><pre><code class="language-bash">curl -s http://localhost:8222/routez | jq</code></pre></div></div>
+<div><div><pre><code class="language-json">{
+  "num_routes": 8,
+  "routes": [
+    { "rid": 3, "remote_name": "n2-east", "rtt": "503µs", "pending_size": 0 },
+    { "rid": 6, "remote_name": "n3-east", "rtt": "498µs", "pending_size": 0 }
+  ]
+}</code></pre></div></div>
+<p>Since 2.10, routes are pooled: each peer contributes several route entries
+(a connection pool of three plus a dedicated system-account route), so a
+default three-node cluster shows eight entries on <code>n1-east</code>, four per peer
+— the array above is trimmed to one entry per peer. Health isn't a raw
+count, then, but presence: group by <code>remote_name</code> and confirm both
+<code>n2-east</code> and <code>n3-east</code> are still there. A peer that vanishes entirely, or
+a climbing <code>rtt</code>, is your first sign a node has dropped off the mesh. <em>Why</em>
+a route breaks, and how leadership moves when it does, belongs to
+<a href="/learn/clustering">Clustering</a>; the endpoint only tells you <em>that</em> it broke.</p>
+<h2 id="jsz-reports-jetstream-state">/jsz reports JetStream state</h2>
+<p>The last endpoint is <code>/jsz</code>. It reports the JetStream state on a node:
+how many streams and consumers it holds, which node is the JetStream
+meta leader, and the per-stream and per-consumer numbers underneath.</p>
+<div><div><pre><code class="language-bash">curl -s 'http://localhost:8222/jsz?acc=ORDERS&amp;streams=true' | jq</code></pre></div></div>
+<div><div><pre><code class="language-json">{
+  "streams": 1,
+  "consumers": 2,
+  "meta_cluster": { "leader": "n1-east" },
+  "account_details": [
+    {
+      "name": "ORDERS",
+      "stream_detail": [
+        { "name": "ORDERS", "state": { "messages": 1000, "last_seq": 1000 } }
+      ]
+    }
+  ]
+}</code></pre></div></div>
+<p>That <code>last_seq: 1000</code> and the consumer numbers under it are the raw
+material for <strong>lag</strong>: how far behind the <code>shipping</code> consumer is. This
+page only points out that <code>/jsz</code> reports JetStream state. Reading lag,
+in-flight, and redelivery out of it is the work of the next page,
+<a href="/learn/monitoring/jetstream-health">JetStream health</a>. The full set of
+<code>/jsz</code> fields and parameters is documented in
+<a href="/reference/system/monitor/jsz">Reference → jsz</a>.</p>
+<h2 id="a-note-on-healthz">A note on /healthz</h2>
+<p>One more endpoint is worth knowing now, even though it doesn't return
+state to read. A <strong>health check</strong> is a <code>/healthz</code> query whose answer is
+just ok or error: a <code>200</code> when the node is healthy, a <code>503</code> when it
+isn't. It's built for an orchestrator (a Kubernetes liveness probe, a
+load balancer) that wants a yes/no, not JSON to parse.</p>
+<div><div><pre><code class="language-bash">curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8222/healthz</code></pre></div></div>
+<div><div><pre><code class="language-text">200</code></pre></div></div>
+<p><code>/healthz</code> takes parameters that narrow what "healthy" means
+(JetStream-only, this-server-only, a specific stream or consumer), and
+those distinctions matter for cluster checks. We meet them again on the
+<a href="/learn/monitoring/prometheus-and-dashboards">Prometheus and dashboards</a>
+page, where a check that asks the wrong question is its own Pitfall. The
+full set of <code>/healthz</code> parameters is documented in
+<a href="/reference/system/monitor/healthz">Reference → healthz</a>.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two traps catch people the first time they query the monitoring port,
+plus one pointer you must not skip. Each is scoped to this page: the
+endpoints and their parameters.</p>
+<p><strong>Alert on <code>connections</code>, not <code>total_connections</code>.</strong> The two counters
+on <code>/varz</code> look interchangeable and are not. <code>connections</code> is the live
+count; <code>total_connections</code> is every connection since the process
+started and only climbs. A client that reconnects in a loop (a crash
+loop, a flaky network) barely moves <code>connections</code> but inflates
+<code>total_connections</code> fast. Alert on the lifetime counter and you page
+someone at 3am for a number that was always going to grow. Alert on
+<code>connections</code> for capacity, and watch <code>slow_consumers</code> for clients the
+server is dropping.</p>
+<p>You can read both in one query and compare them yourself. A large gap
+between the live count and the lifetime count, especially with
+<code>slow_consumers</code> above zero, is connection flapping, not load:</p>
+<div><div><pre><code class="language-bash">curl -s http://localhost:8222/varz \
+  | jq '{live: .connections, lifetime: .total_connections, dropped: .slow_consumers}'</code></pre></div></div>
+<div><div><pre><code class="language-json">{ "live": 4, "lifetime": 118, "dropped": 0 }</code></pre></div></div>
+<p><strong>An unscoped <code>/jsz</code> is slow at scale.</strong> Asking for full detail
+(<code>/jsz?accounts=true&amp;streams=true&amp;consumers=true</code>) walks every account,
+stream, and consumer on the node and serializes the lot. On the four
+Acme entities that's instant; on a node with thousands of consumers it
+can take long enough that a scrape times out and you get <em>no</em> data. Do
+not fetch the whole tree on a schedule. Scope to one account with
+<code>?acc=ORDERS</code>, and page large results with <code>?offset</code> and <code>?limit</code>.</p>
+<p><strong>The monitoring port is unauthenticated by default.</strong> Anyone who can
+reach <code>:8222</code> can read <code>/connz</code> and see your users, subjects, and
+traffic. That's acceptable on a laptop, but in production it exposes that
+data to anyone who can reach the port. Locking the
+port down (TLS, an allow-list, system-account access) is a security
+concern, not a monitoring one, and it's covered in
+<a href="/learn/security">Security</a>. Name it now so you don't expose <code>:8222</code>
+to the open internet by accident.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You can now query a node in the <code>east</code> cluster on its monitoring port and
+read its state on demand:</p>
+<ul>
+<li><code>/varz</code> for the server: version, live <code>connections</code>, <code>slow_consumers</code></li>
+<li><code>/connz?acc=ORDERS</code> for the clients: who's connected, as which user,
+holding interest in which subjects</li>
+<li><code>/routez</code> for the cluster: the routes from this node to its peers</li>
+<li><code>/jsz</code> for JetStream: the streams and consumers, and the raw numbers
+the next page turns into lag</li>
+</ul>
+<p>You also know that every endpoint takes parameters to filter and page
+the result, that <code>/healthz</code> answers a yes/no health check, and that the
+port, once enabled, is unauthenticated until you lock it down.</p>
+<h2 id="whats-next">What's next</h2>
+<p><code>/jsz</code> handed you a stream's <code>last_seq</code> and a consumer's numbers but
+left them unexplained. The next page reads the <code>shipping</code> consumer's
+state in full and turns those raw fields into the one number that says
+"the shipping consumer is behind": lag.</p>
+<p>Continue to <a href="/learn/monitoring/jetstream-health">JetStream health</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/system/monitor">Reference → monitoring endpoints</a> — the
+exhaustive field-by-field layer behind every number on this page.</li>
+<li><a href="/reference/config/http_port">Reference → http_port</a> — configuring the
+monitoring port itself.</li>
+<li><a href="/learn/topologies/your-first-cluster">Topologies → your first cluster</a>
+— the <code>east</code> cluster these endpoints observe.</li>
+</ul></main>

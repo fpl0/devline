@@ -1,0 +1,191 @@
+<main><header><h1>RabbitMQ tutorial - "Hello World!"</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<p>RabbitMQ is a message broker: it accepts and forwards messages. You can think
+about it as a post office: when you put the mail that you want posting in a
+post box, you can be sure that the letter carrier will eventually deliver the
+mail to your recipient. In this analogy, RabbitMQ is a post box, a post
+office, and a letter carrier.</p>
+<p>The major difference between RabbitMQ and the post office is that it doesn't
+deal with paper, instead it accepts, stores, and forwards binary blobs of data
+‒ <em>messages</em>.</p>
+<p>RabbitMQ, and messaging in general, uses some jargon.</p>
+<ul>
+<li>
+<p><em>Producing</em> means nothing more than sending. A program that sends messages
+is a <em>producer</em> :</p>
+<!-- -->
+</li>
+<li>
+<p><em>A queue</em> is the name for the post box in RabbitMQ. Although messages flow
+through RabbitMQ and your applications, they can only be stored inside a
+<em>queue</em>. A <em>queue</em> is only bound by the host's memory &amp; disk limits, it's
+essentially a large message buffer.</p>
+<p>Many <em>producers</em> can send messages that go to one queue, and many
+<em>consumers</em> can try to receive data from one <em>queue</em>.</p>
+<p>This is how we represent a queue:</p>
+<!-- -->
+</li>
+<li>
+<p><em>Consuming</em> has a similar meaning to receiving. A <em>consumer</em> is a program
+that mostly waits to receive messages:</p>
+<!-- -->
+</li>
+</ul>
+<p>Note that the producer, consumer, and broker do not have to reside on the same
+host; indeed in most applications they don't. An application can be both a
+producer and consumer, too.</p>
+<h2 id="hello-world">"Hello World"</h2>
+<h3 id="using-the-php-amqplib-client">(using the php-amqplib Client)</h3>
+<p>In this part of the tutorial we'll write two programs in PHP
+that communicate using RabbitMQ. This tutorial uses a client library
+that requires PHP 7.x or 8.x.</p>
+<p>First program will be a producer that sends a single message, and the second one will be a consumer that receives
+messages and prints them out.  We'll gloss over some of the detail in
+the <a href="https://github.com/php-amqplib/php-amqplib">php-amqplib</a> API, concentrating on this very simple thing just to get
+started. It's the "Hello World" of messaging.</p>
+<p>In the diagram below, "P" is our producer and "C" is our consumer. The
+box in the middle is a queue - a message buffer that RabbitMQ keeps
+on behalf of the consumer.</p>
+<!-- -->
+<blockquote>
+<h4 id="the-php-amqplib-client-library">The php-amqplib client library</h4>
+<p>RabbitMQ speaks multiple protocols. This tutorial covers AMQP 0-9-1, which is an open,
+general-purpose protocol for messaging. There are a number of clients
+for RabbitMQ in <a href="/client-libraries/devtools">many different
+languages</a>. We'll
+use the php-amqplib in this tutorial, and <a href="https://getcomposer.org/doc/00-intro.md">Composer</a>
+for dependency management.</p>
+<p>Add a composer.json file to your project:</p>
+<div><div><pre><code class="language-javascript">{
+    "require": {
+        "php-amqplib/php-amqplib": "^3.2"
+    }
+}</code></pre></div></div>
+<p>Provided you have <a href="https://getcomposer.org/doc/00-intro.md">Composer</a> installed and functional,
+you can run the following:</p>
+<div><div><pre><code class="language-bash">php composer.phar install</code></pre></div></div>
+<p>There's also a <a href="https://github.com/composer/windows-setup">Composer installer for Windows</a>.</p>
+</blockquote>
+<p>Now we have the php-amqplib library installed, we can write some
+code.</p>
+<h3 id="sending">Sending</h3>
+<!-- -->
+<p>We'll call our message publisher (sender) <code>send.php</code> and our message receiver
+<code>receive.php</code>.  The publisher will connect to RabbitMQ, send a single message,
+then exit.</p>
+<p>In
+<a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/php/send.php"><code>send.php</code></a>,
+we need to include the library and <code>use</code> the necessary classes:</p>
+<div><div><pre><code class="language-php">require_once __DIR__ . '/vendor/autoload.php';
+use PhpAmqpLib\Connection\AMQPStreamConnection;
+use PhpAmqpLib\Message\AMQPMessage;
+use PhpAmqpLib\Wire\AMQPTable;</code></pre></div></div>
+<p>then we can create a connection to the server:</p>
+<div><div><pre><code class="language-php">$connection = new AMQPStreamConnection('localhost', 5672, 'guest', 'guest');
+$channel = $connection-&gt;channel();</code></pre></div></div>
+<p>The connection abstracts the socket connection, and takes care of
+protocol version negotiation and authentication and so on for us. Here
+we connect to a RabbitMQ node on the local machine - hence the
+<em>localhost</em>. If we wanted to connect to a node on a different
+machine or to a host hosting a <a href="https://github.com/cloudamqp/amqproxy">proxy recommended for PHP clients</a>,
+we'd simply specify its hostname or IP address here.</p>
+<p>Next we create a channel, which is where most of the API for getting
+things done resides.</p>
+<p>To send, we must declare a queue for us to send to; then we can publish a message
+to the queue:</p>
+<div><div><pre><code class="language-php">$channel-&gt;queue_declare('hello', false, true, false, false, false, new AMQPTable(['x-queue-type' =&gt; 'quorum']));
+
+$msg = new AMQPMessage('Hello World!');
+$channel-&gt;basic_publish($msg, '', 'hello');
+
+echo " [x] Sent 'Hello World!'\n";</code></pre></div></div>
+<p>Declaring a queue is idempotent - it will only be created if it doesn't
+exist already. The message content is a byte array, so you can encode
+whatever you like there.</p>
+<p>Lastly, we close the channel and the connection:</p>
+<div><div><pre><code class="language-php">$channel-&gt;close();
+$connection-&gt;close();</code></pre></div></div>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/php/send.php">Here's the whole send.php
+class</a>.</p>
+<blockquote>
+<h4 id="sending-doesnt-work">Sending doesn't work!</h4>
+<p>If this is your first time using RabbitMQ and you don't see the "Sent"
+message then you may be left scratching your head wondering what could
+be wrong. Maybe the broker was started without enough free disk space
+(by default it needs at least 50 MB free) and is therefore refusing to
+accept messages. Check the broker <a href="https://www.rabbitmq.com/docs/4.3/logging">log file</a> to see if there
+is a <a href="https://www.rabbitmq.com/docs/4.3/alarms">resource alarm</a> logged and reduce the
+free disk space threshold if necessary.
+The <a href="https://www.rabbitmq.com/docs/4.3/configure#config-items">Configuration guide</a>
+will show you how to set <code>disk_free_limit</code>.</p>
+</blockquote>
+<h3 id="receiving">Receiving</h3>
+<p>That's it for our publisher.  Our receiver listens for messages from
+RabbitMQ, so unlike the publisher which publishes a single message, we'll
+keep the receiver running to listen for messages and print them out.</p>
+<!-- -->
+<p>The code (in <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/php/receive.php"><code>receive.php</code></a>) has almost the same
+<code>include</code> and <code>use</code>s as <code>send</code>:</p>
+<div><div><pre><code class="language-php">require_once __DIR__ . '/vendor/autoload.php';
+use PhpAmqpLib\Connection\AMQPStreamConnection;
+use PhpAmqpLib\Message\AMQPMessage;
+use PhpAmqpLib\Wire\AMQPTable;</code></pre></div></div>
+<p>Setting up is the same as the publisher; we open a connection and a
+channel, and declare the queue from which we're going to consume.
+Note this matches up with the queue that <code>send</code> publishes to.</p>
+<div><div><pre><code class="language-php">$connection = new AMQPStreamConnection('localhost', 5672, 'guest', 'guest');
+$channel = $connection-&gt;channel();
+
+$channel-&gt;queue_declare('hello', false, true, false, false, false, new AMQPTable(['x-queue-type' =&gt; 'quorum']));
+
+echo " [*] Waiting for messages. To exit press CTRL+C\n";</code></pre></div></div>
+<p>Note that we declare the queue here, as well. Because we might start
+the consumer before the publisher, we want to make sure the queue exists
+before we try to consume messages from it.</p>
+<p>We're about to tell the server to deliver us the messages from the
+queue. We will define a <a href="http://www.php.net/manual/en/language.types.callable.php">PHP callable</a>
+that will receive the messages sent by the server. Keep in mind
+that messages are sent asynchronously from the server to the clients.</p>
+<div><div><pre><code class="language-php">$callback = function (AMQPMessage $msg) {
+  echo ' [x] Received ', $msg-&gt;getBody(), "\n";
+};
+
+$channel-&gt;basic_consume('hello', '', false, true, false, false, $callback);
+
+try {
+    $channel-&gt;consume();
+} catch (\Throwable $exception) {
+    echo $exception-&gt;getMessage();
+}</code></pre></div></div>
+<p>Our code will block while our <code>$channel</code> has callbacks. Whenever we receive a
+message our <code>$callback</code> function will be passed the received message.</p>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/php/receive.php">Here's the whole receive.php class</a></p>
+<h3 id="putting-it-all-together">Putting it all together</h3>
+<p>Now we can run both scripts. In a terminal, run the consumer (receiver):</p>
+<div><div><pre><code class="language-bash">php receive.php</code></pre></div></div>
+<p>then, run the publisher (sender):</p>
+<div><div><pre><code class="language-bash">php send.php</code></pre></div></div>
+<p>The consumer will print the message it gets from the sender via
+RabbitMQ. The receiver will keep running, waiting for messages (Use
+Ctrl-C to stop it), so try running the sender from another terminal.</p>
+<blockquote>
+<h4 id="listing-queues">Listing queues</h4>
+<p>You may wish to see what queues RabbitMQ has and how many
+messages are in them. You can do it (as a privileged user) using the <code>rabbitmqctl</code> tool:</p>
+<div><div><pre><code class="language-bash">sudo rabbitmqctl list_queues</code></pre></div></div>
+<p>On Windows, omit the sudo:</p>
+<div><div><pre><code class="language-powershell">rabbitmqctl.bat list_queues</code></pre></div></div>
+</blockquote>
+<h4 id="php-connection-proxy">PHP Connection Proxy</h4>
+<p>While this tutorial strives to keep things simple and focus on explaining RabbitMQ
+concepts, it is important to call out something that is specific to PHP applications.
+In many cases PHP application will not be able to use <a href="https://www.rabbitmq.com/docs/4.3/connections#basics">long-lived connections</a>
+that RabbitMQ assumes, creating a condition known as <a href="https://www.rabbitmq.com/docs/4.3/connections#high-connection-churn">high connection churn</a>.</p>
+<p>To avoid this, PHP users are recommended to use <a href="https://github.com/cloudamqp/amqproxy">a special proxy</a>
+in production when possible. The proxy avoids connection churn or at least significantly reduces it.</p>
+<p>Now it is time to move on to <a href="/tutorials/tutorial-two-php">part 2</a> and build a simple <em>work queue</em>.</p></main>

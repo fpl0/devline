@@ -1,0 +1,281 @@
+<main><header><h1>RabbitMQ tutorial - Topics</h1></header>
+<h2 id="topics">Topics</h2>
+<h3 id="using-spring-amqp">(using Spring AMQP)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<p>In the <a href="/tutorials/tutorial-four-spring-amqp">previous tutorial</a> we improved our
+messaging flexibility. Instead of using a <code>fanout</code> exchange only capable of
+dummy broadcasting, we used a <code>direct</code> one, and gained a possibility
+of selectively receiving the message based on the routing key.</p>
+<p>Although using the <code>direct</code> exchange improved our system, it still has
+limitations - it can't do routing based on multiple criteria.</p>
+<p>In our messaging system we might want to subscribe to not only queues
+based on the routing key, but also based on the source which produced
+the message.
+You might know this concept from the
+<a href="http://en.wikipedia.org/wiki/Syslog"><code>syslog</code></a> unix tool, which
+routes logs based on both severity (info/warn/crit...) and facility
+(auth/cron/kern...). Our example is a little simpler than this.</p>
+<p>That example would give us a lot of flexibility - we may want to listen to
+just critical errors coming from 'cron' but also all logs from 'kern'.</p>
+<p>To implement that flexibility in our logging system we need to learn
+about a more complex <code>topic</code> exchange.</p>
+<h2 id="topic-exchange">Topic exchange</h2>
+<p>Messages sent to a <code>topic</code> exchange can't have an arbitrary
+<code>routing_key</code> - it must be a list of words, delimited by dots. The
+words can be anything, but usually they specify some features
+connected to the message. A few valid routing key examples:
+<code>stock.usd.nyse</code>, <code>nyse.vmw</code>, <code>quick.orange.rabbit</code>. There can be as
+many words in the routing key as you like, up to the limit of 255
+bytes.</p>
+<p>The binding key must also be in the same form. The logic behind the
+<code>topic</code> exchange is similar to a <code>direct</code> one - a message sent with a
+particular routing key will be delivered to all the queues that are
+bound with a matching binding key. However there are two important
+special cases for binding keys:</p>
+<ul>
+<li><code>*</code> (star) can substitute for exactly one word.</li>
+<li><code>#</code> (hash) can substitute for zero or more words.</li>
+</ul>
+<p>It's easiest to explain this in an example:</p>
+<!-- -->
+<p>In this example, we're going to send messages which all describe
+animals. The messages will be sent with a routing key that consists of
+three words (two dots). The first word in the routing key
+will describe speed, second a colour and third a species:
+<code>&lt;speed&gt;.&lt;colour&gt;.&lt;species&gt;</code>.</p>
+<p>We created three bindings: Q1 is bound with binding key <code>*.orange.*</code>
+and Q2 with <code>*.*.rabbit</code> and <code>lazy.#</code>.</p>
+<p>These bindings can be summarised as:</p>
+<ul>
+<li>Q1 is interested in all the orange animals.</li>
+<li>Q2 wants to hear everything about rabbits, and everything about lazy
+animals.</li>
+</ul>
+<p>A message with a routing key set to <code>quick.orange.rabbit</code>
+will be delivered to both queues. Message
+<code>lazy.orange.elephant</code> also will go to both of them. On the other hand
+<code>quick.orange.fox</code> will only go to the first queue, and
+<code>lazy.brown.fox</code> only to the second. <code>lazy.pink.rabbit</code> will
+be delivered to the second queue only once, even though it matches two bindings.
+<code>quick.brown.fox</code> doesn't match any binding so it will be discarded.</p>
+<p>What happens if we break our contract and send a message with one or
+four words, like <code>orange</code> or <code>quick.orange.new.rabbit</code>? Well,
+these messages won't match any bindings and will be lost.</p>
+<p>On the other hand <code>lazy.orange.new.rabbit</code>, even though it has four
+words, will match the last binding and will be delivered to the second
+queue.</p>
+<blockquote>
+<h4 id="topic-exchange-1">Topic exchange</h4>
+<p>Topic exchange is powerful and can behave like other exchanges.</p>
+<p>When a queue is bound with <code>#</code> (hash) binding key - it will receive
+all the messages, regardless of the routing key - like in <code>fanout</code> exchange.</p>
+<p>When special characters <code>*</code> (star) and <code>#</code> (hash) aren't used in bindings,
+the topic exchange will behave just like a <code>direct</code> one.</p>
+</blockquote>
+<h2 id="putting-it-all-together">Putting it all together</h2>
+<p>We're going to use a <code>topic</code> exchange in our messaging system. We'll
+start off with a working assumption that the routing keys will take
+advantage of both wildcards and a hash tag.</p>
+<p>The code is almost the same as in the
+<a href="/tutorials/tutorial-four-spring-amqp">previous tutorial</a>.</p>
+<p>First let's configure some profiles and beans in the <code>Tut5Config</code> class
+of the <code>tut5</code> package:</p>
+<div><div><pre><code class="language-java">import org.springframework.amqp.core.*;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+
+@Profile({"tut5","topics"})
+@Configuration
+public class Tut5Config {
+
+	@Bean
+	public TopicExchange topic() {
+		return new TopicExchange("tut.topic");
+	}
+
+	@Profile("receiver")
+	private static class ReceiverConfig {
+
+		@Bean
+		public Tut5Receiver receiver() {
+	 	 	return new Tut5Receiver();
+		}
+
+		@Bean
+		public Queue autoDeleteQueue1() {
+			return new AnonymousQueue();
+		}
+
+		@Bean
+		public Queue autoDeleteQueue2() {
+			return new AnonymousQueue();
+		}
+
+		@Bean
+		public Binding binding1a(TopicExchange topic,
+		    Queue autoDeleteQueue1) {
+			return BindingBuilder.bind(autoDeleteQueue1)
+			    .to(topic)
+			    .with("*.orange.*");
+		}
+
+		@Bean
+		public Binding binding1b(TopicExchange topic,
+		    Queue autoDeleteQueue1) {
+			return BindingBuilder.bind(autoDeleteQueue1)
+			    .to(topic)
+			    .with("*.*.rabbit");
+		}
+
+		@Bean
+		public Binding binding2a(TopicExchange topic,
+		    Queue autoDeleteQueue2) {
+			return BindingBuilder.bind(autoDeleteQueue2)
+			    .to(topic)
+			    .with("lazy.#");
+		}
+
+	}
+
+	@Profile("sender")
+	@Bean
+	public Tut5Sender sender() {
+		return new Tut5Sender();
+	}
+
+}</code></pre></div></div>
+<p>We setup our profiles for executing the topics as the choice of <code>tut5</code> or <code>topics</code>. We
+then created the bean for our <code>TopicExchange</code>. The <code>receiver</code> profile is the <code>ReceiverConfig</code>
+class defining our receiver, two <code>AnonymousQueue</code>s as in the previous tutorial and the bindings
+for the topics utilizing the topic syntax. We also create the <code>sender</code> profile as the
+creation of the <code>Tut5Sender</code> class.</p>
+<p>The <code>Tut5Receiver</code> again uses the <code>@RabbitListener</code> annotation to receive messages from the respective
+topics.</p>
+<div><div><pre><code class="language-java">import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.util.StopWatch;
+
+public class Tut5Receiver {
+
+	@RabbitListener(queues = "#{autoDeleteQueue1.name}")
+	public void receive1(String in) throws InterruptedException {
+		receive(in, 1);
+	}
+
+	@RabbitListener(queues = "#{autoDeleteQueue2.name}")
+	public void receive2(String in) throws InterruptedException {
+		receive(in, 2);
+	}
+
+	public void receive(String in, int receiver) throws
+	    InterruptedException {
+		StopWatch watch = new StopWatch();
+		watch.start();
+		System.out.println("instance " + receiver + " [x] Received '"
+		    + in + "'");
+		doWork(in);
+		watch.stop();
+		System.out.println("instance " + receiver + " [x] Done in "
+		    + watch.getTotalTimeSeconds() + "s");
+	}
+
+	private void doWork(String in) throws InterruptedException {
+		for (char ch : in.toCharArray()) {
+			if (ch == '.') {
+				Thread.sleep(1000);
+			}
+		}
+	}
+}</code></pre></div></div>
+<p>The code for <code>Tut5Sender.java</code>:</p>
+<div><div><pre><code class="language-java">package org.springframework.amqp.tutorials.tut5;
+
+import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class Tut5Sender {
+
+	@Autowired
+	private RabbitTemplate template;
+
+	@Autowired
+	private TopicExchange topic;
+
+	AtomicInteger index = new AtomicInteger(0);
+
+	AtomicInteger count = new AtomicInteger(0);
+
+	private final String[] keys = {"quick.orange.rabbit", "lazy.orange.elephant", "quick.orange.fox",
+			"lazy.brown.fox", "lazy.pink.rabbit", "quick.brown.fox"};
+
+	@Scheduled(fixedDelay = 1000, initialDelay = 500)
+	public void send() {
+		StringBuilder builder = new StringBuilder("Hello to ");
+		if (this.index.incrementAndGet() == keys.length) {
+			this.index.set(0);
+		}
+		String key = keys[this.index.get()];
+		builder.append(key).append(' ');
+		builder.append(this.count.incrementAndGet());
+		String message = builder.toString();
+		template.convertAndSend(topic.getName(), key, message);
+		System.out.println(" [x] Sent '" + message + "'");
+	}
+
+}</code></pre></div></div>
+<p>Compile and run the examples as described
+in <a href="/tutorials/tutorial-one-spring-amqp">Tutorial 1</a>. Or if you have been
+following along through the tutorials you only need to do the
+following:</p>
+<p>To build the project:</p>
+<div><div><pre><code class="language-bash">./mvnw clean package</code></pre></div></div>
+<p>To execute the sender and receiver with the correct profiles
+execute the jar with the correct parameters:</p>
+<div><div><pre><code class="language-bash"># shell 1
+java -jar target/rabbitmq-tutorials.jar \
+    --spring.profiles.active=topics,receiver \
+    --tutorial.client.duration=60000
+# shell 2
+java -jar target/rabbitmq-tutorials.jar \
+    --spring.profiles.active=topics,sender \
+    --tutorial.client.duration=60000</code></pre></div></div>
+<p>The output from the sender will look something like:</p>
+<div><div><pre><code class="language-bash">Ready ... running for 60000ms
+ [x] Sent 'Hello to lazy.orange.elephant 1'
+ [x] Sent 'Hello to quick.orange.fox 2'
+ [x] Sent 'Hello to lazy.brown.fox 3'
+ [x] Sent 'Hello to lazy.pink.rabbit 4'
+ [x] Sent 'Hello to quick.brown.fox 5'
+ [x] Sent 'Hello to quick.orange.rabbit 6'
+ [x] Sent 'Hello to lazy.orange.elephant 7'
+ [x] Sent 'Hello to quick.orange.fox 8'
+ [x] Sent 'Hello to lazy.brown.fox 9'
+ [x] Sent 'Hello to lazy.pink.rabbit 10'</code></pre></div></div>
+<p>And the receiver will respond with the following output:</p>
+<div><div><pre><code class="language-bash">instance 1 [x] Received 'Hello to lazy.orange.elephant 1'
+instance 2 [x] Received 'Hello to lazy.orange.elephant 1'
+instance 2 [x] Done in 2.005s
+instance 1 [x] Done in 2.005s
+instance 1 [x] Received 'Hello to quick.orange.fox 2'
+instance 2 [x] Received 'Hello to lazy.brown.fox 3'
+instance 1 [x] Done in 2.003s
+instance 2 [x] Done in 2.003s
+instance 1 [x] Received 'Hello to lazy.pink.rabbit 4'
+instance 2 [x] Received 'Hello to lazy.pink.rabbit 4'
+instance 1 [x] Done in 2.006s
+instance 2 [x] Done in 2.006s</code></pre></div></div>
+<p>Have fun playing with these programs. Note that the code doesn't make
+any assumption about the routing or binding keys, you may want to play
+with more than two routing key parameters.</p>
+<p>(Full source code for <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/spring-amqp/src/main/java/org/springframework/amqp/tutorials/tut5/Tut5Receiver.java">Tut5Receiver.java source</a>
+and <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/spring-amqp/src/main/java/org/springframework/amqp/tutorials/tut5/Tut5Sender.java">Tut5Sender.java source</a>.
+The configuration is in <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/spring-amqp/src/main/java/org/springframework/amqp/tutorials/tut5/Tut5Config.java">Tut5Config.java source</a>. )</p>
+<p>Next, find out how to do a round trip message as a remote procedure call
+in <a href="/tutorials/tutorial-six-spring-amqp">tutorial 6</a></p></main>

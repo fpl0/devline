@@ -1,0 +1,55 @@
+<main><header><h1>Event Exchange Plugin</h1></header>
+<h2 id="overview">Overview</h2>
+<p>Client connections, queues, consumers, and other parts of the system generate <a href="/docs/4.3/logging#internal-events">events</a>.
+For example, when a connection is created, a <code>connection.created</code> event is emitted.
+When a connection is closed or fails, a <code>connection.closed</code> event is emitted.</p>
+<p><a href="/docs/4.3/monitoring">Monitoring</a> and auditing services can be interested in observing these
+events. RabbitMQ has a minimalistic mechanism for event notifications
+that can be exposed to RabbitMQ clients with the <code>rabbitmq_event_exchange</code> plugin.</p>
+<p>The plugin requires no configuration, just activate it:</p>
+<div><div><pre><code class="language-bash">rabbitmq-plugins enable rabbitmq_event_exchange</code></pre></div></div>
+<h2 id="consuming-internal-events">Consuming Internal Events</h2>
+<p><a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_event_exchange">rabbitmq_event_exchange</a>
+is a plugin that consumes RabbitMQ internal events and re-publishes them to a
+<a href="/docs/4.3/exchanges">topic exchange</a> called <code>amq.rabbitmq.event</code>, thus exposing these events to clients applications.
+To consume the events, an application needs to declare a queue and bind it to the <code>amq.rabbitmq.event</code> exchange.</p>
+<p>By default, the plugin declares the topic exchange <code>amq.rabbitmq.event</code> in the default virtual host (<code>/</code>).
+All events are published to this exchange with routing keys (topics) such as <code>exchange.created</code>, <code>binding.deleted</code>, etc.
+Applications can therefore consume only the relevant events.
+For example, to subscribe to all user events (such as <code>user.created</code>, <code>user.authentication.failure</code>, etc.) create a binding with routing (binding) key <code>user.#</code>.</p>
+<p>The exchange behaves similarly to <code>amq.rabbitmq.log</code>: everything gets published there.
+If application's user cannot be trusted with the events that get published, don't <a href="/docs/4.3/access-control">allow</a> them <code>read</code> access to the <code>amq.rabbitmq.event</code> exchange.</p>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>All messages published by the internal event mechanism will always have a blank body.
+Relevant event attributes are passed in message metadata.</p></div></div>
+<p>Each event has various event properties associated with it.
+By default, the plugin internally publishes AMQP 0.9.1 messages with event properties translated to AMQP 0.9.1 message headers.
+The plugin can optionally be configured to internally publish AMQP 1.0 messages with event properties translated to AMQP 1.0 <a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#type-message-annotations">message-annotations</a>
+by setting the following in <a href="/docs/4.3/configure#config-file">rabbitmq.conf</a>:</p>
+<div><div><pre><code class="language-ini">event_exchange.protocol = amqp_1_0</code></pre></div></div>
+<p>All messages published by the internal event mechanism will always have a blank body.
+Relevant event attributes are passed in message metadata.</p>
+<p>Because the plugin sets event properties as AMQP 0.9.1 headers or AMQP 1.0 message-annotations, client applications can optionally subscribe to only specific event properties (for example all events emitted for a specific user). This can be achieved by binding a queue to a <a href="/tutorials/amqp-concepts#exchange-headers">headers exchange</a>, and the headers exchange to the <code>amq.rabbitmq.event</code> topic exchange.</p>
+<h2 id="plugin-configuration">Plugin Configuration</h2>
+<p>By default, the <code>rabbitmq_event_exchange</code> plugin uses the following configuration:</p>
+<div><div><pre><code class="language-ini">event_exchange.vhost = /
+event_exchange.protocol = amqp_0_9_1</code></pre></div></div>
+<p>To switch the plugin to publish events in the AMQP 1.0 format, use</p>
+<div><div><pre><code class="language-ini">event_exchange.vhost = /
+event_exchange.protocol = amqp_1_0</code></pre></div></div>
+<h2 id="usage-guidelines">Usage Guidelines</h2>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>In most cases, setting a <a href="/docs/4.3/maxlength">max length limit</a> of a few thousand on the queues
+used to consume these events would prevent unnecessary resource use.</p></div></div>
+<p>The event exchange plugin is typically used for audit of internal events. An application
+can bind a queue, a stream, or a set of queues (or streams) to this exchange
+and store a history of generated events.
+Therefore, this special exchange can be considered a form of a structured log.</p>
+<p>A surge in the number of inbound connections, connection churn, channel churn, or queue churn
+will produce a large number of events. In environments where consumers
+on the internal event queue can be absent for long periods of time,
+the queue can accumulate a substantial backlog.</p>
+<p>In most cases, setting a <a href="/docs/4.3/maxlength">max length limit</a> of a few thousand on the queues
+used to consume these events would prevent unnecessary resource use.</p>
+<h2 id="events">Events</h2>
+<p>Events including their routing keys (topics) that this plugin publishes are documented <a href="/docs/4.3/logging#internal-events">here</a>.</p>
+<h2 id="example">Example</h2>
+<p>There's an <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_event_exchange/examples/java">example internal event consumer in Java</a>.</p></main>

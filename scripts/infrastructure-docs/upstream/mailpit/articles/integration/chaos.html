@@ -1,0 +1,39 @@
+<main>
+		
+		<h1>Chaos</h1>
+		<div>
+	<a href="https://en.wikipedia.org/wiki/Chaos_engineering">Chaos engineering</a> is the discipline of experimenting on a system to build confidence in its capability to withstand turbulent conditions in production.
+</div>
+
+<p>Mailpit’s <strong>Chaos</strong> feature (added in <code>v1.20.0</code>) allows you to set SMTP failures to return error response codes at various stages in an SMTP transaction to test application resilience. The failure rates are based on a configurable probability (% chance), allowing you to trigger random or consistent failures depending on the probability set.</p>
+<p>The configurable Chaos triggers in an SMTP transaction are:</p>
+<ul>
+<li><code>Sender</code> - triggers when the sender information is sent</li>
+<li><code>Recipient</code> - triggers when the recipients are sent</li>
+<li><code>Authentication</code> - triggers on authentication (authentication must be configured in Mailpit, otherwise this is ignored)</li>
+</ul>
+<p>When an error is triggered, Mailpit’s SMTP server will return a <code>&lt;code&gt; Chaos &lt;trigger&gt; error</code> error, where <code>code</code> is the configured error code, and <code>trigger</code> is the stage which triggered the error. For example, <code>451 Chaos recipient error</code>.</p>
+<h2 id="enabling-chaos">Enabling Chaos</h2>
+<p><strong>Chaos is disabled by default</strong>, and when disabled, it cannot be enabled or configured while the application is running.</p>
+<p>To enable Chaos, Mailpit must be started with the <code>--enable-chaos</code> (@env <code>MP_ENABLE_CHAOS=true</code>) flag, or alternatively started with <code>--chaos-triggers</code> (@env <code>MP_CHAOS_TRIGGERS</code>), which enables Chaos <em>and</em> sets a custom configuration (see below).</p>
+<p>Once enabled, Chaos triggers can be configured via three methods: as a runtime flag/environment variable, via the web UI, or via the API.
+The web UI &amp; API can dynamically update the Chaos triggers without requiring a Mailpit restart.</p>
+<h3 id="set-chaos-triggers-via-runtime-flag">Set Chaos triggers via runtime flag</h3>
+<p>Chaos can be enabled in Mailpit using the <code>--enable-chaos</code> flag (or <code>MP_ENABLE_CHAOS=true</code> environment variable). Note that this simply allows Chaos triggers to be configured while Mailpit is running; however, the default probability for each trigger is <code>0</code>, meaning it will not reject anything.</p>
+<p>To start Mailpit with Chaos enabled <strong>and</strong> a custom trigger configuration, start Mailpit using <code>--chaos-triggers &lt;options&gt;</code> (or <code>MP_CHAOS_TRIGGERS=&lt;options&gt;</code> environment variable). The Chaos runtime trigger syntax is a comma-separated (no spaces) <code>&lt;trigger&gt;:&lt;error-code&gt;:&lt;probability&gt;</code>, where:</p>
+<ul>
+<li><strong>trigger</strong> is either <code>Sender</code>, <code>Recipient</code>, or <code>Authentication</code>, depending on where you want to trigger an error</li>
+<li><strong>error-code</strong> is the returned error code from <code>400</code> to <code>599</code></li>
+<li><strong>probability</strong> is an integer from <code>0</code> to <code>100</code>, which is the likely chance this error will be triggered</li>
+</ul>
+<p>An example would be <code>--chaos-triggers Sender:451:50,Recipients:451:50</code> which would configure Chaos to reject approximately 50% of SMTP transactions based on sender, and 50% based on recipients. Please note that this example does <strong>not</strong> mean 100% of SMTP connections get rejected (50+50%), it means there is a 50/50 chance for both triggers. If you want to guarantee rejection, then set the probability of a trigger to <code>100</code>, e.g., <code>--chaos-triggers Sender:451:100</code>.</p>
+<h3 id="set-chaos-triggers-via-web-ui">Set Chaos triggers via web UI</h3>
+<p>Mailpit must first be started with either <code>--enable-chaos</code> or <code>--chaos-triggers &lt;options&gt;</code> (see above) to enable Chaos. In the web UI, open settings (icon at the bottom left) and select the <code>Chaos</code> tab. The configuration can be changed at any point while Mailpit is running, and restarting Mailpit will reset the triggers.</p>
+<h3 id="set-chaos-options-via-the-api">Set Chaos options via the API</h3>
+<p>Mailpit must first be started with either <code>--enable-chaos</code> or <code>--chaos-triggers &lt;options&gt;</code> (see above) to enable Chaos. Please refer to the <a href="../../api-v1/view.html#get-/api/v1/chaos">API documentation</a>.</p>
+
+
+		
+		
+		
+	</main>

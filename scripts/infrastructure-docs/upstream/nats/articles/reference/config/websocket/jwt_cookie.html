@@ -1,0 +1,13 @@
+<main><header><h1>jwt_cookie</h1></header>
+<div><span><span>Requires Restart</span></span></div>
+<p>Name of the HTTP cookie, that, if present, will be used as a client JWT.
+The cookie should be set by the HTTP server as described <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Cookies#restrict_access_to_cookies">here</a>.
+This setting is useful when generating NATS <code>Bearer</code> client JWTs as the
+result of some authentication mechanism. The HTTP server after correct
+authentication can issue a JWT for the user, that is set securely
+preventing access by unintended scripts. Note these JWTs must be
+<a href="https://docs.nats.io/nats-server/configuration/securing_nats/jwt">NATS JWTs</a>.</p>
+<p><strong>Note:</strong> If the client specifies a JWT in the <code>CONNECT</code> protocol,
+this option is ignored.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>string</code></td><td>-</td><td>-</td></tr></tbody></table></main>

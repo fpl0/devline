@@ -1,0 +1,63 @@
+<main>
+		
+		<h1>Websocket</h1>
+		<p>The Mailpit user interface refreshes in real time as messages and tags are received, deleted, or marked as read.
+This feature enables multiple browser clients to connect to the same mailbox and view the same updates simultaneously.
+Mailpit provides a websocket endpoint (<code>/api/events</code>, typically <code>ws://localhost/api/events</code>) which delivers this information to the UI, and as new features are added or existing ones are modified,
+the data sent through the websocket can also change.</p>
+
+<div>
+	Given the fluid nature of the data, the websocket endpoint is not part of the official API.
+</div>
+
+<p>The websocket will broadcast a firehose of different JSON objects, all in the form of:</p>
+<div><pre><code class="language-json"><span><span><span>{</span>
+</span></span><span><span>    <span>"Type"</span><span>:</span> <span>"&lt;string&gt;"</span><span>,</span>
+</span></span><span><span>    <span>"Data"</span><span>:</span> <span>&lt;object&gt;</span>
+</span></span><span><span><span>}</span>
+</span></span></code></pre></div><p>The <code>Type</code> can represent several options, including <code>stats</code>, <code>update</code>, <code>delete</code>, or <code>new</code>,  with the <code>Data</code> object varying based on the selected type.
+This documentation will focus solely on the “new” (message) type, as it is the least likely to change and is likely the primary interest for developers.
+To ensure you are only processing these messages from the stream, you will need to specifically filter by Type: “new”.</p>
+<h2 id="using-the-websocket-to-detect-new-messages">Using the websocket to detect new messages</h2>
+<p>When messages are received, the websocket broadcasts a <code>Type</code> <code>new</code>, and
+the <code>Data</code> is a <a href="https://mailpit.axllent.org/docs/api-v1/view.html#get-/api/v1/message/-ID-">message summary</a>
+(see Response -&gt; Schema) of the received message.</p>
+<p>For example:</p>
+<div><pre><code class="language-json"><span><span><span>{</span>
+</span></span><span><span>    <span>"Type"</span><span>:</span> <span>"new"</span><span>,</span>
+</span></span><span><span>    <span>"Data"</span><span>:</span> <span>{</span>
+</span></span><span><span>        <span>"ID"</span><span>:</span> <span>"YsABjkFERuPyq8XC6WaKs2"</span><span>,</span>
+</span></span><span><span>        <span>"MessageID"</span><span>:</span> <span>"LDBnLCzbh3LQGbHb6d2B8H@mailpit"</span><span>,</span>
+</span></span><span><span>        <span>"Read"</span><span>:</span> <span>false</span><span>,</span>
+</span></span><span><span>        <span>"From"</span><span>:</span> <span>{</span>
+</span></span><span><span>            <span>"Name"</span><span>:</span> <span>"Mailpit"</span><span>,</span>
+</span></span><span><span>            <span>"Address"</span><span>:</span> <span>"mailpit@example.com"</span>
+</span></span><span><span>        <span>},</span>
+</span></span><span><span>        <span>"To"</span><span>:</span> <span>[</span>
+</span></span><span><span>            <span>{</span>
+</span></span><span><span>                <span>"Name"</span><span>:</span> <span>"Test user"</span><span>,</span>
+</span></span><span><span>                <span>"Address"</span><span>:</span> <span>"test@example.com"</span>
+</span></span><span><span>            <span>}</span>
+</span></span><span><span>        <span>],</span>
+</span></span><span><span>        <span>"Cc"</span><span>:</span> <span>[],</span>
+</span></span><span><span>        <span>"Bcc"</span><span>:</span> <span>[</span>
+</span></span><span><span>            <span>{</span>
+</span></span><span><span>                <span>"Name"</span><span>:</span> <span>""</span><span>,</span>
+</span></span><span><span>                <span>"Address"</span><span>:</span> <span>"test@test"</span>
+</span></span><span><span>            <span>}</span>
+</span></span><span><span>        <span>],</span>
+</span></span><span><span>        <span>"ReplyTo"</span><span>:</span> <span>[],</span>
+</span></span><span><span>        <span>"Subject"</span><span>:</span> <span>"Hello from Mailpit SMTP API!"</span><span>,</span>
+</span></span><span><span>        <span>"Created"</span><span>:</span> <span>"2025-03-08T23:58:34.665934146+13:00"</span><span>,</span>
+</span></span><span><span>        <span>"Tags"</span><span>:</span> <span>[],</span>
+</span></span><span><span>        <span>"Size"</span><span>:</span> <span>935</span><span>,</span>
+</span></span><span><span>        <span>"Attachments"</span><span>:</span> <span>0</span><span>,</span>
+</span></span><span><span>        <span>"Snippet"</span><span>:</span> <span>"Mailpit is a small, fast, low memory, zero-dependency, multi-platform email testing tool \u0026 API for developers."</span>
+</span></span><span><span>    <span>}</span>
+</span></span><span><span><span>}</span>
+</span></span></code></pre></div>
+
+		
+		
+		
+	</main>

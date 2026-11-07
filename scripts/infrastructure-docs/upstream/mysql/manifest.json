@@ -1,0 +1,270 @@
+{
+  "publisher": "Oracle and Docker Official Images contributors",
+  "version": "8.4.11",
+  "provenance": "Oracle's MySQL 8.4.11 Community distribution includes GPL-2.0-only man pages at https://github.com/mysql/mysql-server/tree/99960bf74fa919347e4f4e3ca47672f333d6e91f/man. The Docker Official Image manual comes from https://github.com/docker-library/docs/tree/08674146b7122fa57ed72ac70860f74c47d68697/mysql. Its template placeholders were filled with the upstream Compose example and image name, and the logo was omitted. The Docker image manual applies across the Docker Official Image tags.",
+  "license": "GPL-2.0-only (Oracle man pages) and MIT (Docker Official Image manual)",
+  "notices": [
+    "LICENSE-MANPAGES",
+    "LICENSE-DOCKER"
+  ],
+  "coverage": "The Docker Official Image manual and 27 MySQL 8.4.11 man pages cover initialization, configuration, command-line SQL, administration, table maintenance, logs, backup, and restore.",
+  "omissions": "Oracle's full online SQL, storage engine, replication, and connector manuals have separate redistribution terms and are linked online. NDB Cluster and standalone MySQL Router tools are outside the managed image scope.",
+  "entry": "image",
+  "documents": [
+    {
+      "id": "image",
+      "path": "image.md",
+      "source_url": "https://github.com/docker-library/docs/blob/08674146b7122fa57ed72ac70860f74c47d68697/mysql/content.md",
+      "title": "MySQL · Docker Official Image",
+      "aliases": [
+        "mysql setup",
+        "mysql docker",
+        "MYSQL_DATABASE",
+        "MYSQL_ROOT_PASSWORD"
+      ]
+    },
+    {
+      "id": "man/comp_err",
+      "path": "man/comp_err.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/comp_err.1",
+      "title": "MySQL 8.4 · comp_err",
+      "aliases": [
+        "comp_err"
+      ]
+    },
+    {
+      "id": "man/ibd2sdi",
+      "path": "man/ibd2sdi.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/ibd2sdi.1",
+      "title": "MySQL 8.4 · ibd2sdi",
+      "aliases": [
+        "ibd2sdi"
+      ]
+    },
+    {
+      "id": "man/innochecksum",
+      "path": "man/innochecksum.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/innochecksum.1",
+      "title": "MySQL 8.4 · innochecksum",
+      "aliases": [
+        "innochecksum"
+      ]
+    },
+    {
+      "id": "man/my_print_defaults",
+      "path": "man/my_print_defaults.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/my_print_defaults.1",
+      "title": "MySQL 8.4 · my_print_defaults",
+      "aliases": [
+        "my_print_defaults"
+      ]
+    },
+    {
+      "id": "man/myisam_ftdump",
+      "path": "man/myisam_ftdump.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/myisam_ftdump.1",
+      "title": "MySQL 8.4 · myisam_ftdump",
+      "aliases": [
+        "myisam_ftdump"
+      ]
+    },
+    {
+      "id": "man/myisamchk",
+      "path": "man/myisamchk.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/myisamchk.1",
+      "title": "MySQL 8.4 · myisamchk",
+      "aliases": [
+        "myisamchk"
+      ]
+    },
+    {
+      "id": "man/myisamlog",
+      "path": "man/myisamlog.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/myisamlog.1",
+      "title": "MySQL 8.4 · myisamlog",
+      "aliases": [
+        "myisamlog"
+      ]
+    },
+    {
+      "id": "man/myisampack",
+      "path": "man/myisampack.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/myisampack.1",
+      "title": "MySQL 8.4 · myisampack",
+      "aliases": [
+        "myisampack"
+      ]
+    },
+    {
+      "id": "man/mysql",
+      "path": "man/mysql.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysql.1",
+      "title": "MySQL 8.4 · mysql command-line client",
+      "aliases": [
+        "mysql"
+      ]
+    },
+    {
+      "id": "man/mysql.server",
+      "path": "man/mysql.server.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysql.server.1",
+      "title": "MySQL 8.4 · mysql.server",
+      "aliases": [
+        "mysql.server"
+      ]
+    },
+    {
+      "id": "man/mysql_config",
+      "path": "man/mysql_config.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysql_config.1",
+      "title": "MySQL 8.4 · mysql_config",
+      "aliases": [
+        "mysql_config"
+      ]
+    },
+    {
+      "id": "man/mysql_config_editor",
+      "path": "man/mysql_config_editor.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysql_config_editor.1",
+      "title": "MySQL 8.4 · mysql_config_editor",
+      "aliases": [
+        "mysql_config_editor"
+      ]
+    },
+    {
+      "id": "man/mysql_migrate_keyring",
+      "path": "man/mysql_migrate_keyring.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysql_migrate_keyring.1",
+      "title": "MySQL 8.4 · mysql_migrate_keyring",
+      "aliases": [
+        "mysql_migrate_keyring"
+      ]
+    },
+    {
+      "id": "man/mysql_secure_installation",
+      "path": "man/mysql_secure_installation.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysql_secure_installation.1",
+      "title": "MySQL 8.4 · mysql_secure_installation installation security",
+      "aliases": [
+        "mysql_secure_installation"
+      ]
+    },
+    {
+      "id": "man/mysql_tzinfo_to_sql",
+      "path": "man/mysql_tzinfo_to_sql.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysql_tzinfo_to_sql.1",
+      "title": "MySQL 8.4 · mysql_tzinfo_to_sql",
+      "aliases": [
+        "mysql_tzinfo_to_sql"
+      ]
+    },
+    {
+      "id": "man/mysqladmin",
+      "path": "man/mysqladmin.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqladmin.1",
+      "title": "MySQL 8.4 · mysqladmin server administration",
+      "aliases": [
+        "mysqladmin"
+      ]
+    },
+    {
+      "id": "man/mysqlbinlog",
+      "path": "man/mysqlbinlog.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqlbinlog.1",
+      "title": "MySQL 8.4 · mysqlbinlog binary log utility",
+      "aliases": [
+        "mysqlbinlog"
+      ]
+    },
+    {
+      "id": "man/mysqlcheck",
+      "path": "man/mysqlcheck.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqlcheck.1",
+      "title": "MySQL 8.4 · mysqlcheck table maintenance",
+      "aliases": [
+        "mysqlcheck"
+      ]
+    },
+    {
+      "id": "man/mysqld",
+      "path": "man/mysqld.8",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqld.8",
+      "title": "MySQL 8.4 · mysqld server",
+      "aliases": [
+        "mysqld"
+      ]
+    },
+    {
+      "id": "man/mysqld_multi",
+      "path": "man/mysqld_multi.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqld_multi.1",
+      "title": "MySQL 8.4 · mysqld_multi",
+      "aliases": [
+        "mysqld_multi"
+      ]
+    },
+    {
+      "id": "man/mysqld_safe",
+      "path": "man/mysqld_safe.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqld_safe.1",
+      "title": "MySQL 8.4 · mysqld_safe",
+      "aliases": [
+        "mysqld_safe"
+      ]
+    },
+    {
+      "id": "man/mysqldump",
+      "path": "man/mysqldump.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqldump.1",
+      "title": "MySQL 8.4 · mysqldump backup utility",
+      "aliases": [
+        "mysqldump"
+      ]
+    },
+    {
+      "id": "man/mysqldumpslow",
+      "path": "man/mysqldumpslow.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqldumpslow.1",
+      "title": "MySQL 8.4 · mysqldumpslow",
+      "aliases": [
+        "mysqldumpslow"
+      ]
+    },
+    {
+      "id": "man/mysqlimport",
+      "path": "man/mysqlimport.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqlimport.1",
+      "title": "MySQL 8.4 · mysqlimport data import utility",
+      "aliases": [
+        "mysqlimport"
+      ]
+    },
+    {
+      "id": "man/mysqlshow",
+      "path": "man/mysqlshow.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqlshow.1",
+      "title": "MySQL 8.4 · mysqlshow",
+      "aliases": [
+        "mysqlshow"
+      ]
+    },
+    {
+      "id": "man/mysqlslap",
+      "path": "man/mysqlslap.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/mysqlslap.1",
+      "title": "MySQL 8.4 · mysqlslap",
+      "aliases": [
+        "mysqlslap"
+      ]
+    },
+    {
+      "id": "man/perror",
+      "path": "man/perror.1",
+      "source_url": "https://github.com/mysql/mysql-server/blob/99960bf74fa919347e4f4e3ca47672f333d6e91f/man/perror.1",
+      "title": "MySQL 8.4 · perror",
+      "aliases": [
+        "perror"
+      ]
+    }
+  ]
+}

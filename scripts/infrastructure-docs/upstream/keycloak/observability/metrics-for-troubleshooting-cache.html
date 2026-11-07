@@ -1,0 +1,136 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Global tags</strong></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>cache=&lt;name&gt;</code></dt>
+<dd>
+<p>The cache name.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_size"><a class="anchor" href="#_size"></a>Size</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Monitor the number of entries in your local cache.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>cache_size</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The number of cached entries.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_data_access"><a class="anchor" href="#_data_access"></a>Data Access</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following metrics monitor the cache accesses, such as lookup and evictions.</p>
+</div>
+<div class="sect2">
+<h3 id="_reads"><a class="anchor" href="#_reads"></a>Reads</h3>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Tags</strong></p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>result=hit|miss</code></dt>
+<dd>
+<p>The result of the read/lookup operation.
+If the value is <code>hit</code>, the entry was found in the cache.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>The read requests can be monitored using a single metric.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>cache_gets_total</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total number of cache lookups.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Hit Ratio for read operation</strong></p>
+</div>
+<div class="paragraph">
+<p>An expression can be used to compute the hit ratio for a cache in systems such as Prometheus.
+For example, the hit ratio for read operations can be expressed as:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>cache_gets_total{result="hit"} / cache_gets_total</pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_evictions"><a class="anchor" href="#_evictions"></a>Evictions</h3>
+<div class="paragraph">
+<p>When a cache is limited, eviction is the process of removing the least used entries to make space available for new entries to be cached.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>cache_evictions_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The number of times the cache was evicted.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div> </div>
+</main>

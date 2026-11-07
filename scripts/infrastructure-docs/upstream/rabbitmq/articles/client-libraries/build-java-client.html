@@ -1,0 +1,30 @@
+<main><header><h1>Build RabbitMQ Java Client from Source</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guides describes the process of building the Java client library from source.</p>
+<p>The repository is hosted on GitHub. Clone two repositories with</p>
+<div><div><pre><code class="language-bash">git clone https://github.com/rabbitmq/rabbitmq-codegen.git rabbitmq_codegen
+git clone https://github.com/rabbitmq/rabbitmq-java-client.git</code></pre></div></div>
+<p>The code generation repository is a dependency of
+the Java client library.</p>
+<h2 id="prerequisites">Required Libraries and Tools</h2>
+<p>In order to build RabbitMQ Java client, you will need a few tools.</p>
+<p>The first one is a recent version of <a href="http://www.python.org/download/">Python</a> and
+<a href="http://pypi.python.org/pypi/simplejson">simplejson.py</a>
+in order to drive code generation.</p>
+<p>Additionally, for building the Java client libraries, you will need</p>
+<ul>
+<li><a href="http://www.oracle.com/technetwork/java/javase/downloads/index.html">JDK 8</a> or newer</li>
+<li><a href="http://maven.apache.org/">Maven</a> version 3.3.x or newer.</li>
+</ul>
+<h2 id="building">Building</h2>
+<p>Ensure <code>JAVA_HOME</code> is correctly set and
+that the <code>rabbitmq-java-client</code> and
+<code>rabbitmq_codegen</code> directories are in
+the same directory. Then, from the <code>rabbitmq-java-client</code> directory, run</p>
+<div><div><pre><code class="language-bash">cd rabbitmq-java-client
+
+./mvnw clean package -Ddeps.dir=../ -DskipTests</code></pre></div></div>
+<p>The generated JAR file will be in <code>target</code> directory.</p>
+<h2 id="contributing">Contributing</h2>
+<p>If you are looking to contribute to the client, take a look at these
+<a href="https://github.com/rabbitmq/rabbitmq-java-client#contributing">instructions on GitHub</a>.</p></main>

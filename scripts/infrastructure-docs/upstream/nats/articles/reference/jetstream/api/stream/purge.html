@@ -1,0 +1,10 @@
+<main><header><h1>Purge Stream</h1></header>
+<p>Purges messages from a stream.</p>
+<!-- -->
+<h2 id="subject">Subject</h2>
+<p><code>$JS.API.STREAM.PURGE.{stream}</code></p>
+<p>Where <code>{stream}</code> is the name of the stream.</p>
+<h2 id="request">Request</h2>
+<div><p>A request to the JetStream $JS.API.STREAM.PURGE API</p><div><div><div><span>filter</span><span>string</span></div><div>Restrict purging to messages that match this subject</div></div><div><div><span>seq</span><span>integer</span></div><div>Purge all messages up to but not including the message with this sequence. Can be combined with subject filter but not the keep option</div><div>unsigned 64 bit integer</div><div><span>Minimum:</span><code>0</code></div><div><span>Maximum:</span><code>18446744073709552000</code></div></div><div><div><span>keep</span><span>integer</span></div><div>Ensures this many messages are present after the purge. Can be combined with the subject filter but not the sequence</div><div>unsigned 64 bit integer</div><div><span>Minimum:</span><code>0</code></div><div><span>Maximum:</span><code>18446744073709552000</code></div></div></div></div>
+<h2 id="response">Response</h2>
+<div><p>A response from the JetStream $JS.API.STREAM.PURGE API</p><div></div><div><div><div>One of the following:</div><div><div>Option <!-- -->1<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>error</span><span>object</span><span>required</span></div></div></div><div><div>Option <!-- -->2<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>success</span><span>boolean</span><span>required</span></div></div><div><div><span>purged</span><span>integer</span><span>required</span></div><div>Number of messages purged from the Stream</div><div>unsigned 64 bit integer</div><div><span>Minimum:</span><code>0</code></div><div><span>Maximum:</span><code>18446744073709552000</code></div></div></div></div><div><div><span>type</span><span>const: "io.nats.jetstream.api.v1.stream_purge_response"</span><span>required</span></div></div></div></div></main>

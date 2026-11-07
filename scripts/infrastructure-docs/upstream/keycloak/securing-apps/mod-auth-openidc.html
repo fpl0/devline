@@ -1,0 +1,80 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+Keycloak does not provide any official support to mod_auth_openidc. The instructions below are best-effort and may not be up-to-date.
+We recommend that you stick to official mod_auth_openidc documentation for more details.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The <a href="https://github.com/OpenIDC/mod_auth_openidc">mod_auth_openidc</a> is an Apache HTTP plugin for OpenID Connect. If your language/environment supports using Apache HTTPD
+as a proxy, then you can use <em>mod_auth_openidc</em> to secure your web application with OpenID Connect.  Configuration of this module
+is beyond the scope of this document.  Please see the <em>mod_auth_openidc</em> GitHub repo for more details on configuration.</p>
+</div>
+<div class="paragraph">
+<p>To configure <em>mod_auth_openidc</em> you’ll need</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>The client_id.</p>
+</li>
+<li>
+<p>The client_secret.</p>
+</li>
+<li>
+<p>The redirect_uri to your application.</p>
+</li>
+<li>
+<p>The Keycloak openid-configuration url</p>
+</li>
+<li>
+<p><em>mod_auth_openidc</em> specific Apache HTTPD module config.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>An example configuration would look like the following.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>LoadModule auth_openidc_module modules/mod_auth_openidc.so
+
+ServerName ${HOSTIP}
+
+&lt;VirtualHost *:80&gt;
+
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/html
+
+    #this is required by mod_auth_openidc
+    OIDCCryptoPassphrase a-random-secret-used-by-apache-oidc-and-balancer
+
+    OIDCProviderMetadataURL ${KC_ADDR}/realms/${KC_REALM}/.well-known/openid-configuration
+
+    OIDCClientID ${CLIENT_ID}
+    OIDCClientSecret ${CLIENT_SECRET}
+    OIDCRedirectURI http://${HOSTIP}/${CLIENT_APP_NAME}/redirect_uri
+
+    # maps the preferred_username claim to the REMOTE_USER environment variable
+    OIDCRemoteUserClaim preferred_username
+
+    &lt;Location /${CLIENT_APP_NAME}/&gt;
+        AuthType openid-connect
+        Require valid-user
+    &lt;/Location&gt;
+&lt;/VirtualHost&gt;</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Further information on how to configure mod_auth_openidc can be found on the <a href="https://github.com/OpenIDC/mod_auth_openidc">mod_auth_openidc</a>
+project page.</p>
+</div> </div>
+</main>

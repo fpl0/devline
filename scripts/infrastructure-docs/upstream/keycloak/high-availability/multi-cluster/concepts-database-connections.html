@@ -1,0 +1,33 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This section is intended when you want to understand considerations and best practices on how to configure database connection pools for Keycloak.
+For a configuration where this is applied, visit <a href="https://www.keycloak.org/high-availability/multi-cluster/deploy-keycloak-kubernetes">Deploying Keycloak for HA with the Operator</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-db-concepts"><a class="anchor" href="#multi-cluster-db-concepts"></a>Concepts</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Creating new database connections is expensive as it takes time.
+Creating them when a request arrives will delay the response, so it is good to have them created before the request arrives.
+It can also contribute to a <a href="https://en.wikipedia.org/wiki/Cache_stampede">stampede effect</a> where creating a lot of connections in a short time makes things worse as it slows down the system and blocks threads.
+Closing a connection also invalidates all server side statements caching for that connection.</p>
+</div>
+<div class="paragraph">
+<p>For the best performance, the values for the initial, minimal and maximum database connection pool size should all be equal.
+This avoids creating new database connections when a new request comes in which is costly.</p>
+</div>
+<div class="paragraph">
+<p>Keeping the database connection open for as long as possible allows for server side statement caching bound to a connection.
+In the case of PostgreSQL, to use a server-side prepared statement, <a href="https://jdbc.postgresql.org/documentation/server-prepare/#activation">a query needs to be executed (by default) at least five times</a>.</p>
+</div>
+<div class="paragraph">
+<p>See the <a href="https://www.postgresql.org/docs/current/sql-prepare.html">PostgreSQL docs on prepared statements</a> for more information.</p>
+</div>
+</div>
+</div> </div>
+</main>

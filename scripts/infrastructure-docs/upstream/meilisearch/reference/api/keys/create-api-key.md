@@ -1,0 +1,966 @@
+# Create API key
+
+> Create a new API key with the specified name, description, actions, and index scopes. The key value is returned only once at creation time; store it securely.
+
+**Required fields:** `actions`, `indexes`, `expiresAt`.
+**Optional fields:** `name`, `description`, `uid`.
+
+Set `expiresAt` to `null` to create a key that never expires.
+Use `"*"` in the `actions` array to grant all permissions (not recommended for production).
+Use `["*"]` in the `indexes` array to grant access to all indexes.
+
+
+
+## OpenAPI
+
+<pre><code class="language-yaml">openapi: 3.1.0
+info:
+  title: meilisearch
+  description: Meilisearch HTTP server
+  contact:
+    name: Quentin de Quelen
+    email: quentin@dequelen.me
+  license:
+    name: MIT
+    identifier: MIT
+  version: 1.56.1
+servers:
+  - url: http://localhost:7700
+    description: Local server.
+security: []
+tags:
+  - name: Stats
+    description: &gt;-
+      Stats gives extended information and metrics about indexes and the
+      Meilisearch database.
+  - name: Health
+    description: &gt;-
+      The health check endpoint enables you to periodically test the health of
+      your Meilisearch instance.
+  - name: Version
+    description: Returns the version of the running Meilisearch instance.
+  - name: Backups
+    description: &gt;-
+      Meilisearch offers two types of backups: snapshots and dumps. Snapshots
+      are mainly intended as a safeguard, while dumps are useful when migrating
+      Meilisearch.
+  - name: Export
+    description: &gt;-
+      Export documents and settings from this instance to a remote Meilisearch
+      server.
+  - name: Async task management
+    description: &gt;-
+      Routes for listing and managing batches and tasks (asynchronous
+      operations).
+  - name: Chats
+    description: The `/chats` route allows you to manage chat workspaces.
+  - name: MCP
+    description: &gt;-
+      Model Context Protocol (MCP) is an open protocol that enables seamless
+      integration between LLM applications and external data sources and tools.
+  - name: Indexes
+    description: &gt;-
+      An index is an entity that gathers a set of
+      [documents](https://www.meilisearch.com/docs/learn/getting_started/documents)
+      with its own
+      [settings](https://www.meilisearch.com/docs/reference/api/settings). Learn
+      more about indexes.
+  - name: Documents
+    description: &gt;-
+      Documents are objects composed of fields that can store any type of data.
+      Each field contains an attribute and its associated value. Documents are
+      stored inside
+      [indexes](https://www.meilisearch.com/docs/learn/getting_started/indexes).
+  - name: Facet Search
+    description: &gt;-
+      The `/facet-search` route allows you to search for facet values within a
+      given facet attribute.
+
+
+      Facet search supports prefix search and typo tolerance. Results are sorted
+      lexicographically in ascending order by default. You can configure sort
+      order using the `sortFacetValuesBy` property of the faceting index
+      settings.
+
+
+      **Note:** Facet search does not support multi-word queries. Only the first
+      word of `facetQuery` is considered. For example, searching for `Jane`
+      returns `Jane Austen`, but searching for `Austen` does not.
+
+
+      **Note:** Meilisearch does not support facet search on numeric values.
+      Convert numeric facets to strings to make them searchable.
+
+
+      **Prerequisite:** The `facetName` attribute must be in the index's
+      `filterableAttributes` list before facet search can be used.
+  - name: Similar documents
+    description: &gt;-
+      The /similar route uses AI-powered search to return a number of documents
+      similar to a target document.
+
+
+      Meilisearch exposes two routes for retrieving similar documents: POST and
+      GET. In the majority of cases, POST will offer better performance and ease
+      of use.
+  - name: Settings
+    description: &gt;-
+      Configure search and index behavior. Update all settings at once via PATCH
+      /indexes/{indexUid}/settings, or use a sub-route to get, update, or reset
+      a single setting.
+  - name: Search
+    description: &gt;-
+      Meilisearch exposes two routes to perform searches:
+
+
+      - A POST route: this is the preferred route when using API authentication,
+      as it allows [preflight
+      request](https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request)
+      caching and better performance.
+
+      - A GET route: the usage of this route is discouraged, unless you have
+      good reason to do otherwise (specific caching abilities for example)
+    externalDocs:
+      url: https://www.meilisearch.com/docs/reference/api/search
+      description: Search API reference
+  - name: Keys
+    description: &gt;-
+      Manage API `keys` for a Meilisearch instance. Each key has a given set of
+      permissions.
+
+      You must have the master key or the default admin key to access the keys
+      route. More information about the keys and their rights.
+
+      Accessing any route under `/keys` without having set a master key will
+      result in an error.
+  - name: Logs
+    description: &gt;-
+      Everything about retrieving or customizing logs.
+
+      Currently
+      [experimental](https://www.meilisearch.com/docs/learn/experimental/overview).
+  - name: Multi-search
+    description: &gt;-
+      The `/multi-search` route allows you to perform multiple search queries on
+      one or more indexes by bundling them into a single HTTP request.
+      Multi-search is also known as federated search.
+  - name: Experimental features
+    description: &gt;-
+      The `/experimental-features` route allows you to activate or deactivate
+      some of Meilisearch's experimental features.
+
+
+      This route is **synchronous**. This means that no task object will be
+      returned, and any activated or deactivated features will be made available
+      or unavailable immediately.
+  - name: Webhooks
+    description: &gt;-
+      The `/webhooks` route allows you to register endpoints to be called once
+      tasks are processed.
+  - name: Search rules
+    description: The `/dynamic-search-rules` route allows you to configure search rules.
+  - name: Render templates
+    description: The /render-template route allows rendering templates used by Meilisearch.
+    externalDocs:
+      url: https://www.meilisearch.com/docs/reference/api/render-template
+      description: Render template API reference
+paths:
+  /keys:
+    post:
+      tags:
+        - Keys
+      summary: Create API key
+      description: &gt;-
+        Create a new API key with the specified name, description, actions, and
+        index scopes. The key value is returned only once at creation time;
+        store it securely.
+
+
+        **Required fields:** `actions`, `indexes`, `expiresAt`.
+
+        **Optional fields:** `name`, `description`, `uid`.
+
+
+        Set `expiresAt` to `null` to create a key that never expires.
+
+        Use `"*"` in the `actions` array to grant all permissions (not
+        recommended for production).
+
+        Use `["*"]` in the `indexes` array to grant access to all indexes.
+      operationId: create_api_key
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKey'
+        required: true
+      responses:
+        '201':
+          description: Key has been created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyView'
+              example:
+                uid: 01b4bc42-eb33-4041-b481-254d00cce834
+                key: &gt;-
+                  d0552b41536279a0ad88bd595327b96f01176a60c2243e906c52ac02375f9bc4
+                name: Indexing Products API key
+                description: null
+                actions:
+                  - documents.add
+                indexes:
+                  - products
+                expiresAt: '2021-11-13T00:00:00Z'
+                createdAt: '2021-11-12T10:00:00Z'
+                updatedAt: '2021-11-12T10:00:00Z'
+        '401':
+          description: The authorization header is missing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseError'
+              example:
+                message: &gt;-
+                  The Authorization header is missing. It must use the bearer
+                  authorization method.
+                code: missing_authorization_header
+                type: auth
+                link: &gt;-
+                  https://docs.meilisearch.com/errors#missing_authorization_header
+      security:
+        - Bearer:
+            - keys.create
+            - keys.*
+            - '*'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl \
+              -X POST 'MEILISEARCH_URL/keys' \
+              -H 'Authorization: Bearer MASTER_KEY' \
+              -H 'Content-Type: application/json' \
+              --data-binary '{
+                "description": "Add documents: Products API key",
+                "actions": ["documents.add"],
+                "indexes": ["products"],
+                "expiresAt": "2042-04-02T00:42:42Z"
+              }'
+        - lang: JS
+          source: |-
+            client.createKey({
+              description: 'Add documents: Products API key',
+              actions: ['documents.add'],
+              indexes: ['products'],
+              expiresAt: '2021-11-13T00:00:00Z'
+            })
+        - lang: PHP
+          source: |-
+            $client-&gt;createKey([
+              'description' =&gt; 'Add documents: Products API key',
+              'actions' =&gt; ['documents.add'],
+              'indexes' =&gt; ['products'],
+              'expiresAt' =&gt; '2042-04-02T00:42:42Z',
+            ]);
+        - lang: Python
+          source: |-
+            client.create_key(options={
+              'description': 'Add documents: Products API key',
+              'actions': ['documents.add'],
+              'indexes': ['products'],
+              'expiresAt': '2042-04-02T00:42:42Z'
+            })
+        - lang: Java
+          source: &gt;-
+            SimpleDateFormat format = new
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+
+            Date dateParsed = format.parse("2042-04-02T00:42:42Z");
+
+
+            Key keyInfo = new Key();
+
+
+            keyInfo.setDescription("Add documents: Products API key");
+
+            keyInfo.setActions(new String[] {"documents.add"});
+
+            keyInfo.setIndexes(new String[] {"products"});
+
+            keyInfo.setExpiresAt(dateParsed);
+
+
+            client.createKey(keyInfo);
+        - lang: Ruby
+          source: |-
+            client.create_key(
+              description: 'Add documents: Products API key',
+              actions: ['documents.add'],
+              indexes: ['products'],
+              expires_at: '2042-04-02T00:42:42Z'
+            )
+        - lang: Go
+          source: |-
+            client.CreateKey(&amp;meilisearch.Key{
+              Description: "Add documents: Products API key",
+              Actions: []string{"documents.add"},
+              Indexes: []string{"products"},
+              ExpiresAt: time.Date(2042, time.April, 02, 0, 42, 42, 0, time.UTC),
+            })
+        - lang: C#
+          source: |-
+            Key keyOptions = new Key
+            {
+                Description = "Add documents: Products API key",
+                Actions = new KeyAction[] { KeyAction.DocumentsAdd },
+                Indexes = new string[] { "products" },
+                ExpiresAt = DateTime.Parse("2042-04-02T00:42:42Z")
+            };
+            Key createdKey = await this.client.CreateKeyAsync(keyOptions);
+        - lang: Rust
+          source: |-
+            let mut key_options = KeyBuilder::new();
+            key_options
+              .with_name("Add documents: Products API key")
+              .with_action(Action::DocumentsAdd)
+              .with_expires_at(time::macros::datetime!(2042 - 04 - 02 00:42:42 UTC))
+              .with_index("products");
+            let new_key = client
+              .create_key(key_options)
+              .await
+              .unwrap();
+        - lang: Dart
+          source: |-
+            await client.createKey(
+                description: 'Add documents: Products API key',
+                actions: ['documents.add'],
+                indexes: ['products'],
+                expiresAt: DateTime(2042, 04, 02));
+        - lang: Swift
+          source: |-
+            let keyParams = KeyParams(
+              description: "Add documents: Products API key",
+              actions: ["documents.add"],
+              indexes: ["products"],
+              expiresAt: "2042-04-02T00:42:42Z"
+            )
+            client.createKey(keyParams) { result in
+                switch result {
+                case .success(let key):
+                    print(key)
+                case .failure(let error):
+                    print(error)
+                }
+            }
+components:
+  schemas:
+    CreateApiKey:
+      type: object
+      required:
+        - actions
+        - indexes
+        - expiresAt
+      properties:
+<span id="body-description"></span>        description:
+          type:
+            - string
+            - 'null'
+          description: A description for the key. `null` if empty.
+          example: null
+<span id="body-name"></span>        name:
+          type:
+            - string
+            - 'null'
+          description: A human-readable name for the key. `null` if empty.
+          example: Indexing Products API key
+<span id="body-uid"></span>        uid:
+          type:
+            - string
+            - 'null'
+          description: &gt;-
+            A uuid v4 to identify the API Key. If not specified, it's generated
+            by Meilisearch.
+          example: 01b4bc42-eb33-4041-b481-254d00cce834
+<span id="body-actions"></span>        actions:
+          type: array
+<span id="body-actions-items"></span>          items:
+            $ref: '#/components/schemas/Action'
+          description: &gt;-
+            A list of actions permitted for the key. `["*"]` for all actions.
+            The
+
+            `*` character can be used as a wildcard when located at the last
+
+            position. e.g. `documents.*` to authorize access on all documents
+
+            endpoints.
+
+
+            Valid actions include: `search`, `documents.add`,
+
+            `documents.get`, `documents.delete`, `indexes.create`,
+            `indexes.get`,
+
+            `indexes.update`, `indexes.delete`, `indexes.swap`, `tasks.get`,
+
+            `tasks.cancel`, `tasks.delete`, `settings.get`, `settings.update`,
+
+            `stats.get`, `dumps.create`, `snapshots.create`, `version`,
+            `keys.get`,
+
+            `keys.create`, `keys.update`, `keys.delete`. Use `*` to grant all
+            actions.
+          example:
+            - documents.add
+<span id="body-indexes"></span>        indexes:
+          type: array
+<span id="body-indexes-items"></span>          items:
+            type: string
+          description: |-
+            A list of accessible indexes permitted for the key. `["*"]` for all
+            indexes. The `*` character can be used as a wildcard when located at
+            the last position. e.g. `products_*` to allow access to all indexes
+            whose names start with `products_`.
+          example:
+            - products
+<span id="body-expires-at"></span><span id="body-expiresat"></span>        expiresAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: &gt;-
+            Represent the expiration date and time as RFC 3339 format. `null`
+
+            equals to no expiration time. Set to `null` to create a key that
+            never
+
+            expires. Once a key is past its expiry date, using it returns an
+            error.
+    KeyView:
+      type: object
+      description: &gt;-
+        Represents an API key used for authenticating requests to Meilisearch.
+
+        Each key has specific permissions defined by its actions and can be
+        scoped
+
+        to particular indexes. Keys provide fine-grained access control for your
+
+        Meilisearch instance.
+      required:
+        - key
+        - uid
+        - actions
+        - indexes
+        - createdAt
+        - updatedAt
+      properties:
+<span id="response-name"></span>        name:
+          type:
+            - string
+            - 'null'
+          description: &gt;-
+            A human-readable name for the API key. Use this to identify the
+            purpose
+
+            of each key, such as "Frontend Search Key" or "Admin Key for CI/CD".
+
+            This is optional and can be `null`.
+<span id="response-description"></span>        description:
+          type:
+            - string
+            - 'null'
+          description: &gt;-
+            A longer description explaining the purpose or usage of this API
+            key.
+
+            Useful for documenting why the key was created and how it should be
+
+            used. This is optional and can be `null`.
+<span id="response-key"></span>        key:
+          type: string
+          description: &gt;-
+            The actual API key string to use in the `Authorization: Bearer
+            &lt;key&gt;`
+
+            header when making requests to Meilisearch. Keep this value secret
+            and
+
+            never expose it in client-side code.
+<span id="response-uid"></span>        uid:
+          type: string
+          format: uuid
+          description: |-
+            The unique identifier (UUID) for this API key. Use this to update or
+            delete the key. The UID remains constant even if the key's name or
+            description changes.
+<span id="response-actions"></span>        actions:
+          type: array
+<span id="response-actions-items"></span>          items:
+            $ref: '#/components/schemas/Action'
+          description: |-
+            The list of actions (permissions) this key is allowed to perform.
+            Examples include `documents.add`, `search`, `indexes.create`,
+            `settings.update`, etc. Use `*` to grant all permissions.
+<span id="response-indexes"></span>        indexes:
+          type: array
+<span id="response-indexes-items"></span>          items:
+            type: string
+          description: &gt;-
+            The list of index UIDs this key can access. Use `*` to grant access
+            to
+
+            all indexes, including future ones. Patterns are also supported,
+            e.g.,
+
+            `movies_*` matches any index starting with "movies_".
+<span id="response-expires-at"></span><span id="response-expiresat"></span>        expiresAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+          description: &gt;-
+            The expiration date and time of the key in RFC 3339 format. After
+            this
+
+            time, the key will no longer be valid for authentication. Set to
+            `null`
+
+            for keys that never expire.
+<span id="response-created-at"></span><span id="response-createdat"></span>        createdAt:
+          type: string
+          format: date-time
+          description: |-
+            The date and time when this API key was created, formatted as an
+            RFC 3339 date-time string. This is automatically set by Meilisearch
+            and cannot be modified.
+          readOnly: true
+<span id="response-updated-at"></span><span id="response-updatedat"></span>        updatedAt:
+          type: string
+          format: date-time
+          description: &gt;-
+            The date and time when this API key was last modified, formatted as
+            an
+
+            RFC 3339 date-time string. This is automatically updated by
+            Meilisearch
+
+            when the key's name or description changes.
+          readOnly: true
+    ResponseError:
+      type: object
+      required:
+        - message
+        - code
+        - type
+        - link
+      properties:
+        message:
+          type: string
+          description: The error message.
+        code:
+          $ref: '#/components/schemas/Code'
+          description: The error code.
+        type:
+          $ref: '#/components/schemas/ErrorType'
+          description: The error type.
+        link:
+          type: string
+          description: A link to the documentation about this specific error.
+    Action:
+      type: string
+      enum:
+        - '*'
+        - search
+        - documents.*
+        - documents.add
+        - documents.get
+        - documents.delete
+        - indexes.*
+        - indexes.create
+        - indexes.get
+        - indexes.update
+        - indexes.delete
+        - indexes.swap
+        - tasks.*
+        - tasks.cancel
+        - tasks.delete
+        - tasks.get
+        - settings.*
+        - settings.get
+        - settings.update
+        - stats.*
+        - stats.get
+        - metrics.*
+        - metrics.get
+        - dumps.*
+        - dumps.create
+        - snapshots.*
+        - snapshots.create
+        - version
+        - keys.create
+        - keys.get
+        - keys.update
+        - keys.delete
+        - experimental.get
+        - experimental.update
+        - export
+        - network.get
+        - network.update
+        - chatCompletions
+        - chats.*
+        - chats.get
+        - chats.delete
+        - chatsSettings.*
+        - chatsSettings.get
+        - chatsSettings.update
+        - '*.get'
+        - webhooks.get
+        - webhooks.update
+        - webhooks.delete
+        - webhooks.create
+        - webhooks.*
+        - indexes.compact
+        - fields.post
+        - tasks.compact
+        - dynamicSearchRules.get
+        - dynamicSearchRules.create
+        - dynamicSearchRules.update
+        - dynamicSearchRules.delete
+        - dynamicSearchRules.*
+    Code:
+      type: string
+      enum:
+        - api_key_already_exists
+        - api_key_not_found
+        - index_scoped_api_key_with_global_action
+        - bad_parameter
+        - bad_request
+        - database_size_limit_reached
+        - document_not_found
+        - dump_already_processing
+        - dump_not_found
+        - dump_process_failed
+        - duplicate_index_found
+        - immutable_api_key_actions
+        - immutable_api_key_created_at
+        - immutable_api_key_expires_at
+        - immutable_api_key_indexes
+        - immutable_api_key_key
+        - immutable_api_key_uid
+        - immutable_api_key_updated_at
+        - immutable_index_created_at
+        - immutable_index_updated_at
+        - import_task_already_received
+        - import_task_unknown_remote
+        - receive_import_finished_unknown_remote
+        - import_task_without_network_task
+        - index_already_exists
+        - index_creation_failed
+        - index_not_found
+        - index_primary_key_already_exists
+        - index_primary_key_multiple_candidates_found
+        - index_primary_key_no_candidate_found
+        - internal
+        - invalid_api_key
+        - invalid_api_key_actions
+        - invalid_api_key_description
+        - invalid_api_key_expires_at
+        - invalid_api_key_indexes
+        - invalid_api_key_limit
+        - invalid_api_key_name
+        - invalid_api_key_offset
+        - invalid_api_key_uid
+        - invalid_content_type
+        - invalid_document_csv_delimiter
+        - invalid_document_fields
+        - invalid_document_retrieve_vectors
+        - missing_document_filter
+        - missing_document_edition_function
+        - inconsistent_document_change_headers
+        - invalid_document_filter
+        - invalid_document_sort
+        - invalid_document_use_network
+        - invalid_document_retrieve
+        - invalid_document_geo_field
+        - invalid_document_geojson_field
+        - invalid_header_value
+        - invalid_vector_dimensions
+        - invalid_vectors_type
+        - invalid_document_id
+        - invalid_document_ids
+        - invalid_document_limit
+        - invalid_document_offset
+        - invalid_search_embedder
+        - invalid_similar_embedder
+        - invalid_search_hybrid_query
+        - invalid_index_limit
+        - invalid_index_offset
+        - invalid_index_primary_key
+        - invalid_index_custom_metadata
+        - invalid_skip_creation
+        - invalid_index_uid
+        - invalid_multi_search_facets
+        - invalid_multi_search_facets_by_index
+        - invalid_multi_search_facet_order
+        - invalid_multi_search_query_personalization
+        - invalid_multi_search_query_show_performance_details
+        - invalid_multi_search_federated
+        - invalid_multi_search_federation_options
+        - invalid_multi_search_max_values_per_facet
+        - invalid_multi_search_merge_facets
+        - invalid_multi_search_query_facets
+        - invalid_multi_search_distinct
+        - invalid_multi_search_query_pagination
+        - invalid_multi_search_query_ranking_rules
+        - invalid_multi_search_query_position
+        - invalid_multi_search_remote
+        - invalid_multi_search_weight
+        - invalid_network_leader
+        - invalid_network_remotes
+        - invalid_network_shards
+        - invalid_network_self
+        - invalid_network_search_api_key
+        - invalid_network_write_api_key
+        - invalid_network_url
+        - invalid_search_attributes_to_search_on
+        - invalid_search_attributes_to_crop
+        - invalid_search_attributes_to_highlight
+        - invalid_similar_attributes_to_retrieve
+        - invalid_similar_retrieve_vectors
+        - invalid_search_attributes_to_retrieve
+        - invalid_search_ranking_score_threshold
+        - invalid_similar_ranking_score_threshold
+        - invalid_search_retrieve_vectors
+        - invalid_search_crop_length
+        - invalid_search_crop_marker
+        - invalid_search_facets
+        - invalid_search_semantic_ratio
+        - invalid_search_locales
+        - invalid_facet_search_exhaustive_facet_count
+        - invalid_facet_search_facet_name
+        - invalid_similar_id
+        - invalid_search_filter
+        - invalid_similar_filter
+        - invalid_search_highlight_post_tag
+        - invalid_search_highlight_pre_tag
+        - invalid_search_hits_per_page
+        - invalid_similar_limit
+        - invalid_search_limit
+        - invalid_search_matching_strategy
+        - invalid_similar_offset
+        - invalid_search_offset
+        - invalid_search_page
+        - invalid_search_q
+        - invalid_facet_search_query
+        - invalid_facet_search_name
+        - facet_search_disabled
+        - invalid_search_vector
+        - invalid_search_media
+        - invalid_search_show_matches_position
+        - invalid_search_show_ranking_score
+        - invalid_similar_show_ranking_score
+        - invalid_search_show_ranking_score_details
+        - invalid_search_show_performance_details
+        - invalid_search_use_network
+        - invalid_similar_show_ranking_score_details
+        - invalid_similar_show_performance_details
+        - invalid_search_sort
+        - invalid_search_distinct
+        - invalid_search_personalize
+        - invalid_search_personalize_user_context
+        - invalid_search_media_and_vector
+        - invalid_settings_displayed_attributes
+        - invalid_settings_distinct_attribute
+        - invalid_settings_proximity_precision
+        - invalid_settings_facet_search
+        - invalid_settings_prefix_search
+        - invalid_settings_faceting
+        - invalid_settings_filterable_attributes
+        - invalid_settings_foreign_keys
+        - invalid_settings_pagination
+        - invalid_settings_search_cutoff_ms
+        - invalid_settings_embedders
+        - invalid_settings_ranking_rules
+        - invalid_settings_searchable_attributes
+        - invalid_settings_sortable_attributes
+        - invalid_settings_stop_words
+        - invalid_settings_non_separator_tokens
+        - invalid_settings_separator_tokens
+        - invalid_settings_dictionary
+        - invalid_settings_synonyms
+        - invalid_settings_typo_tolerance
+        - invalid_settings_localized_attributes
+        - invalid_state
+        - invalid_stats_show_internal_database_sizes
+        - invalid_stats_size_format
+        - invalid_store_file
+        - invalid_swap_duplicate_index_found
+        - invalid_swap_indexes
+        - invalid_swap_rename
+        - invalid_task_after_enqueued_at
+        - invalid_task_after_finished_at
+        - invalid_task_after_started_at
+        - invalid_task_before_enqueued_at
+        - invalid_task_before_finished_at
+        - invalid_task_before_started_at
+        - invalid_task_canceled_by
+        - invalid_task_from
+        - invalid_task_limit
+        - invalid_task_reverse
+        - invalid_task_statuses
+        - invalid_task_types
+        - invalid_task_uids
+        - invalid_batch_uids
+        - io_error
+        - feature_not_enabled
+        - malformed_payload
+        - max_fields_limit_exceeded
+        - missing_api_key_actions
+        - missing_api_key_expires_at
+        - missing_api_key_indexes
+        - missing_authorization_header
+        - missing_content_type
+        - missing_document_id
+        - missing_facet_search_facet_name
+        - missing_index_uid
+        - missing_master_key
+        - missing_network_url
+        - missing_payload
+        - missing_search_hybrid
+        - missing_swap_indexes
+        - missing_task_filters
+        - network_version_mismatch
+        - no_space_left_on_device
+        - not_leader
+        - payload_too_large
+        - remote_bad_response
+        - remote_bad_request
+        - unknown_remote
+        - remote_could_not_send_request
+        - remote_invalid_api_key
+        - remote_remote_error
+        - remote_timeout
+        - too_many_search_requests
+        - task_not_found
+        - task_file_not_found
+        - batch_not_found
+        - too_many_open_files
+        - too_many_vectors
+        - unexpected_network_previous_remotes
+        - network_version_too_old
+        - unprocessed_network_task
+        - unretrievable_document
+        - unretrievable_error_code
+        - unsupported_media_type
+        - invalid_s3_snapshot_request
+        - invalid_s3_snapshot_parameters
+        - s3_snapshot_server_error
+        - vector_embedding_error
+        - not_found_similar_id
+        - invalid_document_edition_context
+        - invalid_document_edition_function_filter
+        - edit_documents_by_function_error
+        - invalid_settings_index_chat
+        - invalid_export_url
+        - invalid_export_api_key
+        - invalid_export_payload_size
+        - invalid_export_indexes_patterns
+        - invalid_export_index_filter
+        - invalid_export_index_override_settings
+        - unimplemented_external_function_calling
+        - unimplemented_non_streaming_chat_completions
+        - unimplemented_multi_choice_chat_completions
+        - chat_not_found
+        - invalid_chat_setting_document_template
+        - invalid_chat_completion_org_id
+        - invalid_chat_completion_project_id
+        - invalid_chat_completion_api_version
+        - invalid_chat_completion_deployment_id
+        - invalid_chat_completion_source
+        - invalid_chat_completion_base_api
+        - invalid_chat_completion_api_key
+        - invalid_chat_completion_prompts
+        - invalid_chat_completion_system_prompt
+        - invalid_chat_completion_search_description_prompt
+        - invalid_chat_completion_search_query_param_prompt
+        - invalid_chat_completion_search_filter_param_prompt
+        - invalid_chat_completion_search_index_uid_param_prompt
+        - invalid_chat_completion_pre_query_prompt
+        - invalid_index_fields_filter
+        - invalid_index_fields_filter_attribute_patterns
+        - invalid_index_fields_filter_displayed
+        - invalid_index_fields_filter_searchable
+        - invalid_index_fields_filter_sortable
+        - invalid_index_fields_filter_distinct
+        - invalid_index_fields_filter_ranking_rule
+        - invalid_index_fields_filter_filterable
+        - requires_enterprise_edition
+        - invalid_render_template
+        - invalid_render_input
+        - render_document_not_found
+        - template_parsing_error
+        - template_rendering_error
+        - invalid_webhooks
+        - invalid_webhook_url
+        - invalid_webhook_headers
+        - immutable_webhook
+        - invalid_webhook_uuid
+        - webhook_not_found
+        - immutable_webhook_uuid
+        - immutable_webhook_is_editable
+        - invalid_dynamic_search_rule_uid
+        - invalid_dynamic_search_rule_offset
+        - invalid_dynamic_search_rule_limit
+        - invalid_dynamic_search_rule_filter
+        - invalid_dynamic_search_rule_description
+        - invalid_dynamic_search_rule_priority
+        - invalid_dynamic_search_rule_active
+        - invalid_dynamic_search_rule_conditions
+        - invalid_dynamic_search_rule_actions
+        - invalid_dynamic_search_rule_filter_query
+        - invalid_dynamic_search_rule_filter_active
+        - dynamic_search_rule_not_found
+    ErrorType:
+      type: string
+      enum:
+        - internal
+        - invalid_request
+        - auth
+        - system
+  securitySchemes:
+    Bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: Uuidv4, string or JWT
+      description: &gt;-
+        An API key is a token that you provide when making API calls. Read more
+        about [how to secure your
+        project](https://www.meilisearch.com/docs/learn/security/basic_security).
+
+
+        Include the API key to the `Authorization` header, for instance:
+
+        ```bash
+
+        -H 'Authorization: Bearer 6436fc5237b0d6e0d64253fbaac21d135012ecf1'
+
+        ```
+
+
+        If you use a SDK, ensure you instantiate the client with the API key,
+        for instance with [JS
+        SDK](https://github.com/meilisearch/meilisearch-js):
+
+        ```js
+
+        const client = new MeiliSearch({
+          host: 'MEILISEARCH_URL',
+          apiKey: '6436fc5237b0d6e0d64253fbaac21d135012ecf1'
+        });
+
+        ```
+
+</code></pre>
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

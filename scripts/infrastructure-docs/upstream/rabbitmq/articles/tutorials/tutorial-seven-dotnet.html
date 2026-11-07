@@ -1,0 +1,151 @@
+<main><header><h1>RabbitMQ tutorial - Reliable Publishing with Publisher Confirms</h1></header>
+<h2 id="publisher-confirms">Publisher Confirms</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<p><a href="https://www.rabbitmq.com/docs/4.3/confirms#publisher-confirms">Publisher confirms</a> are a RabbitMQ
+extension to implement reliable publishing. When publisher confirms are enabled
+on a channel, messages the client publishes are confirmed asynchronously by the
+broker, meaning they have been taken care of on the server side.</p>
+<h3 id="overview">Overview</h3>
+<p>In this tutorial we're going to use publisher confirms to make sure published
+messages have safely reached the broker. We will cover several strategies for
+using publisher confirms and explain their pros and cons.</p>
+<h3 id="enabling-publisher-confirms-on-a-channel">Enabling Publisher Confirms on a Channel</h3>
+<p>Publisher confirms are a RabbitMQ extension to the AMQP 0.9.1 protocol, so they
+are not enabled by default. Publisher confirms are enabled at the channel level
+via the <code>CreateChannelOptions</code> class:</p>
+<div><div><div>dotnet/PublisherConfirms/PublisherConfirms.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/PublisherConfirms/PublisherConfirms.cs#L11-L15
+">View on GitHub</a></div></div>
+<p>These options must be passed to every channel that will use publisher
+confirms.</p>
+<h3 id="strategy-1-publishing-messages-individually">Strategy #1: Publishing Messages Individually</h3>
+<p>Let's start with the simplest approach to publishing with confirms, that is,
+publishing a message and awaiting its confirmation:</p>
+<div><div><div>dotnet/PublisherConfirms/PublisherConfirms.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/PublisherConfirms/PublisherConfirms.cs#L57-L68
+">View on GitHub</a></div></div>
+<p>In the previous example we publish a message as usual and wait for its
+confirmation by <code>await</code>-ing the task returned by <code>BasicPublishAsync</code>. The
+<code>await</code> returns as soon as the message has been confirmed. If the message is
+nack-ed or returned (meaning the broker could not take care of it for some
+reason), the method will throw an exception. Handling the exception usually
+means logging an error message and/or retrying to send the message.</p>
+<h3 id="strategy-2-publishing-messages-in-batches">Strategy #2: Publishing Messages in Batches</h3>
+<p>To improve upon our previous example, we can publish a batch of messages and
+wait for this whole batch to be confirmed. The following example uses a batch
+size equal to one-half of the allowed count of outstanding confirmations:</p>
+<div><div><div>dotnet/PublisherConfirms/PublisherConfirms.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/PublisherConfirms/PublisherConfirms.cs#L90-L102
+">View on GitHub</a></div></div>
+<p>This method awaits the publisher confirmations for a given batch of messages:</p>
+<div><div><div>dotnet/PublisherConfirms/PublisherConfirms.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/PublisherConfirms/PublisherConfirms.cs#L108-L125
+">View on GitHub</a></div></div>
+<h3 id="strategy-3-handling-publisher-confirms-in-the-application">Strategy #3: Handling Publisher Confirms in the Application</h3>
+<p>The broker confirms published messages asynchronously. To be notified of these
+confirms, register a callback on the client:</p>
+<div><div><div>dotnet/PublisherConfirms/PublisherConfirms.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/PublisherConfirms/PublisherConfirms.cs#L193-L216
+">View on GitHub</a></div></div>
+<p>There are 3 callbacks: one for confirmed messages, one for nack-ed messages,
+and one for returned messages. All callbacks have a corresponding <code>EventArgs</code>
+parameter (<code>ea</code>). For ack and nack, this contains:</p>
+<ul>
+<li>delivery tag: the sequence number identifying the confirmed or nack-ed
+message. We will see shortly how to correlate it with the published message.</li>
+<li>multiple: this is a boolean value. If false, only one message is
+confirmed/nack-ed; if true, all messages with a lower or equal sequence number
+are confirmed/nack-ed.</li>
+</ul>
+<p>The sequence number can be obtained with <code>IChannel#GetNextPublishSequenceNumberAsync</code> before
+publishing:</p>
+<div><div><pre><code class="language-csharp">var sequenceNumber = await channel.GetNextPublishSequenceNumberAsync();
+await channel.BasicPublishAsync(exchange, queue, properties, body);</code></pre></div></div>
+<p>A performant way to correlate messages with sequence numbers is to use a
+linked list. Let's assume we want to publish strings because they are easy to
+turn into an array of bytes for publishing.</p>
+<p>The publishing code now tracks outbound messages with a linked list. We need to
+clean this list when confirms arrive and do something like logging a warning
+when messages are nack-ed:</p>
+<div><div><div>dotnet/PublisherConfirms/PublisherConfirms.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/PublisherConfirms/PublisherConfirms.cs#L144-L191
+">View on GitHub</a></div></div>
+<p>The previous sample contains a callback that cleans the linked list when
+confirms, nacks or returns arrive. Note this callback handles both single and
+multiple confirms. The callback for nack-ed or returned messages issues a
+warning. It then re-uses the previous callback to clean the linked list of
+outstanding confirms.</p>
+<p>To sum up, handling publisher confirms asynchronously usually requires the
+following steps:</p>
+<ul>
+<li>provide a way to correlate the publishing sequence number with a message.</li>
+<li>register confirm listeners on the channel to be notified when
+publisher acks/nacks arrive to perform the appropriate actions, like
+logging or re-publishing a nack-ed message. The sequence-number-to-message
+correlation mechanism may also require some cleaning during this step.</li>
+<li>track the publishing sequence number before publishing a message.</li>
+</ul>
+<blockquote>
+<h4 id="re-publishing-nack-ed-messages">Re-publishing nack-ed Messages?</h4>
+<p>It can be tempting to re-publish a nack-ed message from the corresponding
+callback but this should be avoided, as confirm callbacks are
+dispatched in an I/O thread where channels are not supposed
+to do operations. A better solution is to enqueue the message in an in-memory
+queue which is polled by a publishing thread. A class like <code>ConcurrentQueue</code>
+would be a good candidate to transmit messages between the confirm callbacks
+and a publishing thread.</p>
+</blockquote>
+<h3 id="summary">Summary</h3>
+<p>Making sure published messages made it to the broker can be essential in some
+applications. Publisher confirms are a RabbitMQ feature that helps meet this
+requirement. Publisher confirms are asynchronous in nature, but it is also
+possible to handle them synchronously. There is no single right way to implement
+publisher confirms; the choice usually comes down to the constraints of the
+application and the overall system. Typical techniques are:</p>
+<ul>
+<li>publishing messages individually, waiting for the confirmation via
+<code>await</code>: simple.</li>
+<li>publishing messages in batch, waiting for the confirmation for
+a batch: simple, reasonable throughput, but hard to reason about when something
+goes wrong.</li>
+<li>asynchronous handling: best performance and use of resources, good control in
+case of error, but can be involved to implement correctly.</li>
+</ul>
+<h2 id="putting-it-all-together">Putting It All Together</h2>
+<p>The <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/PublisherConfirms/PublisherConfirms.cs"><code>PublisherConfirms.cs</code></a>
+class contains code for the techniques we covered. We can compile it, execute it as-is and
+see how each of them performs:</p>
+<div><div><pre><code class="language-shell">dotnet run
+# =&gt; 11/6/2024 10:36:22 AM [INFO] publishing 50,000 messages and handling confirms per-message
+# =&gt; 11/6/2024 10:36:28 AM [INFO] published 50,000 messages individually in 5,699 ms
+# =&gt; 11/6/2024 10:36:28 AM [INFO] publishing 50,000 messages and handling confirms in batches
+# =&gt; 11/6/2024 10:36:29 AM [INFO] published 50,000 messages in batch in 1,085 ms
+# =&gt; 11/6/2024 10:36:29 AM [INFO] publishing 50,000 messages and handling confirms asynchronously
+# =&gt; 11/6/2024 10:36:29 AM [WARNING] message sequence number 50000 has been basic.return-ed
+# =&gt; 11/6/2024 10:36:29 AM [WARNING] message sequence number 50000 has been basic.return-ed
+# =&gt; 11/6/2024 10:36:29 AM [WARNING] message sequence number 50000 has been basic.return-ed
+# =&gt; ...
+# =&gt; ...
+# =&gt; ...
+# =&gt; 11/6/2024 10:36:30 AM [WARNING] message sequence number 50000 has been basic.return-ed
+# =&gt; 11/6/2024 10:36:30 AM [INFO] published 50,000 messages and handled confirm asynchronously 878 ms</code></pre></div></div>
+<p>The output on your computer should look similar if the client and the server
+sit on the same machine.</p>
+<p>Publisher confirms are very network-dependent, so we're better off trying with
+a remote node, which is more realistic as clients and servers are usually not
+on the same machine in production. <code>PublisherConfirms.cs</code> can easily be changed
+to use a non-local node:</p>
+<div><div><pre><code class="language-csharp">private static Task&lt;IConnection&gt; CreateConnection()
+{
+    var factory = new ConnectionFactory
+    {
+        HostName = "remote-host",
+        UserName = "remote-host",
+        Password = "remote-password"
+    };
+
+    return factory.CreateConnectionAsync();
+}</code></pre></div></div>
+<p>Remember that batch publishing is simple to implement, but does not make it
+easy to know which message(s) could not make it to the broker in case of
+negative publisher acknowledgment. Handling publisher confirms asynchronously
+is more involved to implement but provides better granularity and more control
+over how to react when messages are nack-ed.</p></main>

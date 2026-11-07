@@ -1,0 +1,8 @@
+<main><header><h1>Snapshot Started</h1></header>
+<p>Stream snapshot initiated.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$JS.EVENT.ADVISORY.STREAM.SNAPSHOT_CREATE.{stream}</code></p>
+<p>Where <code>{stream}</code> is the stream name.</p>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>An Advisory sent when a Stream snapshot is created</p><div></div><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.snapshot_create"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>stream</span><span>string</span><span>required</span></div><div>The name of the Stream being snapshotted</div></div><div><div><span>client</span><span>object</span><span>required</span></div><div>Details about the client that connected to the server</div></div><div><div><span>state</span><span>object</span><span>required</span></div><div>The state of the Stream at the time the snapshot was started</div></div><div><div><span>domain</span><span>string</span></div><div>The domain of the JetStream server the event is from</div></div></div></div></main>

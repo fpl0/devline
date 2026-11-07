@@ -1,0 +1,52 @@
+<main>
+		
+		<h1>SMTP server</h1>
+		<p>By default, the Mailpit SMTP server listens on port <code>1025</code> and does not use encryption or authentication.
+There are several options you can set to enable both authentication as well as STARTTLS or SSL/TLS encryption.</p>
+<h2 id="smtp-with-starttls">SMTP with STARTTLS</h2>
+<p>When you add a TLS certificate and key to Mailpit, it enables (but does not require) the STARTTLS protocol.
+STARTTLS is the default encryption protocol used in Mailpit (as opposed to TLS).
+A client connects via plain text (unencrypted protocol) to the SMTP server and can then optionally negotiate a TLS upgrade.</p>
+<p>To configure Mailpit to serve SMTP with STARTTLS, a TLS certificate and private key (<a href="../certificates/">see certificates</a>)
+must be provided via either the command flags or environment when starting Mailpit, for example:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --smtp-tls-cert /path/to/cert.pem --smtp-tls-key /path/to/key.pem
+</span></span></code></pre></div><p>(env: <code>MP_SMTP_TLS_CERT=/path/to/cert.pem MP_SMTP_TLS_KEY=/path/to/key.pem</code>)</p>
+<p>This option allows for both plain text and STARTTLS, providing the most flexibility for email clients.</p>
+<p>If you <strong>require</strong> the client to use STARTTLS, you can add the <code>--smtp-require-starttls</code> (env: <code>MP_SMTP_REQUIRE_STARTTLS=true</code>).</p>
+<h2 id="smtp-with-ssltls">SMTP with SSL/TLS</h2>
+<p>TLS (often referred to as SSL/TLS) is a different protocol that requires <strong>all</strong> communication to be done over TLS.
+This is slightly more secure than STARTTLS, but requires an SMTP client with full SSL/TLS support.
+To start SMTP with TLS, an additional flag <code>--smtp-require-tls</code> (env: <code>MP_SMTP_REQUIRE_TLS=true</code>) must be added:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --smtp-tls-cert /path/to/cert.pem --smtp-tls-key /path/to/key.pem --smtp-require-tls
+</span></span></code></pre></div><p>Note: this option disables STARTTLS support entirely as the two cannot run together on the same port.</p>
+<h2 id="adding-smtp-authentication">Adding SMTP authentication</h2>
+<p>You can set a <a href="../passwords/">password file</a> using the <code>--smtp-auth-file &lt;file&gt;</code> flag (@env: <code>MP_SMTP_AUTH_FILE=&lt;file&gt;</code>).
+Mailpit will accept either the <code>PLAIN</code> or <code>LOGIN</code> authentication mechanisms.</p>
+
+<div>
+	<p>The last paragraph of <a href="https://www.rfc-editor.org/rfc/rfc4954#section-4">RFC 4954</a> states:</p>
+<p><em>A server implementation MUST implement a configuration in which
+it does NOT permit any plaintext password mechanisms, unless either
+the STARTTLS [SMTP-TLS] command has been negotiated or some other
+mechanism that protects the session from password snooping has been
+provided. Server sites SHOULD NOT use any configuration which
+permits a plaintext password mechanism without such a protection
+mechanism against password snooping.</em></p>
+
+</div>
+
+<p>This means that, by default, SMTP authentication must be configured together with a TLS certificate to enable and require either STARTTLS or SSL/TLS encryption.
+For testing purposes, Mailpit does include a <code>--smtp-auth-allow-insecure</code> flag (@env: <code>MP_SMTP_AUTH_ALLOW_INSECURE=true</code>) to allow SMTP authentication over a plain text connection (i.e., not encrypted).</p>
+<div>
+	For testing purposes, Mailpit also allows you to accept any username and password (or none) by using the <code>--smtp-auth-accept-any</code> flag. This will literally accept any username and password (or none).
+</div>
+
+<h3 id="passwords-via-environment">Passwords via environment</h3>
+<p>If you do not wish to use a password file, you can optionally export the <code>MP_SMTP_AUTH</code> environment variable with a space-separated list of your credentials, e.g., <code>MP_SMTP_AUTH="user1:password1 user2:password"</code>.
+For security reasons, this option is not available as a CLI flag.</p>
+
+
+		
+		
+		
+	</main>

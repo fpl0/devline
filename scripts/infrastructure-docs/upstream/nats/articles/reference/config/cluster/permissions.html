@@ -1,0 +1,6 @@
+<main><header><h1>permissions</h1></header>
+<div><span><span>Hot Reloadable</span></span></div>
+<p>Subject permissions applied to routes, limiting what this cluster
+will export to and import from its peers.</p>
+<h2 id="properties">Properties</h2>
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Default</th><th>Reloadable</th></tr></thead><tbody><tr><td><a href="/reference/config/cluster/permissions/publish/"><code>publish</code></a></td><td>A single subject, list of subjects, or a allow-deny map of subjects for publishing. Specifying a single subject or list of subjects denotes an <em>allow</em> and implcitly denies publishing to all other subjects.</td><td><code>(multiple)</code></td><td>-</td><td>Yes</td></tr><tr><td><a href="/reference/config/cluster/permissions/subscribe/"><code>subscribe</code></a></td><td>A single subject, list of subjects, or a allow-deny map of subjects for subscribing. Note, that the subject permission can have an optional second value declaring a queue name.</td><td><code>(multiple)</code></td><td>-</td><td>Yes</td></tr><tr><td><a href="/reference/config/cluster/permissions/allow_responses/"><code>allow_responses</code></a></td><td></td><td><code>(multiple)</code></td><td>-</td><td>Yes</td></tr></tbody></table></main>

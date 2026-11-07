@@ -1,0 +1,55 @@
+<main><header><h1>RabbitMQ tutorial - Remote procedure call (RPC)</h1></header>
+<h2 id="remote-procedure-call-rpc">Remote procedure call (RPC)</h2>
+<h3 id="using-the-amqp-10-net-client">(using the AMQP 1.0 .NET client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-five-dotnet-amqp10">previous tutorial</a> we used topic exchanges. In this tutorial we implement <strong>request/reply</strong> (RPC): a client sends a request and waits for a response.</p>
+<p>The sample RPC service computes Fibonacci numbers on the server. The server uses <strong><code>IResponder</code></strong> on a quorum queue <code>rpc_queue</code>; the client uses <strong><code>IRequester</code></strong> to publish requests and await replies.</p>
+<h3 id="server-rpcserver">Server (<code>RPCServer</code>)</h3>
+<div><div><pre><code class="language-csharp">IResponder responder = await connection.ResponderBuilder()
+    .RequestQueue(rpcQueueName)
+    .Handler((ctx, request) =&gt;
+    {
+        string response = "";
+        try
+        {
+            string message = Encoding.UTF8.GetString(request.Body()!);
+            int n = int.Parse(message);
+            Console.WriteLine($" [.] fib({message})");
+            response += Fib(n);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($" [.] {e.Message}");
+        }
+
+        return Task.FromResult(ctx.Message(Encoding.UTF8.GetBytes(response)));
+    })
+    .BuildAsync();</code></pre></div></div>
+<h3 id="client-rpcclient">Client (<code>RPCClient</code>)</h3>
+<div><div><pre><code class="language-csharp">IRequester requester = await connection.RequesterBuilder()
+    .RequestAddress()
+    .Queue("rpc_queue")
+    .Requester()
+    .BuildAsync();
+
+IMessage request = new AmqpMessage(Encoding.UTF8.GetBytes(iStr));
+IMessage reply = await requester.PublishAsync(request);</code></pre></div></div>
+<p>The tutorial client requests <code>fib(0)</code> through <code>fib(31)</code> in a loop, matching the other AMQP 1.0 tutorial ports.</p>
+<h3 id="running">Running</h3>
+<div><div><pre><code class="language-bash">dotnet run --project RPCServer/RPCServer.csproj
+dotnet run --project RPCClient/RPCClient.csproj</code></pre></div></div>
+<h3 id="source">Source</h3>
+<ul>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/RPCServer/Program.cs"><code>RPCServer/Program.cs</code></a></li>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/RPCClient/Program.cs"><code>RPCClient/Program.cs</code></a></li>
+</ul>
+<blockquote>
+<h4 id="a-note-on-rpc">A note on RPC</h4>
+<p>RPC is common but easy to misuse: keep clear which calls are local vs remote, document dependencies, and handle broker or server outages. When in doubt, prefer asynchronous pipelines over blocking RPC.</p>
+</blockquote>
+<p>For more on AMQP 1.0 and RabbitMQ, see <a href="https://www.rabbitmq.com/docs/4.3/amqp">AMQP in RabbitMQ</a> and <a href="/client-libraries/amqp-client-libraries">AMQP 1.0 client libraries</a>.</p></main>

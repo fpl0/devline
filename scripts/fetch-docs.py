@@ -30,6 +30,9 @@ from urllib.request import Request, urlopen
 import zipfile
 import xml.etree.ElementTree as ET
 
+from infrastructure_sources import REVISION as INFRASTRUCTURE_REVISION, UPSTREAM as INFRASTRUCTURE_UPSTREAM
+from infrastructure_sources import VERSION as INFRASTRUCTURE_VERSION, document_id, read_sources, source_path
+
 
 DOTNET_COMMIT = "37fe0bfc5f596bf0bafd74bf927010384f184d96"
 ASPNET_COMMIT = "47d6f5c46f7a4c552fbf8ca9077439b95150c719"
@@ -103,13 +106,13 @@ CONTENT_REVISION = "devline.1"
 CONTENT_REVISIONS = {
     "csharp": "devline.5", "aspnet": "devline.4", "python": "devline.2",
     "go": "devline.3", "java": "devline.2", "rails": "devline.2", "ruby": "devline.2",
-    "infrastructure": "devline.2",
+    "infrastructure": INFRASTRUCTURE_REVISION,
 }
 REFRESHED_SNAPSHOTS = {
     ("csharp", "2026.11.06+devline.5"), ("aspnet", "2026.11.06+devline.4"),
     ("go", "1.27.3+devline.3"), ("java", "26.0.2.1+devline.2"),
     ("chi", "5.5.0+devline.1"),
-    ("infrastructure", "2026.11.07+devline.2"),
+    ("infrastructure", f"{INFRASTRUCTURE_VERSION}+{INFRASTRUCTURE_REVISION}"),
     ("node", "26.13.0+devline.1"), ("typescript", "7.0.2+devline.1"),
     ("playwright", "1.65.0+devline.1"), ("react", "19.3.1+devline.1"), ("vite", "8.3.6+devline.1"),
 }
@@ -134,8 +137,8 @@ PACK_SCOPE = {
     "elixir": ("Language guides and core and standard library APIs", "Erlang/OTP documentation is separate"),
     "phoenix": ("Framework guides and Phoenix API modules", "External Phoenix packages have separate documentation"),
     "ecto": ("Ecto guides and database library API modules", "External adapters and Ecto SQL documentation are separate"),
-    "infrastructure": ("Five official PostgreSQL 18.6 manual pages and the official SeaweedFS 4.52 REST API guide",
-                       "Other infrastructure services and the rest of the PostgreSQL and SeaweedFS manuals are outside this snapshot"),
+    "infrastructure": ("Official documentation for Devline's infrastructure catalog",
+                       "See the service-specific coverage and omissions in SOURCES.md"),
     "node": ("Official Node.js APIs for file I/O, HTTP, streams, SQLite, tests, modules, workers, and related core libraries",
              "Unselected Node APIs, release history, and npm packages are outside this snapshot"),
     "typescript": ("The official TypeScript Handbook and selected TSConfig compiler options",
@@ -265,7 +268,8 @@ def link_destination(raw, source, pack_id, xrefs):
             if not re.fullmatch(r"[\w.+`<>{},()\[\]-]+", uid):
                 return None
             return xrefs.get(uid) or "https://learn.microsoft.com/en-us/dotnet/api/" + quote(uid.lower(), safe=".`-")
-        if not target.scheme and target.path.endswith((".md", ".mdx")):
+        github_source = pack_id == "infrastructure" and urlsplit(source).hostname == "github.com"
+        if not github_source and not target.scheme and target.path.endswith((".md", ".mdx")):
             path = target.path.rsplit(".", 1)[0]
             if pack_id == "fastapi":
                 source = source.rstrip("/")
@@ -576,9 +580,9 @@ def code_fence(content, language):
     return f"\n{fence}{language}\n{content.rstrip()}\n{fence}\n"
 
 
-def html_from_markdown(raw, source, pack_id, xrefs, assets=None):
+def html_from_pandoc(raw, source, pack_id, xrefs, assets=None, *, input_format="gfm+attributes+fenced_divs"):
     result = subprocess.run(
-        ("pandoc", "--from=gfm+attributes+fenced_divs", "--to=html5", "--syntax-highlighting=none"),
+        ("pandoc", f"--from={input_format}", "--to=html5", "--syntax-highlighting=none"),
         input=raw, text=True, capture_output=True, check=False,
     )
     if result.returncode:
@@ -589,6 +593,10 @@ def html_from_markdown(raw, source, pack_id, xrefs, assets=None):
     if pack_id == "rails":
         rails_headings(parser.root)
     return prepared_html(parser.root, source, pack_id, xrefs, assets)
+
+
+def html_from_markdown(raw, source, pack_id, xrefs, assets=None):
+    return html_from_pandoc(raw, source, pack_id, xrefs, assets)
 
 
 def slug_title(file):
@@ -654,9 +662,10 @@ class Pack:
     xrefs: dict = field(default_factory=dict)
     missing: set = field(default_factory=set)
     attachments: dict = field(default_factory=dict)
+    scope: dict = field(default_factory=dict)
 
     def add(self, key, title, body, source, aliases=(), markup=None):
-        if len(body) < 40:
+        if not body or (self.id != "infrastructure" and len(body) < 40):
             return
         self.documents.append({
             "id": key,
@@ -736,6 +745,7 @@ class Pack:
         }
         metadata["markdown"] = []
         metadata.update(pack_metadata(self.id, self.version, snapshot_version, len(self.missing)))
+        metadata.update(self.scope)
         if shard_count > 1:
             metadata["shards"] = shard_count
         return metadata
@@ -743,13 +753,7 @@ class Pack:
 
 def atomic_json(path, value):
     temporary = path.with_suffix(".tmp")
-    with temporary.open("w", encoding="utf-8") as output:
-        output.write("[\n")
-        for index, item in enumerate(value):
-            if index:
-                output.write(",\n")
-            json.dump(item, output, ensure_ascii=False, separators=(",", ":"))
-        output.write("\n]\n")
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
 
 
@@ -1675,41 +1679,97 @@ def hex_pack(cache, scratch, reference, name):
     return pack
 
 
-def infrastructure_pack(upstream):
+def infrastructure_pack(upstream, catalog, scratch):
+    services = json.loads(read_text(catalog))["services"]
+    sources = list(read_sources(services, upstream))
+    license_names = dict.fromkeys(source["license"] for _, _, source in sources if source["documents"])
     pack = Pack(
-        "infrastructure", "Infrastructure References", "infrastructure", "2026.11.07",
-        "Selected official PostgreSQL and SeaweedFS references.",
-        "https://www.postgresql.org/docs/18/", "PostgreSQL License and Apache-2.0",
-        "Source snapshot date: 2026-11-07. The PostgreSQL Global Development Group published "
-        "the included PostgreSQL 18.6 manual entries at https://www.postgresql.org/docs/18/. "
-        "The SeaweedFS contributors published the included REST API guide under the 4.52 tag at "
-        "https://github.com/seaweedfs/seaweedfs/blob/4.52/REST_API.md. "
-        "Each record is extracted from its respective publisher's documentation. "
-        "Devline's infrastructure setup instructions are published separately as Devline Help.",
+        "infrastructure", "Infrastructure References", "infrastructure", INFRASTRUCTURE_VERSION,
+        "Official publisher documentation for Devline's local services. See coverage for each service.",
+        "https://github.com/fpl0/devline/tree/main/scripts/infrastructure-docs/upstream",
+        "; ".join(license_names),
+        f"Source snapshot date: {INFRASTRUCTURE_VERSION.replace('.', '-')}. "
+        "Devline's setup instructions are published separately as Devline Help.",
     )
-    pack.notice(upstream / "postgresql-COPYRIGHT", "LICENSE-POSTGRESQL")
-    pack.notice(upstream / "seaweedfs-LICENSE", "LICENSE-SEAWEEDFS")
-    for name, title, aliases in (
-        ("app-psql", "PostgreSQL 18 · psql", ("psql", "postgres psql")),
-        ("app-pg-isready", "PostgreSQL 18 · pg_isready", ("pg_isready", "postgres health")),
-        ("app-pgdump", "PostgreSQL 18 · pg_dump", ("pg_dump", "postgres backup")),
-        ("app-pgrestore", "PostgreSQL 18 · pg_restore", ("pg_restore", "postgres restore")),
-        ("backup-dump", "PostgreSQL 18 · SQL dump", ("pg_dumpall", "database dump")),
-    ):
-        url = f"https://www.postgresql.org/docs/18/{name}.html"
-        parser = DocumentParser()
-        parser.feed(read_text(upstream / f"postgresql-{name}.html"))
-        parser.close()
-        article = next(node for node in parser.root.walk()
-                       if node.tag == "div" and node.attrs.get("class") in {"refentry", "sect1"})
-        body, markup = prepared_html(article, url, pack.id)
-        pack.add(f"reference/postgresql/{name}", title, body, url, aliases, markup)
-
-    seaweed_url = "https://github.com/seaweedfs/seaweedfs/blob/4.52/REST_API.md"
-    pack.add_markdown("reference/seaweedfs/rest-api", "SeaweedFS 4.52 · HTTP API",
-                      read_text(upstream / "seaweedfs-rest-api.md"), seaweed_url,
-                      ("seaweedfs api", "seaweed master", "seaweed filer", "S3 healthz"))
+    pack.scope = {"coverage": [], "omissions": []}
+    for service, root, source in sources:
+        name, service_id = service["name"], service["id"]
+        scope = f"{name} {service['version']}"
+        notices = []
+        for notice in source["notices"]:
+            label = f"{service_id.upper()}-{Path(notice).name}"
+            pack.notice(source_path(root, notice), label)
+            notices.append(f"`{label}`")
+        pack.scope["coverage"].append(f"{scope} — {source['coverage']}")
+        pack.scope["omissions"].append(f"{scope} — {source['omissions']}")
+        pack.source_detail += (
+            f"\n\n## {scope}\n\n{source['publisher']}. {source['provenance']}\n\n"
+            f"Coverage: {source['coverage']}\n\nOmissions: {source['omissions']}\n\n"
+            f"License: {source['license']}"
+            + (f". See {', '.join(notices)}." if notices else ".")
+        )
+        if archive := source.get("html_archive"):
+            archive_root = scratch / service_id
+            prefix = Path(archive["root"])
+            safe_extract_tar(source_path(root, archive["path"]), archive_root,
+                             lambda path: path.is_relative_to(prefix))
+            root = archive_root
+        for page in source["documents"]:
+            add_infrastructure_page(pack, service, root, page)
     return pack
+
+
+def add_infrastructure_page(pack, service, root, page):
+    file = source_path(root, page["path"])
+    url = page["source_url"]
+    key = document_id(service["id"], page["id"])
+    assets = file_assets(file, root)
+    markdown = file.suffix in {".md", ".mdx"}
+    raw = read_text(file)
+    aliases = page.get("aliases", [])
+    if markdown:
+        title, raw = markdown_article(raw, slug_title(file))
+    elif file.suffix == ".html":
+        title, article, html_aliases = article_from_html(raw, "main", slug_title(file))
+        aliases = [*aliases, *html_aliases]
+        if selector := page.get("selector"):
+            article = next((node for node in article.walk() if
+                            node.tag == selector.get("tag", node.tag)
+                            and node.attrs.get("id") == selector.get("id", node.attrs.get("id"))
+                            and ("class" not in selector or selector["class"] in node.attrs.get("class", "").split())), None)
+            if article is None:
+                raise RuntimeError(f"Publisher article selector did not match: {url}")
+        article.children = [child for child in article.children if not isinstance(child, Node)
+                            or child.attrs.get("class") not in {"navheader", "navfooter"}]
+        if service["id"] == "postgres":
+            for node in article.walk():
+                if node.tag == "object" and node.attrs.get("type") == "image/svg+xml":
+                    node.tag = "img"
+                    node.attrs = {"src": node.attrs["data"], "alt": clean_text(as_text(node))}
+
+            def postgres_assets(path):
+                content = assets(path)
+                if not content:
+                    return None
+                # Drop the generated DocBook DTD declaration without resolving it.
+                return re.sub(br'<!DOCTYPE svg PUBLIC "[^"]+" "[^"]+">', b"", content, count=1)
+
+            body, markup = prepared_html(article, url, pack.id, assets=postgres_assets)
+        else:
+            body, markup = prepared_html(article, url, pack.id, assets=assets)
+    elif re.fullmatch(r"\.[1-9]", file.suffix):
+        title = file.stem
+        body, markup = html_from_pandoc(raw, url, pack.id, pack.xrefs, assets, input_format="man")
+    else:
+        raise RuntimeError(f"Unsupported infrastructure reference format: {file}")
+    title = page.get("title") or title
+    name = service["name"]
+    qualified = title if title.casefold().startswith(name.casefold()) else f"{name} · {title}"
+    aliases = [*aliases, title, f"{service['id']} {title}"]
+    if markdown:
+        pack.add_markdown(key, qualified, raw, url, aliases, assets)
+    else:
+        pack.add(key, qualified, body, url, aliases, markup)
 
 
 def node_pack(cache):
@@ -2091,7 +2151,7 @@ def main():
             "phoenix": (("phoenix-LICENSE",), lambda: hex_pack(cache, scratch, reference, "phoenix")),
             "ecto": (("ecto-LICENSE",), lambda: hex_pack(cache, scratch, reference, "ecto")),
             "infrastructure": ((), lambda: infrastructure_pack(
-                project / "scripts/infrastructure-docs/upstream")),
+                INFRASTRUCTURE_UPSTREAM, project / "data/infrastructure.json", scratch)),
             "node": (tuple(NODE_DOWNLOADS), lambda: node_pack(cache)),
             "typescript": (("typescript-docs-a3ed0be.tar.gz",), lambda: typescript_pack(cache)),
             "playwright": (("playwright-v1.65.0.tar.gz",), lambda: playwright_pack(cache)),
@@ -2116,12 +2176,13 @@ def main():
             for pack in packs:
                 if pack.id in selected:
                     item = pack.emit(data)
-                    entries = [item, *(entry for entry in entries
-                                       if (entry["id"], entry["version"]) != (pack.id, item["version"]))]
+                    entries = [entry for entry in entries
+                               if (entry["id"], entry["version"]) != (pack.id, item["version"])]
+                    first_release = next((index for index, entry in enumerate(entries)
+                                          if entry["id"] == pack.id), len(entries))
+                    entries.insert(first_release, item)
                     done.add(pack.id)
-                    atomic_json(catalog_path, [
-                        entry for pack_id in builders for entry in entries if entry["id"] == pack_id
-                    ])
+                    atomic_json(catalog_path, entries)
 
 
 if __name__ == "__main__":

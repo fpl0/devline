@@ -1,0 +1,335 @@
+<main><header><h1>Accounts and multitenancy</h1></header>
+<p>By the end of the previous page, <code>order-svc</code> and <code>analytics-reader</code> are
+top-level users in the config. <code>order-svc</code> may publish <code>orders.&gt;</code> and
+subscribe to <code>_INBOX.&gt;</code>, and nothing else; <code>analytics-reader</code> is still
+unrestricted. Both live in one shared subject space.</p>
+<p>That's a problem for the order platform. The order service and the
+analytics team run different code, have different owners, and shouldn't
+be able to read each other's private traffic. You could keep them
+separated with ever-longer permission lists, but every new subject
+means another edit to somebody's allow list. This page separates them
+structurally instead: it gives each team its own account.</p>
+<h2 id="what-an-account-is">What an account is</h2>
+<p>An <strong>account</strong> is an isolated tenant with its own subject space.</p>
+<p>Two accounts on the same server never see each other's traffic. A
+publish inside account <code>ORDERS</code> reaches subscribers in <code>ORDERS</code> and
+nobody else. The subject <code>orders.shipped</code> in <code>ORDERS</code> and a subject
+<code>orders.shipped</code> in another account are two different subjects that
+happen to share the same user-visible name.</p>
+<p>This is stronger than the permissions the
+<a href="/learn/security/authorization">previous page</a> built. Permissions
+narrow what one user may do inside its account. An account boundary is
+absolute: the message doesn't cross it.</p>
+<p>The order platform needs two of these tenants:</p>
+<ul>
+<li><code>ORDERS</code>: the order service's account. Its user publishes <code>orders.&gt;</code>.</li>
+<li><code>ANALYTICS</code>: a read-only account. Its user wants <code>orders.shipped</code>.</li>
+</ul>
+<p>We build both now. Sharing one subject across the boundary comes later,
+on the <a href="/learn/security/cross-account">Cross-account</a> page; until then
+the two accounts are fully isolated.</p>
+<div></div>
+<p>Both subscribers in the animation ask for the identical subject string,
+<code>orders.shipped</code>, but only the one inside <code>ORDERS</code> receives the
+publish. <code>analytics-reader</code> never hears about it.</p>
+<h2 id="the-two-accounts-you-already-have">The two accounts you already have</h2>
+<p>Before adding any of your own, a NATS server already runs two accounts.</p>
+<p>The first is <strong><code>$G</code></strong>, the global account. Every connection on a server
+with no <code>accounts</code> block lands in <code>$G</code> — including the two users you
+built on the last two pages. The single flat subject space you started
+with is one account named <code>$G</code> that holds everything, rather than an
+absence of accounts.</p>
+<p>The second is <strong><code>$SYS</code></strong>, the system account. The server publishes its
+own monitoring and management events here, on subjects like
+<code>$SYS.SERVER.&gt;</code>. Those subjects aren't blocked for other accounts —
+they live in the system account's subject space, so a subscription to
+them from an ordinary account is accepted and never receives
+anything. The responders exist only inside the system account.</p>
+<p>Both accounts are created for you, and only <code>$G</code> is a reserved name:
+declaring your own account called <code>$G</code> is a config error. You can
+declare <code>$SYS</code> yourself — an account with that name automatically
+becomes the system account — but it's clearer to avoid the <code>$</code> prefix
+for your own account names.  You can rename the system account using
+the <code>system_account</code> configuration top-level directive.</p>
+<p>The full set of system-account subjects and events is documented in
+<a href="/reference/system">Reference</a>. We use only the two account names here.</p>
+<h2 id="a-minimal-two-account-config">A minimal two-account config</h2>
+<p>To declare accounts, you add a top-level <code>accounts</code> block to the
+<code>nats.conf</code> you've been editing since
+<a href="/learn/security/authentication-basics">Authentication basics</a>. It
+takes over from the top-level <code>authorization</code> block: the users move
+inside the accounts they belong to, and <code>order-svc</code> carries the
+permissions the previous page gave it. Delete the old <code>authorization</code>
+block once the users have moved — users left there stay in <code>$G</code>.</p>
+<div><div><pre><code class="language-conf">accounts {
+  ORDERS: {
+    jetstream: enabled
+    users: [
+      {
+        user: order-svc
+        password: s3cr3t
+        permissions: {
+          publish: { allow: ["orders.&gt;"] }
+          subscribe: { allow: ["_INBOX.&gt;"] }
+        }
+      }
+    ]
+  }
+  ANALYTICS: {
+    users: [
+      { user: analytics-reader, password: an4lytics }
+    ]
+  }
+}</code></pre></div></div>
+<p>Each named first-level entry (<code>ORDERS</code>, <code>ANALYTICS</code>) is one account.
+The name is the tenant's identity. It appears in
+<a href="/learn/security/cross-account">cross-account</a> sharing later and in the
+server's own logs.</p>
+<p>Inside each account, <code>users</code> lists who may connect as that tenant. A
+user lives in exactly one account, and connecting as that user places
+the client inside that account's subject space. Because the username is
+what selects the account, it must be unique across all accounts — a
+duplicate is a startup error: <code>Duplicate user "order-svc" detected</code>.
+The entries themselves are the same shape as before: user and password
+here, and an NKey user drops into the same list.</p>
+<p><code>order-svc</code>'s permissions block is unchanged from the previous page.
+The subjects it names now resolve inside <code>ORDERS</code>: the allow list
+scopes the user within its account, and the account isolates it from
+everyone else.</p>
+<p>The one new field is
+<a href="/reference/config/accounts/jetstream"><code>jetstream: enabled</code></a>. On a server that runs
+JetStream, declaring an <code>accounts</code> block makes JetStream opt-in per
+account: an account without the field gets
+<code>JetStream not enabled for account (10039)</code> on every JetStream call.
+This line lets <code>order-svc</code> keep using streams; <code>ANALYTICS</code> doesn't need
+one. Each account gets its own JetStream store, though — a stream
+created back in <code>$G</code> before the accounts existed doesn't follow
+<code>order-svc</code> into <code>ORDERS</code>, so recreate the <code>ORDERS</code> stream inside the
+account if you want the JetStream chapter's setup here.</p>
+<p>Start the server with this config:</p>
+<div><div><pre><code class="language-sh">nats-server -c nats.conf</code></pre></div></div>
+<p>Because the config defines tenant accounts, connections no longer land
+in <code>$G</code> by default. Every client must now name a user that exists in
+one of the two accounts; an unauthenticated connect is rejected:</p>
+<div><div><pre><code class="language-sh">nats pub orders.shipped 'hi'</code></pre></div></div>
+<div><div><pre><code class="language-text">nats: error: nats: Authorization Violation</code></pre></div></div>
+<p>One caveat: the lockdown comes from the tenant accounts, not from the
+<code>accounts</code> block itself. A config whose only account is the system
+account still admits unauthenticated clients into <code>$G</code>.</p>
+<h2 id="verifying-the-account-boundary">Verifying the account boundary</h2>
+<p>Now prove the boundary. The order service connects as <code>order-svc</code> and
+publishes a shipment. The analytics reader connects as
+<code>analytics-reader</code> and subscribes to the same subject string. Because
+the two users live in different accounts, the message never arrives.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# Prove that two accounts never see each other's traffic.
+#
+# This uses the two-account nats.conf from the web-page. order-svc carries the
+# permissions built on the Authorization page:
+#
+#   accounts {
+#     ORDERS: {
+#       jetstream: enabled
+#       users: [
+#         {
+#           user: order-svc
+#           password: s3cr3t
+#           permissions: {
+#             publish: { allow: ["orders.&gt;"] }
+#             subscribe: { allow: ["_INBOX.&gt;"] }
+#           }
+#         }
+#       ]
+#     }
+#     ANALYTICS: {
+#       users: [
+#         { user: analytics-reader, password: an4lytics }
+#       ]
+#     }
+#   }
+#
+# Start the server with that config in another terminal:
+#   nats-server -c nats.conf
+
+# 1. The analytics reader (in ANALYTICS) subscribes to orders.shipped.
+#    Leave this running in its own terminal.
+nats sub --user analytics-reader --password an4lytics "orders.shipped"
+
+# 2. The order service (in ORDERS) publishes a shipment to the same subject.
+nats pub --user order-svc --password s3cr3t "orders.shipped" \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+# Expected: Published 91 bytes to "orders.shipped"
+# The subscriber from step 1 stays silent: identical subject name,
+# different account, no crossing.
+
+# 3. Positive control: publish the same payload from inside ANALYTICS.
+#    The subscriber from step 1 receives this one, because publisher and
+#    subscriber now share an account. (order-svc can't play the subscriber
+#    here: its subscribe allow list only covers _INBOX.&gt;.)
+nats pub --user analytics-reader --password an4lytics "orders.shipped" \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+# Expected in the step-1 subscriber:
+#   [#1] Received on "orders.shipped"
+#   {"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}
+
+# 4. Isolation on a request: with the subscriber from step 1 still running
+#    in ANALYTICS, order-svc sends a request to the same subject.
+nats request --user order-svc --password s3cr3t "orders.shipped" 'status?'
+# Expected, immediately (and the command exits 0):
+#   Sending request on "orders.shipped"
+#   No responders are available
+# Not a permissions error: order-svc may publish orders.&gt;. The only
+# subscriber on orders.shipped is in ANALYTICS, so inside ORDERS the
+# request finds no responders.</code></pre></div></div>
+<div><div><pre><code class="language-text">14:20:15 Subscribing on orders.shipped
+14:20:16 Published 91 bytes to "orders.shipped"</code></pre></div></div>
+<p>The publish succeeds — 91 bytes accepted on <code>orders.shipped</code> — and the
+subscriber in <code>ANALYTICS</code> prints nothing beyond its own
+<code>Subscribing on</code> line. The publish from <code>ORDERS</code> lands only on
+<code>orders.shipped</code> inside <code>ORDERS</code>.</p>
+<p>The snippet's last step is the positive control: publish the same
+payload as <code>analytics-reader</code>, and the subscriber from step one
+receives it immediately, because both sides are now in <code>ANALYTICS</code>:</p>
+<div><div><pre><code class="language-text">[#1] Received on "orders.shipped"
+{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}</code></pre></div></div>
+<p>The control runs inside <code>ANALYTICS</code> rather than <code>ORDERS</code> because
+<code>order-svc</code>'s own subscribe allow list only covers <code>_INBOX.&gt;</code> — a
+control subscription as <code>order-svc</code> would be rejected with
+<code>Permissions Violation for Subscription to "orders.shipped"</code>.</p>
+<p>Isolation also shows up differently on requests, and the snippet's
+final step demonstrates it: with the <code>ANALYTICS</code> subscriber still on
+<code>orders.shipped</code>, <code>order-svc</code> sends a request to the same subject:</p>
+<div><div><pre><code class="language-text">14:20:18 Sending request on "orders.shipped"
+14:20:18 No responders are available</code></pre></div></div>
+<p>The request comes back immediately with <code>No responders are available</code>,
+not a permissions error: the only subscriber on that name lives in
+<code>ANALYTICS</code>, so inside <code>ORDERS</code> the subject has no responders. When a
+request that "should" work reports no responders, check which account
+each side is in.</p>
+<p>Letting exactly one subject through, deliberately, is what the
+<a href="/learn/security/cross-account">Cross-account</a> page is for.</p>
+<h2 id="what-we-arent-configuring-yet">What we aren't configuring yet</h2>
+<p>An account can carry more than a user list. Two capabilities are worth
+naming now so you know they exist, even though this page leaves them
+out.</p>
+<p>An account can set <strong>limits</strong>: how many connections it allows, how much
+JetStream storage it may use. Those limits, and the server events that
+report on them, belong with operations; we point to
+<a href="/reference/config/accounts/limits">Reference</a> for the field list
+rather than enumerate them here.</p>
+<p>An account can also <strong>export</strong> a subject for another account to
+<strong>import</strong>. That's the one deliberate way to let a subject cross the
+boundary, and the <a href="/learn/security/cross-account">Cross-account</a> page
+covers it.</p>
+<p>The full set of account configuration options is documented in
+<a href="/reference/config/accounts">Reference</a>. We use only <code>users</code> and
+<code>jetstream</code> here.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A few account mistakes only surface in production.</p>
+<p><strong><code>no_auth_user</code> can reopen access you intended to close.</strong> Setting
+<a href="/reference/config/no_auth_user"><code>no_auth_user</code></a> admits unauthenticated
+clients as the named user, placing them in that user's account. Point
+it at a user in <code>$G</code> and every anonymous client lands in the global
+account again, undoing the isolation you just built. Do name a
+deliberately narrow user, and don't point it at a wide-open account.
+Two operational traps come with it. The setting can't be introduced or
+changed by a config reload: the reload fails with
+<code>config reload not supported for NoAuthUser</code> and the old config stays
+active, so plan a restart. And <code>nats-server -t</code> doesn't catch a
+<code>no_auth_user</code> that names a missing user; that error only appears at
+startup. The server also rejects <code>no_auth_user</code> together with a trusted
+operator, so it never applies in operator mode.</p>
+<p><strong>The system account has no user, so server events are unreachable.</strong>
+Define your own <code>accounts</code>
+block and the server still creates <code>$SYS</code>, but with no user inside it
+you can't connect there. The server's monitoring and management events
+on <code>$SYS.SERVER.&gt;</code> become unreachable, so <code>nats server account info</code>
+and event tooling stop working. Do declare a <code>SYS</code> account with a user
+and set <a href="/reference/config/system_account"><code>system_account: SYS</code></a> —
+this addition to the config above stays for the rest of the chapter's
+config-mode pages:</p>
+<div><div><pre><code class="language-conf">accounts {
+  # ORDERS and ANALYTICS unchanged
+  SYS: {
+    users: [ { user: sys-admin, password: syspass } ]
+  }
+}
+system_account: SYS</code></pre></div></div>
+<p>The example below proves a tenant user
+sees only its own account while the system-account user reaches the
+server events:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# Confirm the system account is reachable once you declare a user for it.
+#
+# nats.conf for this example adds a SYS account to the page's config:
+#
+#   accounts {
+#     ORDERS:    { ... unchanged from the page ... }
+#     ANALYTICS: { users: [ { user: analytics-reader, password: an4lytics } ] }
+#     SYS:       { users: [ { user: sys-admin, password: syspass } ] }
+#   }
+#   system_account: SYS
+#
+# Start it with: nats-server -c nats.conf
+
+# A tenant user reaches only its own account.
+nats account info --user analytics-reader --password an4lytics
+# Expected (among other lines):
+#   Account: ANALYTICS (ANALYTICS)
+#   System Account: false
+
+# The system-account user can query any account on the server.
+nats server account info SYS --user sys-admin --password syspass
+# Expected (among other lines):
+#   System Account: true
+
+# Watch live server events flowing on $SYS.SERVER.&gt; (Ctrl-C to stop).
+nats subscribe '$SYS.SERVER.&gt;' --user sys-admin --password syspass
+# Expected: advisories such as $SYS.SERVER.ACCOUNT.ANALYTICS.CONNS
+# as clients connect and disconnect.</code></pre></div></div>
+<div><div><pre><code class="language-text">                      User: analytics-reader
+                   Account: ANALYTICS (ANALYTICS)
+            System Account: false</code></pre></div></div>
+<p><code>analytics-reader</code> reports its own account and <code>System Account: false</code>;
+nothing about other tenants or the server is visible. The <code>sys-admin</code>
+connection reports <code>Account: SYS (SYS)</code> with <code>System Account: true</code>,
+can query any account with <code>nats server account info</code>, and sees live
+advisories such as <code>$SYS.SERVER.ACCOUNT.ANALYTICS.CONNS</code> as clients
+come and go. Running the tenant check as <code>order-svc</code> instead prints an
+info block with no <code>Account:</code> line at all — the CLI asks the server for
+it over <code>$SYS.REQ.USER.INFO</code>, and <code>order-svc</code>'s publish allow list
+blocks that request.</p>
+<p><strong>A shared subject name doesn't mean shared delivery.</strong> Two accounts
+can both use <code>orders.shipped</code> and still never exchange a message. Don't
+reach for a matching name to connect tenants. Letting one subject cross
+the boundary is a deliberate act covered on the
+<a href="/learn/security/cross-account">Cross-account</a> page.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>Your <code>nats.conf</code> now defines two isolated tenants:</p>
+<ul>
+<li><code>ORDERS</code>, with <code>jetstream: enabled</code>, holding <code>order-svc</code> and its
+<code>orders.&gt;</code> publish and <code>_INBOX.&gt;</code> subscribe permissions.</li>
+<li><code>ANALYTICS</code>, holding the unrestricted user <code>analytics-reader</code>.</li>
+<li>A <code>SYS</code> account with a user, named as the <code>system_account</code>, so server
+events stay reachable.</li>
+<li>Plus <code>$G</code> and <code>$SYS</code>, which the server always provides.</li>
+</ul>
+<p>A publish in one account doesn't reach the other — you proved it with
+the isolation check above.</p>
+<h2 id="whats-next">What's next</h2>
+<p><code>ANALYTICS</code> exists to count shipments, and right now it can't see one.
+The next page lets exactly one subject through: <code>ORDERS</code> exports
+<code>orders.shipped</code>, <code>ANALYTICS</code> imports it, and everything else stays
+isolated. Continue to
+<a href="/learn/security/cross-account">Cross-account</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/accounts">Reference → accounts</a> — every field an
+account entry accepts, including per-account limits and JetStream.</li>
+<li><a href="/reference/system">Reference → system</a> — the system-account
+subjects, advisories, and monitoring endpoints.</li>
+<li><a href="/learn/security/cross-account">Cross-account</a> — how to let exactly
+one subject cross the account boundary on purpose.</li>
+<li><a href="/concepts/security">Core Concepts → Security</a> — the five-minute
+overview of accounts, users, and the trust model.</li>
+</ul></main>

@@ -1,0 +1,83 @@
+<main><header><h1>Troubleshooting Guidance</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide provides an overview of several topics related to troubleshooting of RabbitMQ installations and
+messaging-based systems:</p>
+<ul>
+<li><a href="#monitoring">Monitoring and health checks</a></li>
+<li><a href="#logging">Logging</a></li>
+<li><a href="#configuration">Node configuration</a></li>
+<li><a href="#networking">Client connectivity</a></li>
+<li><a href="#authentication">Client authentication</a> and authorisation</li>
+<li><a href="#cli">CLI tool connectivity</a> and authentication</li>
+<li><a href="#crash-dumps">Runtime crash dumps</a></li>
+<li><a href="#cluster-formation">Cluster formation</a></li>
+<li><a href="#memory-usage">Node memory usage</a></li>
+<li><a href="#connections">Connections</a> and connection leaks</li>
+<li><a href="#channels">Channels</a> and channel leaks</li>
+<li><a href="#tls">TLS</a></li>
+<li><a href="#ldap">LDAP</a></li>
+<li><a href="#oauth2">OAuth 2.0</a></li>
+<li><a href="#capturing-traffic">Traffic captures</a></li>
+</ul>
+<p>node memory usage, metrics and monitoring,
+TLS, and more.</p>
+<h2 id="monitoring">Monitoring, Metrics, Health Checks</h2>
+<p>A very important aspect of troubleshooting a production system is <a href="/docs/4.3/monitoring">monitoring and health checks</a>.
+They collect data that can be inspected and analysed, helping identify and detect anomalies.</p>
+<h2 id="logging">Logging</h2>
+<p>Logs is another important source of information for troubleshooting. Separate <a href="/docs/4.3/logging">guide on logging</a>
+explains where to find log files, how to adjust log levels, what log categories exist, connection
+lifecycle events that can be detected using log files, and more.</p>
+<h2 id="configuration">Node Configuration</h2>
+<p><a href="/docs/4.3/configure">Configuration guide</a> contains a section on <a href="/docs/4.3/configure#verify-configuration-config-file-location">locating config file</a>.</p>
+<p>Effective node configuration can be inspected using <code><a href="/docs/4.3/cli">rabbitmqctl</a> environment</code> as
+well as a number of <a href="/docs/4.3/cli">rabbitmq-diagnostics</a> commands.</p>
+<h2 id="cli">CLI Tools Connectivity and Authentication</h2>
+<p><a href="/docs/4.3/cli#erlang-cookie">CLI Tools guide</a> explains how CLI tools authenticate to nodes, what the Erlang
+cookie file is, and most common reasons why CLI tools fail to perform operations on server nodes.</p>
+<h2 id="cluster-formation">Cluster Formation</h2>
+<p><a href="/docs/4.3/cluster-formation">Cluster Formation guide</a> contains a <a href="/docs/4.3/cluster-formation#troubleshooting">troubleshooting section</a>.</p>
+<h2 id="memory-usage">Memory Usage Analysis</h2>
+<p><a href="/docs/4.3/memory-use">Reasoning About Memory Use</a> is a dedicated guide on the topic.</p>
+<h2 id="networking">Networking and Connectivity</h2>
+<p><a href="/docs/4.3/troubleshooting-networking">Troubleshooting Networking</a> is a dedicated guide on the topic of networking and connectivity.</p>
+<h2 id="authentication">Authentication and Authorisation</h2>
+<p><a href="/docs/4.3/access-control">Access Control guide</a> contains sections on <a href="/docs/4.3/access-control#troubleshooting-authn">troubleshooting client authentication</a>
+and <a href="/docs/4.3/access-control#troubleshooting-authz">troubleshooting authorisation</a>.</p>
+<h2 id="crash-dumps">Runtime Crash Dump Files</h2>
+<p>When the Erlang runtime system exits abnormally, a file named <code>erl_crash.dump</code>
+is written to the directory where RabbitMQ was started from. This file contains
+the state of the runtime at the time of the abnormal exit. The termination
+reason will be available within the first few lines, starting with <code>Slogan</code>, e.g.:</p>
+<div><div><pre><code class="language-bash">head -n 3 ./erl_crash.dump
+# =&gt; =erl_crash_dump:0.5
+# =&gt; Sun Aug 25 00:57:34 2019
+# =&gt; Slogan: Kernel pid terminated (application_controller) ({application_start_failure,rabbit,{{timeout_waiting_for_tables,[rabbit_user,rabbit_user_permission,rabbit_topic_permission,rabbit_vhost,rabbit_durable_r</code></pre></div></div>
+<p>In this specific example, the slogan (uncaught exception message) says that a started node
+timed out <a href="/docs/4.3/clustering#restarting">syncing schema metadata from its peers</a>, likely because they did not come online
+in the configured window of time.</p>
+<p>To better understand the state of the Erlang runtime from a <a href="http://erlang.org/doc/apps/erts/crash_dump.html">crash dump file</a>, it
+helps to visualise it. The Crash Dump Viewer tool, <code>cdv</code>, is part of the Erlang installation.
+The <code>cdv</code> binary path is dependent on the Erlang version and the location where it was installed.</p>
+<p>This is an example of how to invoke it:</p>
+<div><div><pre><code class="language-bash">/usr/local/lib/erlang/lib/observer-2.9.1/priv/bin/cdv ./erl_crash.dump</code></pre></div></div>
+<p>A successful result of the above command will open a new application window similar to this:</p>
+<p><img alt="Erlang Crash Dump Viewer" src="/assets/images/erlang-crash-dump-viewer-369e695bdab5bbaca1517e0313d2606f.png"/></p>
+<p>For the above to work, the system must have a graphical user interface, and
+Erlang must have been complied with both observer &amp; Wx support.</p>
+<h2 id="connections">Connections</h2>
+<p><a href="/docs/4.3/connections">Connections guide</a> explains how to identify application connection leaks and other
+relevant topics.</p>
+<h2 id="channels">Channels</h2>
+<p><a href="/docs/4.3/channels">Channels guide</a> explains what <a href="/docs/4.3/channels#error-handling">channel-level exceptions</a> mean,
+how to identify application channel leaks and other relevant topics.</p>
+<h2 id="tls">TLS</h2>
+<p><a href="/docs/4.3/troubleshooting-ssl">Troubleshooting TLS</a> is a dedicated guide on the topic of TLS.</p>
+<h2 id="ldap">LDAP</h2>
+<p><a href="/docs/4.3/ldap#troubleshooting">LDAP guide</a> explains how to enable LDAP decision and query logging.</p>
+<h2 id="oauth2">OAuth 2.0</h2>
+<p><a href="/docs/4.3/troubleshooting-oauth2">OAuth 2.0</a> is a dedicated guide on the topic of OAuth 2.0.</p>
+<h2 id="capturing-traffic">Capturing Traffic</h2>
+<p>A <a href="/amqp-wireshark">traffic capture</a> can provide a lot of information useful when troubleshooting network connectivity, application behaviour,
+connection leaks, channel leaks and more. tcpdump and Wireshark and industry standard open source tools
+for capturing and analyzing network traffic.</p></main>

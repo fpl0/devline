@@ -1,0 +1,359 @@
+<main><header><h1>Authorization</h1></header>
+<p>By the end of <a href="/learn/security/authentication-basics">Authentication
+basics</a>, <code>order-svc</code> and
+<code>analytics-reader</code> can prove who they are. The server checks their
+authentication data (e.g., passwords) and admits the connections.</p>
+<p>That's authentication: the server knows <em>who</em> each connection is, but
+nothing limits <em>what</em> it can do. Right now <code>order-svc</code> can publish to any
+subject on the server and subscribe to any subject.</p>
+<p>This page adds those limits. Authorization is what a user may do, and
+in NATS that's always expressed as a set of subjects.</p>
+<h2 id="permissions-are-about-subjects">Permissions are about subjects</h2>
+<p>A <strong>permission</strong> is a grant to publish to, or subscribe to, a set of
+subjects. There's no separate notion of an admin
+role or a resource type. Every right a user has is a subject it may
+publish to or a subject it may subscribe to.</p>
+<p>This follows from how NATS works. Everything a client does travels
+over a subject: a publish names a subject, a subscribe names a subject,
+and a request/reply is a publish plus a subscribe on a reply subject.
+Because of that, controlling the subjects controls everything the user
+can reach.</p>
+<p>So a user's authorization is two lists: the subjects it may publish
+to, and the subjects it may subscribe to. The two are independent. A
+user can be allowed to publish to a subject it can't subscribe to, or
+the reverse.</p>
+<p>Permissions use the same subject wildcards you already know from
+<a href="/concepts/subjects">Core Concepts → Subjects</a>. <code>*</code> matches one token;
+<code>&gt;</code> matches one or more trailing tokens. <code>orders.&gt;</code> covers
+<code>orders.created</code>, <code>orders.shipped</code>, and <code>orders.canceled</code>, all in one grant.
+(Here, using <code>orders.*</code> would work equally well, but would not match a subject
+such as <code>orders.at.northpole</code>, where <code>orders.&gt;</code> does match it.)</p>
+<h2 id="restricting-order-svc">Restricting order-svc</h2>
+<p><code>order-svc</code> exists to publish order events: <code>orders.created</code>,
+<code>orders.shipped</code>, and <code>orders.canceled</code>. It also makes the occasional
+request — a lookup before confirming an order — and a request needs a
+reply, which arrives on a temporary inbox subject under <code>_INBOX.</code>.
+That's its whole footprint: publish under <code>orders.</code>, subscribe to its
+own inboxes.</p>
+<p>In the config from <a href="/learn/security/authentication-basics">Authentication
+basics</a>, <code>order-svc</code> was a bare
+user with a password. Now it gets a <code>permissions</code> block:</p>
+<div><div><pre><code class="language-conf">authorization {
+  users: [
+    {
+      user: order-svc
+      password: s3cr3t
+      permissions: {
+        publish: {
+          allow: ["orders.&gt;"]
+        }
+        subscribe: {
+          allow: ["_INBOX.&gt;"]
+        }
+      }
+    }
+    {user: analytics-reader, password: an4lytics}
+  ]
+}</code></pre></div></div>
+<p>The <code>publish</code> permission has an <code>allow</code> list with one entry,
+<code>orders.&gt;</code>. <code>order-svc</code> may publish to any subject under <code>orders.</code>.</p>
+<p>The <code>subscribe</code> permission allows <code>_INBOX.&gt;</code>, the prefix where request
+replies arrive. Allowing the prefix lets
+<code>order-svc</code> receive replies and nothing else. (The inbox prefix is
+configurable, but <code>_INBOX.</code> is the default.)</p>
+<p><code>analytics-reader</code> has no <code>permissions</code> block, so it stays
+unrestricted for now. The next section explains why that's the rule.</p>
+<h2 id="an-allow-list-closes-everything-else">An allow-list closes everything else</h2>
+<p>The moment you write an <code>allow</code> list, every subject not on it is
+denied.</p>
+<p>So <code>publish: { allow: ["orders.&gt;"] }</code> grants <code>orders.&gt;</code> and at the same
+time denies everything else, from <code>billing.charge</code> to the JetStream API
+under <code>$JS.API.&gt;</code>.</p>
+<p>This is why a permission with no <code>allow</code> and no <code>deny</code> means
+unrestricted. That's <code>analytics-reader</code> right now: a user with no
+<code>permissions</code> block can do anything on the server.</p>
+<p>One warning: an empty allow list is not a lock-down. <code>publish: []</code>
+parses as no list at all, so the user can publish anywhere. To block
+all publishes, write <code>publish: { deny: ["&gt;"] }</code>.</p>
+<p>There's also a fallback for users you haven't scoped yet. A
+<code>default_permissions</code> block inside <code>authorization {}</code> applies to every
+user that has no <code>permissions</code> block of its own. A user with its own
+block ignores the defaults entirely — the two are never merged. The
+fields are in <a href="/reference/config/authorization/default_permissions">Reference →
+default_permissions</a>.</p>
+<p>Authorization is opt-in: you opt in by writing an <code>allow</code> list.</p>
+<h2 id="deny-beats-allow">Deny beats allow</h2>
+<p>Sometimes you want "all of <code>orders.&gt;</code>, except one subject." You could
+craft a precise allow-list that enumerates everything but the
+exception, but that's brittle. Instead you allow the broad pattern and
+deny the exception:</p>
+<div><div><pre><code class="language-conf">publish: {
+  allow: ["orders.&gt;"]
+  deny: ["orders.secret"]
+}</code></pre></div></div>
+<p>When a subject matches both lists, deny wins. The server checks
+<code>allow</code> first, then checks <code>deny</code>, and a match in <code>deny</code> overrides the
+allow. With this block <code>order-svc</code> could publish <code>orders.created</code> and
+<code>orders.shipped</code> but never <code>orders.secret</code>, even though the wildcard
+covers it.</p>
+<p>You rarely need both lists, but when you do, an explicit deny is what
+the server applies last.</p>
+<h2 id="observing-a-denial">Observing a denial</h2>
+<p>Restart the server with the config above and connect as <code>order-svc</code>. A
+publish to <code>orders.created</code> is on the allow-list and goes through. A
+publish to <code>billing.charge</code> isn't on the allow-list, so the server
+rejects it.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# order-svc is restricted to publishing orders.&gt; and subscribing _INBOX.&gt;.
+# Assumed server config (top-level authorization block):
+#   authorization {
+#     users: [
+#       {
+#         user: order-svc
+#         password: s3cr3t
+#         permissions: {
+#           publish: { allow: ["orders.&gt;"] }
+#           subscribe: { allow: ["_INBOX.&gt;"] }
+#         }
+#       }
+#       {user: analytics-reader, password: an4lytics}
+#     ]
+#   }
+# This shows an allowed publish succeeding and a denied publish being rejected.
+
+# Connect as order-svc.
+export NATS_USER=order-svc
+export NATS_PASSWORD=s3cr3t
+
+# Don't send these credentials to an unexpected server which the user might
+# have previously configured.  This mutates user-global state!
+# A real production script might instead require the existence of a specific
+# context name and export NATS_CONTEXT.
+nats context unselect
+
+# Stop processing this script if an error is seen
+set -e
+
+# Allowed: orders.created is covered by the publish allow-list "orders.&gt;".
+# Expected output:
+#   Published 91 bytes to "orders.created"
+nats pub orders.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+
+# Denied: billing.charge is not on the allow-list, so the server rejects it
+# and drops the message. The CLI exits 1 with:
+#   nats: error: nats: permissions violation: Permissions Violation for Publish to "billing.charge"
+nats pub billing.charge '{"order_id":"ord_8w2k","amount_cents":4200}'
+
+echo "oops: reached end without error (so billing.charge publish unexpectedly succeeded)"</code></pre></div></div>
+<div><div><pre><code class="language-text">14:19:45 Published 91 bytes to "orders.created"
+nats: error: nats: permissions violation: Permissions Violation for Publish to "billing.charge"</code></pre></div></div>
+<p>The first publish reports its 91 bytes delivered and exits 0. The
+second exits 1 with the error above. On the wire, the server's raw
+protocol message is <code>-ERR 'Permissions Violation for Publish to "billing.charge"'</code>; the CLI wraps it in its own prefix.</p>
+<p>The rejection is reported, not silent. The server sends the client an
+error and, for a publish, drops the message. The error is asynchronous
+and the connection stays open, so the client can keep working. Clients
+surface it differently: some log it, some raise it on the next
+operation, and some expose it through an async error handler.</p>
+<p>One shape of denial does look silent: a denied request. A request is a
+pairing of publish with a reply "inbox" subscribe;
+so when the publish is denied, no responder ever sees it and
+the requester just times out waiting for the expected reply.
+Every JetStream API call is a request
+under the hood, so a locked-down user running <code>nats stream info</code> fails
+with <code>context deadline exceeded</code> rather than a permission error. When a
+request times out for no clear reason, check the server log — every
+violation is recorded there:</p>
+<div><div><pre><code class="language-text">[ERR] 127.0.0.1:57456 - cid:6 - "v1.51.0:go:NATS CLI Version v0.4.0" - "$G/user:order-svc" - Publish Violation - Subject "billing.charge"</code></pre></div></div>
+<p>The log line names the user — still in the global account <code>$G</code> — and
+the subject, which is usually all you need to find the missing grant.</p>
+<h2 id="the-same-model-under-decentralized-auth">The same model under decentralized auth</h2>
+<p>Later in this chapter the same <code>allow</code> and <code>deny</code> lists move out of the
+config file and into signed JWTs — that's <a href="/learn/security/decentralized-auth">Decentralized
+authentication</a>. There you edit the
+lists with the <code>nats auth</code> CLI instead of a text editor:</p>
+<div><div><pre><code class="language-bash">nats auth user edit order-svc ORDERS --pub-allow "orders.&gt;"</code></pre></div></div>
+<p>One caveat to remember when you get there: each flag replaces that
+entire list, so always pass the complete set of subjects. And with
+scoped signing keys — the recommended setup — the user's JWT carries
+empty publish and subscribe lists, and the permissions live in the
+account's signing-key scope instead. The server enforces the same two
+rules either way.</p>
+<h2 id="what-were-leaving-out">What we're leaving out</h2>
+<p>Three related grants belong to authorization but aren't needed to scope
+<code>order-svc</code>, so we name them and move on.</p>
+<ul>
+<li><strong>Response permissions</strong> (<code>allow_responses</code>) — let a service reply to
+requests without a broad publish allow; the server tracks each reply
+subject it handed out and permits exactly that one reply. Used once a
+request/reply service exists.</li>
+<li><strong>Queue-group permissions</strong> — scope a subscription to a named queue
+group. A subscribe entry of the form <code>"orders.created billing-workers"</code>
+permits subscribing to <code>orders.created</code> only as a member of the
+<code>billing-workers</code> queue group; a plain subscribe to the same subject
+stays denied. The matching rules are in <a href="/reference/config/authorization/users/permissions">Reference →
+permissions</a>.</li>
+<li><strong>Import and export permissions</strong> — govern subjects shared across
+account boundaries. Those are a property of an account, not a user,
+and the <a href="/learn/security/cross-account">Cross-account</a> page covers
+them once accounts exist.</li>
+</ul>
+<p>The full set of permission fields is documented in <a href="/reference/config/authorization/users/permissions">Reference →
+permissions</a>. We use
+only <code>publish</code>, <code>subscribe</code>, <code>allow</code>, and <code>deny</code> here.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Four failures cover most of the ways the two rules above go wrong.</p>
+<p><strong>A subscribe deny silently breaks request-reply.</strong> A request needs a
+reply, and the reply lands on a temporary inbox subject the client
+subscribes to before it publishes. A user with
+<code>subscribe: { deny: ["&gt;"] }</code> can never create that subscription, so the
+reply has nowhere to go. Adding <code>allow: ["_INBOX.&gt;"]</code> next to the deny
+doesn't help — deny beats allow, and the violation persists. The fix is
+to replace the deny with the allow, which is exactly what <code>order-svc</code>'s
+config on this page does.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# Broken state: order-svc's subscribe section denies everything:
+#   permissions: {
+#     publish: { allow: ["orders.&gt;"] }
+#     subscribe: { deny: ["&gt;"] }
+#   }
+# A request subscribes to a temporary _INBOX.&gt; subject before it publishes,
+# and the deny blocks that subscription, so no reply can ever arrive.
+
+# Connect as order-svc.
+export NATS_USER=order-svc
+export NATS_PASSWORD=s3cr3t
+
+# Trace commands, so you can see the below happen
+set -x
+
+# The CLI is silent about the denial: it prints only
+#   Sending request on "orders.lookup"
+# then waits out the timeout and exits 0 — no error. The violation appears
+# in the SERVER log:
+#   [ERR] ... "$G/user:order-svc" - Subscription Violation - Subject "_INBOX.&lt;random&gt;", SID 1
+# (Client libraries raise a timeout error on the request instead.)
+nats req orders.lookup '{"order_id":"ord_8w2k"}' --timeout 2s || echo "exited $?"
+
+# Fix: REPLACE the subscribe section in the server config — adding an allow
+# next to the deny does nothing, because deny beats allow:
+#   subscribe: { allow: ["_INBOX.&gt;"] }
+# Reload the server and run the same request again, with a responder
+# listening on orders.lookup. Expected output:
+#   Sending request on "orders.lookup"
+#   Received with rtt 652µs
+#   {"order_id":"ord_8w2k","status":"shipped"}
+nats req orders.lookup '{"order_id":"ord_8w2k"}' --timeout 2s || echo "exited $?"</code></pre></div></div>
+<div><div><pre><code class="language-text">14:20:30 Sending request on "orders.lookup"</code></pre></div></div>
+<p>In the broken state that first line is all the CLI prints: it waits out
+its timeout and exits 0, with no error at all. The denial shows up only
+in the server log, as <code>Subscription Violation - Subject "_INBOX.&lt;random&gt;", SID 1</code>. Client libraries surface it more clearly:
+they raise a timeout error on the request. After the subscribe section is replaced with
+<code>allow: ["_INBOX.&gt;"]</code> and a responder is listening, the same request
+completes:</p>
+<div><div><pre><code class="language-text">14:20:11 Sending request on "orders.lookup"
+14:20:11 Received with rtt 652µs
+{"order_id":"ord_8w2k","status":"shipped"}</code></pre></div></div>
+<p>The same problem exists in the other direction: a service that answers
+requests must be able to <em>publish</em> to the reply subject it was handed.
+<code>allow_responses</code>, named above, is the clean way to grant that.</p>
+<p><strong>An allow-list that forgets a needed subject closes it off too.</strong>
+Because an <code>allow</code> list denies everything not on it, a missing entry is
+a silent block, not a warning. The day <code>order-svc</code> needs to publish
+<code>orders.refunded</code>, a <code>publish: { allow: ["orders.&gt;"] }</code> already covers
+it, but a narrower <code>allow: ["orders.created", "orders.shipped"]</code> would
+reject it with a <code>Permissions Violation</code> and no other signal. Prefer
+the wildcard that matches the user's real subject space over an
+enumerated list you must remember to grow.</p>
+<p><strong>An over-broad <code>&gt;</code> grants every subject on the server.</strong> Granting
+<code>publish: { allow: ["&gt;"] }</code> or <code>subscribe: { allow: ["&gt;"] }</code> to save
+typing gives the user every subject, including, when JetStream is on,
+the <code>$JS.API.&gt;</code> control plane. That's the same "no permissions means
+anything" gap from earlier, written out explicitly. Scope each user to
+the subject prefix it actually uses: <code>orders.&gt;</code> for <code>order-svc</code>, never
+<code>&gt;</code>.</p>
+<p><strong>A deny can be invisible under a wildcard subscription.</strong> A literal
+subscribe to a denied subject is rejected loudly: under
+<code>subscribe: { allow: ["orders.&gt;"], deny: ["orders.audit.&gt;"] }</code>, a
+<code>nats sub orders.audit.entry</code> fails with <code>Permissions Violation for Subscription to "orders.audit.entry"</code>. But a wildcard subscription that
+merely overlaps the deny is accepted, and the server filters the denied
+subjects out at delivery time. The same user subscribed to <code>orders.&gt;</code>
+receives <code>orders.created</code> and <code>orders.shipped</code> but never
+<code>orders.audit.entry</code> — no error, no gap marker. If a subscriber seems
+to miss messages, check its deny lists before suspecting the publisher.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# order-svc's subscribe section allows the wildcard but denies the audit branch:
+#   permissions: {
+#     publish: { allow: ["orders.&gt;"] }
+#     subscribe: { allow: ["orders.&gt;"], deny: ["orders.audit.&gt;"] }
+#   }
+# A literal subscribe to a denied subject fails loudly; a wildcard subscribe
+# that overlaps the deny is accepted and silently filtered.
+
+# Connect as order-svc.
+export NATS_USER=order-svc
+export NATS_PASSWORD=s3cr3t
+
+# Loud: a literal subscribe to the denied subject is rejected. The CLI
+# exits 1 with:
+#   Subscribing on orders.audit.entry
+#   nats: error: nats: permissions violation: Permissions Violation for Subscription to "orders.audit.entry"
+nats sub orders.audit.entry
+
+# Silent: the wildcard subscribe is ACCEPTED — no error, and nothing in the
+# server log either. Leave it running (--wait exits after 4s without
+# messages) and publish to both subjects from another terminal:
+#   nats pub orders.created '{"order_id":"ord_8w2k","status":"created"}'
+#   nats pub orders.audit.entry '{"order_id":"ord_8w2k","actor":"order-svc"}'
+# Only orders.created is delivered; the server drops orders.audit.entry
+# at delivery time. Expected output:
+#   Subscribing on orders.&gt;
+#   [#1] Received on "orders.created"
+#   {"order_id":"ord_8w2k","status":"created"}
+nats sub "orders.&gt;" --wait 4s</code></pre></div></div>
+<div><div><pre><code class="language-text">18:02:37 Subscribing on orders.audit.entry
+nats: error: nats: permissions violation: Permissions Violation for Subscription to "orders.audit.entry"</code></pre></div></div>
+<p>The literal subscribe exits 1 with the violation above. The wildcard
+subscribe is accepted, and with both subjects published while it runs,
+only one message arrives:</p>
+<div><div><pre><code class="language-text">18:02:45 Subscribing on orders.&gt;
+[#1] Received on "orders.created"
+{"order_id":"ord_8w2k","status":"created"}</code></pre></div></div>
+<p>The publish to <code>orders.audit.entry</code> reports success, but the server
+drops it at delivery: no client error, and — unlike the literal
+subscribe — no violation line in the server log either.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p><code>order-svc</code> is now scoped to exactly what it does:</p>
+<ul>
+<li>It may publish to <code>orders.&gt;</code> and subscribe to <code>_INBOX.&gt;</code>, nothing
+else.</li>
+<li>A publish to any other subject returns a <code>Permissions Violation</code> and
+is dropped.</li>
+<li><code>analytics-reader</code> is still unrestricted, and both users still share
+one subject space: the global account <code>$G</code>.</li>
+</ul>
+<p>You also have the two rules that govern every permission you'll ever
+write: an <code>allow</code> list closes everything else off, and <code>deny</code> beats
+<code>allow</code> on overlap. The same model applies whether the lists live in
+config or in a JWT.</p>
+<h2 id="whats-next">What's next</h2>
+<p><code>order-svc</code> is scoped, but both users still operate in one shared
+subject space — anything one can reach, an unrestricted user can reach
+too. The next page gives each service its own account, with a subject
+space nobody else can see into.</p>
+<p>Continue to <a href="/learn/security/accounts-and-multitenancy">Accounts &amp;
+multitenancy</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/authorization/users/permissions">Reference →
+permissions</a> —
+every permission field and its defaults.</li>
+<li><a href="/reference/config/authorization/default_permissions">Reference →
+default_permissions</a>
+— fallback permissions for users without their own block.</li>
+<li><a href="/concepts/subjects">Core Concepts → Subjects</a> — the wildcard rules
+that permissions are built on.</li>
+<li><a href="/learn/security/accounts-and-multitenancy">Accounts &amp;
+multitenancy</a> — giving
+each user its own subject space.</li>
+</ul></main>

@@ -1,0 +1,258 @@
+<main><header><h1>Config and JWT backup</h1></header>
+<p>The last three pages protected the data with a snapshot to return to, a
+mirror to fail over to, and a runbook to choose between them. But a restored
+<code>ORDERS</code> stream is useless if nobody is allowed to read it. The accounts
+that gate it, the operator that signs those accounts, and the creds
+<code>order-svc</code> connects with don't live in the stream. They live in
+a different set of files, and those files need their own backup.</p>
+<p>This page protects the <strong>identity plane</strong>. It does two things: it copies
+the files that <em>are</em> your security layer off-site, encrypted; then it
+puts them back in a clean-room rebuild and verifies that the platform runs
+again.</p>
+<p>This page doesn't teach what an operator, account, or user <em>is</em>; that
+model lives in
+<a href="/learn/security/operator-mode">Security → Operator mode</a>. Here you only
+learn which files carry that identity, how to get them off-site, and
+how to restore them.</p>
+<h2 id="the-files-that-carry-identity">The files that carry identity</h2>
+<p>Everything that proves who may touch the <code>ORDERS</code> platform reduces to
+files on disk. There are three groups, and losing any one of them breaks
+the platform in a different way.</p>
+<p>The first group is the <strong><code>nats auth</code> store</strong>, the directory tree the
+Security chapter built under <code>$XDG_DATA_HOME/nats</code> (by default
+<code>~/.local/share/nats</code>). Two kinds of file live in it. A <strong>JWT</strong> is the
+signed identity token: one for the operator, one per account, one per
+user. A <strong>seed</strong> (an <code>.nk</code> file) is the private half of the nkey pair
+whose public key the JWT names as its subject. Each JWT is signed by the
+key one level up the chain: the operator signs the account JWTs, and each
+account signs its own users' JWTs. The layout for the Acme world:</p>
+<div><div><pre><code class="language-text">$XDG_DATA_HOME/nats/nsc/            # store root; the on-disk layout is nsc-compatible
+├── keys/
+│   └── keys/
+│       ├── O/BJ/OBJYFWT2….nk       # operator identity seed
+│       ├── O/CY/OCYOEBDC….nk       # operator signing-key seed
+│       ├── A/CX/ACXV2TF4….nk       # ORDERS account seed (+ ANALYTICS, SYSTEM)
+│       └── U/A2/UA2YLJKK….nk       # order-svc user seed (+ analytics-reader, admin)
+└── stores/
+    └── ACME/
+        ├── ACME.jwt                # operator JWT
+        └── accounts/
+            ├── ORDERS/ORDERS.jwt
+            ├── ORDERS/users/order-svc.jwt
+            ├── ANALYTICS/…         # ANALYTICS.jwt, analytics-reader.jwt
+            └── SYSTEM/…            # SYSTEM.jwt, admin.jwt</code></pre></div></div>
+<p>The <code>stores</code> half holds only JWTs, which are public; they assert
+identity, they sign nothing. The <code>keys</code> half is secret. A leaked
+operator or account seed lets identity be forged, because those keys sign
+the JWTs one level down; a leaked user seed lets an attacker connect as
+that user; and a lost seed means that identity is lost. Protect the
+<code>keys</code> subtree with the same controls you apply to stored passwords.</p>
+<p>The second group is the <strong>creds files</strong>. A <code>.creds</code> file is a user's JWT
+and seed concatenated into one file: the thing a client points at to
+connect. They aren't inside the store — each one landed wherever
+<code>--credential</code> wrote it when the user was created, and the copies your
+services run with sit on the client machines. These are the files
+<code>order-svc</code> and <code>analytics-reader</code> present at connect time.</p>
+<p>The third group is the <strong>server config</strong>, the <code>server.conf</code> that
+<code>nats server generate</code> wrote for the running cluster. It isn't identity
+itself, but it anchors it: the operator JWT the server trusts, the
+<code>SYSTEM</code> account preload, and the resolver directory where account JWTs
+land. Restore the keys without the config and the server doesn't know to
+trust them.</p>
+<div><div><pre><code class="language-conf"># ./acme-server/server.conf — what ties the identity together
+operator: eyJ0eXAiOiJKV1Qi...              # the full ACME operator JWT
+
+system_account: AAW27T5RB3M5GNDKLGEZ...    # the SYSTEM account public key
+
+resolver_preload {
+    # SYSTEM account JWT, baked into the config
+    AAW27T5RB3M5GNDKLGEZ...: eyJ0eXAiOiJKV1Qi...
+}
+
+resolver {
+   type: full
+   dir: /var/lib/nats/resolver             # the server's own copy of account JWTs
+}</code></pre></div></div>
+<p>The <code>resolver</code> block is the <strong>account resolver</strong>, the server component
+that verifies accounts when a user connects. Its <code>dir</code> holds the
+server's own copy of every pushed account JWT, and that copy matters at
+restore time. The full set of resolver options lives in
+<a href="/reference/config/resolver">Reference → Resolver</a>. For now you only need
+to know that the server keeps its own copy.</p>
+<h2 id="backing-up-the-files">Backing up the files</h2>
+<p>The store has a native backup command. One line captures the whole
+<code>ACME</code> subtree — every JWT and every private seed, operator, accounts,
+and users — in a single file:</p>
+<div><div><pre><code class="language-bash">nats auth operator backup ACME acme-operator.backup</code></pre></div></div>
+<div><div><pre><code class="language-text">Wrote backup for ACME to acme-operator.backup
+
+WARNING: The output file is unencrypted and contains secrets,
+consider encrypting it with 'nats auth nkey seal'</code></pre></div></div>
+<p>The file is a single JSON document — treat it as an opaque blob and
+don't edit it by hand. Read the warning literally: the file
+holds the operator's private seed, every signing-key seed, and every
+account and user seed. Whoever holds this one file <em>is</em> the <code>ACME</code>
+operator. Never ship it anywhere unencrypted.</p>
+<p>The <code>--key</code> flag encrypts the backup with a curve key. Generate the key
+once, then point <code>--key</code> at the seed file — it takes a file path, not
+the key string:</p>
+<div><div><pre><code class="language-bash">nats auth nkey gen curve --output backup-curve.nk
+
+nats auth operator backup ACME acme-operator.backup --key backup-curve.nk</code></pre></div></div>
+<div><div><pre><code class="language-text">Wrote backup for ACME to acme-operator.backup</code></pre></div></div>
+<p>No warning this time: the output is a sealed blob that only the curve
+seed can open. That makes <code>backup-curve.nk</code> the key to every future
+restore. Store it somewhere other than the location holding the
+backups; keeping an archive and its key in the same place is a single
+point of failure that defeats the backup.</p>
+<p>Two things the backup does <em>not</em> contain. It carries no creds files —
+those are re-minted from the restored store, as you'll see below. And
+it carries nothing from the server side: back up <code>server.conf</code>
+alongside it, because the <code>SYSTEM</code> preload inside it is what lets you
+repopulate a server after a disaster. The resolver directory itself
+needs no backup; re-pushing the accounts rebuilds it.</p>
+<p>Ship both files off-site, dated:</p>
+<div><div><pre><code class="language-bash"># Ship the sealed backup and the server config away from the live cluster.
+aws s3 cp acme-operator.backup \
+  s3://acme-dr/identity/acme-operator-2026-07-04.backup
+aws s3 cp ./acme-server/server.conf \
+  s3://acme-dr/identity/server-2026-07-04.conf</code></pre></div></div>
+<p>The date serves a purpose. If you rotate the operator key (re-sign the
+chain under a new operator identity), an older backup restores the
+<em>previous</em> operator, and a server rebuilt from it trusts a chain nobody
+signs anymore. Tag each backup with the day the identity was current so
+you can match a file to the operator version it belongs to.</p>
+<p>Run this on a schedule the same way you schedule the snapshot. A daily
+cron line keeps the identity copy as fresh as the data copy:</p>
+<div><div><pre><code class="language-bash"># /etc/cron.d/acme-identity-backup — daily at 02:30
+30 2 * * *  nats  /usr/local/bin/backup-identity.sh</code></pre></div></div>
+<h2 id="restoring-the-files">Restoring the files</h2>
+<p>A clean-room restore is one command against the backup file, then a
+verification pass, then one server-side step that teams often miss.</p>
+<p>Pull the backup down and restore it. <code>--key</code> names the same curve seed
+file the backup was sealed with:</p>
+<div><div><pre><code class="language-bash">aws s3 cp s3://acme-dr/identity/acme-operator-2026-07-04.backup acme-operator.backup
+
+nats auth operator restore ACME acme-operator.backup --key backup-curve.nk</code></pre></div></div>
+<div><div><pre><code class="language-text">Operator ACME (OBJYFWT2JMTZJBNNXZWQU5UDZSQYUKK2GQ6OGTDSBDN35WW3PXWPSSP6)
+
+Configuration:
+
+            Name: ACME
+         Subject: OBJYFWT2JMTZJBNNXZWQU5UDZSQYUKK2GQ6OGTDSBDN35WW3PXWPSSP6
+        Accounts: 3
+  System Account: SYSTEM (AAW27T5RB3M5GNDKLGEZR27S2HY5XHGL2PWVKOMBU7L4ZZYEPEGHOS7J)
+    Signing Keys: OCYOEBDCJQKV3F6LWKCWVLGDOLMLZYO5LRLILZVRW376BDWBBZOO4RQX</code></pre></div></div>
+<p>The <code>Subject</code> is the same operator public key as before the loss:
+restore brings back the original keys, it doesn't mint new ones. That
+has a useful consequence — every creds file you handed out before the
+disaster keeps working, because nothing rotated. One caveat: restore
+refuses to run if the operator already exists in the store
+(<code>nats: error: operator ACME already exist</code>). It's for rebuilding a
+clean machine; to restore over a corrupted store, move the old store
+directory aside first.</p>
+<p>Confirm the chain is complete:</p>
+<div><div><pre><code class="language-bash">nats auth account ls
+nats auth user ls ORDERS</code></pre></div></div>
+<p><code>account ls</code> should list <code>ANALYTICS</code>, <code>ORDERS</code>, and <code>SYSTEM</code> with one
+user each, and <code>user ls ORDERS</code> should show <code>order-svc</code>. If a service's
+creds file was lost along with the machine it lived on, mint a fresh
+one from the restored seeds:</p>
+<div><div><pre><code class="language-bash">nats auth user credential order-svc.creds order-svc ORDERS</code></pre></div></div>
+<div><div><pre><code class="language-text">Wrote credential for order-svc to order-svc.creds</code></pre></div></div>
+<p>Next comes the step that a naive restore skips. Restoring the store
+rebuilds your workstation's copy of the chain, but the server validates
+connections against its <em>own</em> copy: the account JWTs in its resolver
+directory. If that directory survived, the server never notices your
+restore. If it didn't — a fresh machine, a wiped disk — the server
+starts from the saved <code>server.conf</code>, trusts <code>ACME</code>, and still rejects
+every user:</p>
+<div><div><pre><code class="language-bash">nats pub orders.new "hello" --creds order-svc.creds</code></pre></div></div>
+<div><div><pre><code class="language-text">nats: error: nats: Authorization Violation</code></pre></div></div>
+<p>The resolver directory is empty, so the server can't find the <code>ORDERS</code>
+account JWT. Fill it by pushing each account, exactly as on first
+setup:</p>
+<div><div><pre><code class="language-bash">nats auth account push ORDERS --operator ACME --creds sys.creds
+nats auth account push ANALYTICS --operator ACME --creds sys.creds</code></pre></div></div>
+<div><div><pre><code class="language-text">Updating account ORDERS (ACXV2TF4CTC575UWIFY75K4ZHLS337VNP2JKAD4E5IS346TATYFTDLYR) on 1 server(s)
+
+✓ Update completed on acme-1
+
+Success 1 Failed 0 Expected 1</code></pre></div></div>
+<p>The push itself authenticates with the <code>SYSTEM</code> creds, and it can get
+in even though the resolver is empty because <code>server.conf</code> preloads the
+<code>SYSTEM</code> account JWT. That preload is the bootstrap path for the whole
+recovery — and the reason the config file belongs in the backup set.</p>
+<p>Finally, prove a real client can connect — identity plane and data
+plane together:</p>
+<div><div><pre><code class="language-bash">nats pub orders.new "back" --creds order-svc.creds</code></pre></div></div>
+<div><div><pre><code class="language-text">13:48:24 Published 4 bytes to "orders.new"</code></pre></div></div>
+<p>If <code>order-svc</code> authenticates with the same creds file it had before the
+disaster, and <code>nats stream info ORDERS --creds order-svc.creds</code> returns
+the restored stream, the full platform is back: the data the earlier
+pages protected, and now the identity that gates it.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Three traps come up the first time teams back up identity rather than
+data. Each one stays inside this page's two jobs: backing the files
+up, and restoring them.</p>
+<p><strong>The backup file is the whole authority.</strong> <code>operator backup</code> writes
+every private seed in the <code>ACME</code> subtree into one file; anyone who
+reads it can sign accounts and users as you. Treat it more carefully
+than any single key: always pass <code>--key</code> so it leaves your machine
+sealed, and keep the curve seed file away from the backups it opens.
+The flip side is that the curve seed is now load-bearing. Restore
+without it fails —</p>
+<div><div><pre><code class="language-bash">nats auth operator restore ACME acme-operator.backup</code></pre></div></div>
+<div><div><pre><code class="language-text">nats: error: unmarshal failed: invalid character 'e' looking for beginning of value</code></pre></div></div>
+<p>— and there's no recovery path: no reset link, no support ticket that
+regenerates a seed. Losing both the store and the means to open its
+backup is losing the identity. Test-restore on a spare machine once so
+you know the file and the key actually pair up.</p>
+<p><strong>A restored store doesn't refill the server's resolver.</strong> The store on
+your workstation and the resolver directory on the server are separate
+copies of the account JWTs. <code>operator restore</code> rebuilds only yours. A
+server that lost its resolver directory keeps rejecting users with
+<code>Authorization Violation</code> — the files on your side are correct,
+<code>account ls</code> looks right, yet nobody can connect. The fix is one
+<code>nats auth account push</code> per account, authenticated with the <code>SYSTEM</code>
+creds that the config's <code>resolver_preload</code> lets in. That works only
+while you still have <code>server.conf</code>; back it up with the identity, not
+as an afterthought.</p>
+<p><strong>An un-backed-up operator rotation orphans the archive.</strong> If you
+rotate the <code>ACME</code> operator (re-sign the chain under a fresh operator
+key) and your last off-site backup predates the rotation, that backup
+restores an operator nobody signs accounts under anymore. Tag every
+backup with the operator version or timestamp, and take a fresh backup
+right after any rotation, so a backup and the live operator never
+drift apart.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The identity plane is now recoverable. You have a sealed, off-site
+backup of the whole <code>ACME</code> subtree — the operator, <code>ORDERS</code>,
+<code>ANALYTICS</code>, and <code>SYSTEM</code> with all their JWTs and private seeds — plus
+the <code>server.conf</code> that anchors it, dated to the operator version it
+belongs to, with the curve seed stored apart. And you have a restore
+procedure that rebuilds the store, re-mints any lost creds, re-pushes
+the accounts into an empty resolver, and verifies a real client
+connects.</p>
+<p>Combined with the snapshot from <a href="/learn/backup-recovery/stream-backup-restore">Stream backup and restore</a>
+and the <code>ORDERS_DR</code> mirror from <a href="/learn/backup-recovery/mirrors-and-sources">Mirrors as a DR tool</a>,
+the whole platform now survives a clean-room rebuild. The data
+comes back from a snapshot, the site comes back from the mirror, and the
+identity that gates both comes back from this backup.</p>
+<h2 id="whats-next">What's next</h2>
+<p>Every protective copy is now in place: snapshot, mirror, runbook, and
+identity. The last page recaps the whole chapter and collects every page's
+pitfalls into one production checklist you run before you trust the
+platform with production traffic.</p>
+<p>Continue to <a href="/learn/backup-recovery/where-next">Where to go next</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/security/operator-mode">Security → Operator mode</a> — what the
+operator, accounts, and users you backed up here actually are.</li>
+<li><a href="/learn/security/cross-account">Security → Cross-account</a> — the
+<code>ORDERS</code>-to-<code>ANALYTICS</code> export/import that a cross-account mirror also
+depends on; it lives in the account JWTs, so the backup carries it.</li>
+<li><a href="/reference/config/resolver">Reference → Resolver</a> — the full set of
+account-resolver options, including the <code>dir</code> the push refills on
+restore.</li>
+</ul></main>

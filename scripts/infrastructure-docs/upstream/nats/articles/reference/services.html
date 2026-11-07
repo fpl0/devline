@@ -1,0 +1,43 @@
+<main><header><h1>Services API</h1></header>
+<p>The NATS Services API provides a framework for building observable microservices with built-in discovery, health checking, and monitoring.</p>
+<h2 id="overview">Overview</h2>
+<p>NATS Services extend the request-reply pattern with:</p>
+<ul>
+<li>Automatic service discovery</li>
+<li>Health monitoring endpoints</li>
+<li>Statistics collection</li>
+<li>Load balancing across instances</li>
+<li>Standardized response schemas</li>
+</ul>
+<h2 id="api-responses">API Responses</h2>
+<h3 id="info-response"><a href="/reference/services/info-response">Info Response</a></h3>
+<p>Service metadata and configuration:</p>
+<ul>
+<li>Service name and version</li>
+<li>Endpoint descriptions</li>
+<li>Configuration details</li>
+</ul>
+<h3 id="ping-response"><a href="/reference/services/ping-response">Ping Response</a></h3>
+<p>Health check and liveness probe:</p>
+<ul>
+<li>Service availability status</li>
+<li>Response time measurement</li>
+<li>Instance identification</li>
+</ul>
+<h3 id="stats-response"><a href="/reference/services/stats-response">Stats Response</a></h3>
+<p>Operational statistics:</p>
+<ul>
+<li>Request counts and rates</li>
+<li>Error tracking</li>
+<li>Performance metrics</li>
+<li>Resource utilization</li>
+</ul>
+<h2 id="service-patterns">Service Patterns</h2>
+<p>Services follow these conventions:</p>
+<ul>
+<li>Discovery - Services announce themselves on startup</li>
+<li>Monitoring - Built-in health and statistics endpoints</li>
+<li>Load Balancing - Automatic distribution via queue groups</li>
+<li>Versioning - API version management support</li>
+<li>Observability - Structured logging and metrics</li>
+</ul></main>

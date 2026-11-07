@@ -1,0 +1,74 @@
+<main><header><h1>Everyday Operations with Khepri</h1></header>
+<p>Even though the metadata store doesn’t store messages, its behavior will affect
+day-to-day behavior and technical operations of a RabbitMQ that uses it, at
+least as long as applications that use this cluster will want to authenticate
+and declare or delete resources such as queues or streams.</p>
+<p>As already mentioned in <a href="/docs/4.3/metadata-store/clustering#caveats">clustering caveats</a>, Khepri is a
+Raft-based system, and just like in any Raft-based system, a quorum number of
+cluster members must be online and available for the metadata store to accept
+updates (writes/deletes or cluster membership changes).</p>
+<h2 id="consistency-model-and-visibility-guarantees">Consistency Model and Visibility Guarantees</h2>
+<p>Metadata changes are committed by a majority of cluster nodes.
+Other nodes may observe them after a short delay.</p>
+<h3 id="example-scenarios">Example Scenarios</h3>
+<p>Consider two scenarios, A and B.</p>
+<figure><div><p>There is only one client. The client performs the following steps:</p><ol>
+<li>It declares a queue Q.</li>
+<li>It binds Q to an exchange X.</li>
+<li>It publishes a message M to the exchange X.</li>
+<li>It expects the message to be routed to queue Q.</li>
+<li>It consumes the message.</li>
+</ol></div><figcaption>Scenario A</figcaption></figure>
+<p>In this scenario, the client’s expectations will be met.</p>
+<figure><div><p>There are two clients, One and Two, connected to nodes R1 and R3, and using the
+same virtual host. Node R2 has no client connections.</p><ol>
+<li>Client One declares a queue Q.</li>
+<li>It binds Q to an exchange X.</li>
+<li>It gets queue and binding declaration confirmations back.</li>
+<li>It notifies Client Two or Client Two implicitly finds out that it has
+finished the steps above (for example, in an integration test).</li>
+<li>Client Two publishes a message M to X.</li>
+<li>Clients One and Two expect the message to be routed to Q.</li>
+</ol></div><figcaption>Scenario B</figcaption></figure>
+<p>In this scenario, step three completes when <strong>a majority</strong> of nodes,
+including the node handling Client One’s operations, have committed the update.</p>
+<p>This may include nodes R1 and R2 but not node R3, meaning that message M
+published by Client Two connected to node R3 in the above example <strong>is not
+guaranteed to be routed</strong>.</p>
+<p>Once all schema changes propagate to node R3, Client Two’s subsequent
+publishes on node R3 <strong>will be guaranteed</strong> to be routed.</p>
+<p>This trade-off of a Raft-based system that assumes that a write accepted by a
+majority of nodes can be considered a success.</p>
+<h3 id="workaround-strategies">Workaround Strategies</h3>
+<p>To satisfy Client Two's expectations in scenario B, Khepri could perform
+<strong>consistent</strong> (involving a majority of replicas) queries of bindings when
+routing messages but that would have a <strong>significant</strong> impact on throughput of
+certain protocols (such as MQTT) and exchange/destination types (anything that
+resembles a topic exchange in AMQP 0-9-1).</p>
+<p>Applications that rely on multiple connections that depend on a shared topology
+have several coping strategies.</p>
+<p>If an application uses two or more connections to different nodes, it can
+declare its topology on boot and then injecting a short pause (1-2 seconds)
+before proceeding with other operations.</p>
+<p>Applications that rely on dynamic topologies can switch to use a "static" set
+of exchanges and bindings.</p>
+<p>Application components that do not need to use a shared topology can each
+configure its own queues/streams/bindings.</p>
+<p>Test suites that use multiple connections to different nodes can choose to use
+just one connection or connect to the same node, or inject a pause, or await a
+certain condition that indicates that the topology is in place.</p>
+<h2 id="client-resource-declaration-on-the-cluster-minority-side">Client Resource Declaration on the Cluster Minority Side</h2>
+<p>Resource declarations require a majority of cluster nodes to be available.
+If the node cannot reach a majority, the operation will time out.</p>
+<p>Here is an example of the PerfTest tool trying to declare the exchange and
+queue it needs in a cluster where only 1 out of 5 nodes is running:</p>
+<div><div><pre><code class="language-bash">./scripts/PerfTest
+
+# =&gt; id: test-161339-979, starting consumer #0
+# =&gt; id: test-161339-979, starting consumer #0, channel #0
+# =&gt;  Main thread caught exception: java.io.IOException
+# =&gt;  16:14:10.638 [com.rabbitmq.perf.PerfTest.main()] ERROR com.rabbitmq.perf.PerfTest - Main thread caught exception
+# =&gt;  (...)</code></pre></div></div>
+<p>At the same time, the RabbitMQ node logged the following messages:</p>
+<div><div><pre><code class="language-text">[error] &lt;0.1373.0&gt; Error on AMQP connection &lt;0.1373.0&gt; (127.0.0.1:55165 -&gt; 127.0.0.1:5672 - perf-test-consumer-0, vhost: '/', user: 'guest', state: running), channel 1:
+[error] &lt;0.1373.0&gt;  operation exchange.declare caused a connection exception internal_error: "failed to declare exchange 'direct' in vhost '/' because the operation timed out"</code></pre></div></div></main>

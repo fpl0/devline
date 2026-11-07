@@ -1,0 +1,295 @@
+<main><header><h1>RabbitMQ tutorial - Work Queues</h1></header>
+<h2 id="work-queues">Work Queues</h2>
+<h3 id="using-the-amqp-10-go-client">(using the AMQP 1.0 Go client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-one-go-amqp10">first tutorial</a> we
+wrote programs to send and receive messages from a named queue. In this
+one we'll create a <em>Work Queue</em> that will be used to distribute
+time-consuming tasks among multiple workers.</p>
+<p>The main idea behind Work Queues (aka: <em>Task Queues</em>) is to avoid
+doing a resource-intensive task immediately and having to wait for
+it to complete. Instead we schedule the task to be done later. We encapsulate a
+<em>task</em> as a message and send it to a queue. A worker process running
+in the background will pop the tasks and eventually execute the
+job. When you run many workers the tasks will be shared between them.</p>
+<p>This concept is especially useful in web applications where it's
+impossible to handle a complex task during a short HTTP request
+window.</p>
+<p>This tutorial uses the <a href="/client-libraries/amqp-client-libraries">RabbitMQ AMQP 1.0 Go client</a> (<code>rabbitmq-amqp-go-client</code>). It requires RabbitMQ <strong>4.0 or later</strong>.</p>
+<h2 id="preparation">Preparation</h2>
+<p>In the previous part of this tutorial we sent a message containing
+"Hello World!". Now we'll be sending strings that stand for complex
+tasks. We don't have a real-world task, like images to be resized or
+pdf files to be rendered, so let's fake it by just pretending we're
+busy - by using the <code>time.Sleep</code> function. We'll take the number of dots
+in the string as its complexity; every dot will account for one second
+of "work". For example, a fake task described by <code>Hello...</code>
+will take three seconds.</p>
+<p>We will slightly modify the <em>send.go</em> code from our previous example,
+to allow arbitrary messages to be sent from the command line. This
+program will schedule tasks to a work queue named <code>task_queue</code>
+(instead of <code>hello</code>), so let's name the file <code>new_task.go</code>:</p>
+<div><div><pre><code class="language-go">publisher, err := conn.NewPublisher(ctx, &amp;rmq.QueueAddress{Queue: "task_queue"}, nil)
+if err != nil {
+	log.Panicf("Failed to create publisher: %v", err)
+}
+defer func() { _ = publisher.Close(context.Background()) }()
+
+body := bodyFrom(os.Args)
+res, err := publisher.Publish(ctx, rmq.NewMessage([]byte(body)))
+if err != nil {
+	log.Panicf("Failed to publish a message: %v", err)
+}
+switch res.Outcome.(type) {
+case *rmq.StateAccepted:
+default:
+	log.Panicf("Unexpected publish outcome: %v", res.Outcome)
+}
+log.Printf(" [x] Sent %s", body)
+
+func bodyFrom(args []string) string {
+	var s string
+	if (len(args) &lt; 2) || args[1] == "" {
+		s = "hello"
+	} else {
+		s = strings.Join(args[1:], " ")
+	}
+	return s
+}</code></pre></div></div>
+<p>Our old consumer program also requires some changes: it needs to
+fake a second of work for every dot in the message body. It will handle
+delivered messages and perform the task, so let's call it <code>worker.go</code>:</p>
+<div><div><pre><code class="language-go">consumer, err := conn.NewConsumer(ctx, "task_queue", &amp;rmq.ConsumerOptions{InitialCredits: 1})
+if err != nil {
+	log.Panicf("Failed to create consumer: %v", err)
+}
+defer func() { _ = consumer.Close(context.Background()) }()
+
+log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+for {
+	delivery, err := consumer.Receive(ctx)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return
+		}
+		log.Panicf("Failed to receive a message: %v", err)
+	}
+	msg := delivery.Message()
+	var payload []byte
+	if len(msg.Data) &gt; 0 {
+		payload = msg.Data[0]
+	}
+	log.Printf("Received a message: %s", payload)
+	dotCount := bytes.Count(payload, []byte("."))
+	t := time.Duration(dotCount)
+	time.Sleep(t * time.Second)
+	log.Printf("Done")
+	err = delivery.Accept(ctx)
+	if err != nil {
+		log.Panicf("Failed to accept message: %v", err)
+	}
+}</code></pre></div></div>
+<p>Note the use of <code>ConsumerOptions{InitialCredits: 1}</code> to limit messages in flight (the AMQP 1.0 analog to prefetch).</p>
+<p>Run each program using <code>go run</code>:</p>
+<div><div><pre><code class="language-bash">go run new_task.go hello world
+go run worker.go</code></pre></div></div>
+<h2 id="round-robin-dispatching">Round-robin dispatching</h2>
+<p>One of the advantages of using a Task Queue is the ability to easily
+parallelise work. If we are building up a backlog of work, we can just
+add more workers and that way, scale easily.</p>
+<p>First, let's try to run two worker instances at the same time. They
+will both get messages from the queue, but how exactly? Let's see.</p>
+<p>You need three terminals open. Two will run the worker
+program. These terminals will be our two consumers - C1 and C2.</p>
+<div><div><pre><code class="language-bash"># shell 1
+go run worker.go
+# =&gt; [*] Waiting for messages. To exit press CTRL+C</code></pre></div></div>
+<div><div><pre><code class="language-bash"># shell 2
+go run worker.go
+# =&gt; [*] Waiting for messages. To exit press CTRL+C</code></pre></div></div>
+<p>In the third one we'll publish new tasks. Once you've started
+the consumers you can publish a few messages:</p>
+<div><div><pre><code class="language-bash"># shell 3
+go run new_task.go First message.
+# =&gt; [x] Sent 'First message.'
+go run new_task.go Second message..
+# =&gt; [x] Sent 'Second message..'
+go run new_task.go Third message...
+# =&gt; [x] Sent 'Third message...'</code></pre></div></div>
+<p>Let's see what is delivered to our workers:</p>
+<div><div><pre><code class="language-bash">go run worker.go
+# =&gt; [*] Waiting for messages. To exit press CTRL+C
+# =&gt; Received a message: First message.
+# =&gt; Done
+# =&gt; Received a message: Third message...
+# =&gt; Done</code></pre></div></div>
+<div><div><pre><code class="language-bash">go run worker.go
+# =&gt; [*] Waiting for messages. To exit press CTRL+C
+# =&gt; Received a message: Second message..
+# =&gt; Done</code></pre></div></div>
+<p>By default, RabbitMQ will send each message to the next consumer,
+in sequence. On average every consumer will get the same number of
+messages. This way of distributing messages is called round-robin. Try
+this out with three or more workers.</p>
+<h2 id="message-acknowledgment">Message acknowledgment</h2>
+<p>Doing a task can take a few seconds, you may wonder what happens if
+a consumer starts a long task and it terminates before it completes.
+With AMQP 1.0, the consumer must <strong>settle</strong> each message (<code>Accept</code>, <code>Discard</code>, or <code>Requeue</code>). Until you settle, the broker can redeliver the message if the worker stops.</p>
+<p>In order to make sure a message is not lost when a worker dies after receiving it but before finishing processing, settle only <strong>after</strong> the task is done. Here we call <code>delivery.Accept(ctx)</code> after <code>time.Sleep</code> completes.</p>
+<p>If a consumer dies without settling, RabbitMQ will redeliver the message to another consumer. That way you can be sure that no message is lost, even if the workers occasionally die.</p>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/worker.go">The complete <code>worker.go</code> file</a> uses <code>delivery.Accept</code> after work completes.</p>
+<blockquote>
+<h4 id="forgotten-settlement">Forgotten settlement</h4>
+<p>It's a common mistake to omit <code>delivery.Accept()</code> (or to call it before work finishes). Messages will be redelivered when your client quits (which may look like random redelivery), and unacknowledged messages accumulate on the broker.</p>
+<p>You can use <code>rabbitmqctl</code> to inspect queues:</p>
+<div><div><pre><code class="language-bash">sudo rabbitmqctl list_queues name messages_ready messages_unacknowledged</code></pre></div></div>
+<p>On Windows, drop the sudo:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl.bat list_queues name messages_ready messages_unacknowledged</code></pre></div></div>
+</blockquote>
+<h2 id="fair-dispatch">Fair dispatch</h2>
+<p>You might have noticed that the dispatching still doesn't work exactly
+as we want. For example in a situation with two workers, when all
+odd messages are heavy and even messages are light, one worker will be
+constantly busy and the other one will do hardly any work. Well,
+RabbitMQ doesn't know anything about that and will still dispatch
+messages evenly.</p>
+<p>This happens because the broker may deliver multiple messages before earlier ones are settled.</p>
+<!-- -->
+<p>With the AMQP 1.0 Go client, limit how many messages are <strong>in flight</strong> per consumer by setting <strong><code>InitialCredits</code></strong> to <code>1</code> on the consumer builder. This is the analogue of prefetch 1 in AMQP 0-9-1:</p>
+<div><div><pre><code class="language-go">consumer, err := conn.NewConsumer(ctx, "task_queue", &amp;rmq.ConsumerOptions{InitialCredits: 1})</code></pre></div></div>
+<p>This ensures that RabbitMQ won't prefetch messages; instead, it will only deliver a new message after the current one is settled.</p>
+<blockquote>
+<h4 id="note-about-queue-size">Note about queue size</h4>
+<p>If all the workers are busy, your queue can fill up. You will want to keep an
+eye on that, and maybe add more workers, or have some other strategy.</p>
+</blockquote>
+<h2 id="putting-it-all-together">Putting it all together</h2>
+<p>Final outline of <code>new_task.go</code>:</p>
+<div><div><pre><code class="language-go">package main
+
+import (
+	"context"
+	"log"
+	"os"
+	"strings"
+
+	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
+)
+
+const brokerURI = "amqp://guest:guest@localhost:5672/"
+
+func main() {
+	ctx := context.Background()
+	env := rmq.NewEnvironment(brokerURI, nil)
+	conn, err := env.NewConnection(ctx)
+	if err != nil {
+		log.Panicf("Failed to connect to RabbitMQ: %v", err)
+	}
+	defer func() {
+		_ = env.CloseConnections(context.Background())
+	}()
+
+	_, err = conn.Management().DeclareQueue(ctx, &amp;rmq.QuorumQueueSpecification{Name: "task_queue"})
+	if err != nil {
+		log.Panicf("Failed to declare a queue: %v", err)
+	}
+
+	publisher, err := conn.NewPublisher(ctx, &amp;rmq.QueueAddress{Queue: "task_queue"}, nil)
+	if err != nil {
+		log.Panicf("Failed to create publisher: %v", err)
+	}
+	defer func() { _ = publisher.Close(context.Background()) }()
+
+	body := bodyFrom(os.Args)
+	res, err := publisher.Publish(ctx, rmq.NewMessage([]byte(body)))
+	if err != nil {
+		log.Panicf("Failed to publish a message: %v", err)
+	}
+	switch res.Outcome.(type) {
+	case *rmq.StateAccepted:
+	default:
+		log.Panicf("Unexpected publish outcome: %v", res.Outcome)
+	}
+	log.Printf(" [x] Sent %s", body)
+}
+
+func bodyFrom(args []string) string {
+	var s string
+	if (len(args) &lt; 2) || args[1] == "" {
+		s = "hello"
+	} else {
+		s = strings.Join(args[1:], " ")
+	}
+	return s
+}</code></pre></div></div>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/new_task.go">(new_task.go source)</a></p>
+<p>And <code>worker.go</code>:</p>
+<div><div><pre><code class="language-go">package main
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"log"
+	"time"
+
+	rmq "github.com/rabbitmq/rabbitmq-amqp-go-client/pkg/rabbitmqamqp"
+)
+
+const brokerURI = "amqp://guest:guest@localhost:5672/"
+
+func main() {
+	ctx := context.Background()
+	env := rmq.NewEnvironment(brokerURI, nil)
+	conn, err := env.NewConnection(ctx)
+	if err != nil {
+		log.Panicf("Failed to connect to RabbitMQ: %v", err)
+	}
+	defer func() {
+		_ = env.CloseConnections(context.Background())
+	}()
+
+	_, err = conn.Management().DeclareQueue(ctx, &amp;rmq.QuorumQueueSpecification{Name: "task_queue"})
+	if err != nil {
+		log.Panicf("Failed to declare a queue: %v", err)
+	}
+
+	consumer, err := conn.NewConsumer(ctx, "task_queue", &amp;rmq.ConsumerOptions{InitialCredits: 1})
+	if err != nil {
+		log.Panicf("Failed to create consumer: %v", err)
+	}
+	defer func() { _ = consumer.Close(context.Background()) }()
+
+	log.Printf(" [*] Waiting for messages. To exit press CTRL+C")
+	for {
+		delivery, err := consumer.Receive(ctx)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+			log.Panicf("Failed to receive a message: %v", err)
+		}
+		msg := delivery.Message()
+		var payload []byte
+		if len(msg.Data) &gt; 0 {
+			payload = msg.Data[0]
+		}
+		log.Printf("Received a message: %s", payload)
+		dotCount := bytes.Count(payload, []byte("."))
+		t := time.Duration(dotCount)
+		time.Sleep(t * time.Second)
+		log.Printf("Done")
+		err = delivery.Accept(ctx)
+		if err != nil {
+			log.Panicf("Failed to accept message: %v", err)
+		}
+	}
+}</code></pre></div></div>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/worker.go">(worker.go source)</a></p>
+<p>Using explicit settlement and <code>InitialCredits: 1</code> you can set up a work queue. Quorum queues ensure tasks survive broker restarts.</p>
+<p>Now we can move on to <a href="/tutorials/tutorial-three-go-amqp10">tutorial 3</a> and learn how to deliver the same message to many consumers.</p></main>

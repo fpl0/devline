@@ -1,0 +1,295 @@
+<main><header><h1>RabbitMQ tutorial - Work Queues</h1></header>
+<h2 id="work-queues">Work Queues</h2>
+<h3 id="using-spring-amqp">(using Spring AMQP)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-one-spring-amqp">first tutorial</a> we
+wrote programs to send and receive messages from a named queue. In this
+one we'll create a <em>Work Queue</em> that will be used to distribute
+time-consuming tasks among multiple workers.</p>
+<p>The main idea behind Work Queues (aka: <em>Task Queues</em>) is to avoid
+doing a resource-intensive task immediately and having to wait for
+it to complete. Instead we schedule the task to be done later. We encapsulate a
+<em>task</em> as a message and send it to a queue. A worker process running
+in the background will pop the tasks and eventually execute the
+job. When you run many workers the tasks will be shared between them.</p>
+<p>This concept is especially useful in web applications where it's
+impossible to handle a complex task during a short HTTP request
+window.</p>
+<h3 id="preparation">Preparation</h3>
+<p>In the previous part of this tutorial we sent a message containing
+"Hello World!". Now we'll be sending strings that stand for complex
+tasks. We don't have a real-world task, like images to be resized or
+PDF files to be rendered, so let's fake it by just pretending we're
+busy - by using the <code>Thread.sleep()</code> function. We'll take the number of dots
+in the string as its complexity; every dot will account for one second
+of "work".  For example, a fake task described by <code>Hello...</code>
+will take three seconds.</p>
+<p>Please see the setup in <a href="/tutorials/tutorial-one-spring-amqp">first tutorial</a>
+if you have not setup the project. We will follow the same pattern
+as in the first tutorial: 1) create a package <code>tut2</code> and create
+<code>Tut2Config</code>, <code>Tut2Receiver</code>, and <code>Tut2Sender</code> classes. Start by creating a new
+package <code>tut2</code> where we'll place our three classes.  In the configuration
+class we setup two profiles, the label for the tutorial <code>tut2</code> and
+the name of the pattern (<code>work-queues</code>).  We leverage Spring to expose
+the queue as a bean. We setup the receiver as a profile and define two beans
+to correspond to the workers in our diagram above; <code>receiver1</code> and
+<code>receiver2</code>. Finally, we define a profile for the sender and define the
+sender bean.  The configuration is now done.</p>
+<div><div><pre><code class="language-java">import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+
+@Profile({"tut2", "work-queues"})
+@Configuration
+public class Tut2Config {
+
+    @Bean
+    public Queue hello() {
+        return QueueBuilder.durable("task_queue").quorum().build();
+    }
+
+    @Profile("receiver")
+    private static class ReceiverConfig {
+
+        @Bean
+        public Tut2Receiver receiver1() {
+            return new Tut2Receiver(1);
+        }
+
+        @Bean
+        public Tut2Receiver receiver2() {
+            return new Tut2Receiver(2);
+        }
+    }
+
+    @Profile("sender")
+    @Bean
+    public Tut2Sender sender() {
+        return new Tut2Sender();
+    }
+}</code></pre></div></div>
+<h3 id="sender">Sender</h3>
+<p>We will modify the sender to provide a means for identifying
+whether it's a longer running task by appending a dot to the
+message in a very contrived fashion using the same method
+on the <code>RabbitTemplate</code> to publish the message, <code>convertAndSend</code>.
+The documentation defines this as, "Convert a Java object to
+a message and send it to a default exchange with a
+default routing key."</p>
+<div><div><pre><code class="language-java">package org.springframework.amqp.tutorials.tut2;
+
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public class Tut2Sender {
+
+	@Autowired
+	private RabbitTemplate template;
+
+	@Autowired
+	private Queue queue;
+
+	AtomicInteger dots = new AtomicInteger(0);
+
+	AtomicInteger count = new AtomicInteger(0);
+
+	@Scheduled(fixedDelay = 1000, initialDelay = 500)
+	public void send() {
+		StringBuilder builder = new StringBuilder("Hello");
+		if (dots.incrementAndGet() == 4) {
+			dots.set(1);
+		}
+		for (int i = 0; i &lt; dots.get(); i++) {
+			builder.append('.');
+		}
+		builder.append(count.incrementAndGet());
+		String message = builder.toString();
+		template.convertAndSend(queue.getName(), message);
+		System.out.println(" [x] Sent '" + message + "'");
+	}
+
+}</code></pre></div></div>
+<h3 id="receiver">Receiver</h3>
+<p>Our receiver, <code>Tut2Receiver</code>, simulates an arbitrary length for
+a fake task in the <code>doWork()</code> method where the number of dots
+translates into the number of seconds the work will take. Again,
+we leverage a <code>@RabbitListener</code> on the <code>task_queue</code> queue and a
+<code>@RabbitHandler</code> to receive the message. The instance that is
+consuming the message is added to our monitor to show
+which instance, the message and the length of time to process
+the message.</p>
+<div><div><pre><code class="language-java">import org.springframework.amqp.rabbit.annotation.RabbitHandler;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.util.StopWatch;
+
+@RabbitListener(queues = "task_queue")
+public class Tut2Receiver {
+
+    private final int instance;
+
+    public Tut2Receiver(int i) {
+        this.instance = i;
+    }
+
+    @RabbitHandler
+    public void receive(String in) throws InterruptedException {
+        StopWatch watch = new StopWatch();
+        watch.start();
+        System.out.println("instance " + this.instance +
+            " [x] Received '" + in + "'");
+        doWork(in);
+        watch.stop();
+        System.out.println("instance " + this.instance +
+            " [x] Done in " + watch.getTotalTimeSeconds() + "s");
+    }
+
+    private void doWork(String in) throws InterruptedException {
+        for (char ch : in.toCharArray()) {
+            if (ch == '.') {
+                Thread.sleep(500);
+            }
+        }
+    }
+}</code></pre></div></div>
+<h3 id="putting-it-all-together">Putting it all together</h3>
+<p>Compile them using mvn package and run with the following options</p>
+<div><div><pre><code class="language-bash">./mvnw clean package
+
+# shell 1
+java -jar target/rabbitmq-tutorials.jar --spring.profiles.active=work-queues,receiver
+# shell 2
+java -jar target/rabbitmq-tutorials.jar --spring.profiles.active=work-queues,sender</code></pre></div></div>
+<p>The output of the sender should look something like:</p>
+<div><div><pre><code class="language-bash">Ready ... running for 10000ms
+ [x] Sent 'Hello.1'
+ [x] Sent 'Hello..2'
+ [x] Sent 'Hello...3'
+ [x] Sent 'Hello.4'
+ [x] Sent 'Hello..5'
+ [x] Sent 'Hello...6'
+ [x] Sent 'Hello.7'
+ [x] Sent 'Hello..8'
+ [x] Sent 'Hello...9'
+ [x] Sent 'Hello.10'</code></pre></div></div>
+<p>And the output from the workers should look something like:</p>
+<div><div><pre><code class="language-bash">Ready ... running for 10000ms
+instance 1 [x] Received 'Hello.1'
+instance 2 [x] Received 'Hello..2'
+instance 1 [x] Done in 1.001s
+instance 1 [x] Received 'Hello...3'
+instance 2 [x] Done in 2.004s
+instance 2 [x] Received 'Hello.4'
+instance 2 [x] Done in 1.0s
+instance 2 [x] Received 'Hello..5'</code></pre></div></div>
+<h3 id="message-acknowledgment">Message acknowledgment</h3>
+<p>Doing a task can take a few seconds. You may wonder what happens if
+one of the consumers starts a long task and dies with it only partly done.
+Spring AMQP by default takes a conservative approach to <a href="https://www.rabbitmq.com/docs/4.3/confirms">message acknowledgement</a>.
+If the listener throws an exception the container
+calls:</p>
+<div><div><pre><code class="language-java">channel.basicReject(deliveryTag, requeue)</code></pre></div></div>
+<p>Requeue is true by default unless you explicitly set:</p>
+<div><div><pre><code class="language-java">defaultRequeueRejected=false</code></pre></div></div>
+<p>or the listener throws an <code>AmqpRejectAndDontRequeueException</code>. This
+is typically the behavior you want from your listener. In this mode
+there is no need to worry about a forgotten acknowledgement.  After
+processing the message the listener calls:</p>
+<div><div><pre><code class="language-java">channel.basicAck()</code></pre></div></div>
+<p>Acknowledgement must be sent on the same channel the delivery
+was received on. Attempts to acknowledge using a different channel
+will result in a channel-level protocol exception. See the <a href="https://www.rabbitmq.com/docs/4.3/confirms">doc guide on confirmations</a> to learn more.
+Spring AMQP generally takes care of this but when used in combination with code
+that uses RabbitMQ Java client directly, this is something to keep in mind.</p>
+<blockquote>
+<h4 id="forgotten-acknowledgment">Forgotten acknowledgment</h4>
+<p>It's a common mistake to miss the <code>basicAck</code> and Spring AMQP
+helps to avoid this through its default configuration.
+The consequences are serious. Messages will be redelivered
+when your client quits (which may look like random redelivery), but
+RabbitMQ will eat more and more memory as it won't be able to release
+any unacked messages.</p>
+<p>In order to debug this kind of mistake you can use <code>rabbitmqctl</code>
+to print the <code>messages_unacknowledged</code> field:</p>
+<div><div><pre><code class="language-bash">sudo rabbitmqctl list_queues name messages_ready messages_unacknowledged</code></pre></div></div>
+<p>On Windows, drop the sudo:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl.bat list_queues name messages_ready messages_unacknowledged</code></pre></div></div>
+</blockquote>
+<h3 id="message-persistence">Message persistence</h3>
+<p>Messages are persistent by default with Spring AMQP. Note the queue
+the message will end up in needs to be durable as well, otherwise
+the message will not survive a broker restart as a non-durable queue does not
+itself survive a restart.</p>
+<p>To have more control over the message persistence or over aspects of outbound
+messages, you need to use <code>RabbitTemplate#convertAndSend(...)</code> methods
+that accept a <code>MessagePostProcessor</code> parameter. <code>MessagePostProcessor</code>
+provides a callback before the message is actually sent, so this
+is a good place to modify the message payload or headers.</p>
+<blockquote>
+<h4 id="note-on-message-persistence">Note on message persistence</h4>
+<p>Marking messages as persistent doesn't fully guarantee that a message
+won't be lost. Although it tells RabbitMQ to save the message to disk,
+there is still a short time window when RabbitMQ has accepted a message and
+hasn't saved it yet. Also, RabbitMQ doesn't do <code>fsync(2)</code> for every
+message -- it may be just saved to cache and not really written to the
+disk. The persistence guarantees aren't strong, but it's more than enough
+for our simple task queue. If you need a stronger guarantee then you can use
+<a href="https://www.rabbitmq.com/docs/4.3/confirms">publisher confirms</a>.</p>
+</blockquote>
+<h3 id="fair-dispatch-vs-round-robin-dispatching">Fair dispatch vs Round-robin dispatching</h3>
+<p>By default, RabbitMQ will send each message to the next consumer,
+in sequence. On average every consumer will get the same number of
+messages. This way of distributing messages is called round-robin.
+In this mode dispatching doesn't necessarily work exactly as we want.
+For example in a situation with two workers, when all
+odd messages are heavy and even messages are light, one worker will be
+constantly busy and the other one will do hardly any work. Well,
+RabbitMQ doesn't know anything about that and will still dispatch
+messages evenly.</p>
+<p>This happens because RabbitMQ just dispatches a message when the message
+enters the queue. It doesn't look at the number of unacknowledged
+messages for a consumer. It just blindly dispatches every n-th message
+to the n-th consumer.</p>
+<p>However, "Fair dispatch" is the default configuration for Spring AMQP. The
+<code>AbstractMessageListenerContainer</code> defines the value for
+<code>DEFAULT_PREFETCH_COUNT</code> to be 250.  If the <code>DEFAULT_PREFETCH_COUNT</code> were
+set to 1 the behavior would be the round robin delivery as described above.</p>
+<!-- -->
+<blockquote>
+<h4 id="note-about-prefetchcount--1">Note about <code>prefetchCount</code> = 1</h4>
+<p>In most of the cases <code>prefetchCount</code> equal to 1 would be too conservative and severely
+limit consumer throughput.
+A couple of cases where this configuration is applicable can be found in <a href="https://docs.spring.io/spring-amqp/reference/amqp/containerAttributes.html#prefetchCount">Spring AMQP Consumer Documentation</a></p>
+<p>For more details on prefetch, please refer to the <a href="https://www.rabbitmq.com/docs/4.3/confirms#channel-qos-prefetch">Consumer Acknowledgements guide</a>.</p>
+</blockquote>
+<p>However, with the <code>prefetchCount</code> set to 250 by default,
+this tells RabbitMQ not to give more than 250 messages to a worker
+at a time. Or, in other words, don't dispatch a new message to a
+worker while the number of unacked messages is 250.
+Instead, it will dispatch it to the next worker that is not still busy.</p>
+<p>Desired <code>prefetchCount</code> value can be set via
+<code>AbstractMessageListenerContainer.setPrefetchCount(int prefetchCount)</code>.</p>
+<blockquote>
+<h4 id="note-about-queue-size">Note about queue size</h4>
+<p>If all the workers are busy, your queue can fill up. You will want to keep an
+eye on that, and maybe add more workers, or have some other strategy.</p>
+</blockquote>
+<p>By using Spring AMQP you get reasonable values configured for
+message acknowledgments and fair dispatching. The default durability
+for queues and persistence for messages provided by Spring AMQP
+allow the messages to survive even if RabbitMQ is restarted.</p>
+<p>For more information on <code>Channel</code> methods and <code>MessageProperties</code>,
+you can browse the <a href="http://docs.spring.io/spring-amqp/docs/current/api/index.html?org/springframework/amqp/package-summary.html">javadocs online</a>
+For understanding the underlying foundation for Spring AMQP you can find the
+<a href="https://rabbitmq.github.io/rabbitmq-java-client/api/current/">rabbitmq-java-client</a>.</p>
+<p>Now we can move on to <a href="/tutorials/tutorial-three-spring-amqp">tutorial 3</a> and learn how
+to deliver the same message to many consumers.</p></main>

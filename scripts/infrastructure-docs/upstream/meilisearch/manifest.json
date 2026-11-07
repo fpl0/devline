@@ -1,0 +1,3451 @@
+{
+  "publisher": "Meilisearch (Meili SAS and contributors)",
+  "version": "1.56.1",
+  "provenance": "Official publisher Markdown exports at https://www.meilisearch.com/docs/ on 2026-11-07, from the MIT documentation repository https://github.com/meilisearch/documentation/tree/0ad8e464d2a469a2fc6fd53566111a0da1dc1895. The repository’s bundled OpenAPI spec identifies version 1.56.1. Devline removed the duplicated export index preface and normalized fenced-code attributes and export links. The OpenAPI material remains in the publisher's YAML representation. Devline preserved the published OpenAPI YAML as a code block with in-document field anchors, and repaired selected internal links to their corresponding published fields and headings.",
+  "license": "MIT",
+  "notices": [
+    "LICENSE"
+  ],
+  "coverage": "Self-hosting, configuration, security, troubleshooting, data backup, search and indexing capabilities, SDK quick starts, errors, and the published REST endpoint reference for the 1.56.1 OpenAPI snapshot.",
+  "omissions": "Cloud operations, Cloud analytics, Enterprise sharding guides, most older release notes, hosted assets, interactive API consoles, and complete SDK API manuals are outside this snapshot.",
+  "entry": "resources/self_hosting/getting_started/quick_start",
+  "documents": [
+    {
+      "id": "capabilities/agentic_search/advanced/chats_api",
+      "path": "capabilities/agentic_search/advanced/chats_api.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/agentic_search/advanced/chats_api",
+      "title": "Chats API",
+      "aliases": [
+        "meilisearch chats api"
+      ]
+    },
+    {
+      "id": "capabilities/agentic_search/advanced/reduce_hallucination",
+      "path": "capabilities/agentic_search/advanced/reduce_hallucination.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/agentic_search/advanced/reduce_hallucination",
+      "title": "Reduce hallucination",
+      "aliases": [
+        "meilisearch reduce hallucination"
+      ]
+    },
+    {
+      "id": "capabilities/agentic_search/getting_started",
+      "path": "capabilities/agentic_search/getting_started.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/agentic_search/getting_started",
+      "title": "Getting started with agentic search",
+      "aliases": [
+        "meilisearch getting started with agentic search"
+      ]
+    },
+    {
+      "id": "capabilities/agentic_search/how_to/configure_guardrails",
+      "path": "capabilities/agentic_search/how_to/configure_guardrails.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/agentic_search/how_to/configure_guardrails",
+      "title": "Configure guardrails",
+      "aliases": [
+        "meilisearch configure guardrails"
+      ]
+    },
+    {
+      "id": "capabilities/agentic_search/how_to/display_source_documents",
+      "path": "capabilities/agentic_search/how_to/display_source_documents.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/agentic_search/how_to/display_source_documents",
+      "title": "Display source documents",
+      "aliases": [
+        "meilisearch display source documents"
+      ]
+    },
+    {
+      "id": "capabilities/agentic_search/how_to/handle_errors_and_fallbacks",
+      "path": "capabilities/agentic_search/how_to/handle_errors_and_fallbacks.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/agentic_search/how_to/handle_errors_and_fallbacks",
+      "title": "Handle errors and fallbacks",
+      "aliases": [
+        "meilisearch handle errors and fallbacks"
+      ]
+    },
+    {
+      "id": "capabilities/agentic_search/how_to/optimize_chat_prompts",
+      "path": "capabilities/agentic_search/how_to/optimize_chat_prompts.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/agentic_search/how_to/optimize_chat_prompts",
+      "title": "Optimize chat prompts",
+      "aliases": [
+        "meilisearch optimize chat prompts"
+      ]
+    },
+    {
+      "id": "capabilities/agentic_search/overview",
+      "path": "capabilities/agentic_search/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/agentic_search/overview",
+      "title": "What is agentic search?",
+      "aliases": [
+        "meilisearch what is agentic search?"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/advanced/disjunctive_facets",
+      "path": "capabilities/filtering_sorting_faceting/advanced/disjunctive_facets.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/advanced/disjunctive_facets",
+      "title": "Build disjunctive facets",
+      "aliases": [
+        "meilisearch build disjunctive facets"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/advanced/filter_expression_syntax",
+      "path": "capabilities/filtering_sorting_faceting/advanced/filter_expression_syntax.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/advanced/filter_expression_syntax",
+      "title": "Filter expression reference",
+      "aliases": [
+        "meilisearch filter expression reference"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/advanced/filtering_by_joined_data",
+      "path": "capabilities/filtering_sorting_faceting/advanced/filtering_by_joined_data.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/advanced/filtering_by_joined_data",
+      "title": "Foreign filters",
+      "aliases": [
+        "meilisearch foreign filters"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/advanced/optimize_facet_performance",
+      "path": "capabilities/filtering_sorting_faceting/advanced/optimize_facet_performance.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/advanced/optimize_facet_performance",
+      "title": "Optimize facet performance",
+      "aliases": [
+        "meilisearch optimize facet performance"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/advanced/precise_filtering_array_items",
+      "path": "capabilities/filtering_sorting_faceting/advanced/precise_filtering_array_items.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/advanced/precise_filtering_array_items",
+      "title": "Precise filtering with array relationships",
+      "aliases": [
+        "meilisearch precise filtering with array relationships"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/getting_started",
+      "path": "capabilities/filtering_sorting_faceting/getting_started.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/getting_started",
+      "title": "Filter search results",
+      "aliases": [
+        "meilisearch filter search results"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/how_to/build_faceted_navigation",
+      "path": "capabilities/filtering_sorting_faceting/how_to/build_faceted_navigation.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/build_faceted_navigation",
+      "title": "Build faceted navigation",
+      "aliases": [
+        "meilisearch build faceted navigation"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/how_to/combine_filters_and_sort",
+      "path": "capabilities/filtering_sorting_faceting/how_to/combine_filters_and_sort.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/combine_filters_and_sort",
+      "title": "Combine filters and sort",
+      "aliases": [
+        "meilisearch combine filters and sort"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/how_to/configure_granular_filters",
+      "path": "capabilities/filtering_sorting_faceting/how_to/configure_granular_filters.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/configure_granular_filters",
+      "title": "Configure granular filterable attributes",
+      "aliases": [
+        "meilisearch configure granular filterable attributes"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/how_to/facet_search",
+      "path": "capabilities/filtering_sorting_faceting/how_to/facet_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/facet_search",
+      "title": "Search within facet values",
+      "aliases": [
+        "meilisearch search within facet values"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/how_to/filter_and_sort_by_date",
+      "path": "capabilities/filtering_sorting_faceting/how_to/filter_and_sort_by_date.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/filter_and_sort_by_date",
+      "title": "Filtering and sorting by date",
+      "aliases": [
+        "meilisearch filtering and sorting by date"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/how_to/filter_with_facets",
+      "path": "capabilities/filtering_sorting_faceting/how_to/filter_with_facets.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/filter_with_facets",
+      "title": "Search with facets",
+      "aliases": [
+        "meilisearch search with facets"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/how_to/handle_large_facet_cardinality",
+      "path": "capabilities/filtering_sorting_faceting/how_to/handle_large_facet_cardinality.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/handle_large_facet_cardinality",
+      "title": "Handle large facet cardinality",
+      "aliases": [
+        "meilisearch handle large facet cardinality"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/how_to/search_and_filter_together",
+      "path": "capabilities/filtering_sorting_faceting/how_to/search_and_filter_together.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/search_and_filter_together",
+      "title": "Search and filter together",
+      "aliases": [
+        "meilisearch search and filter together"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/how_to/sort_results",
+      "path": "capabilities/filtering_sorting_faceting/how_to/sort_results.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/sort_results",
+      "title": "Sort search results",
+      "aliases": [
+        "meilisearch sort search results"
+      ]
+    },
+    {
+      "id": "capabilities/filtering_sorting_faceting/overview",
+      "path": "capabilities/filtering_sorting_faceting/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/overview",
+      "title": "Filtering, sorting, and faceting",
+      "aliases": [
+        "meilisearch filtering, sorting, and faceting"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/advanced/debug_search_performance",
+      "path": "capabilities/full_text_search/advanced/debug_search_performance.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/advanced/debug_search_performance",
+      "title": "Debug search performance",
+      "aliases": [
+        "meilisearch debug search performance"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/advanced/performance_tuning",
+      "path": "capabilities/full_text_search/advanced/performance_tuning.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/advanced/performance_tuning",
+      "title": "Performance tuning",
+      "aliases": [
+        "meilisearch performance tuning"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/advanced/ranking_pipeline",
+      "path": "capabilities/full_text_search/advanced/ranking_pipeline.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/advanced/ranking_pipeline",
+      "title": "Ranking pipeline",
+      "aliases": [
+        "meilisearch ranking pipeline"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/getting_started/basic_search",
+      "path": "capabilities/full_text_search/getting_started/basic_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/getting_started/basic_search",
+      "title": "Your first search",
+      "aliases": [
+        "meilisearch your first search"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/getting_started/phrase_search",
+      "path": "capabilities/full_text_search/getting_started/phrase_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/getting_started/phrase_search",
+      "title": "Phrase search",
+      "aliases": [
+        "meilisearch phrase search"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/getting_started/placeholder_search",
+      "path": "capabilities/full_text_search/getting_started/placeholder_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/getting_started/placeholder_search",
+      "title": "Placeholder search",
+      "aliases": [
+        "meilisearch placeholder search"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/getting_started/search_with_snippets",
+      "path": "capabilities/full_text_search/getting_started/search_with_snippets.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/getting_started/search_with_snippets",
+      "title": "Search with snippets",
+      "aliases": [
+        "meilisearch search with snippets"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/configure_dictionary",
+      "path": "capabilities/full_text_search/how_to/configure_dictionary.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_dictionary",
+      "title": "Configure a custom dictionary",
+      "aliases": [
+        "meilisearch configure a custom dictionary"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/configure_displayed_attributes",
+      "path": "capabilities/full_text_search/how_to/configure_displayed_attributes.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_displayed_attributes",
+      "title": "Configure displayed attributes",
+      "aliases": [
+        "meilisearch configure displayed attributes"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/configure_distinct_attribute",
+      "path": "capabilities/full_text_search/how_to/configure_distinct_attribute.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_distinct_attribute",
+      "title": "Configure distinct attribute",
+      "aliases": [
+        "meilisearch configure distinct attribute"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/configure_prefix_search",
+      "path": "capabilities/full_text_search/how_to/configure_prefix_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_prefix_search",
+      "title": "Configure prefix search",
+      "aliases": [
+        "meilisearch configure prefix search"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/configure_search_cutoff",
+      "path": "capabilities/full_text_search/how_to/configure_search_cutoff.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_search_cutoff",
+      "title": "Configure search cutoff",
+      "aliases": [
+        "meilisearch configure search cutoff"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/configure_searchable_attributes",
+      "path": "capabilities/full_text_search/how_to/configure_searchable_attributes.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_searchable_attributes",
+      "title": "Configure searchable attributes",
+      "aliases": [
+        "meilisearch configure searchable attributes"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/configure_stop_words",
+      "path": "capabilities/full_text_search/how_to/configure_stop_words.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_stop_words",
+      "title": "Configure stop words",
+      "aliases": [
+        "meilisearch configure stop words"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/highlight_search_results",
+      "path": "capabilities/full_text_search/how_to/highlight_search_results.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/highlight_search_results",
+      "title": "Highlight search results",
+      "aliases": [
+        "meilisearch highlight search results"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/paginate_search_results",
+      "path": "capabilities/full_text_search/how_to/paginate_search_results.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/paginate_search_results",
+      "title": "Paginate search results",
+      "aliases": [
+        "meilisearch paginate search results"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/how_to/use_matching_strategy",
+      "path": "capabilities/full_text_search/how_to/use_matching_strategy.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/use_matching_strategy",
+      "title": "Use matching strategy",
+      "aliases": [
+        "meilisearch use matching strategy"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/overview",
+      "path": "capabilities/full_text_search/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/overview",
+      "title": "Full-text search",
+      "aliases": [
+        "meilisearch full-text search"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/relevancy/attribute_ranking_order",
+      "path": "capabilities/full_text_search/relevancy/attribute_ranking_order.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/relevancy/attribute_ranking_order",
+      "title": "Attribute ranking order",
+      "aliases": [
+        "meilisearch attribute ranking order"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/relevancy/custom_ranking_rules",
+      "path": "capabilities/full_text_search/relevancy/custom_ranking_rules.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/relevancy/custom_ranking_rules",
+      "title": "Custom ranking rules",
+      "aliases": [
+        "meilisearch custom ranking rules"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/relevancy/ranking_rules",
+      "path": "capabilities/full_text_search/relevancy/ranking_rules.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/relevancy/ranking_rules",
+      "title": "Built-in ranking rules",
+      "aliases": [
+        "meilisearch built-in ranking rules"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/relevancy/ranking_score",
+      "path": "capabilities/full_text_search/relevancy/ranking_score.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/relevancy/ranking_score",
+      "title": "Ranking score",
+      "aliases": [
+        "meilisearch ranking score"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/relevancy/relevancy",
+      "path": "capabilities/full_text_search/relevancy/relevancy.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/relevancy/relevancy",
+      "title": "Relevancy",
+      "aliases": [
+        "meilisearch relevancy"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/relevancy/synonyms",
+      "path": "capabilities/full_text_search/relevancy/synonyms.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/relevancy/synonyms",
+      "title": "Synonyms",
+      "aliases": [
+        "meilisearch synonyms"
+      ]
+    },
+    {
+      "id": "capabilities/full_text_search/relevancy/typo_tolerance_settings",
+      "path": "capabilities/full_text_search/relevancy/typo_tolerance_settings.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/full_text_search/relevancy/typo_tolerance_settings",
+      "title": "Typo tolerance",
+      "aliases": [
+        "meilisearch typo tolerance"
+      ]
+    },
+    {
+      "id": "capabilities/geo_search/getting_started",
+      "path": "capabilities/geo_search/getting_started.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/geo_search/getting_started",
+      "title": "Geosearch",
+      "aliases": [
+        "meilisearch geosearch"
+      ]
+    },
+    {
+      "id": "capabilities/geo_search/how_to/filter_by_geo_bounding_box",
+      "path": "capabilities/geo_search/how_to/filter_by_geo_bounding_box.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/geo_search/how_to/filter_by_geo_bounding_box",
+      "title": "Filter by geo bounding box",
+      "aliases": [
+        "meilisearch filter by geo bounding box"
+      ]
+    },
+    {
+      "id": "capabilities/geo_search/how_to/filter_by_geo_polygon",
+      "path": "capabilities/geo_search/how_to/filter_by_geo_polygon.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/geo_search/how_to/filter_by_geo_polygon",
+      "title": "Filter by geo polygon",
+      "aliases": [
+        "meilisearch filter by geo polygon"
+      ]
+    },
+    {
+      "id": "capabilities/geo_search/how_to/filter_by_geo_radius",
+      "path": "capabilities/geo_search/how_to/filter_by_geo_radius.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/geo_search/how_to/filter_by_geo_radius",
+      "title": "Filter by geo radius",
+      "aliases": [
+        "meilisearch filter by geo radius"
+      ]
+    },
+    {
+      "id": "capabilities/geo_search/how_to/sort_by_geo_point",
+      "path": "capabilities/geo_search/how_to/sort_by_geo_point.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/geo_search/how_to/sort_by_geo_point",
+      "title": "Sort by geo point",
+      "aliases": [
+        "meilisearch sort by geo point"
+      ]
+    },
+    {
+      "id": "capabilities/geo_search/how_to/use_geojson_format",
+      "path": "capabilities/geo_search/how_to/use_geojson_format.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/geo_search/how_to/use_geojson_format",
+      "title": "Use GeoJSON format",
+      "aliases": [
+        "meilisearch use geojson format"
+      ]
+    },
+    {
+      "id": "capabilities/geo_search/overview",
+      "path": "capabilities/geo_search/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/geo_search/overview",
+      "title": "Geo search",
+      "aliases": [
+        "meilisearch geo search"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/advanced/binary_quantization",
+      "path": "capabilities/hybrid_search/advanced/binary_quantization.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/binary_quantization",
+      "title": "Binary quantization",
+      "aliases": [
+        "meilisearch binary quantization"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/advanced/composite_embedders",
+      "path": "capabilities/hybrid_search/advanced/composite_embedders.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/composite_embedders",
+      "title": "Composite embedders",
+      "aliases": [
+        "meilisearch composite embedders"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/advanced/custom_hybrid_ranking",
+      "path": "capabilities/hybrid_search/advanced/custom_hybrid_ranking.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/custom_hybrid_ranking",
+      "title": "Custom hybrid ranking",
+      "aliases": [
+        "meilisearch custom hybrid ranking"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/advanced/document_template_best_practices",
+      "path": "capabilities/hybrid_search/advanced/document_template_best_practices.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/document_template_best_practices",
+      "title": "Document template best practices",
+      "aliases": [
+        "meilisearch document template best practices"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/advanced/multiple_embedders",
+      "path": "capabilities/hybrid_search/advanced/multiple_embedders.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/multiple_embedders",
+      "title": "Multiple embedders",
+      "aliases": [
+        "meilisearch multiple embedders"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/advanced/semantic_vs_hybrid",
+      "path": "capabilities/hybrid_search/advanced/semantic_vs_hybrid.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/semantic_vs_hybrid",
+      "title": "Semantic vs hybrid search",
+      "aliases": [
+        "meilisearch semantic vs hybrid search"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/advanced/tune_distribution",
+      "path": "capabilities/hybrid_search/advanced/tune_distribution.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/tune_distribution",
+      "title": "Tune the `distribution` of semantic scores",
+      "aliases": [
+        "meilisearch tune the `distribution` of semantic scores"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/getting_started",
+      "path": "capabilities/hybrid_search/getting_started.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/getting_started",
+      "title": "Getting started with AI-powered search",
+      "aliases": [
+        "meilisearch getting started with ai-powered search"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/how_to/choose_an_embedder",
+      "path": "capabilities/hybrid_search/how_to/choose_an_embedder.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/choose_an_embedder",
+      "title": "Which embedder should I choose?",
+      "aliases": [
+        "meilisearch which embedder should i choose?"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/how_to/configure_cohere_embedder",
+      "path": "capabilities/hybrid_search/how_to/configure_cohere_embedder.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_cohere_embedder",
+      "title": "Configure Cohere embedder",
+      "aliases": [
+        "meilisearch configure cohere embedder"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/how_to/configure_huggingface_embedder",
+      "path": "capabilities/hybrid_search/how_to/configure_huggingface_embedder.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_huggingface_embedder",
+      "title": "Configure HuggingFace embedder",
+      "aliases": [
+        "meilisearch configure huggingface embedder"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/how_to/configure_openai_embedder",
+      "path": "capabilities/hybrid_search/how_to/configure_openai_embedder.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_openai_embedder",
+      "title": "Configure OpenAI embedder",
+      "aliases": [
+        "meilisearch configure openai embedder"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/how_to/configure_rest_embedder",
+      "path": "capabilities/hybrid_search/how_to/configure_rest_embedder.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_rest_embedder",
+      "title": "Configure a REST embedder",
+      "aliases": [
+        "meilisearch configure a rest embedder"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/how_to/image_search_with_multimodal",
+      "path": "capabilities/hybrid_search/how_to/image_search_with_multimodal.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/image_search_with_multimodal",
+      "title": "Image search with multimodal embeddings",
+      "aliases": [
+        "meilisearch image search with multimodal embeddings"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/how_to/image_search_with_user_embeddings",
+      "path": "capabilities/hybrid_search/how_to/image_search_with_user_embeddings.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/image_search_with_user_embeddings",
+      "title": "Image search with user-provided embeddings",
+      "aliases": [
+        "meilisearch image search with user-provided embeddings"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/how_to/search_with_user_provided_embeddings",
+      "path": "capabilities/hybrid_search/how_to/search_with_user_provided_embeddings.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/search_with_user_provided_embeddings",
+      "title": "Use AI-powered search with user-provided embeddings",
+      "aliases": [
+        "meilisearch use ai-powered search with user-provided embeddings"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/overview",
+      "path": "capabilities/hybrid_search/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/overview",
+      "title": "Hybrid and semantic search",
+      "aliases": [
+        "meilisearch hybrid and semantic search"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/providers/bedrock",
+      "path": "capabilities/hybrid_search/providers/bedrock.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/providers/bedrock",
+      "title": "Semantic Search with AWS Bedrock Embeddings",
+      "aliases": [
+        "meilisearch semantic search with aws bedrock embeddings"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/providers/cloudflare",
+      "path": "capabilities/hybrid_search/providers/cloudflare.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/providers/cloudflare",
+      "title": "Semantic Search with Cloudflare Workers AI Embeddings",
+      "aliases": [
+        "meilisearch semantic search with cloudflare workers ai embeddings"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/providers/gemini",
+      "path": "capabilities/hybrid_search/providers/gemini.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/providers/gemini",
+      "title": "Semantic Search with Gemini Embeddings",
+      "aliases": [
+        "meilisearch semantic search with gemini embeddings"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/providers/huggingface",
+      "path": "capabilities/hybrid_search/providers/huggingface.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/providers/huggingface",
+      "title": "Semantic Search with Hugging Face Inference Endpoints",
+      "aliases": [
+        "meilisearch semantic search with hugging face inference endpoints"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/providers/jina",
+      "path": "capabilities/hybrid_search/providers/jina.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/providers/jina",
+      "title": "Semantic Search with Jina Embeddings",
+      "aliases": [
+        "meilisearch semantic search with jina embeddings"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/providers/mistral",
+      "path": "capabilities/hybrid_search/providers/mistral.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/providers/mistral",
+      "title": "Semantic Search with Mistral Embeddings",
+      "aliases": [
+        "meilisearch semantic search with mistral embeddings"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/providers/twelvelabs",
+      "path": "capabilities/hybrid_search/providers/twelvelabs.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/providers/twelvelabs",
+      "title": "Multimodal search with TwelveLabs Marengo",
+      "aliases": [
+        "meilisearch multimodal search with twelvelabs marengo"
+      ]
+    },
+    {
+      "id": "capabilities/hybrid_search/providers/voyage",
+      "path": "capabilities/hybrid_search/providers/voyage.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/hybrid_search/providers/voyage",
+      "title": "Semantic Search with Voyage AI Embeddings",
+      "aliases": [
+        "meilisearch semantic search with voyage ai embeddings"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/advanced/indexing_best_practices",
+      "path": "capabilities/indexing/advanced/indexing_best_practices.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/advanced/indexing_best_practices",
+      "title": "Indexing best practices",
+      "aliases": [
+        "meilisearch indexing best practices"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/advanced/tokenization",
+      "path": "capabilities/indexing/advanced/tokenization.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/advanced/tokenization",
+      "title": "Tokenization",
+      "aliases": [
+        "meilisearch tokenization"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/getting_started",
+      "path": "capabilities/indexing/getting_started.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/getting_started",
+      "title": "Getting started with indexing",
+      "aliases": [
+        "meilisearch getting started with indexing"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/how_to/add_and_update_documents",
+      "path": "capabilities/indexing/how_to/add_and_update_documents.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/how_to/add_and_update_documents",
+      "title": "Add and update documents",
+      "aliases": [
+        "meilisearch add and update documents"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/how_to/compact_an_index",
+      "path": "capabilities/indexing/how_to/compact_an_index.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/how_to/compact_an_index",
+      "title": "Compact an index",
+      "aliases": [
+        "meilisearch compact an index"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/how_to/delete_documents_at_scale",
+      "path": "capabilities/indexing/how_to/delete_documents_at_scale.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/how_to/delete_documents_at_scale",
+      "title": "Delete documents at scale",
+      "aliases": [
+        "meilisearch delete documents at scale"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/how_to/design_primary_keys",
+      "path": "capabilities/indexing/how_to/design_primary_keys.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/how_to/design_primary_keys",
+      "title": "Design primary keys",
+      "aliases": [
+        "meilisearch design primary keys"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/how_to/document_relations",
+      "path": "capabilities/indexing/how_to/document_relations.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/how_to/document_relations",
+      "title": "Document relations",
+      "aliases": [
+        "meilisearch document relations"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/how_to/edit_documents_with_functions",
+      "path": "capabilities/indexing/how_to/edit_documents_with_functions.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/how_to/edit_documents_with_functions",
+      "title": "Edit documents with functions",
+      "aliases": [
+        "meilisearch edit documents with functions"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/how_to/export_data",
+      "path": "capabilities/indexing/how_to/export_data.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/how_to/export_data",
+      "title": "Export data to another instance",
+      "aliases": [
+        "meilisearch export data to another instance"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/how_to/handle_multilingual_data",
+      "path": "capabilities/indexing/how_to/handle_multilingual_data.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/how_to/handle_multilingual_data",
+      "title": "Handling multilingual datasets",
+      "aliases": [
+        "meilisearch handling multilingual datasets"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/how_to/import_large_datasets",
+      "path": "capabilities/indexing/how_to/import_large_datasets.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/how_to/import_large_datasets",
+      "title": "Import large datasets",
+      "aliases": [
+        "meilisearch import large datasets"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/joins/define_index_relationships",
+      "path": "capabilities/indexing/joins/define_index_relationships.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/joins/define_index_relationships",
+      "title": "Define index relationships",
+      "aliases": [
+        "meilisearch define index relationships"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/overview",
+      "path": "capabilities/indexing/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/overview",
+      "title": "Indexing",
+      "aliases": [
+        "meilisearch indexing"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/tasks_and_batches/async_operations",
+      "path": "capabilities/indexing/tasks_and_batches/async_operations.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/tasks_and_batches/async_operations",
+      "title": "Tasks and asynchronous operations",
+      "aliases": [
+        "meilisearch tasks and asynchronous operations"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/tasks_and_batches/filter_tasks",
+      "path": "capabilities/indexing/tasks_and_batches/filter_tasks.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/tasks_and_batches/filter_tasks",
+      "title": "Filtering tasks",
+      "aliases": [
+        "meilisearch filtering tasks"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/tasks_and_batches/manage_task_database",
+      "path": "capabilities/indexing/tasks_and_batches/manage_task_database.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/tasks_and_batches/manage_task_database",
+      "title": "Managing the task database",
+      "aliases": [
+        "meilisearch managing the task database"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/tasks_and_batches/monitor_tasks",
+      "path": "capabilities/indexing/tasks_and_batches/monitor_tasks.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/tasks_and_batches/monitor_tasks",
+      "title": "Working with tasks",
+      "aliases": [
+        "meilisearch working with tasks"
+      ]
+    },
+    {
+      "id": "capabilities/indexing/tasks_and_batches/optimize_batch_performance",
+      "path": "capabilities/indexing/tasks_and_batches/optimize_batch_performance.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/indexing/tasks_and_batches/optimize_batch_performance",
+      "title": "Optimize indexing performance with batch statistics",
+      "aliases": [
+        "meilisearch optimize indexing performance with batch statistics"
+      ]
+    },
+    {
+      "id": "capabilities/multi_search/getting_started/federated_search",
+      "path": "capabilities/multi_search/getting_started/federated_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/multi_search/getting_started/federated_search",
+      "title": "Federated search",
+      "aliases": [
+        "meilisearch federated search"
+      ]
+    },
+    {
+      "id": "capabilities/multi_search/getting_started/multi_search",
+      "path": "capabilities/multi_search/getting_started/multi_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/multi_search/getting_started/multi_search",
+      "title": "Multi-index search",
+      "aliases": [
+        "meilisearch multi-index search"
+      ]
+    },
+    {
+      "id": "capabilities/multi_search/how_to/boost_results_across_indexes",
+      "path": "capabilities/multi_search/how_to/boost_results_across_indexes.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/multi_search/how_to/boost_results_across_indexes",
+      "title": "Boost results across indexes",
+      "aliases": [
+        "meilisearch boost results across indexes"
+      ]
+    },
+    {
+      "id": "capabilities/multi_search/how_to/build_unified_search_bar",
+      "path": "capabilities/multi_search/how_to/build_unified_search_bar.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/multi_search/how_to/build_unified_search_bar",
+      "title": "Build a unified search bar",
+      "aliases": [
+        "meilisearch build a unified search bar"
+      ]
+    },
+    {
+      "id": "capabilities/multi_search/how_to/combine_text_and_image_search",
+      "path": "capabilities/multi_search/how_to/combine_text_and_image_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/multi_search/how_to/combine_text_and_image_search",
+      "title": "Combine text and image search",
+      "aliases": [
+        "meilisearch combine text and image search"
+      ]
+    },
+    {
+      "id": "capabilities/multi_search/how_to/search_with_different_filters",
+      "path": "capabilities/multi_search/how_to/search_with_different_filters.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/multi_search/how_to/search_with_different_filters",
+      "title": "Search with different filters per index",
+      "aliases": [
+        "meilisearch search with different filters per index"
+      ]
+    },
+    {
+      "id": "capabilities/multi_search/overview",
+      "path": "capabilities/multi_search/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/multi_search/overview",
+      "title": "Multi-search",
+      "aliases": [
+        "meilisearch multi-search"
+      ]
+    },
+    {
+      "id": "capabilities/overview",
+      "path": "capabilities/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/overview",
+      "title": "Capabilities overview",
+      "aliases": [
+        "meilisearch capabilities overview"
+      ]
+    },
+    {
+      "id": "capabilities/personalization/getting_started/personalized_search",
+      "path": "capabilities/personalization/getting_started/personalized_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/personalization/getting_started/personalized_search",
+      "title": "Performing personalized search queries",
+      "aliases": [
+        "meilisearch performing personalized search queries"
+      ]
+    },
+    {
+      "id": "capabilities/personalization/getting_started/recommendations",
+      "path": "capabilities/personalization/getting_started/recommendations.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/personalization/getting_started/recommendations",
+      "title": "Building recommendations with similar documents",
+      "aliases": [
+        "meilisearch building recommendations with similar documents"
+      ]
+    },
+    {
+      "id": "capabilities/personalization/how_to/generate_user_context",
+      "path": "capabilities/personalization/how_to/generate_user_context.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/personalization/how_to/generate_user_context",
+      "title": "Generate user context",
+      "aliases": [
+        "meilisearch generate user context"
+      ]
+    },
+    {
+      "id": "capabilities/personalization/how_to/personalize_ecommerce_search",
+      "path": "capabilities/personalization/how_to/personalize_ecommerce_search.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/personalization/how_to/personalize_ecommerce_search",
+      "title": "Personalize ecommerce search",
+      "aliases": [
+        "meilisearch personalize ecommerce search"
+      ]
+    },
+    {
+      "id": "capabilities/personalization/overview",
+      "path": "capabilities/personalization/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/personalization/overview",
+      "title": "Personalization and recommendations",
+      "aliases": [
+        "meilisearch personalization and recommendations"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/advanced/how_search_rules_work",
+      "path": "capabilities/search_rules/advanced/how_search_rules_work.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/advanced/how_search_rules_work",
+      "title": "How search rules work",
+      "aliases": [
+        "meilisearch how search rules work"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/advanced/specific_behaviors",
+      "path": "capabilities/search_rules/advanced/specific_behaviors.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/advanced/specific_behaviors",
+      "title": "Specific behaviors",
+      "aliases": [
+        "meilisearch specific behaviors"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/create_your_first_rule",
+      "path": "capabilities/search_rules/create_your_first_rule.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/create_your_first_rule",
+      "title": "Create your first rule",
+      "aliases": [
+        "meilisearch create your first rule"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/how_to/boost_documents",
+      "path": "capabilities/search_rules/how_to/boost_documents.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/how_to/boost_documents",
+      "title": "Boost documents during a campaign",
+      "aliases": [
+        "meilisearch boost documents during a campaign"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/how_to/deboost_documents",
+      "path": "capabilities/search_rules/how_to/deboost_documents.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/how_to/deboost_documents",
+      "title": "Deboost documents",
+      "aliases": [
+        "meilisearch deboost documents"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/how_to/hide_documents",
+      "path": "capabilities/search_rules/how_to/hide_documents.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/how_to/hide_documents",
+      "title": "Hide documents from search results",
+      "aliases": [
+        "meilisearch hide documents from search results"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/how_to/list_and_filter_rules",
+      "path": "capabilities/search_rules/how_to/list_and_filter_rules.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/how_to/list_and_filter_rules",
+      "title": "List or filter existing rules",
+      "aliases": [
+        "meilisearch list or filter existing rules"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/how_to/pause_a_rule",
+      "path": "capabilities/search_rules/how_to/pause_a_rule.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/how_to/pause_a_rule",
+      "title": "Pause a rule without deleting it",
+      "aliases": [
+        "meilisearch pause a rule without deleting it"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/how_to/pin_multiple_results",
+      "path": "capabilities/search_rules/how_to/pin_multiple_results.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/how_to/pin_multiple_results",
+      "title": "Pin several documents for a query",
+      "aliases": [
+        "meilisearch pin several documents for a query"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/overview",
+      "path": "capabilities/search_rules/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/overview",
+      "title": "Search rules",
+      "aliases": [
+        "meilisearch search rules"
+      ]
+    },
+    {
+      "id": "capabilities/search_rules/pricing",
+      "path": "capabilities/search_rules/pricing.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/search_rules/pricing",
+      "title": "Search rules pricing",
+      "aliases": [
+        "meilisearch search rules pricing"
+      ]
+    },
+    {
+      "id": "capabilities/security/advanced/rbac_with_joins",
+      "path": "capabilities/security/advanced/rbac_with_joins.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/security/advanced/rbac_with_joins",
+      "title": "Role-based access control with joins",
+      "aliases": [
+        "meilisearch role-based access control with joins"
+      ]
+    },
+    {
+      "id": "capabilities/security/advanced/tenant_token_payload",
+      "path": "capabilities/security/advanced/tenant_token_payload.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/security/advanced/tenant_token_payload",
+      "title": "Tenant token payload reference",
+      "aliases": [
+        "meilisearch tenant token payload reference"
+      ]
+    },
+    {
+      "id": "capabilities/security/getting_started",
+      "path": "capabilities/security/getting_started.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/security/getting_started",
+      "title": "Multitenancy and tenant tokens",
+      "aliases": [
+        "meilisearch multitenancy and tenant tokens"
+      ]
+    },
+    {
+      "id": "capabilities/security/how_to/generate_token_from_scratch",
+      "path": "capabilities/security/how_to/generate_token_from_scratch.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/security/how_to/generate_token_from_scratch",
+      "title": "Generate a tenant token without a library",
+      "aliases": [
+        "meilisearch generate a tenant token without a library"
+      ]
+    },
+    {
+      "id": "capabilities/security/how_to/generate_token_third_party",
+      "path": "capabilities/security/how_to/generate_token_third_party.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/security/how_to/generate_token_third_party",
+      "title": "Generate tenant tokens without a Meilisearch SDK",
+      "aliases": [
+        "meilisearch generate tenant tokens without a meilisearch sdk"
+      ]
+    },
+    {
+      "id": "capabilities/security/how_to/manage_api_keys",
+      "path": "capabilities/security/how_to/manage_api_keys.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/security/how_to/manage_api_keys",
+      "title": "Manage API keys",
+      "aliases": [
+        "meilisearch manage api keys"
+      ]
+    },
+    {
+      "id": "capabilities/security/overview",
+      "path": "capabilities/security/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/capabilities/security/overview",
+      "title": "Security and tenant tokens",
+      "aliases": [
+        "meilisearch security and tenant tokens"
+      ]
+    },
+    {
+      "id": "changelog/v1.56",
+      "path": "changelog/v1.56.md",
+      "source_url": "https://www.meilisearch.com/docs/changelog/v1.56",
+      "title": "Meilisearch v1.56 release notes",
+      "aliases": [
+        "meilisearch meilisearch v1.56 release notes"
+      ]
+    },
+    {
+      "id": "getting_started/features",
+      "path": "getting_started/features.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/features",
+      "title": "Features",
+      "aliases": [
+        "meilisearch features"
+      ]
+    },
+    {
+      "id": "getting_started/frameworks/laravel",
+      "path": "getting_started/frameworks/laravel.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/frameworks/laravel",
+      "title": "Laravel Scout guide",
+      "aliases": [
+        "meilisearch laravel scout guide"
+      ]
+    },
+    {
+      "id": "getting_started/frameworks/rails",
+      "path": "getting_started/frameworks/rails.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/frameworks/rails",
+      "title": "Ruby on Rails quick start",
+      "aliases": [
+        "meilisearch ruby on rails quick start"
+      ]
+    },
+    {
+      "id": "getting_started/frameworks/strapi",
+      "path": "getting_started/frameworks/strapi.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/frameworks/strapi",
+      "title": "Strapi v4 guide",
+      "aliases": [
+        "meilisearch strapi v4 guide"
+      ]
+    },
+    {
+      "id": "getting_started/frameworks/symfony",
+      "path": "getting_started/frameworks/symfony.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/frameworks/symfony",
+      "title": "Symfony",
+      "aliases": [
+        "meilisearch symfony"
+      ]
+    },
+    {
+      "id": "getting_started/glossary",
+      "path": "getting_started/glossary.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/glossary",
+      "title": "Glossary",
+      "aliases": [
+        "meilisearch glossary"
+      ]
+    },
+    {
+      "id": "getting_started/good_practices",
+      "path": "getting_started/good_practices.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/good_practices",
+      "title": "Good practices",
+      "aliases": [
+        "meilisearch good practices"
+      ]
+    },
+    {
+      "id": "getting_started/instant_meilisearch/docsearch",
+      "path": "getting_started/instant_meilisearch/docsearch.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/instant_meilisearch/docsearch",
+      "title": "Integrate a relevant search bar to your documentation",
+      "aliases": [
+        "meilisearch integrate a relevant search bar to your documentation"
+      ]
+    },
+    {
+      "id": "getting_started/instant_meilisearch/javascript",
+      "path": "getting_started/instant_meilisearch/javascript.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/instant_meilisearch/javascript",
+      "title": "Instant-meilisearch",
+      "aliases": [
+        "meilisearch instant-meilisearch"
+      ]
+    },
+    {
+      "id": "getting_started/instant_meilisearch/react",
+      "path": "getting_started/instant_meilisearch/react.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/instant_meilisearch/react",
+      "title": "React quick start",
+      "aliases": [
+        "meilisearch react quick start"
+      ]
+    },
+    {
+      "id": "getting_started/instant_meilisearch/vue",
+      "path": "getting_started/instant_meilisearch/vue.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/instant_meilisearch/vue",
+      "title": "Vue quick start",
+      "aliases": [
+        "meilisearch vue quick start"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/ai_sdk",
+      "path": "getting_started/integrations/ai_sdk.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/ai_sdk",
+      "title": "AI SDK",
+      "aliases": [
+        "meilisearch ai sdk"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/firebase",
+      "path": "getting_started/integrations/firebase.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/firebase",
+      "title": "Firebase",
+      "aliases": [
+        "meilisearch firebase"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/amazon_s3",
+      "path": "getting_started/integrations/kestra/amazon_s3.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/amazon_s3",
+      "title": "Connect Amazon S3 to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch connect amazon s3 to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/elasticsearch",
+      "path": "getting_started/integrations/kestra/elasticsearch.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/elasticsearch",
+      "title": "Migrate Elasticsearch to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch migrate elasticsearch to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/kafka",
+      "path": "getting_started/integrations/kestra/kafka.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/kafka",
+      "title": "Connect Kafka to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch connect kafka to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/mongodb",
+      "path": "getting_started/integrations/kestra/mongodb.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/mongodb",
+      "title": "Connect MongoDB to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch connect mongodb to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/opensearch",
+      "path": "getting_started/integrations/kestra/opensearch.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/opensearch",
+      "title": "Migrate OpenSearch to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch migrate opensearch to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/overview",
+      "path": "getting_started/integrations/kestra/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/overview",
+      "title": "Sync data to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch sync data to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/postgresql",
+      "path": "getting_started/integrations/kestra/postgresql.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/postgresql",
+      "title": "Connect PostgreSQL to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch connect postgresql to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/rabbitmq",
+      "path": "getting_started/integrations/kestra/rabbitmq.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/rabbitmq",
+      "title": "Connect RabbitMQ to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch connect rabbitmq to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/rest_api",
+      "path": "getting_started/integrations/kestra/rest_api.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/rest_api",
+      "title": "Connect a REST API to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch connect a rest api to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/kestra/shopify",
+      "path": "getting_started/integrations/kestra/shopify.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/kestra/shopify",
+      "title": "Connect Shopify to Meilisearch with Kestra",
+      "aliases": [
+        "meilisearch connect shopify to meilisearch with kestra"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/langchain",
+      "path": "getting_started/integrations/langchain.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/langchain",
+      "title": "LangChain integration",
+      "aliases": [
+        "meilisearch langchain integration"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/mcp",
+      "path": "getting_started/integrations/mcp.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/mcp",
+      "title": "Model Context Protocol (MCP)",
+      "aliases": [
+        "meilisearch model context protocol (mcp)"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/meilisearch_importer",
+      "path": "getting_started/integrations/meilisearch_importer.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/meilisearch_importer",
+      "title": "Meilisearch Importer",
+      "aliases": [
+        "meilisearch meilisearch importer"
+      ]
+    },
+    {
+      "id": "getting_started/integrations/postman",
+      "path": "getting_started/integrations/postman.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/integrations/postman",
+      "title": "Postman collection for Meilisearch",
+      "aliases": [
+        "meilisearch postman collection for meilisearch"
+      ]
+    },
+    {
+      "id": "getting_started/overview",
+      "path": "getting_started/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/overview",
+      "title": "Welcome to Meilisearch",
+      "aliases": [
+        "meilisearch welcome to meilisearch"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/dart",
+      "path": "getting_started/sdks/dart.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/dart",
+      "title": "Dart quick start",
+      "aliases": [
+        "meilisearch dart quick start"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/dotnet",
+      "path": "getting_started/sdks/dotnet.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/dotnet",
+      "title": ".NET quick start",
+      "aliases": [
+        "meilisearch .net quick start"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/go",
+      "path": "getting_started/sdks/go.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/go",
+      "title": "Go quick start",
+      "aliases": [
+        "meilisearch go quick start"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/java",
+      "path": "getting_started/sdks/java.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/java",
+      "title": "Java quick start",
+      "aliases": [
+        "meilisearch java quick start"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/javascript",
+      "path": "getting_started/sdks/javascript.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/javascript",
+      "title": "JavaScript quick start",
+      "aliases": [
+        "meilisearch javascript quick start"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/php",
+      "path": "getting_started/sdks/php.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/php",
+      "title": "PHP quick start",
+      "aliases": [
+        "meilisearch php quick start"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/python",
+      "path": "getting_started/sdks/python.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/python",
+      "title": "Python quick start",
+      "aliases": [
+        "meilisearch python quick start"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/ruby",
+      "path": "getting_started/sdks/ruby.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/ruby",
+      "title": "Ruby quick start",
+      "aliases": [
+        "meilisearch ruby quick start"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/rust",
+      "path": "getting_started/sdks/rust.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/rust",
+      "title": "Rust quick start",
+      "aliases": [
+        "meilisearch rust quick start"
+      ]
+    },
+    {
+      "id": "getting_started/sdks/swift",
+      "path": "getting_started/sdks/swift.md",
+      "source_url": "https://www.meilisearch.com/docs/getting_started/sdks/swift",
+      "title": "Swift quick start",
+      "aliases": [
+        "meilisearch swift quick start"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/cancel-tasks",
+      "path": "reference/api/async-task-management/cancel-tasks.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/cancel-tasks",
+      "title": "Cancel tasks",
+      "aliases": [
+        "meilisearch cancel tasks",
+        "POST /tasks/cancel"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/compact-task-queue",
+      "path": "reference/api/async-task-management/compact-task-queue.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/compact-task-queue",
+      "title": "Compact task queue",
+      "aliases": [
+        "meilisearch compact task queue",
+        "POST /tasks/compact"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/delete-tasks",
+      "path": "reference/api/async-task-management/delete-tasks.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/delete-tasks",
+      "title": "Delete tasks",
+      "aliases": [
+        "meilisearch delete tasks",
+        "DELETE /tasks"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/get-batch",
+      "path": "reference/api/async-task-management/get-batch.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/get-batch",
+      "title": "Get batch",
+      "aliases": [
+        "meilisearch get batch",
+        "GET /batches/{batch_id}"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/get-task",
+      "path": "reference/api/async-task-management/get-task.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/get-task",
+      "title": "Get task",
+      "aliases": [
+        "meilisearch get task",
+        "GET /tasks/{task_id}"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/get-tasks-document-payload",
+      "path": "reference/api/async-task-management/get-tasks-document-payload.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/get-tasks-document-payload",
+      "title": "Get task's document payload",
+      "aliases": [
+        "meilisearch get task's document payload",
+        "GET /tasks/{task_id}/documents"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/list-batches",
+      "path": "reference/api/async-task-management/list-batches.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/list-batches",
+      "title": "List batches",
+      "aliases": [
+        "meilisearch list batches",
+        "GET /batches"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/list-tasks",
+      "path": "reference/api/async-task-management/list-tasks.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/list-tasks",
+      "title": "List tasks",
+      "aliases": [
+        "meilisearch list tasks",
+        "GET /tasks"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/stream-batches-changes",
+      "path": "reference/api/async-task-management/stream-batches-changes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/stream-batches-changes",
+      "title": "Stream batches changes",
+      "aliases": [
+        "meilisearch stream batches changes",
+        "GET /batches/stream"
+      ]
+    },
+    {
+      "id": "reference/api/async-task-management/stream-tasks-changes",
+      "path": "reference/api/async-task-management/stream-tasks-changes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/async-task-management/stream-tasks-changes",
+      "title": "Stream tasks changes",
+      "aliases": [
+        "meilisearch stream tasks changes",
+        "GET /tasks/stream"
+      ]
+    },
+    {
+      "id": "reference/api/authorization",
+      "path": "reference/api/authorization.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/authorization",
+      "title": "Authorization",
+      "aliases": [
+        "meilisearch authorization"
+      ]
+    },
+    {
+      "id": "reference/api/backups/create-dump",
+      "path": "reference/api/backups/create-dump.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/backups/create-dump",
+      "title": "Create dump",
+      "aliases": [
+        "meilisearch create dump",
+        "POST /dumps"
+      ]
+    },
+    {
+      "id": "reference/api/backups/create-snapshot",
+      "path": "reference/api/backups/create-snapshot.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/backups/create-snapshot",
+      "title": "Create snapshot",
+      "aliases": [
+        "meilisearch create snapshot",
+        "POST /snapshots"
+      ]
+    },
+    {
+      "id": "reference/api/chats/delete-a-chat-workspace",
+      "path": "reference/api/chats/delete-a-chat-workspace.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/chats/delete-a-chat-workspace",
+      "title": "Delete a chat workspace",
+      "aliases": [
+        "meilisearch delete a chat workspace",
+        "DELETE /chats/{workspace_uid}"
+      ]
+    },
+    {
+      "id": "reference/api/chats/get-a-chat-workspace",
+      "path": "reference/api/chats/get-a-chat-workspace.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/chats/get-a-chat-workspace",
+      "title": "Get a chat workspace",
+      "aliases": [
+        "meilisearch get a chat workspace",
+        "GET /chats/{workspace_uid}"
+      ]
+    },
+    {
+      "id": "reference/api/chats/get-settings-of-a-chat-workspace",
+      "path": "reference/api/chats/get-settings-of-a-chat-workspace.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/chats/get-settings-of-a-chat-workspace",
+      "title": "Get settings of a chat workspace",
+      "aliases": [
+        "meilisearch get settings of a chat workspace",
+        "GET /chats/{workspace_uid}/settings"
+      ]
+    },
+    {
+      "id": "reference/api/chats/list-chat-workspaces",
+      "path": "reference/api/chats/list-chat-workspaces.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/chats/list-chat-workspaces",
+      "title": "List chat workspaces",
+      "aliases": [
+        "meilisearch list chat workspaces",
+        "GET /chats"
+      ]
+    },
+    {
+      "id": "reference/api/chats/request-a-chat-completion",
+      "path": "reference/api/chats/request-a-chat-completion.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/chats/request-a-chat-completion",
+      "title": "Request a chat completion",
+      "aliases": [
+        "meilisearch request a chat completion",
+        "POST /chats/{workspace_uid}/chat/completions"
+      ]
+    },
+    {
+      "id": "reference/api/chats/reset-the-settings-of-a-chat-workspace",
+      "path": "reference/api/chats/reset-the-settings-of-a-chat-workspace.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/chats/reset-the-settings-of-a-chat-workspace",
+      "title": "Reset the settings of a chat workspace",
+      "aliases": [
+        "meilisearch reset the settings of a chat workspace",
+        "DELETE /chats/{workspace_uid}/settings"
+      ]
+    },
+    {
+      "id": "reference/api/chats/update-settings-of-a-chat-workspace",
+      "path": "reference/api/chats/update-settings-of-a-chat-workspace.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/chats/update-settings-of-a-chat-workspace",
+      "title": "Update settings of a chat workspace",
+      "aliases": [
+        "meilisearch update settings of a chat workspace",
+        "PATCH /chats/{workspace_uid}/settings"
+      ]
+    },
+    {
+      "id": "reference/api/documents/add-or-replace-documents",
+      "path": "reference/api/documents/add-or-replace-documents.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/add-or-replace-documents",
+      "title": "Add or replace documents",
+      "aliases": [
+        "meilisearch add or replace documents",
+        "POST /indexes/{index_uid}/documents"
+      ]
+    },
+    {
+      "id": "reference/api/documents/add-or-update-documents",
+      "path": "reference/api/documents/add-or-update-documents.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/add-or-update-documents",
+      "title": "Add or update documents",
+      "aliases": [
+        "meilisearch add or update documents",
+        "PUT /indexes/{index_uid}/documents"
+      ]
+    },
+    {
+      "id": "reference/api/documents/delete-all-documents",
+      "path": "reference/api/documents/delete-all-documents.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/delete-all-documents",
+      "title": "Delete all documents",
+      "aliases": [
+        "meilisearch delete all documents",
+        "DELETE /indexes/{index_uid}/documents"
+      ]
+    },
+    {
+      "id": "reference/api/documents/delete-document",
+      "path": "reference/api/documents/delete-document.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/delete-document",
+      "title": "Delete document",
+      "aliases": [
+        "meilisearch delete document",
+        "DELETE /indexes/{index_uid}/documents/{document_id}"
+      ]
+    },
+    {
+      "id": "reference/api/documents/delete-documents-by-batch",
+      "path": "reference/api/documents/delete-documents-by-batch.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/delete-documents-by-batch",
+      "title": "Delete documents by batch",
+      "aliases": [
+        "meilisearch delete documents by batch",
+        "POST /indexes/{index_uid}/documents/delete-batch"
+      ]
+    },
+    {
+      "id": "reference/api/documents/delete-documents-by-filter",
+      "path": "reference/api/documents/delete-documents-by-filter.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/delete-documents-by-filter",
+      "title": "Delete documents by filter",
+      "aliases": [
+        "meilisearch delete documents by filter",
+        "POST /indexes/{index_uid}/documents/delete"
+      ]
+    },
+    {
+      "id": "reference/api/documents/edit-documents-by-function",
+      "path": "reference/api/documents/edit-documents-by-function.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/edit-documents-by-function",
+      "title": "Edit documents by function",
+      "aliases": [
+        "meilisearch edit documents by function",
+        "POST /indexes/{index_uid}/documents/edit"
+      ]
+    },
+    {
+      "id": "reference/api/documents/get-document",
+      "path": "reference/api/documents/get-document.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/get-document",
+      "title": "Get document",
+      "aliases": [
+        "meilisearch get document",
+        "GET /indexes/{index_uid}/documents/{document_id}"
+      ]
+    },
+    {
+      "id": "reference/api/documents/list-documents-with-get",
+      "path": "reference/api/documents/list-documents-with-get.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/list-documents-with-get",
+      "title": "List documents with GET",
+      "aliases": [
+        "meilisearch list documents with get",
+        "GET /indexes/{index_uid}/documents"
+      ]
+    },
+    {
+      "id": "reference/api/documents/list-documents-with-post",
+      "path": "reference/api/documents/list-documents-with-post.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/documents/list-documents-with-post",
+      "title": "List documents with POST",
+      "aliases": [
+        "meilisearch list documents with post",
+        "POST /indexes/{index_uid}/documents/fetch"
+      ]
+    },
+    {
+      "id": "reference/api/experimental-features/configure-experimental-features",
+      "path": "reference/api/experimental-features/configure-experimental-features.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/experimental-features/configure-experimental-features",
+      "title": "Configure experimental features",
+      "aliases": [
+        "meilisearch configure experimental features",
+        "PATCH /experimental-features"
+      ]
+    },
+    {
+      "id": "reference/api/experimental-features/configure-network-topology",
+      "path": "reference/api/experimental-features/configure-network-topology.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/experimental-features/configure-network-topology",
+      "title": "Configure network topology",
+      "aliases": [
+        "meilisearch configure network topology",
+        "PATCH /network"
+      ]
+    },
+    {
+      "id": "reference/api/experimental-features/get-network-topology",
+      "path": "reference/api/experimental-features/get-network-topology.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/experimental-features/get-network-topology",
+      "title": "Get network topology",
+      "aliases": [
+        "meilisearch get network topology",
+        "GET /network"
+      ]
+    },
+    {
+      "id": "reference/api/experimental-features/list-experimental-features",
+      "path": "reference/api/experimental-features/list-experimental-features.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/experimental-features/list-experimental-features",
+      "title": "List experimental features",
+      "aliases": [
+        "meilisearch list experimental features",
+        "GET /experimental-features"
+      ]
+    },
+    {
+      "id": "reference/api/experimental-features/network-control",
+      "path": "reference/api/experimental-features/network-control.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/experimental-features/network-control",
+      "title": "Network control",
+      "aliases": [
+        "meilisearch network control",
+        "POST /network/control"
+      ]
+    },
+    {
+      "id": "reference/api/export/export-to-a-remote-meilisearch",
+      "path": "reference/api/export/export-to-a-remote-meilisearch.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/export/export-to-a-remote-meilisearch",
+      "title": "Export to a remote Meilisearch",
+      "aliases": [
+        "meilisearch export to a remote meilisearch",
+        "POST /export"
+      ]
+    },
+    {
+      "id": "reference/api/facet-search/search-for-facet-values",
+      "path": "reference/api/facet-search/search-for-facet-values.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/facet-search/search-for-facet-values",
+      "title": "Search for facet values",
+      "aliases": [
+        "meilisearch search for facet values",
+        "POST /indexes/{index_uid}/facet-search"
+      ]
+    },
+    {
+      "id": "reference/api/headers",
+      "path": "reference/api/headers.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/headers",
+      "title": "Headers",
+      "aliases": [
+        "meilisearch headers"
+      ]
+    },
+    {
+      "id": "reference/api/health/get-health",
+      "path": "reference/api/health/get-health.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/health/get-health",
+      "title": "Get health",
+      "aliases": [
+        "meilisearch get health",
+        "GET /health"
+      ]
+    },
+    {
+      "id": "reference/api/indexes/compact-index",
+      "path": "reference/api/indexes/compact-index.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/indexes/compact-index",
+      "title": "Compact index",
+      "aliases": [
+        "meilisearch compact index",
+        "POST /indexes/{index_uid}/compact"
+      ]
+    },
+    {
+      "id": "reference/api/indexes/create-index",
+      "path": "reference/api/indexes/create-index.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/indexes/create-index",
+      "title": "Create index",
+      "aliases": [
+        "meilisearch create index",
+        "POST /indexes"
+      ]
+    },
+    {
+      "id": "reference/api/indexes/delete-index",
+      "path": "reference/api/indexes/delete-index.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/indexes/delete-index",
+      "title": "Delete index",
+      "aliases": [
+        "meilisearch delete index",
+        "DELETE /indexes/{index_uid}"
+      ]
+    },
+    {
+      "id": "reference/api/indexes/get-index",
+      "path": "reference/api/indexes/get-index.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/indexes/get-index",
+      "title": "Get index",
+      "aliases": [
+        "meilisearch get index",
+        "GET /indexes/{index_uid}"
+      ]
+    },
+    {
+      "id": "reference/api/indexes/get-stats-of-index",
+      "path": "reference/api/indexes/get-stats-of-index.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/indexes/get-stats-of-index",
+      "title": "Get stats of index",
+      "aliases": [
+        "meilisearch get stats of index",
+        "GET /indexes/{index_uid}/stats"
+      ]
+    },
+    {
+      "id": "reference/api/indexes/list-all-indexes",
+      "path": "reference/api/indexes/list-all-indexes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/indexes/list-all-indexes",
+      "title": "List all indexes",
+      "aliases": [
+        "meilisearch list all indexes",
+        "GET /indexes"
+      ]
+    },
+    {
+      "id": "reference/api/indexes/list-index-fields",
+      "path": "reference/api/indexes/list-index-fields.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/indexes/list-index-fields",
+      "title": "List index fields",
+      "aliases": [
+        "meilisearch list index fields",
+        "POST /indexes/{index_uid}/fields"
+      ]
+    },
+    {
+      "id": "reference/api/indexes/swap-indexes",
+      "path": "reference/api/indexes/swap-indexes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/indexes/swap-indexes",
+      "title": "Swap indexes",
+      "aliases": [
+        "meilisearch swap indexes",
+        "POST /swap-indexes"
+      ]
+    },
+    {
+      "id": "reference/api/indexes/update-index",
+      "path": "reference/api/indexes/update-index.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/indexes/update-index",
+      "title": "Update index",
+      "aliases": [
+        "meilisearch update index",
+        "PATCH /indexes/{index_uid}"
+      ]
+    },
+    {
+      "id": "reference/api/keys/create-api-key",
+      "path": "reference/api/keys/create-api-key.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/keys/create-api-key",
+      "title": "Create API key",
+      "aliases": [
+        "meilisearch create api key",
+        "POST /keys"
+      ]
+    },
+    {
+      "id": "reference/api/keys/delete-api-key",
+      "path": "reference/api/keys/delete-api-key.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/keys/delete-api-key",
+      "title": "Delete API key",
+      "aliases": [
+        "meilisearch delete api key",
+        "DELETE /keys/{key}"
+      ]
+    },
+    {
+      "id": "reference/api/keys/get-api-key",
+      "path": "reference/api/keys/get-api-key.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/keys/get-api-key",
+      "title": "Get API key",
+      "aliases": [
+        "meilisearch get api key",
+        "GET /keys/{key}"
+      ]
+    },
+    {
+      "id": "reference/api/keys/list-api-keys",
+      "path": "reference/api/keys/list-api-keys.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/keys/list-api-keys",
+      "title": "List API keys",
+      "aliases": [
+        "meilisearch list api keys",
+        "GET /keys"
+      ]
+    },
+    {
+      "id": "reference/api/keys/update-api-key",
+      "path": "reference/api/keys/update-api-key.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/keys/update-api-key",
+      "title": "Update API key",
+      "aliases": [
+        "meilisearch update api key",
+        "PATCH /keys/{key}"
+      ]
+    },
+    {
+      "id": "reference/api/logs/retrieve-logs",
+      "path": "reference/api/logs/retrieve-logs.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/logs/retrieve-logs",
+      "title": "Retrieve logs",
+      "aliases": [
+        "meilisearch retrieve logs",
+        "POST /logs/stream"
+      ]
+    },
+    {
+      "id": "reference/api/logs/stop-retrieving-logs",
+      "path": "reference/api/logs/stop-retrieving-logs.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/logs/stop-retrieving-logs",
+      "title": "Stop retrieving logs",
+      "aliases": [
+        "meilisearch stop retrieving logs",
+        "DELETE /logs/stream"
+      ]
+    },
+    {
+      "id": "reference/api/logs/update-target-of-the-console-logs",
+      "path": "reference/api/logs/update-target-of-the-console-logs.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/logs/update-target-of-the-console-logs",
+      "title": "Update target of the console logs",
+      "aliases": [
+        "meilisearch update target of the console logs",
+        "POST /logs/stderr"
+      ]
+    },
+    {
+      "id": "reference/api/mcp/model-context-protocol-mcp",
+      "path": "reference/api/mcp/model-context-protocol-mcp.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/mcp/model-context-protocol-mcp",
+      "title": "Model context protocol (MCP)",
+      "aliases": [
+        "meilisearch model context protocol (mcp)",
+        "POST /mcp"
+      ]
+    },
+    {
+      "id": "reference/api/multi-search/perform-a-multi-search",
+      "path": "reference/api/multi-search/perform-a-multi-search.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/multi-search/perform-a-multi-search",
+      "title": "Perform a multi-search",
+      "aliases": [
+        "meilisearch perform a multi-search",
+        "POST /multi-search"
+      ]
+    },
+    {
+      "id": "reference/api/openapi",
+      "path": "reference/api/openapi.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/openapi",
+      "title": "OpenAPI specifications",
+      "aliases": [
+        "meilisearch openapi specifications"
+      ]
+    },
+    {
+      "id": "reference/api/pagination",
+      "path": "reference/api/pagination.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/pagination",
+      "title": "Pagination",
+      "aliases": [
+        "meilisearch pagination"
+      ]
+    },
+    {
+      "id": "reference/api/render-templates/render-template",
+      "path": "reference/api/render-templates/render-template.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/render-templates/render-template",
+      "title": "Render template",
+      "aliases": [
+        "meilisearch render template",
+        "POST /render-template"
+      ]
+    },
+    {
+      "id": "reference/api/requests",
+      "path": "reference/api/requests.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/requests",
+      "title": "Requests",
+      "aliases": [
+        "meilisearch requests"
+      ]
+    },
+    {
+      "id": "reference/api/search-rules/create-or-update-a-search-rule",
+      "path": "reference/api/search-rules/create-or-update-a-search-rule.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/search-rules/create-or-update-a-search-rule",
+      "title": "Create or update a search rule",
+      "aliases": [
+        "meilisearch create or update a search rule",
+        "PATCH /dynamic-search-rules/{uid}"
+      ]
+    },
+    {
+      "id": "reference/api/search-rules/delete-a-search-rule",
+      "path": "reference/api/search-rules/delete-a-search-rule.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/search-rules/delete-a-search-rule",
+      "title": "Delete a search rule",
+      "aliases": [
+        "meilisearch delete a search rule",
+        "DELETE /dynamic-search-rules/{uid}"
+      ]
+    },
+    {
+      "id": "reference/api/search-rules/delete-all-search-rules",
+      "path": "reference/api/search-rules/delete-all-search-rules.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/search-rules/delete-all-search-rules",
+      "title": "Delete all search rules.",
+      "aliases": [
+        "meilisearch delete all search rules.",
+        "DELETE /dynamic-search-rules"
+      ]
+    },
+    {
+      "id": "reference/api/search-rules/get-a-search-rule",
+      "path": "reference/api/search-rules/get-a-search-rule.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/search-rules/get-a-search-rule",
+      "title": "Get a search rule",
+      "aliases": [
+        "meilisearch get a search rule",
+        "GET /dynamic-search-rules/{uid}"
+      ]
+    },
+    {
+      "id": "reference/api/search-rules/list-search-rules",
+      "path": "reference/api/search-rules/list-search-rules.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/search-rules/list-search-rules",
+      "title": "List search rules",
+      "aliases": [
+        "meilisearch list search rules",
+        "POST /dynamic-search-rules"
+      ]
+    },
+    {
+      "id": "reference/api/search/search-with-get",
+      "path": "reference/api/search/search-with-get.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/search/search-with-get",
+      "title": "Search with GET",
+      "aliases": [
+        "meilisearch search with get",
+        "GET /indexes/{index_uid}/search"
+      ]
+    },
+    {
+      "id": "reference/api/search/search-with-post",
+      "path": "reference/api/search/search-with-post.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/search/search-with-post",
+      "title": "Search with POST",
+      "aliases": [
+        "meilisearch search with post",
+        "POST /indexes/{index_uid}/search"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-chat",
+      "path": "reference/api/settings/get-chat.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-chat",
+      "title": "Get chat",
+      "aliases": [
+        "meilisearch get chat",
+        "GET /indexes/{index_uid}/settings/chat"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-dictionary",
+      "path": "reference/api/settings/get-dictionary.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-dictionary",
+      "title": "Get dictionary",
+      "aliases": [
+        "meilisearch get dictionary",
+        "GET /indexes/{index_uid}/settings/dictionary"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-displayedattributes",
+      "path": "reference/api/settings/get-displayedattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-displayedattributes",
+      "title": "Get displayedAttributes",
+      "aliases": [
+        "meilisearch get displayedattributes",
+        "GET /indexes/{index_uid}/settings/displayed-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-distinctattribute",
+      "path": "reference/api/settings/get-distinctattribute.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-distinctattribute",
+      "title": "Get distinctAttribute",
+      "aliases": [
+        "meilisearch get distinctattribute",
+        "GET /indexes/{index_uid}/settings/distinct-attribute"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-embedders",
+      "path": "reference/api/settings/get-embedders.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-embedders",
+      "title": "Get embedders",
+      "aliases": [
+        "meilisearch get embedders",
+        "GET /indexes/{index_uid}/settings/embedders"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-faceting",
+      "path": "reference/api/settings/get-faceting.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-faceting",
+      "title": "Get faceting",
+      "aliases": [
+        "meilisearch get faceting",
+        "GET /indexes/{index_uid}/settings/faceting"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-facetsearch",
+      "path": "reference/api/settings/get-facetsearch.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-facetsearch",
+      "title": "Get facetSearch",
+      "aliases": [
+        "meilisearch get facetsearch",
+        "GET /indexes/{index_uid}/settings/facet-search"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-filterableattributes",
+      "path": "reference/api/settings/get-filterableattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-filterableattributes",
+      "title": "Get filterableAttributes",
+      "aliases": [
+        "meilisearch get filterableattributes",
+        "GET /indexes/{index_uid}/settings/filterable-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-foreignkeys",
+      "path": "reference/api/settings/get-foreignkeys.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-foreignkeys",
+      "title": "Get foreignKeys",
+      "aliases": [
+        "meilisearch get foreignkeys",
+        "GET /indexes/{index_uid}/settings/foreign-keys"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-localizedattributes",
+      "path": "reference/api/settings/get-localizedattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-localizedattributes",
+      "title": "Get localizedAttributes",
+      "aliases": [
+        "meilisearch get localizedattributes",
+        "GET /indexes/{index_uid}/settings/localized-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-nonseparatortokens",
+      "path": "reference/api/settings/get-nonseparatortokens.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-nonseparatortokens",
+      "title": "Get nonSeparatorTokens",
+      "aliases": [
+        "meilisearch get nonseparatortokens",
+        "GET /indexes/{index_uid}/settings/non-separator-tokens"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-pagination",
+      "path": "reference/api/settings/get-pagination.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-pagination",
+      "title": "Get pagination",
+      "aliases": [
+        "meilisearch get pagination",
+        "GET /indexes/{index_uid}/settings/pagination"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-prefixsearch",
+      "path": "reference/api/settings/get-prefixsearch.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-prefixsearch",
+      "title": "Get prefixSearch",
+      "aliases": [
+        "meilisearch get prefixsearch",
+        "GET /indexes/{index_uid}/settings/prefix-search"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-proximityprecision",
+      "path": "reference/api/settings/get-proximityprecision.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-proximityprecision",
+      "title": "Get proximityPrecision",
+      "aliases": [
+        "meilisearch get proximityprecision",
+        "GET /indexes/{index_uid}/settings/proximity-precision"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-rankingrules",
+      "path": "reference/api/settings/get-rankingrules.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-rankingrules",
+      "title": "Get rankingRules",
+      "aliases": [
+        "meilisearch get rankingrules",
+        "GET /indexes/{index_uid}/settings/ranking-rules"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-searchableattributes",
+      "path": "reference/api/settings/get-searchableattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-searchableattributes",
+      "title": "Get searchableAttributes",
+      "aliases": [
+        "meilisearch get searchableattributes",
+        "GET /indexes/{index_uid}/settings/searchable-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-searchcutoffms",
+      "path": "reference/api/settings/get-searchcutoffms.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-searchcutoffms",
+      "title": "Get searchCutoffMs",
+      "aliases": [
+        "meilisearch get searchcutoffms",
+        "GET /indexes/{index_uid}/settings/search-cutoff-ms"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-separatortokens",
+      "path": "reference/api/settings/get-separatortokens.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-separatortokens",
+      "title": "Get separatorTokens",
+      "aliases": [
+        "meilisearch get separatortokens",
+        "GET /indexes/{index_uid}/settings/separator-tokens"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-sortableattributes",
+      "path": "reference/api/settings/get-sortableattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-sortableattributes",
+      "title": "Get sortableAttributes",
+      "aliases": [
+        "meilisearch get sortableattributes",
+        "GET /indexes/{index_uid}/settings/sortable-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-stopwords",
+      "path": "reference/api/settings/get-stopwords.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-stopwords",
+      "title": "Get stopWords",
+      "aliases": [
+        "meilisearch get stopwords",
+        "GET /indexes/{index_uid}/settings/stop-words"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-synonyms",
+      "path": "reference/api/settings/get-synonyms.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-synonyms",
+      "title": "Get synonyms",
+      "aliases": [
+        "meilisearch get synonyms",
+        "GET /indexes/{index_uid}/settings/synonyms"
+      ]
+    },
+    {
+      "id": "reference/api/settings/get-typotolerance",
+      "path": "reference/api/settings/get-typotolerance.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/get-typotolerance",
+      "title": "Get typoTolerance",
+      "aliases": [
+        "meilisearch get typotolerance",
+        "GET /indexes/{index_uid}/settings/typo-tolerance"
+      ]
+    },
+    {
+      "id": "reference/api/settings/list-all-settings",
+      "path": "reference/api/settings/list-all-settings.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/list-all-settings",
+      "title": "List all settings",
+      "aliases": [
+        "meilisearch list all settings",
+        "GET /indexes/{index_uid}/settings"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-all-settings",
+      "path": "reference/api/settings/reset-all-settings.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-all-settings",
+      "title": "Reset all settings",
+      "aliases": [
+        "meilisearch reset all settings",
+        "DELETE /indexes/{index_uid}/settings"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-chat",
+      "path": "reference/api/settings/reset-chat.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-chat",
+      "title": "Reset chat",
+      "aliases": [
+        "meilisearch reset chat",
+        "DELETE /indexes/{index_uid}/settings/chat"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-dictionary",
+      "path": "reference/api/settings/reset-dictionary.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-dictionary",
+      "title": "Reset dictionary",
+      "aliases": [
+        "meilisearch reset dictionary",
+        "DELETE /indexes/{index_uid}/settings/dictionary"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-displayedattributes",
+      "path": "reference/api/settings/reset-displayedattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-displayedattributes",
+      "title": "Reset displayedAttributes",
+      "aliases": [
+        "meilisearch reset displayedattributes",
+        "DELETE /indexes/{index_uid}/settings/displayed-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-distinctattribute",
+      "path": "reference/api/settings/reset-distinctattribute.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-distinctattribute",
+      "title": "Reset distinctAttribute",
+      "aliases": [
+        "meilisearch reset distinctattribute",
+        "DELETE /indexes/{index_uid}/settings/distinct-attribute"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-embedders",
+      "path": "reference/api/settings/reset-embedders.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-embedders",
+      "title": "Reset embedders",
+      "aliases": [
+        "meilisearch reset embedders",
+        "DELETE /indexes/{index_uid}/settings/embedders"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-faceting",
+      "path": "reference/api/settings/reset-faceting.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-faceting",
+      "title": "Reset faceting",
+      "aliases": [
+        "meilisearch reset faceting",
+        "DELETE /indexes/{index_uid}/settings/faceting"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-facetsearch",
+      "path": "reference/api/settings/reset-facetsearch.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-facetsearch",
+      "title": "Reset facetSearch",
+      "aliases": [
+        "meilisearch reset facetsearch",
+        "DELETE /indexes/{index_uid}/settings/facet-search"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-filterableattributes",
+      "path": "reference/api/settings/reset-filterableattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-filterableattributes",
+      "title": "Reset filterableAttributes",
+      "aliases": [
+        "meilisearch reset filterableattributes",
+        "DELETE /indexes/{index_uid}/settings/filterable-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-foreignkeys",
+      "path": "reference/api/settings/reset-foreignkeys.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-foreignkeys",
+      "title": "Reset foreignKeys",
+      "aliases": [
+        "meilisearch reset foreignkeys",
+        "DELETE /indexes/{index_uid}/settings/foreign-keys"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-localizedattributes",
+      "path": "reference/api/settings/reset-localizedattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-localizedattributes",
+      "title": "Reset localizedAttributes",
+      "aliases": [
+        "meilisearch reset localizedattributes",
+        "DELETE /indexes/{index_uid}/settings/localized-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-nonseparatortokens",
+      "path": "reference/api/settings/reset-nonseparatortokens.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-nonseparatortokens",
+      "title": "Reset nonSeparatorTokens",
+      "aliases": [
+        "meilisearch reset nonseparatortokens",
+        "DELETE /indexes/{index_uid}/settings/non-separator-tokens"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-pagination",
+      "path": "reference/api/settings/reset-pagination.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-pagination",
+      "title": "Reset pagination",
+      "aliases": [
+        "meilisearch reset pagination",
+        "DELETE /indexes/{index_uid}/settings/pagination"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-prefixsearch",
+      "path": "reference/api/settings/reset-prefixsearch.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-prefixsearch",
+      "title": "Reset prefixSearch",
+      "aliases": [
+        "meilisearch reset prefixsearch",
+        "DELETE /indexes/{index_uid}/settings/prefix-search"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-proximityprecision",
+      "path": "reference/api/settings/reset-proximityprecision.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-proximityprecision",
+      "title": "Reset proximityPrecision",
+      "aliases": [
+        "meilisearch reset proximityprecision",
+        "DELETE /indexes/{index_uid}/settings/proximity-precision"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-rankingrules",
+      "path": "reference/api/settings/reset-rankingrules.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-rankingrules",
+      "title": "Reset rankingRules",
+      "aliases": [
+        "meilisearch reset rankingrules",
+        "DELETE /indexes/{index_uid}/settings/ranking-rules"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-searchableattributes",
+      "path": "reference/api/settings/reset-searchableattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-searchableattributes",
+      "title": "Reset searchableAttributes",
+      "aliases": [
+        "meilisearch reset searchableattributes",
+        "DELETE /indexes/{index_uid}/settings/searchable-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-searchcutoffms",
+      "path": "reference/api/settings/reset-searchcutoffms.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-searchcutoffms",
+      "title": "Reset searchCutoffMs",
+      "aliases": [
+        "meilisearch reset searchcutoffms",
+        "DELETE /indexes/{index_uid}/settings/search-cutoff-ms"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-separatortokens",
+      "path": "reference/api/settings/reset-separatortokens.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-separatortokens",
+      "title": "Reset separatorTokens",
+      "aliases": [
+        "meilisearch reset separatortokens",
+        "DELETE /indexes/{index_uid}/settings/separator-tokens"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-sortableattributes",
+      "path": "reference/api/settings/reset-sortableattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-sortableattributes",
+      "title": "Reset sortableAttributes",
+      "aliases": [
+        "meilisearch reset sortableattributes",
+        "DELETE /indexes/{index_uid}/settings/sortable-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-stopwords",
+      "path": "reference/api/settings/reset-stopwords.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-stopwords",
+      "title": "Reset stopWords",
+      "aliases": [
+        "meilisearch reset stopwords",
+        "DELETE /indexes/{index_uid}/settings/stop-words"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-synonyms",
+      "path": "reference/api/settings/reset-synonyms.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-synonyms",
+      "title": "Reset synonyms",
+      "aliases": [
+        "meilisearch reset synonyms",
+        "DELETE /indexes/{index_uid}/settings/synonyms"
+      ]
+    },
+    {
+      "id": "reference/api/settings/reset-typotolerance",
+      "path": "reference/api/settings/reset-typotolerance.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/reset-typotolerance",
+      "title": "Reset typoTolerance",
+      "aliases": [
+        "meilisearch reset typotolerance",
+        "DELETE /indexes/{index_uid}/settings/typo-tolerance"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-all-settings",
+      "path": "reference/api/settings/update-all-settings.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-all-settings",
+      "title": "Update all settings",
+      "aliases": [
+        "meilisearch update all settings",
+        "PATCH /indexes/{index_uid}/settings"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-chat",
+      "path": "reference/api/settings/update-chat.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-chat",
+      "title": "Update chat",
+      "aliases": [
+        "meilisearch update chat",
+        "PATCH /indexes/{index_uid}/settings/chat"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-dictionary",
+      "path": "reference/api/settings/update-dictionary.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-dictionary",
+      "title": "Update dictionary",
+      "aliases": [
+        "meilisearch update dictionary",
+        "PUT /indexes/{index_uid}/settings/dictionary"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-displayedattributes",
+      "path": "reference/api/settings/update-displayedattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-displayedattributes",
+      "title": "Update displayedAttributes",
+      "aliases": [
+        "meilisearch update displayedattributes",
+        "PUT /indexes/{index_uid}/settings/displayed-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-distinctattribute",
+      "path": "reference/api/settings/update-distinctattribute.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-distinctattribute",
+      "title": "Update distinctAttribute",
+      "aliases": [
+        "meilisearch update distinctattribute",
+        "PUT /indexes/{index_uid}/settings/distinct-attribute"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-embedders",
+      "path": "reference/api/settings/update-embedders.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-embedders",
+      "title": "Update embedders",
+      "aliases": [
+        "meilisearch update embedders",
+        "PATCH /indexes/{index_uid}/settings/embedders"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-faceting",
+      "path": "reference/api/settings/update-faceting.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-faceting",
+      "title": "Update faceting",
+      "aliases": [
+        "meilisearch update faceting",
+        "PATCH /indexes/{index_uid}/settings/faceting"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-facetsearch",
+      "path": "reference/api/settings/update-facetsearch.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-facetsearch",
+      "title": "Update facetSearch",
+      "aliases": [
+        "meilisearch update facetsearch",
+        "PUT /indexes/{index_uid}/settings/facet-search"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-filterableattributes",
+      "path": "reference/api/settings/update-filterableattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-filterableattributes",
+      "title": "Update filterableAttributes",
+      "aliases": [
+        "meilisearch update filterableattributes",
+        "PUT /indexes/{index_uid}/settings/filterable-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-foreignkeys",
+      "path": "reference/api/settings/update-foreignkeys.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-foreignkeys",
+      "title": "Update foreignKeys",
+      "aliases": [
+        "meilisearch update foreignkeys",
+        "PUT /indexes/{index_uid}/settings/foreign-keys"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-localizedattributes",
+      "path": "reference/api/settings/update-localizedattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-localizedattributes",
+      "title": "Update localizedAttributes",
+      "aliases": [
+        "meilisearch update localizedattributes",
+        "PUT /indexes/{index_uid}/settings/localized-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-nonseparatortokens",
+      "path": "reference/api/settings/update-nonseparatortokens.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-nonseparatortokens",
+      "title": "Update nonSeparatorTokens",
+      "aliases": [
+        "meilisearch update nonseparatortokens",
+        "PUT /indexes/{index_uid}/settings/non-separator-tokens"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-pagination",
+      "path": "reference/api/settings/update-pagination.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-pagination",
+      "title": "Update pagination",
+      "aliases": [
+        "meilisearch update pagination",
+        "PATCH /indexes/{index_uid}/settings/pagination"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-prefixsearch",
+      "path": "reference/api/settings/update-prefixsearch.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-prefixsearch",
+      "title": "Update prefixSearch",
+      "aliases": [
+        "meilisearch update prefixsearch",
+        "PUT /indexes/{index_uid}/settings/prefix-search"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-proximityprecision",
+      "path": "reference/api/settings/update-proximityprecision.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-proximityprecision",
+      "title": "Update proximityPrecision",
+      "aliases": [
+        "meilisearch update proximityprecision",
+        "PUT /indexes/{index_uid}/settings/proximity-precision"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-rankingrules",
+      "path": "reference/api/settings/update-rankingrules.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-rankingrules",
+      "title": "Update rankingRules",
+      "aliases": [
+        "meilisearch update rankingrules",
+        "PUT /indexes/{index_uid}/settings/ranking-rules"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-searchableattributes",
+      "path": "reference/api/settings/update-searchableattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-searchableattributes",
+      "title": "Update searchableAttributes",
+      "aliases": [
+        "meilisearch update searchableattributes",
+        "PUT /indexes/{index_uid}/settings/searchable-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-searchcutoffms",
+      "path": "reference/api/settings/update-searchcutoffms.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-searchcutoffms",
+      "title": "Update searchCutoffMs",
+      "aliases": [
+        "meilisearch update searchcutoffms",
+        "PUT /indexes/{index_uid}/settings/search-cutoff-ms"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-separatortokens",
+      "path": "reference/api/settings/update-separatortokens.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-separatortokens",
+      "title": "Update separatorTokens",
+      "aliases": [
+        "meilisearch update separatortokens",
+        "PUT /indexes/{index_uid}/settings/separator-tokens"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-sortableattributes",
+      "path": "reference/api/settings/update-sortableattributes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-sortableattributes",
+      "title": "Update sortableAttributes",
+      "aliases": [
+        "meilisearch update sortableattributes",
+        "PUT /indexes/{index_uid}/settings/sortable-attributes"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-stopwords",
+      "path": "reference/api/settings/update-stopwords.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-stopwords",
+      "title": "Update stopWords",
+      "aliases": [
+        "meilisearch update stopwords",
+        "PUT /indexes/{index_uid}/settings/stop-words"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-synonyms",
+      "path": "reference/api/settings/update-synonyms.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-synonyms",
+      "title": "Update synonyms",
+      "aliases": [
+        "meilisearch update synonyms",
+        "PUT /indexes/{index_uid}/settings/synonyms"
+      ]
+    },
+    {
+      "id": "reference/api/settings/update-typotolerance",
+      "path": "reference/api/settings/update-typotolerance.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/settings/update-typotolerance",
+      "title": "Update typoTolerance",
+      "aliases": [
+        "meilisearch update typotolerance",
+        "PATCH /indexes/{index_uid}/settings/typo-tolerance"
+      ]
+    },
+    {
+      "id": "reference/api/similar-documents/get-similar-documents-with-get",
+      "path": "reference/api/similar-documents/get-similar-documents-with-get.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/similar-documents/get-similar-documents-with-get",
+      "title": "Get similar documents with GET",
+      "aliases": [
+        "meilisearch get similar documents with get",
+        "GET /indexes/{index_uid}/similar"
+      ]
+    },
+    {
+      "id": "reference/api/similar-documents/get-similar-documents-with-post",
+      "path": "reference/api/similar-documents/get-similar-documents-with-post.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/similar-documents/get-similar-documents-with-post",
+      "title": "Get similar documents with POST",
+      "aliases": [
+        "meilisearch get similar documents with post",
+        "POST /indexes/{index_uid}/similar"
+      ]
+    },
+    {
+      "id": "reference/api/stats/get-prometheus-metrics",
+      "path": "reference/api/stats/get-prometheus-metrics.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/stats/get-prometheus-metrics",
+      "title": "Get Prometheus metrics",
+      "aliases": [
+        "meilisearch get prometheus metrics",
+        "GET /metrics"
+      ]
+    },
+    {
+      "id": "reference/api/stats/get-stats-of-all-indexes",
+      "path": "reference/api/stats/get-stats-of-all-indexes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/stats/get-stats-of-all-indexes",
+      "title": "Get stats of all indexes",
+      "aliases": [
+        "meilisearch get stats of all indexes",
+        "GET /stats"
+      ]
+    },
+    {
+      "id": "reference/api/version/get-version",
+      "path": "reference/api/version/get-version.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/version/get-version",
+      "title": "Get version",
+      "aliases": [
+        "meilisearch get version",
+        "GET /version"
+      ]
+    },
+    {
+      "id": "reference/api/webhooks/create-webhook",
+      "path": "reference/api/webhooks/create-webhook.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/webhooks/create-webhook",
+      "title": "Create webhook",
+      "aliases": [
+        "meilisearch create webhook",
+        "POST /webhooks"
+      ]
+    },
+    {
+      "id": "reference/api/webhooks/delete-webhook",
+      "path": "reference/api/webhooks/delete-webhook.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/webhooks/delete-webhook",
+      "title": "Delete webhook",
+      "aliases": [
+        "meilisearch delete webhook",
+        "DELETE /webhooks/{uuid}"
+      ]
+    },
+    {
+      "id": "reference/api/webhooks/get-webhook",
+      "path": "reference/api/webhooks/get-webhook.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/webhooks/get-webhook",
+      "title": "Get webhook",
+      "aliases": [
+        "meilisearch get webhook",
+        "GET /webhooks/{uuid}"
+      ]
+    },
+    {
+      "id": "reference/api/webhooks/list-webhooks",
+      "path": "reference/api/webhooks/list-webhooks.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/webhooks/list-webhooks",
+      "title": "List webhooks",
+      "aliases": [
+        "meilisearch list webhooks",
+        "GET /webhooks"
+      ]
+    },
+    {
+      "id": "reference/api/webhooks/update-webhook",
+      "path": "reference/api/webhooks/update-webhook.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/api/webhooks/update-webhook",
+      "title": "Update webhook",
+      "aliases": [
+        "meilisearch update webhook",
+        "PATCH /webhooks/{uuid}"
+      ]
+    },
+    {
+      "id": "reference/errors/error_codes",
+      "path": "reference/errors/error_codes.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/errors/error_codes",
+      "title": "Error codes",
+      "aliases": [
+        "meilisearch error codes"
+      ]
+    },
+    {
+      "id": "reference/errors/overview",
+      "path": "reference/errors/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/reference/errors/overview",
+      "title": "Errors",
+      "aliases": [
+        "meilisearch errors"
+      ]
+    },
+    {
+      "id": "resources/help/carbon_footprint",
+      "path": "resources/help/carbon_footprint.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/help/carbon_footprint",
+      "title": "Carbon footprint of Meilisearch Cloud regions",
+      "aliases": [
+        "meilisearch carbon footprint of meilisearch cloud regions"
+      ]
+    },
+    {
+      "id": "resources/help/contributing_docs",
+      "path": "resources/help/contributing_docs.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/help/contributing_docs",
+      "title": "Contributing to our documentation",
+      "aliases": [
+        "meilisearch contributing to our documentation"
+      ]
+    },
+    {
+      "id": "resources/help/experimental_features_overview",
+      "path": "resources/help/experimental_features_overview.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/help/experimental_features_overview",
+      "title": "Experimental features overview",
+      "aliases": [
+        "meilisearch experimental features overview"
+      ]
+    },
+    {
+      "id": "resources/help/faq",
+      "path": "resources/help/faq.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/help/faq",
+      "title": "FAQ",
+      "aliases": [
+        "meilisearch faq"
+      ]
+    },
+    {
+      "id": "resources/help/known_limitations",
+      "path": "resources/help/known_limitations.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/help/known_limitations",
+      "title": "Known limitations",
+      "aliases": [
+        "meilisearch known limitations"
+      ]
+    },
+    {
+      "id": "resources/help/language",
+      "path": "resources/help/language.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/help/language",
+      "title": "Language",
+      "aliases": [
+        "meilisearch language"
+      ]
+    },
+    {
+      "id": "resources/help/sdks",
+      "path": "resources/help/sdks.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/help/sdks",
+      "title": "Official SDKs and libraries",
+      "aliases": [
+        "meilisearch official sdks and libraries"
+      ]
+    },
+    {
+      "id": "resources/help/telemetry",
+      "path": "resources/help/telemetry.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/help/telemetry",
+      "title": "Telemetry",
+      "aliases": [
+        "meilisearch telemetry"
+      ]
+    },
+    {
+      "id": "resources/help/versioning",
+      "path": "resources/help/versioning.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/help/versioning",
+      "title": "Versioning policy",
+      "aliases": [
+        "meilisearch versioning policy"
+      ]
+    },
+    {
+      "id": "resources/internals/bucket_sort",
+      "path": "resources/internals/bucket_sort.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/bucket_sort",
+      "title": "Bucket sort",
+      "aliases": [
+        "meilisearch bucket sort"
+      ]
+    },
+    {
+      "id": "resources/internals/concat",
+      "path": "resources/internals/concat.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/concat",
+      "title": "Concatenated and split queries",
+      "aliases": [
+        "meilisearch concatenated and split queries"
+      ]
+    },
+    {
+      "id": "resources/internals/datatypes",
+      "path": "resources/internals/datatypes.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/datatypes",
+      "title": "Data types",
+      "aliases": [
+        "meilisearch data types"
+      ]
+    },
+    {
+      "id": "resources/internals/documents",
+      "path": "resources/internals/documents.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/documents",
+      "title": "Documents",
+      "aliases": [
+        "meilisearch documents"
+      ]
+    },
+    {
+      "id": "resources/internals/hannoy",
+      "path": "resources/internals/hannoy.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/hannoy",
+      "title": "Vector storage: DiskANN",
+      "aliases": [
+        "meilisearch vector storage: diskann"
+      ]
+    },
+    {
+      "id": "resources/internals/indexes",
+      "path": "resources/internals/indexes.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/indexes",
+      "title": "Indexes",
+      "aliases": [
+        "meilisearch indexes"
+      ]
+    },
+    {
+      "id": "resources/internals/prefix",
+      "path": "resources/internals/prefix.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/prefix",
+      "title": "Prefix search",
+      "aliases": [
+        "meilisearch prefix search"
+      ]
+    },
+    {
+      "id": "resources/internals/primary_key",
+      "path": "resources/internals/primary_key.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/primary_key",
+      "title": "Primary key",
+      "aliases": [
+        "meilisearch primary key"
+      ]
+    },
+    {
+      "id": "resources/internals/ranking",
+      "path": "resources/internals/ranking.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/ranking",
+      "title": "Meilisearch ranking: a multi-criteria system beyond BM25",
+      "aliases": [
+        "meilisearch meilisearch ranking: a multi-criteria system beyond bm25"
+      ]
+    },
+    {
+      "id": "resources/internals/storage",
+      "path": "resources/internals/storage.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/storage",
+      "title": "Storage",
+      "aliases": [
+        "meilisearch storage"
+      ]
+    },
+    {
+      "id": "resources/internals/typo_tolerance",
+      "path": "resources/internals/typo_tolerance.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/internals/typo_tolerance",
+      "title": "Typo tolerance vs fuzzy search: how Meilisearch handles misspellings",
+      "aliases": [
+        "meilisearch typo tolerance vs fuzzy search: how meilisearch handles misspellings"
+      ]
+    },
+    {
+      "id": "resources/migration/updating",
+      "path": "resources/migration/updating.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/migration/updating",
+      "title": "Update to the latest Meilisearch version",
+      "aliases": [
+        "meilisearch update to the latest meilisearch version"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/configuration/overview",
+      "path": "resources/self_hosting/configuration/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/configuration/overview",
+      "title": "Configure Meilisearch at launch",
+      "aliases": [
+        "meilisearch configure meilisearch at launch"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/configuration/reference",
+      "path": "resources/self_hosting/configuration/reference.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/configuration/reference",
+      "title": "Configuration reference",
+      "aliases": [
+        "meilisearch configuration reference"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/data_backup/dumps",
+      "path": "resources/self_hosting/data_backup/dumps.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/data_backup/dumps",
+      "title": "Exporting and importing dumps",
+      "aliases": [
+        "meilisearch exporting and importing dumps"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/data_backup/overview",
+      "path": "resources/self_hosting/data_backup/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/data_backup/overview",
+      "title": "Backing up Meilisearch data",
+      "aliases": [
+        "meilisearch backing up meilisearch data"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/data_backup/snapshots",
+      "path": "resources/self_hosting/data_backup/snapshots.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/data_backup/snapshots",
+      "title": "Exporting and using Snapshots",
+      "aliases": [
+        "meilisearch exporting and using snapshots"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/deployment/aws",
+      "path": "resources/self_hosting/deployment/aws.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/deployment/aws",
+      "title": "Deploy on AWS",
+      "aliases": [
+        "meilisearch deploy on aws"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/deployment/digitalocean",
+      "path": "resources/self_hosting/deployment/digitalocean.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/deployment/digitalocean",
+      "title": "Deploy on DigitalOcean",
+      "aliases": [
+        "meilisearch deploy on digitalocean"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/deployment/gcp",
+      "path": "resources/self_hosting/deployment/gcp.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/deployment/gcp",
+      "title": "Deploy on Google Cloud",
+      "aliases": [
+        "meilisearch deploy on google cloud"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/deployment/overview",
+      "path": "resources/self_hosting/deployment/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/deployment/overview",
+      "title": "Deploying Meilisearch",
+      "aliases": [
+        "meilisearch deploying meilisearch"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/deployment/running_production",
+      "path": "resources/self_hosting/deployment/running_production.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/deployment/running_production",
+      "title": "Running Meilisearch in production",
+      "aliases": [
+        "meilisearch running meilisearch in production"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/enterprise_edition",
+      "path": "resources/self_hosting/enterprise_edition.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/enterprise_edition",
+      "title": "Enterprise and Community editions",
+      "aliases": [
+        "meilisearch enterprise and community editions"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/getting_started/docker",
+      "path": "resources/self_hosting/getting_started/docker.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/getting_started/docker",
+      "title": "Using Meilisearch with Docker",
+      "aliases": [
+        "meilisearch using meilisearch with docker"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/getting_started/install_locally",
+      "path": "resources/self_hosting/getting_started/install_locally.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/getting_started/install_locally",
+      "title": "Install Meilisearch locally",
+      "aliases": [
+        "meilisearch install meilisearch locally"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/getting_started/quick_start",
+      "path": "resources/self_hosting/getting_started/quick_start.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/getting_started/quick_start",
+      "title": "Getting started with self-hosted Meilisearch",
+      "aliases": [
+        "meilisearch getting started with self-hosted meilisearch"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/getting_started/search_preview",
+      "path": "resources/self_hosting/getting_started/search_preview.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/getting_started/search_preview",
+      "title": "Search preview",
+      "aliases": [
+        "meilisearch search preview"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/huggingface_gpu",
+      "path": "resources/self_hosting/huggingface_gpu.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/huggingface_gpu",
+      "title": "Computing Hugging Face embeddings with the GPU",
+      "aliases": [
+        "meilisearch computing hugging face embeddings with the gpu"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/overview",
+      "path": "resources/self_hosting/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/overview",
+      "title": "Self-hosting Meilisearch",
+      "aliases": [
+        "meilisearch self-hosting meilisearch"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/performance/ram_multithreading",
+      "path": "resources/self_hosting/performance/ram_multithreading.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/performance/ram_multithreading",
+      "title": "Impact of RAM and multi-threading on indexing performance",
+      "aliases": [
+        "meilisearch impact of ram and multi-threading on indexing performance"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/security/basic_security",
+      "path": "resources/self_hosting/security/basic_security.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/security/basic_security",
+      "title": "Securing your project",
+      "aliases": [
+        "meilisearch securing your project"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/security/http2_ssl",
+      "path": "resources/self_hosting/security/http2_ssl.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/security/http2_ssl",
+      "title": "Using HTTP/2 and SSL with Meilisearch",
+      "aliases": [
+        "meilisearch using http/2 and ssl with meilisearch"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/security/master_api_keys",
+      "path": "resources/self_hosting/security/master_api_keys.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/security/master_api_keys",
+      "title": "Master key and API keys",
+      "aliases": [
+        "meilisearch master key and api keys"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/security/overview",
+      "path": "resources/self_hosting/security/overview.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/security/overview",
+      "title": "Securing self-hosted Meilisearch",
+      "aliases": [
+        "meilisearch securing self-hosted meilisearch"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/security/protected_unprotected",
+      "path": "resources/self_hosting/security/protected_unprotected.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/security/protected_unprotected",
+      "title": "Protected and unprotected Meilisearch projects",
+      "aliases": [
+        "meilisearch protected and unprotected meilisearch projects"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/security/resetting_master_key",
+      "path": "resources/self_hosting/security/resetting_master_key.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/security/resetting_master_key",
+      "title": "Resetting the master key",
+      "aliases": [
+        "meilisearch resetting the master key"
+      ]
+    },
+    {
+      "id": "resources/self_hosting/webhooks",
+      "path": "resources/self_hosting/webhooks.md",
+      "source_url": "https://www.meilisearch.com/docs/resources/self_hosting/webhooks",
+      "title": "Using task webhooks",
+      "aliases": [
+        "meilisearch using task webhooks"
+      ]
+    }
+  ]
+}

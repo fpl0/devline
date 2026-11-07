@@ -1,0 +1,441 @@
+<main><header><h1>Scatter-gather</h1></header>
+<p>The inventory service answered one request with one reply, which is the
+common case of a single question producing a single answer.</p>
+<p>Some questions have several answers. "What would it cost to ship this
+order?" is one of them. Acme works with three carriers, and each one
+quotes a different price. The order service wants all three quotes, then
+picks the cheapest.</p>
+<p>That's <strong>scatter-gather</strong>: fan one request out to every responder, then
+gather the replies that come back. This page builds it on <code>shipping.quote</code>
+with three quote providers.</p>
+<div></div>
+<h2 id="why-one-request-can-produce-many-replies">Why one request can produce many replies</h2>
+<p>Recall how request-reply works: the client subscribes to a unique
+<code>_INBOX</code> subject and publishes the request carrying that inbox as its
+reply subject. Nothing in that mechanism limits the number of responders.
+If three providers subscribe to <code>shipping.quote</code>, all three receive the
+request (plain publish-subscribe) and all three can reply to the inbox.
+The single reply you saw earlier was just one responder plus a client
+that stopped after the first answer.</p>
+<p>This works only when the responders are not in a queue group — a queue
+group hands each request to one member, which is load balancing, not
+scatter-gather. Every responder must subscribe plainly. The CLI demo below
+makes that explicit, because the CLI's default does the opposite.</p>
+<h2 id="set-up-three-quote-providers">Set up three quote providers</h2>
+<p>A provider subscribes to <code>shipping.quote</code>, reads the order, and replies
+with a price. Run three of them, each quoting a different number.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Three shipping-quote providers, each answering on shipping.quote.
+#
+# IMPORTANT: `nats reply` subscribes inside a queue group by default
+# (NATS-RPLY-22). Three providers left on that default would share ONE
+# queue group, so only one would ever answer. To scatter the request to
+# all three, give each provider its OWN queue group name with --queue.
+# A queue group of one member behaves like a plain subscriber.
+#
+# Run each line in its own terminal.
+
+# Terminal 1 — carrier A quotes 1500 cents.
+nats reply shipping.quote --queue carrier-a '{"carrier":"carrier-a","quote_cents":1500}'
+
+# Terminal 2 — carrier B quotes 1200 cents.
+nats reply shipping.quote --queue carrier-b '{"carrier":"carrier-b","quote_cents":1200}'
+
+# Terminal 3 — carrier C quotes 1800 cents.
+nats reply shipping.quote --queue carrier-c '{"carrier":"carrier-c","quote_cents":1800}'</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// A shipping-quote provider. Subscribe plainly to shipping.quote (NOT in a
+// queue group, so every provider sees each request) and reply with a price.
+// Run several copies, each quoting a different number.
+const sub = nc.subscribe("shipping.quote");
+for await (const msg of sub) {
+  msg.respond('{"carrier":"carrier-a","quote_cents":1500}');
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// A shipping-quote provider. Subscribe plainly to shipping.quote (NOT a
+// queue group, so every provider sees each request) and reply with a price.
+// Run several copies, each quoting a different number.
+nc.Subscribe("shipping.quote", func(m *nats.Msg) {
+	m.Respond([]byte(`{"carrier":"carrier-a","quote_cents":1500}`))
+})</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># A shipping-quote provider. Subscribe plainly to shipping.quote (NOT in a
+# queue group, so every provider sees each request) and reply with a price.
+# Run several copies, each quoting a different number.
+async with await client.subscribe("shipping.quote") as subscription:
+    async for message in subscription:
+        if message.reply:
+            await client.publish(message.reply, b'{"carrier":"carrier-a","quote_cents":1500}')</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// A shipping-quote provider. Subscribe plainly to shipping.quote (NOT in a
+// queue group, so every provider sees each request) and reply with a price.
+// Run several copies, each quoting a different number.
+nc.createDispatcher(msg -&gt; {
+    if (msg.getReplyTo() != null) {
+        nc.publish(msg.getReplyTo(),
+            "{\"carrier\":\"carrier-a\",\"quote_cents\":1500}".getBytes(StandardCharsets.UTF_8));
+    }
+}).subscribe("shipping.quote");</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// A shipping-quote provider. Subscribe plainly to shipping.quote (NOT in a
+// queue group, so every provider sees each request) and reply with a price.
+// Run several copies, each quoting a different number.
+let mut sub = client.subscribe("shipping.quote").await?;
+while let Some(msg) = sub.next().await {
+    if let Some(reply) = msg.reply {
+        client
+            .publish(
+                reply,
+                r#"{"carrier":"carrier-a","quote_cents":1500}"#.into(),
+            )
+            .await?;
+    }
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// A shipping-quote provider. Subscribe plainly to shipping.quote (NOT in a
+// queue group, so every provider sees each request) and reply with a price.
+// Run several copies, each quoting a different number.
+await foreach (var msg in client.SubscribeAsync&lt;Order&gt;("shipping.quote"))
+{
+    await msg.ReplyAsync(new ShippingQuote(Carrier: "carrier-a", QuoteCents: 1500));
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// A shipping-quote provider. Subscribe plainly to shipping.quote (NOT a
+// queue group, so every provider sees each request) and reply with a
+// price. Run several copies, each quoting a different number.
+static void
+onQuote(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    if (natsMsg_GetReply(msg) != NULL)
+        natsConnection_PublishString(nc, natsMsg_GetReply(msg),
+                                     "{\"carrier\":\"carrier-a\",\"quote_cents\":1500}");
+
+    natsMsg_Destroy(msg);
+}
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "shipping.quote",
+                                     onQuote, NULL);</code></pre></div></div>
+<p>There's one trap to know about with <code>nats reply</code>. By default, the CLI
+subscribes inside a queue group named <code>NATS-RPLY-22</code>. Three
+<code>nats reply</code> instances left on that default would form one queue group,
+and only one of them would ever answer. That's the load-balancing
+behavior from the previous page, not what we want here.</p>
+<p>To make each provider an independent responder, give each one its own
+queue group name with <code>--queue</code>. A queue group of one member behaves like
+a plain subscriber: it receives every matching request. The CLI source
+for the snippet above runs the three providers with distinct names
+(<code>carrier-a</code>, <code>carrier-b</code>, <code>carrier-c</code>), so all three see each request.</p>
+<p>The client library form has no such trap. A library subscribes plainly
+unless you ask for a queue group, so three plain subscribers on
+<code>shipping.quote</code> already scatter correctly.</p>
+<h2 id="gather-by-count">Gather by count</h2>
+<p>Now the gather side. The client sends one request to <code>shipping.quote</code> and
+collects replies until it's heard from every provider.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Send one request to shipping.quote and gather replies from every provider.
+
+# Gather by count: stop after 3 replies have arrived.
+nats request shipping.quote \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' \
+  --replies 3 --timeout 2s
+
+# Gather by deadline instead: --replies 0 collects every reply that arrives
+# during the full --timeout window, then returns. It is a fixed, predictable
+# budget; --reply-timeout has no effect in this mode. Use this when you do
+# not know how many providers are running.
+nats request shipping.quote \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' \
+  --replies 0 --timeout 2s</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Scatter one request to every shipping-quote provider and gather the replies.
+// Subscribe to a private inbox, publish the request with that inbox as the
+// reply subject, then collect quotes until they stop arriving and pick the
+// cheapest.
+const order =
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}';
+const inbox = createInbox();
+const sub = nc.subscribe(inbox);
+nc.publish("shipping.quote", order, { reply: inbox });
+
+const quotes: string[] = [];
+const gather = (async () =&gt; {
+  for await (const msg of sub) {
+    quotes.push(msg.string());
+  }
+})();
+
+// Stop once no further reply is expected.
+setTimeout(() =&gt; sub.unsubscribe(), 300);
+await gather;
+
+console.log(`gathered ${quotes.length} quotes: ${JSON.stringify(quotes)}`);</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Scatter one request to every shipping-quote provider and gather the
+// replies. Subscribe to a private inbox, publish the request with that
+// inbox as the reply subject, then collect quotes until they stop arriving
+// and pick the cheapest.
+order := `{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}`
+inbox := nats.NewInbox()
+sub, _ := nc.SubscribeSync(inbox)
+nc.PublishRequest("shipping.quote", inbox, []byte(order))
+
+var quotes []string
+for {
+	msg, err := sub.NextMsg(300 * time.Millisecond)
+	if err != nil {
+		break
+	}
+	quotes = append(quotes, string(msg.Data))
+}
+fmt.Printf("gathered %d quotes: %v\n", len(quotes), quotes)</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Scatter one request to every shipping-quote provider and gather the
+# replies. Subscribe to a private inbox, publish the request with that inbox
+# as the reply subject, then collect quotes until they stop arriving and
+# pick the cheapest.
+order = '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+inbox = f"_INBOX.{uuid.uuid4().hex}"
+async with await client.subscribe(inbox) as subscription:
+    await client.publish("shipping.quote", order.encode(), reply=inbox)
+
+    quotes = []
+    while True:
+        try:
+            message = await subscription.next(timeout=0.3)
+            quotes.append(message.data.decode())
+        except TimeoutError:
+            break
+
+print(f"gathered {len(quotes)} quotes: {quotes}")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Scatter one request to every shipping-quote provider and gather the
+// replies. Subscribe to a private inbox, publish the request with that
+// inbox as the reply subject, then collect quotes until they stop arriving
+// and pick the cheapest.
+byte[] order = ("{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+    + "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}").getBytes(StandardCharsets.UTF_8);
+String inbox = nc.createInbox();
+Subscription sub = nc.subscribe(inbox);
+nc.publish("shipping.quote", inbox, order);
+
+List&lt;String&gt; quotes = new ArrayList&lt;&gt;();
+Message m = sub.nextMessage(Duration.ofMillis(300));
+while (m != null) {
+    quotes.add(new String(m.getData(), StandardCharsets.UTF_8));
+    m = sub.nextMessage(Duration.ofMillis(300));
+}
+System.out.println("gathered " + quotes.size() + " quotes");</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Scatter one request to every shipping-quote provider and gather the
+// replies. Subscribe to a private inbox, publish the request with that inbox
+// as the reply subject, then collect quotes until they stop arriving and
+// pick the cheapest.
+let order = r#"{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}"#;
+let inbox = client.new_inbox();
+let mut sub = client.subscribe(inbox.clone()).await?;
+client
+    .publish_with_reply("shipping.quote", inbox, order.into())
+    .await?;
+client.flush().await?;
+
+let mut quotes = Vec::new();
+while let Ok(Some(msg)) = tokio::time::timeout(Duration::from_millis(300), sub.next()).await {
+    quotes.push(String::from_utf8_lossy(&amp;msg.payload).to_string());
+}
+
+println!("gathered {} quotes: {:?}", quotes.len(), quotes);</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Scatter one request to every shipping-quote provider and gather the
+// replies. Subscribe to a private inbox, publish the request with that inbox
+// as the reply subject, then collect quotes until they stop arriving and
+// pick the cheapest.
+var order = new Order(OrderId: "ord_8w2k", Customer: "acme-co", TotalCents: 4200, Timestamp: DateTimeOffset.Parse("2026-05-22T10:14:22Z", CultureInfo.InvariantCulture));
+var inbox = client.Connection.NewInbox();
+await using var sub = await client.Connection.SubscribeCoreAsync&lt;ShippingQuote&gt;(inbox);
+await client.PublishAsync&lt;Order&gt;("shipping.quote", order, replyTo: inbox);
+
+var quotes = new List&lt;ShippingQuote&gt;();
+using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+try
+{
+    await foreach (var msg in sub.Msgs.ReadAllAsync(cts.Token))
+    {
+        quotes.Add(msg.Data!);
+    }
+}
+catch (OperationCanceledException)
+{
+}
+
+output.WriteLine($"gathered {quotes.Count} quotes");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Scatter one request to every shipping-quote provider and gather the
+// replies. Subscribe to a private inbox, publish the request with that
+// inbox as the reply subject, then collect quotes until they stop
+// arriving and pick the cheapest.
+const char *order = "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+                    "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}";
+int        quotes = 0;
+
+if (s == NATS_OK)
+    s = natsInbox_Create(&amp;inbox);
+if (s == NATS_OK)
+    s = natsConnection_SubscribeSync(&amp;sub, conn, (const char *) inbox);
+if (s == NATS_OK)
+    s = natsConnection_PublishRequestString(conn, "shipping.quote",
+                                            (const char *) inbox, order);
+
+while (s == NATS_OK)
+{
+    natsMsg *quote = NULL;
+
+    // Stop once no further quote arrives within the gap deadline.
+    s = natsSubscription_NextMsg(&amp;quote, sub, 300);
+    if (s != NATS_OK)
+        break;
+
+    printf("quote: %.*s\n",
+           natsMsg_GetDataLength(quote), natsMsg_GetData(quote));
+    quotes++;
+    natsMsg_Destroy(quote);
+}
+printf("gathered %d quotes\n", quotes);</code></pre></div></div>
+<p>The CLI uses <code>--replies 3</code>: read from the inbox until three replies
+arrive, then stop — or until replies stop arriving, whichever comes
+first. With the three providers running, the output shows three quotes,
+one per carrier. The client compares the prices and keeps the lowest.</p>
+<p>A library does the same thing, and how much you hand-roll depends on the
+client. A plain <code>request()</code> returns only the first reply — on its own it
+never returns a list, because the client can't know how many responders
+exist.
+Some clients ship a gather helper that returns many: nats.js has
+<code>requestMany</code> and orbit.go has <code>RequestMany</code> (both follow ADR-47,
+"Request Many", with count, stall, and sentinel stop conditions), and the
+.NET client has <code>RequestManyAsync</code>. Where no helper exists, you build the
+loop yourself: subscribe to a fresh inbox, publish the request with that
+inbox as the reply subject, then read from the subscription and append
+each reply to a list until your count or deadline is reached, then
+unsubscribe.</p>
+<h2 id="gather-by-deadline">Gather by deadline</h2>
+<p>Counting replies assumes you know how many providers there are. Often you
+don't. Carriers come and go; one might be down. Write that gather yourself
+with no read deadline, and waiting for a fixed count of three blocks
+forever if only two answer — the read for the third reply never returns.</p>
+<p>The safer approach gathers by <strong>deadline</strong> instead. Collect every reply
+that arrives within a time budget, then act on whatever you have.</p>
+<p>From the CLI, <code>--replies 0</code> switches to deadline mode: <code>--timeout</code> becomes
+the whole collection window. The command reads replies for the full window
+and returns when it closes, so <code>--replies 0 --timeout 2s</code> gathers everything
+that arrives in those two seconds. It's a fixed, predictable budget, and
+<code>--reply-timeout</code> has no effect in this mode — it only bounds the gap
+between replies when you gather by count.</p>
+<div><div><pre><code class="language-bash">nats request shipping.quote \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' \
+  --replies 0 --timeout 2s</code></pre></div></div>
+<p>With three providers up, all three quotes arrive within milliseconds, but the
+command still holds open for the full two seconds before returning the set.
+With one provider down, you get the two quotes that answered and wait out the
+same two-second window. If no provider is subscribed at all, the command
+returns right away with a no responders signal instead of waiting — though a
+provider that's subscribed but slow to answer still costs the full <code>--timeout</code>.
+Either way the wait is bounded; it never blocks forever.</p>
+<p>A deadline changes the rule from waiting for every responder to waiting
+only for whoever answers in time, which is the only safe assumption when
+the responder set isn't fixed.</p>
+<p>There's a third way to end a gather: a <strong>sentinel</strong>. With
+<code>--wait-for-empty</code>, the command keeps collecting until a reply arrives with
+an empty payload, which a responder sends to mark the end of the set. This
+counts replies rather than watching a single deadline, so if the sentinel
+never comes the <code>--reply-timeout</code> bounds the gap between replies and the
+wait still ends.</p>
+<h2 id="delivery-guarantees">Delivery guarantees</h2>
+<p>Scatter-gather is <a href="/learn/core-nats/publish-subscribe#at-most-once-delivery">at-most-once</a>
+like everything else: a reply dropped in transit is just absent from the
+gathered set, nothing redelivers it, and arrival order carries no meaning.
+Treat the set as whatever answers happened to arrive, not a ranked list.
+That's fine for a shipping quote — re-asking is cheap. When each reply must
+survive a crash, that's <a href="/learn/jetstream">JetStream</a>, not a core gather.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>Taking only the first reply.</strong> A plain <code>nats request</code> stops after one
+reply, because its <code>--replies</code> flag defaults to <code>1</code>. Point it at three
+providers and you get whichever carrier answered first; the other two
+quotes are discarded and you never learn there were more. A plain
+<code>request()</code> in a client library does the same. When you mean to gather,
+use <code>--replies 0</code> from the CLI, reach for your client's gather helper
+where it has one (nats.js <code>requestMany</code>, orbit.go <code>RequestMany</code>), or
+subscribe to the inbox yourself and read in a loop.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# The "first reply only" trap, and the fix.
+#
+# `nats request` defaults to --replies 1: it reads ONE reply and stops.
+# With three providers up, you get whichever carrier answered first and
+# the other two quotes are silently discarded. That is a single request,
+# not a scatter-gather.
+
+# WRONG for scatter-gather — takes only the first quote that lands.
+nats request shipping.quote \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+
+# RIGHT — gather every quote, then pick the cheapest. --replies 0 collects
+# every reply that arrives during the full --timeout window, then returns —
+# a fixed, predictable budget. If a carrier is down, its quote is simply
+# absent from the set; --reply-timeout has no effect in this mode.
+nats request shipping.quote \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' \
+  --replies 0 --timeout 2s</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The "first reply only" trap: a plain request reads ONE reply and
+// stops. With three providers up, you get whichever carrier answered
+// first and the other two quotes are silently discarded.
+const char *order = "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+                    "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}";
+natsMsg    *first = NULL;
+
+if (s == NATS_OK)
+    s = natsConnection_RequestString(&amp;first, conn, "shipping.quote",
+                                     order, 2000);
+if (s == NATS_OK)
+{
+    printf("first quote only: %.*s\n",
+           natsMsg_GetDataLength(first), natsMsg_GetData(first));
+    natsMsg_Destroy(first);
+}
+
+// The fix: gather every quote yourself. Subscribe to a private inbox,
+// publish the request with that inbox as the reply subject, and read
+// replies until they stop arriving.
+int quotes = 0;
+
+if (s == NATS_OK)
+    s = natsInbox_Create(&amp;inbox);
+if (s == NATS_OK)
+    s = natsConnection_SubscribeSync(&amp;sub, conn, (const char *) inbox);
+if (s == NATS_OK)
+    s = natsConnection_PublishRequestString(conn, "shipping.quote",
+                                            (const char *) inbox, order);
+
+while (s == NATS_OK)
+{
+    natsMsg *quote = NULL;
+
+    s = natsSubscription_NextMsg(&amp;quote, sub, 300);
+    if (s != NATS_OK)
+        break;
+
+    printf("quote: %.*s\n",
+           natsMsg_GetDataLength(quote), natsMsg_GetData(quote));
+    quotes++;
+    natsMsg_Destroy(quote);
+}
+printf("gathered %d quotes\n", quotes);</code></pre></div></div>
+<p><strong>No deadline, so you wait for replies that never come.</strong> A hand-rolled
+gather that reads with no deadline blocks forever if a provider is down —
+the read for the missing reply never returns. Bound the wait: gather by
+deadline (<code>--replies 0 --timeout 2s</code>) so a missing carrier just leaves its
+quote out of the set.</p>
+<p><strong>Reading the gathered set as ranked.</strong> Arrival order isn't priority and a
+short set isn't an error. Compare every reply on its merits (here, the
+lowest <code>quote_cents</code>).</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The Acme ORDERS world now talks in four shapes over one local
+<code>nats-server</code>:</p>
+<ul>
+<li><code>notifications</code> and <code>analytics</code> each receive their own copy of every
+<code>orders.created</code> message (publish-subscribe).</li>
+<li>Regional analytics spans <code>orders.us.created</code> and <code>orders.eu.created</code>
+with <code>orders.*.created</code>, and an audit service reads the whole hierarchy
+on <code>orders.&gt;</code>.</li>
+<li>The <code>inventory</code> service answers single requests on
+<code>orders.inventory.check</code> (request-reply).</li>
+<li>A <code>packers</code> queue group shares the work on <code>orders.created</code>, one packer
+per order.</li>
+<li>Three providers answer one <code>shipping.quote</code> request, and the client
+gathers every reply within a deadline and picks the cheapest.</li>
+</ul>
+<p>That's the whole of core NATS: subjects, interest, reply inboxes, and
+queue groups. Everything is ephemeral and at-most-once, and nothing is
+remembered after it's delivered.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The next page adds a third piece to every message, beside its subject
+and payload: headers, a set of key/value metadata. You'll put a
+request id and a trace id on the orders flow and read the status header
+the server uses to signal no responders. Continue to <a href="/learn/core-nats/headers">Message
+headers</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/concepts/request-reply">Concepts → Request-reply</a> — the five-minute
+overview of the pattern this page extends.</li>
+<li><a href="/learn/services">Learn → Services</a> — when many responders become a
+managed service that aggregates results for you.</li>
+<li><a href="/reference/">Reference</a> — gather helper signatures per client library.</li>
+</ul></main>

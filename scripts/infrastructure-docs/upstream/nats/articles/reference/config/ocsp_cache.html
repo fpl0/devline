@@ -1,0 +1,8 @@
+<main><header><h1>ocsp_cache</h1></header>
+<div><span><span>Hot Reloadable</span></span></div>
+<p>Cache OCSP responses the server staples, so it does not query the
+responder on every handshake.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>boolean</code></td><td></td><td><code>true</code>, <code>false</code></td></tr><tr><td><code>object</code></td><td>An object with a set of explicit properties that can be set.</td><td>-</td></tr></tbody></table>
+<h2 id="properties">Properties</h2>
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Default</th><th>Reloadable</th></tr></thead><tbody><tr><td><a href="/reference/config/ocsp_cache/type"><code>type</code></a></td><td>Where stapled responses are cached. <code>local</code> writes them under the server's store directory.</td><td><code>string</code></td><td><code>none</code></td><td>Yes</td></tr><tr><td><a href="/reference/config/ocsp_cache/local_store"><code>local_store</code></a></td><td>Directory for the local cache.</td><td><code>string</code></td><td>-</td><td>Yes</td></tr><tr><td><a href="/reference/config/ocsp_cache/preserve_revoked"><code>preserve_revoked</code></a></td><td>Keep revoked responses in the cache rather than evicting them.</td><td><code>boolean</code></td><td><code>false</code></td><td>Yes</td></tr></tbody></table></main>

@@ -1,0 +1,149 @@
+<main><header><h1>Publish-Subscribe</h1></header>
+<p>Everything in NATS starts with publish-subscribe. A publisher sends a message to a subject, and every subscriber listening on that subject gets a copy. This is the foundation everything else builds on.</p>
+<p>For a runnable, step-by-step treatment, see the <a href="/learn/core-nats">Core NATS deep dive</a>.</p>
+<div></div>
+<p>Watch how messages flow as subscribers join. With no subscribers, messages reach the server but aren't delivered. As subscribers connect, each one receives a copy of every message.</p>
+<h2 id="how-it-works">How It Works</h2>
+<ol>
+<li><strong>Publishers</strong> send messages to a <a href="/concepts/subjects">subject</a> — a simple string like <code>orders.created</code></li>
+<li><strong>Subscribers</strong> express interest in subjects they care about</li>
+<li><strong>NATS delivers</strong> a copy of each message to every matching subscriber</li>
+<li><strong>No coupling</strong> — publishers don't know about subscribers, and subscribers don't know about publishers</li>
+</ol>
+<p>This decoupling gives you tremendous flexibility. Services can be added, removed, or restarted without coordinating with anyone else.</p>
+<h2 id="publishing-messages">Publishing Messages</h2>
+<p>You publish a message by sending it to a subject:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Publish a message to the "weather.updates" subject
+nats pub weather.updates "Temperature: 72°F"</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Publish a message to the "weather.updates" subject
+nc.publish("weather.updates", "Temperature: 72°F");</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Publish a message to the 'weather.updates' subject
+nc.Publish("weather.updates", []byte("Temperature: 72°F"))</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Publish a message to the subject "weather.updates"
+await nc.publish("weather.updates", "Temperature: 72°F".encode())</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Publish a message to the subject "weather.updates"
+byte[] data = "Temperature: 72°F".getBytes(StandardCharsets.UTF_8);
+nc.publish("weather.updates", data);</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Publish a message to the subject "weather.updates"
+nc.publish("weather.updates", "Temperature: 72°F".into())
+    .await?;</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Publish a message to the subject "weather.updates"
+await client.PublishAsync("weather.updates", "Temperature: 72F");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Publish a message to the 'weather.updates' subject
+if (s == NATS_OK)
+    s = natsConnection_PublishString(conn, "weather.updates",
+                                     "Temperature: 72°F");</code></pre></div></div>
+<p>Key points:</p>
+<ul>
+<li>Publishers don't wait for acknowledgments (fire-and-forget)</li>
+<li>Messages are delivered to all active subscribers</li>
+<li>If no subscribers exist, the message is simply discarded</li>
+</ul>
+<h2 id="subscribing-to-subjects">Subscribing to Subjects</h2>
+<p>Subscribers express interest in subjects to receive messages:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Subscribe to messages on the "weather.updates" subject
+nats sub "weather.updates"</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Subscribe to the "weather.updates" subject; auto-close after 1 message
+const sub = nc.subscribe("weather.updates");
+
+// iterate over messages received (sub will end after the first message)
+for await (const msg of sub) {
+  console.log(`Received: ${msg.string()}`);
+  break;
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Subscribe to weather updates
+sub, _ := nc.Subscribe("weather.updates", func(msg *nats.Msg) {
+	fmt.Printf("Received: %s\n", string(msg.Data))
+})</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Subscribe to 'weather.updates' synchronously
+sub = await nc.subscribe("weather.updates")
+
+# Process messages
+while True:
+    try:
+        msg = await sub.next(timeout=1)
+        print(f"Received: {msg.data.decode()}")
+    except TimeoutError:
+        break</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Subscribe to 'weather.updates' synchronously
+Subscription sub = nc.subscribe("weather.updates");
+
+// Process messages
+Message m = sub.nextMessage(1000);
+while (m != null) {
+    System.out.println("Received: " + new String(m.getData(), StandardCharsets.UTF_8));
+    m = sub.nextMessage(1000);
+}</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">//  Subscribe to the "weather.updates" subject
+let mut sub = nc.subscribe("weather.updates").await?;
+
+while let Some(msg) = sub.next().await {
+    println!("Received: {}", String::from_utf8_lossy(&amp;msg.payload));
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Subscribe to 'weather.updates' and process messages
+await foreach (var msg in client.SubscribeAsync&lt;string&gt;("weather.updates"))
+{
+    output.WriteLine($"Received: {msg.Data}");
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The callback runs for each message published to 'weather.updates'.
+static void
+onUpdate(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("Received: %.*s\n",
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+
+    natsMsg_Destroy(msg);
+}
+    // Subscribe to weather updates
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "weather.updates",
+                                     onUpdate, NULL);</code></pre></div></div>
+<h2 id="when-to-use-pubsub">When to Use Pub/Sub</h2>
+<p>Publish-subscribe is ideal when multiple services need to react to the same event:</p>
+<ul>
+<li><strong>Event broadcasting</strong> — notify services about user signups, order placements, deployments</li>
+<li><strong>Data distribution</strong> — send updates to multiple dashboards or monitoring services</li>
+<li><strong>Fan-out notifications</strong> — alert all interested parties about state changes</li>
+<li><strong>Audit logging</strong> — multiple services independently log the same events</li>
+</ul>
+<h3 id="real-world-example">Real-world example</h3>
+<p>Imagine an e-commerce system where an order is placed. You publish a single event:</p>
+<div><div><pre><code class="language-bash">nats pub orders.created '{"orderId": "123", "total": 99.99}'</code></pre></div></div>
+<p>Multiple services subscribe and each reacts differently:</p>
+<ul>
+<li><strong>Inventory Service</strong> updates stock levels</li>
+<li><strong>Email Service</strong> sends a confirmation email</li>
+<li><strong>Analytics Service</strong> records metrics</li>
+<li><strong>Shipping Service</strong> prepares the shipment</li>
+</ul>
+<p>One publish, four independent reactions — no coordination needed.</p>
+<h2 id="pubsub-patterns">Pub/Sub Patterns</h2>
+<h3 id="fan-out">Fan-Out</h3>
+<p>One publisher, multiple subscribers — perfect for event notification:</p>
+<div></div>
+<h3 id="fan-in">Fan-In</h3>
+<p>Multiple publishers, one subscriber — ideal for aggregation:</p>
+<div></div>
+<h2 id="subject-hierarchies">Subject Hierarchies</h2>
+<p>NATS subjects support hierarchical naming using dots (<code>.</code>) as delimiters:</p>
+<div><div><pre><code class="language-text">orders.us.created
+orders.eu.created
+orders.us.canceled</code></pre></div></div>
+<p>This creates logical namespaces for organizing your messages. You can use wildcards to subscribe across hierarchies — <code>orders.*.created</code> catches orders from any region.</p>
+<p>For a deep dive into subjects, hierarchies, wildcards, and naming conventions, see <a href="/concepts/subjects">Subjects</a>.</p>
+<h2 id="how-delivery-works">How Delivery Works</h2>
+<ul>
+<li><strong>At-most-once delivery</strong>: Core NATS delivers messages without persistence. If you need guaranteed delivery, that's what <a href="/concepts/jetstream">JetStream</a> is for.</li>
+<li><strong>Active subscribers only</strong>: Only subscribers connected when the message is published will receive it. Messages aren't stored for later.</li>
+<li><strong>Every subscriber gets a copy</strong>: Subscribing doesn't consume or remove messages — each subscriber independently receives its own copy.</li>
+<li><strong>Message size</strong>: NATS has a default max message size of 1MB (configurable). For large data, consider using object stores or passing references.</li>
+<li><strong>Subscription efficiency</strong>: NATS handles millions of subscriptions efficiently. Use wildcards to reduce subscription overhead when possible.</li>
+</ul>
+<h2 id="try-it-yourself">Try It Yourself</h2>
+<p>Open two terminals and see pub/sub in action:</p>
+<div><div><pre><code class="language-bash"># Terminal 1 — subscribe to all demo messages
+nats sub 'demo.&gt;'
+
+# Terminal 2 — publish some messages
+nats pub demo.hello "Hello NATS!"
+nats pub demo.greeting "Welcome to pub/sub"
+nats pub demo.test.nested "Hierarchical subjects work!"</code></pre></div></div>
+<p>You'll see each message arrive in Terminal 1 the instant it's published. Try opening a third terminal with another <code>nats sub 'demo.&gt;'</code> — both subscribers will receive every message.</p>
+<h2 id="next-steps">Next steps</h2>
+<ul>
+<li><a href="/learn/core-nats">Core NATS deep dive</a> — the full runnable walkthrough</li>
+<li><a href="/learn/core-nats/publish-subscribe">Publish-subscribe, step by step</a> — build pub/sub up from scratch</li>
+<li><a href="/concepts/subjects">Subjects</a> — the addressing system that makes pub/sub flexible</li>
+<li><a href="/concepts/queue-groups">Queue Groups</a> — same pub/sub, but with built-in load balancing</li>
+<li><a href="/concepts/request-reply">Request-Reply</a> — pub/sub with a reply subject for synchronous patterns</li>
+</ul></main>

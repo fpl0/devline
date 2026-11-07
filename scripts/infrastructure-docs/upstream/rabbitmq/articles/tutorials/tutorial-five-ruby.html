@@ -1,0 +1,144 @@
+<main><header><h1>RabbitMQ tutorial - Topics</h1></header>
+<h2 id="topics">Topics</h2>
+<h3 id="using-the-bunny-client">(using the Bunny client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<p>In the <a href="/tutorials/tutorial-four-ruby">previous tutorial</a> we improved our
+logging system. Instead of using a <code>fanout</code> exchange only capable of
+dummy broadcasting, we used a <code>direct</code> one, and gained a possibility
+of selectively receiving the logs.</p>
+<p>Although using the <code>direct</code> exchange improved our system, it still has
+limitations - it can't do routing based on multiple criteria.</p>
+<p>In our logging system we might want to subscribe to not only logs
+based on severity, but also based on the source which emitted the log.
+You might know this concept from the
+<a href="http://en.wikipedia.org/wiki/Syslog"><code>syslog</code></a> unix tool, which
+routes logs based on both severity (info/warn/crit...) and facility
+(auth/cron/kern...).</p>
+<p>That would give us a lot of flexibility - we may want to listen to
+just critical errors coming from 'cron' but also all logs from 'kern'.</p>
+<p>To implement that in our logging system we need to learn about a more
+complex <code>topic</code> exchange.</p>
+<h2 id="topic-exchange">Topic exchange</h2>
+<p>Messages sent to a <code>topic</code> exchange can't have an arbitrary
+<code>routing_key</code> - it must be a list of words, delimited by dots. The
+words can be anything, but usually they specify some features
+connected to the message. A few valid routing key examples:
+<code>stock.usd.nyse</code>, <code>nyse.vmw</code>, <code>quick.orange.rabbit</code>. There can be as
+many words in the routing key as you like, up to the limit of 255
+bytes.</p>
+<p>The binding key must also be in the same form. The logic behind the
+<code>topic</code> exchange is similar to a <code>direct</code> one - a message sent with a
+particular routing key will be delivered to all the queues that are
+bound with a matching binding key. However there are two important
+special cases for binding keys:</p>
+<ul>
+<li><code>*</code> (star) can substitute for exactly one word.</li>
+<li><code>#</code> (hash) can substitute for zero or more words.</li>
+</ul>
+<p>It's easiest to explain this in an example:</p>
+<!-- -->
+<p>In this example, we're going to send messages which all describe
+animals. The messages will be sent with a routing key that consists of
+three words (two dots). The first word in the routing key
+will describe speed, second a colour and third a species:
+<code>&lt;speed&gt;.&lt;colour&gt;.&lt;species&gt;</code>.</p>
+<p>We created three bindings: Q1 is bound with binding key <code>*.orange.*</code>
+and Q2 with <code>*.*.rabbit</code> and <code>lazy.#</code>.</p>
+<p>These bindings can be summarised as:</p>
+<ul>
+<li>Q1 is interested in all the orange animals.</li>
+<li>Q2 wants to hear everything about rabbits, and everything about lazy
+animals.</li>
+</ul>
+<p>A message with a routing key set to <code>quick.orange.rabbit</code>
+will be delivered to both queues. Message
+<code>lazy.orange.elephant</code> also will go to both of them. On the other hand
+<code>quick.orange.fox</code> will only go to the first queue, and
+<code>lazy.brown.fox</code> only to the second. <code>lazy.pink.rabbit</code> will
+be delivered to the second queue only once, even though it matches two bindings.
+<code>quick.brown.fox</code> doesn't match any binding so it will be discarded.</p>
+<p>What happens if we break our contract and send a message with one or
+four words, like <code>orange</code> or <code>quick.orange.new.rabbit</code>? Well,
+these messages won't match any bindings and will be lost.</p>
+<p>On the other hand <code>lazy.orange.new.rabbit</code>, even though it has four
+words, will match the last binding and will be delivered to the second
+queue.</p>
+<blockquote>
+<h4 id="topic-exchange-1">Topic exchange</h4>
+<p>Topic exchange is powerful and can behave like other exchanges.</p>
+<p>When a queue is bound with <code>#</code> (hash) binding key - it will receive
+all the messages, regardless of the routing key - like in <code>fanout</code> exchange.</p>
+<p>When special characters <code>*</code> (star) and <code>#</code> (hash) aren't used in bindings,
+the topic exchange will behave just like a <code>direct</code> one.</p>
+</blockquote>
+<h2 id="putting-it-all-together">Putting it all together</h2>
+<p>We're going to use a <code>topic</code> exchange in our logging system. We'll
+start off with a working assumption that the routing keys of logs will
+have two words: <code>&lt;facility&gt;.&lt;severity&gt;</code>.</p>
+<p>The code is almost the same as in the
+<a href="/tutorials/tutorial-four-ruby">previous tutorial</a>.</p>
+<p>The code for <code>emit_log_topic.rb</code>:</p>
+<div><div><pre><code class="language-ruby">#!/usr/bin/env ruby
+require 'bunny'
+
+connection = Bunny.new
+connection.start
+
+channel = connection.create_channel
+exchange = channel.topic('topic_logs')
+severity = ARGV.shift || 'anonymous.info'
+message = ARGV.empty? ? 'Hello World!' : ARGV.join(' ')
+
+exchange.publish(message, routing_key: severity)
+puts " [x] Sent #{severity}:#{message}"
+
+connection.close</code></pre></div></div>
+<p>The code for <code>receive_logs_topic.rb</code>:</p>
+<div><div><pre><code class="language-ruby">#!/usr/bin/env ruby
+require 'bunny'
+
+abort "Usage: #{$PROGRAM_NAME} [binding key]" if ARGV.empty?
+
+connection = Bunny.new
+connection.start
+
+channel = connection.create_channel
+exchange = channel.topic('topic_logs')
+queue = channel.queue('', exclusive: true)
+
+ARGV.each do |severity|
+  queue.bind(exchange, routing_key: severity)
+end
+
+puts ' [*] Waiting for logs. To exit press CTRL+C'
+
+begin
+  queue.subscribe(block: true) do |delivery_info, _properties, body|
+    puts " [x] #{delivery_info.routing_key}:#{body}"
+  end
+rescue Interrupt =&gt; _
+  channel.close
+  connection.close
+
+  exit(0)
+end</code></pre></div></div>
+<p>To receive all the logs:</p>
+<div><div><pre><code class="language-bash">ruby receive_logs_topic.rb "#"</code></pre></div></div>
+<p>To receive all logs from the facility <code>kern</code>:</p>
+<div><div><pre><code class="language-bash">ruby receive_logs_topic.rb "kern.*"</code></pre></div></div>
+<p>Or if you want to hear only about <code>critical</code> logs:</p>
+<div><div><pre><code class="language-bash">ruby receive_logs_topic.rb "*.critical"</code></pre></div></div>
+<p>You can create multiple bindings:</p>
+<div><div><pre><code class="language-bash">ruby receive_logs_topic.rb "kern.*" "*.critical"</code></pre></div></div>
+<p>And to emit a log with a routing key <code>kern.critical</code> type:</p>
+<div><div><pre><code class="language-bash">ruby emit_log_topic.rb "kern.critical" "A critical kernel error"</code></pre></div></div>
+<p>Have fun playing with these programs. Note that the code doesn't make
+any assumption about the routing or binding keys, you may want to play
+with more than two routing key parameters.</p>
+<p>(Full source code for <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/ruby/emit_log_topic.rb">emit_log_topic.rb</a>
+and <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/ruby/receive_logs_topic.rb">receive_logs_topic.rb</a>)</p>
+<p>Next, find out how to do a round trip message as a remote procedure call in <a href="/tutorials/tutorial-six-ruby">tutorial 6</a></p></main>

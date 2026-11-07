@@ -1,0 +1,258 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This guide explains how to install and run Keycloak as a Windows service using Apache Commons Daemon. The service runs <code>kc.bat</code> in "exe" mode so behavior matches running <code>kc.bat start</code> manually. The service runs in "exe" mode, where Procrun executes <code>kc.bat start</code> as an external process. Environment variables, such as <code>KC_*</code>, along with <code>conf/keycloak.conf</code>, are respected. The <code>kc.bat</code> script handles augmentation and build logic, ensuring the service behaves exactly like a manual start.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_apache_commons_daemon_setup"><a class="anchor" href="#_apache_commons_daemon_setup"></a>Apache Commons Daemon Setup</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To run Keycloak as a Windows service, you need the Apache Commons Daemon Procrun binary (<code>prunsrv.exe</code>). Download it for your platform: <a class="bare" href="https://downloads.apache.org/commons/daemon/binaries/windows/">https://downloads.apache.org/commons/daemon/binaries/windows/</a></p>
+</div>
+<div class="paragraph">
+<p>Then place <code>prunsrv.exe</code> into the Keycloak <code>bin</code> folder.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">copy <span class="s2">"path</span><span class="se">\t</span><span class="s2">o</span><span class="se">\p</span><span class="s2">runsrv.exe"</span> <span class="s2">"%KEYCLOAK_HOME%</span><span class="se">\b</span><span class="s2">in</span><span class="se">\p</span><span class="s2">runsrv.exe"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Use the amd64 binary for 64-bit and x86 for 32-bit systems.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_optional_pre_build"><a class="anchor" href="#_optional_pre_build"></a>Optional: Pre-build</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Pre-building is optional. If you do not pre-build, Keycloak will build automatically on first start, which takes longer.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.bat build <span class="nt">--db</span><span class="o">=</span>postgres</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_installing_the_service"><a class="anchor" href="#_installing_the_service"></a>Installing the Service</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak includes a <code>tools windows-service</code> subcommand to simplify service installation and uninstallation.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat tools windows-service <span class="nb">install</span> <span class="nt">--help</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat tools windows-service uninstall <span class="nt">--help</span></code></pre>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_examples"><a class="anchor" href="#_examples"></a>Examples</h3>
+<div class="paragraph">
+<p>Install a basic service (runs as Local System by default):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat tools windows-service <span class="nb">install</span> <span class="nt">--name</span> keycloak</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Manual startup and longer stop timeout:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat tools windows-service <span class="nb">install</span> <span class="nt">--startup</span><span class="o">=</span>manual <span class="nt">--stop-timeout</span><span class="o">=</span>60</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Delayed auto-start:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat tools windows-service <span class="nb">install</span> <span class="nt">--startup</span><span class="o">=</span>delayed</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Custom display name:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat tools windows-service <span class="nb">install</span> <span class="nt">--name</span><span class="o">=</span>my-keycloak <span class="nt">--display-name</span><span class="o">=</span><span class="s2">"My Keycloak Server"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Use <code>--depends-on</code> to ensure required Windows services start before Keycloak (for example, a local database). By default Apache Commons Daemon may add <code>Tcpip</code> and <code>Afd</code> network dependencies.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat tools windows-service <span class="nb">install</span> <span class="nt">--depends-on</span><span class="o">=</span><span class="s2">"postgresql-x64-15;Tcpip;Afd"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The default is to run the service as the Local System account - <code>--service-user</code> and <code>--service-password</code> can be omitted (recommended). To run as a specific user, the account must have the "Log on as a service" right.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat tools windows-service <span class="nb">install</span> <span class="nt">--service-user</span><span class="o">=</span><span class="s2">"DOMAIN</span><span class="se">\U</span><span class="s2">sername"</span> <span class="nt">--service-password</span><span class="o">=</span><span class="s2">"password"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can supply the service password securely via an environment variable, which is recommended:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="nb">set </span><span class="nv">KC_SERVICE_PASSWORD</span><span class="o">=</span>s3cret
+bin<span class="se">\k</span>c.bat tools windows-service <span class="nb">install</span> <span class="nt">--service-user</span><span class="o">=</span><span class="s2">"DOMAIN</span><span class="se">\U</span><span class="s2">sername"</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Start the service:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">net start keycloak</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Stop the service:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">net stop keycloak</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Uninstall the service:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat tools windows-service uninstall <span class="nt">--name</span> keycloak</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Check status using the Windows Services console (<code>services.msc</code>).</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_logging"><a class="anchor" href="#_logging"></a>Logging</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When Keycloak runs as a service, it is recommended to enable file logging - see <a href="https://www.keycloak.org/server/logging">Configuring logging</a>.</p>
+</div>
+<div class="paragraph">
+<p>The service wrapper logs (e.g. <code>commons-daemon.YYYY-MM-DD.log</code>) respects the <code>log-path</code> option value during service creation.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_configuration_changes"><a class="anchor" href="#_configuration_changes"></a>Configuration Changes</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To change runtime configuration:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Stop the service: <code>net stop keycloak</code>.</p>
+</li>
+<li>
+<p>Update environment variables or <code>conf/keycloak.conf</code>.</p>
+</li>
+<li>
+<p>Optionally re-run build: <code>bin\kc.bat build [new-options]</code>.</p>
+</li>
+<li>
+<p>Start the service: <code>net start keycloak</code>.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_troubleshooting"><a class="anchor" href="#_troubleshooting"></a>Troubleshooting</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_access_denied_errors"><a class="anchor" href="#_access_denied_errors"></a>Access Denied errors</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>Ensure the service runs as Local System (default) or that the specified account has "Log on as a service".</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_options_defined_as_environment_variables_are_ignored"><a class="anchor" href="#_options_defined_as_environment_variables_are_ignored"></a>Options defined as environment variables are ignored</h3>
+<div class="paragraph">
+<p>Windows Services run in a separate session (usually as the LocalSystem account) and do not inherit the environment variables of the user who created the service. Define the required <code>KC_*</code> environment variables as system-wide environment variables, so they are available to the service.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_forcefully_terminate_the_service"><a class="anchor" href="#_forcefully_terminate_the_service"></a>Forcefully terminate the service</h3>
+<div class="paragraph">
+<p>If the Apache Commons Daemon wrapper becomes unresponsive:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">taskkill /f /im prunsrv.exe</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Use caution — this will affect all Procrun-managed services on the host.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_apache_commons_daemon_configuration_under_the_hood"><a class="anchor" href="#_apache_commons_daemon_configuration_under_the_hood"></a>Apache Commons Daemon configuration under the hood</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When you create the service, the following Apache Commons Daemon Procrun settings are applied:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>StartMode: <code>exe</code> (runs <code>kc.bat</code> as an external process)</p>
+</li>
+<li>
+<p>StartImage: <code>&lt;KEYCLOAK_HOME&gt;\bin\kc.bat</code></p>
+</li>
+<li>
+<p>StartParams: <code>start</code></p>
+</li>
+<li>
+<p>StopMode: <code>exe</code></p>
+</li>
+<li>
+<p>StopImage: <code>&lt;KEYCLOAK_HOME&gt;\bin\kc.bat</code></p>
+</li>
+<li>
+<p>StopParams: <code>stop</code></p>
+</li>
+<li>
+<p>StopTimeout: configurable (default: 30 seconds)</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Service configuration is stored in the Windows Registry under:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Apache Software Foundation\ProcRun 2.0\&lt;ServiceName&gt;</pre>
+</div>
+</div>
+</div>
+</div> </div>
+</main>

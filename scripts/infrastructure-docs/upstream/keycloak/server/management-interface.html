@@ -1,0 +1,576 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>The management interface allows accessing management endpoints via a different HTTP server than the primary one.
+It provides the possibility to hide endpoints like <code>/metrics</code> or <code>/health</code> from the outside world and, therefore, hardens the security.
+The most significant advantage might be seen in Kubernetes environments as the specific management port might not be exposed.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_management_interface_configuration"><a class="anchor" href="#_management_interface_configuration"></a>Management interface configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The management interface is turned on when something is exposed on it.
+Management endpoints such as <code>/metrics</code> and <code>/health</code> are exposed on the default management port <code>9000</code> when metrics and health are enabled.
+The management interface provides a set of options and is fully configurable.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+If management interface properties are not explicitly set, their values are automatically inherited from the default HTTP server.
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_port"><a class="anchor" href="#_port"></a>Port</h3>
+<div class="paragraph">
+<p>In order to change the port for the management interface, you can use the Keycloak option <code>http-management-port</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_relative_path"><a class="anchor" href="#_relative_path"></a>Relative path</h3>
+<div class="paragraph">
+<p>You can change the relative path of the management interface, as the prefix path for the management endpoints can be different.
+You can achieve it via the Keycloak option <code>http-management-relative-path</code>.</p>
+</div>
+<div class="paragraph">
+<p>For instance, if you set the CLI option <code>--http-management-relative-path=/management</code>, the metrics, and health endpoints will be accessed on the <code>/management/metrics</code> and <code>/management/health</code> paths.</p>
+</div>
+<div class="paragraph">
+<p>User is automatically <strong>redirected</strong> to the path where Keycloak is hosted when the relative path is specified.
+It means when the relative path is set to <code>/management</code>, and the user access <code>localhost:9000/</code>, the page is redirected to <code>localhost:9000/management</code>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+If you do not explicitly set the value for it, the value from the <code>http-relative-path</code> property is used. For instance,
+if you set the CLI option <code>--http-relative-path=/auth</code>, these endpoints are accessible on the <code>/auth/metrics</code> and <code>/auth/health</code> paths.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_tls_support"><a class="anchor" href="#_tls_support"></a>TLS support</h3>
+<div class="paragraph">
+<p>When the TLS is set for the default Keycloak server, by default the management interface will be accessible through HTTPS as well.
+The management interface can run only either on HTTP or HTTPS, not both as for the main server.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+If you do not want the management interface to use HTTPS, you may set the <code>http-management-scheme</code> option to <code>http</code>.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Specific Keycloak management interface options with the prefix <code>https-management-*</code> were provided for setting different TLS parameters for the management HTTP server. Their function is similar to their counterparts for the main HTTP server, for details see <a href="https://www.keycloak.org/server/enabletls">Configuring TLS</a>.
+When these options are not explicitly set, the TLS parameters are inherited from the default HTTP server.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_disable_management_interface"><a class="anchor" href="#_disable_management_interface"></a>Disable Management interface</h3>
+<div class="paragraph">
+<p>The management interface is automatically turned off when nothing is exposed on it.
+Currently, only health checks and metrics are exposed on the management interface regardless.
+If you want to disable exposing them on the management interface, set the Keycloak property <code>legacy-observability-interface</code> to <code>true</code>.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Exposing health and metrics endpoints on the default server is not recommended for security reasons, and you should always use the management interface.
+Beware, the <code>legacy-observability-interface</code> option is deprecated and will be removed in future releases.
+It only allows you to give more time for the migration.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_relevant_options"><a class="anchor" href="#_relevant_options"></a>Relevant options</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch options">
+<colgroup>
+<col style="width: 75%;"/>
+<col style="width: 12.5%;"/>
+<col style="width: 12.5%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"></th>
+<th class="tableblock halign-left valign-top"><em>Type</em> or Values</th>
+<th class="tableblock halign-left valign-top">Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>http-management-health-enabled</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">If health endpoints should be exposed on the management interface.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If false, health endpoints will be exposed on the main interface.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--http-management-health-enabled</code><br/>
+<strong>Env:</strong> <code>KC_HTTP_MANAGEMENT_HEALTH_ENABLED</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when health is enabled</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>http-management-host</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Host of the management interface.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--http-management-host</code><br/>
+<strong>Env:</strong> <code>KC_HTTP_MANAGEMENT_HOST</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>http-management-port</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Port of the management interface.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--http-management-port</code><br/>
+<strong>Env:</strong> <code>KC_HTTP_MANAGEMENT_PORT</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>Integer</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>9000</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>http-management-relative-path</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Set the path relative to <code>/</code> for serving resources from management interface.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">The path must start with a <code>/</code>. If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--http-management-relative-path</code><br/>
+<strong>Env:</strong> <code>KC_HTTP_MANAGEMENT_RELATIVE_PATH</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>/</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>http-management-scheme</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Configures the management interface scheme.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If <code>inherited</code>, the management interface will inherit the HTTPS settings of the main interface. If <code>http</code>, the management interface will be accessible via HTTP - it will not inherit HTTPS settings and cannot be configured for HTTPS.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--http-management-scheme</code><br/>
+<strong>Env:</strong> <code>KC_HTTP_MANAGEMENT_SCHEME</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>http</code>, <code>inherited</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>inherited</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-certificate-file</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The file path to a server certificate or certificate chain in PEM format for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-certificate-file</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_CERTIFICATE_FILE</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>File</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-certificate-key-file</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The file path to a private key in PEM format for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-certificate-key-file</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_CERTIFICATE_KEY_FILE</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>File</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-certificate-key-file-password</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The password to decrypt an encrypted private key in PEM format for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-certificate-key-file-password</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_CERTIFICATE_KEY_FILE_PASSWORD</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-certificates-reload-period</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Interval on which to reload key store, trust store, and certificate files referenced by https-management-* options for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">May be an ISO 8601 duration value, an integer number of seconds, or an integer followed by one of [ms, h, m, s, d]. Must be greater than 30 seconds. Use -1 to disable. If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-certificates-reload-period</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_CERTIFICATES_RELOAD_PERIOD</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1h</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-cipher-suites</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The cipher suites to use for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-cipher-suites</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_CIPHER_SUITES</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-client-auth</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Configures the management interface to require/request client authentication.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-client-auth</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_CLIENT_AUTH</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>none</code>, <code>request</code>, <code>required</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>none</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-key-store-file</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The key store which holds the certificate information instead of specifying separate files for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-key-store-file</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_KEY_STORE_FILE</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>File</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-key-store-password</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The password of the key store file for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-key-store-password</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_KEY_STORE_PASSWORD</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>password</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-key-store-type</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The type of the key store file for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-key-store-type</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_KEY_STORE_TYPE</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-protocols</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The list of protocols to explicitly enable for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-protocols</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_PROTOCOLS</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>List</em></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>TLSv1.3,TLSv1.2</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-trust-store-file</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The trust store which holds the certificate information of the certificates to trust for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-trust-store-file</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_TRUST_STORE_FILE</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>File</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-trust-store-password</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The password of the trust store file for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-trust-store-password</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_TRUST_STORE_PASSWORD</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>https-management-trust-store-type</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">The type of the trust store file for the management server.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If not given, the value is inherited from HTTP options. Relevant only when something is exposed on the management interface - see the guide for details.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--https-management-trust-store-type</code><br/>
+<strong>Env:</strong> <code>KC_HTTPS_MANAGEMENT_TRUST_STORE_TYPE</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when http-management-scheme is inherited</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>legacy-observability-interface</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">If metrics/health endpoints should be exposed on the main HTTP server (not recommended).</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If set to true, the management interface is disabled.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--legacy-observability-interface</code><br/>
+<strong>Env:</strong> <code>KC_LEGACY_OBSERVABILITY_INTERFACE</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p><strong>DEPRECATED.</strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div> </div>
+</main>

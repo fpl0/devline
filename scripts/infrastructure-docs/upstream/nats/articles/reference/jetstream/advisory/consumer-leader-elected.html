@@ -1,0 +1,12 @@
+<main><header><h1>Consumer Leader Elected</h1></header>
+<p>New consumer leader elected.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$JS.EVENT.ADVISORY.CONSUMER.LEADER_ELECTED.{stream}.{consumer}</code></p>
+<p>Where:</p>
+<ul>
+<li><code>{stream}</code> is the stream name</li>
+<li><code>{consumer}</code> is the consumer name</li>
+</ul>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>An Advisory sent when a clustered Consumer elected a new leader</p><div></div><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.consumer_leader_elected"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>stream</span><span>string</span><span>required</span></div><div>The name of the Stream the Consumer belongs to</div></div><div><div><span>consumer</span><span>string</span><span>required</span></div><div>The name of the Consumer that elected a new leader</div></div><div><div><span>leader</span><span>string</span><span>required</span></div><div>The server name of the elected leader</div></div><div><div><span>replicas</span><span>object[]</span><span>required</span></div></div><div><div><span>account</span><span>string</span></div><div>The account the event is for</div></div><div><div><span>domain</span><span>string</span></div><div>The domain of the JetStream server the event is from</div></div></div></div></main>

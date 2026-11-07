@@ -1,0 +1,176 @@
+# LMOVEM
+
+Moves up to (or exactly) a number of elements from one list to another and returns them. Deletes the source list if it becomes empty.
+
+## Syntax
+
+```text
+LMOVEM source destination LEFT|RIGHT LEFT|RIGHT [COUNT count|EXACTLY exactly OBO|BULK]
+```
+
+
+**Available since** 8.10.0
+
+**Group** list
+
+**Time complexity** O(N) where N is the number of elements moved.
+
+**Arity** -5
+
+**ACL categories** LIST
+
+**Command flags** WRITE, DENYOOM
+
+## Arguments
+
+```json
+[
+  {
+    "name": "source",
+    "type": "key",
+    "key_spec_index": 0
+  },
+  {
+    "name": "destination",
+    "type": "key",
+    "key_spec_index": 1
+  },
+  {
+    "name": "wherefrom",
+    "type": "oneof",
+    "arguments": [
+      {
+        "name": "left",
+        "type": "pure-token",
+        "token": "LEFT"
+      },
+      {
+        "name": "right",
+        "type": "pure-token",
+        "token": "RIGHT"
+      }
+    ]
+  },
+  {
+    "name": "whereto",
+    "type": "oneof",
+    "arguments": [
+      {
+        "name": "left",
+        "type": "pure-token",
+        "token": "LEFT"
+      },
+      {
+        "name": "right",
+        "type": "pure-token",
+        "token": "RIGHT"
+      }
+    ]
+  },
+  {
+    "name": "how-many",
+    "type": "block",
+    "optional": true,
+    "arguments": [
+      {
+        "name": "selector",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "count",
+            "type": "integer",
+            "token": "COUNT"
+          },
+          {
+            "name": "exactly",
+            "type": "integer",
+            "token": "EXACTLY"
+          }
+        ]
+      },
+      {
+        "name": "ordering",
+        "type": "oneof",
+        "arguments": [
+          {
+            "name": "obo",
+            "type": "pure-token",
+            "token": "OBO"
+          },
+          {
+            "name": "bulk",
+            "type": "pure-token",
+            "token": "BULK"
+          }
+        ]
+      }
+    ]
+  }
+]
+```
+
+
+## Reply schema
+
+```json
+{
+  "oneOf": [
+    {
+      "description": "Not enough elements to satisfy EXACTLY; nothing moved.",
+      "type": "null"
+    },
+    {
+      "description": "The moved elements, in destination order.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  ]
+}
+```
+
+
+## Key specifications
+
+```json
+[
+  {
+    "flags": [
+      "RW",
+      "ACCESS",
+      "DELETE"
+    ],
+    "begin_search": {
+      "index": {
+        "pos": 1
+      }
+    },
+    "find_keys": {
+      "range": {
+        "lastkey": 0,
+        "step": 1,
+        "limit": 0
+      }
+    }
+  },
+  {
+    "flags": [
+      "RW",
+      "INSERT"
+    ],
+    "begin_search": {
+      "index": {
+        "pos": 2
+      }
+    },
+    "find_keys": {
+      "range": {
+        "lastkey": 0,
+        "step": 1,
+        "limit": 0
+      }
+    }
+  }
+]
+```

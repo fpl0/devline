@@ -1,0 +1,122 @@
+<main><header><h1>Generic Binary Build ("Generic UNIX Build")</h1></header>
+<h2 id="overview">Overview</h2>
+<p>RabbitMQ releases include a binary package for Linux, MacOS, and *BSD systems.
+It is minimalistic and not opinionated in how it is installed, configured and managed.
+This package is recommended in environments where more opinionated installation options
+(the <a href="/docs/4.3/install-debian">Debian</a> or <a href="/docs/4.3/install-rpm">RPM packages</a>, <a href="/docs/4.3/install-homebrew">Homebrew</a>, BSD ports) cannot be used.
+It is also the most convenient option for running multiple versions on the same machine
+in development environments.</p>
+<p>There's a separate <a href="/docs/4.3/install-windows-manual">binary package for Windows</a>.</p>
+<p>Unlike with the cases of <a href="/docs/4.3/install-debian">Debian</a>, <a href="/docs/4.3/install-rpm">RPM</a> and <a href="/docs/4.3/install-windows">Windows installer</a> packages,
+<a href="#managing-node">node management</a> with this package type is performed solely using
+<a href="/docs/4.3/cli">RabbitMQ CLI tools</a> or by the operator setting up e.g. a <code>systemd</code> service manually.</p>
+<h2 id="downloads">Downloads</h2>
+<table><thead><tr><th>Description</th><th>Download</th><th>Signature</th></tr></thead><tbody><tr><td>Generic UNIX binary build (tar.xz, from <a href="https://github.com/rabbitmq/rabbitmq-server/releases">GitHub</a>, recommended)</td><td><a href="https://github.com/rabbitmq/rabbitmq-server/releases/download/v4.3.6/rabbitmq-server-generic-unix-4.3.6.tar.xz">rabbitmq-server-generic-unix-4.3.6.tar.xz</a></td><td><a href="https://github.com/rabbitmq/rabbitmq-server/releases/download/v4.3.6/rabbitmq-server-generic-unix-4.3.6.tar.xz.asc">Signature</a></td></tr></tbody></table>
+<h2 id="installation">Installation</h2>
+<h3 id="install-erlang">Make Sure Erlang/OTP is Installed</h3>
+<p>This package requires a <a href="/docs/4.3/which-erlang">supported version of Erlang</a> to be installed
+in order to run.</p>
+<h3 id="install">Install the Server</h3>
+<p><a href="#downloads">Download</a> a <code>rabbitmq-server-generic-unix-4.3.6.tar.xz</code> archive and extract it.</p>
+<p>Contained in the tarball is a directory named <code>rabbitmq_4.3.6</code>. This directory is the node base directory. It should be
+moved to a suitable application directory on the system, such as <code>/usr/local</code>.
+The <code>sbin</code> directory in that directory contains server and <a href="/docs/4.3/cli">CLI tool</a> scripts.
+It is a good candidate for including into <code>PATH</code>.</p>
+<h2 id="operations">Operations</h2>
+<h3 id="managing-node">Running and Managing the Node</h3>
+<p>Unlike some other installation methods, namely the <a href="/docs/4.3/install-debian">Debian</a> and <a href="/docs/4.3/install-rpm">RPM packages</a>, RabbitMQ
+generic UNIX binary build does not require <code>sudo</code>. It can be uncompressed
+into any location and started and managed using the scripts and <a href="/docs/4.3/cli">CLI tools</a> under <code>sbin</code>.
+Default <a href="/docs/4.3/relocate">data directory location</a> will be under <code>./var</code>,
+that is, in the installation directory.</p>
+<h4 id="starting-the-server">Starting the Server</h4>
+<p>To start the server, run the <code>sbin/rabbitmq-server</code> script. This
+displays a short banner message, concluding with the message
+"completed with <i>[n]</i> plugins.", indicating that the
+RabbitMQ broker has been started successfully.
+To start the server in "detached" mode, use
+<code>rabbitmq-server -detached</code>. This will run
+the node process in the background.</p>
+<h4 id="stopping-the-server">Stopping the Server</h4>
+<p>To stop a running node, use <code>sbin/rabbitmqctl shutdown</code>. The command
+will wait for the node process to stop. If the target node is not running,
+it will exit with an error.</p>
+<h4 id="configuring-the-server">Configuring the Server</h4>
+<p><a href="/docs/4.3/configure#configuration-files">RabbitMQ configuration file</a> located at <code>$RABBITMQ_HOME/etc/rabbitmq/rabbitmq.conf</code>
+is the primary way of configuring the node.</p>
+<p>It is possible to <a href="/docs/4.3/configure#customise-environment">use environment variables</a> to control certain settings.
+The recommended way of doing that is using the <code>$RABBITMQ_HOME/etc/rabbitmq/rabbitmq-env.conf</code> file.</p>
+<p>Neither of these files exist after installation, so they must be created first.</p>
+<p>See RabbitMQ <a href="/docs/4.3/configure">configuration guide</a> to learn more.</p>
+<h3 id="file-locations">File Locations</h3>
+<p>The generic binary build is designed to run without granted
+permissions to directories outside of its base one. The <a href="/docs/4.3/relocate">directories and files</a> used by default are
+all held under the installation directory <code>rabbitmq_4.3.6</code>
+which is in the <code>$RABBITMQ_HOME</code>
+variable in the scripts.</p>
+<p>The node can be <a href="/docs/4.3/relocate">instructed</a> to use more
+conventional system directories for <a href="/docs/4.3/configure">configuration</a>,
+node data directory, <a href="/docs/4.3/logging">log</a> files, <a href="/docs/4.3/plugins">plugins</a> and so on.
+In order to make the node use operating system defaults, locate the following line</p>
+<div><div><pre><code class="language-bash">PREFIX=${RABBITMQ_HOME}</code></pre></div></div>
+<p>in the <code>sbin/rabbitmq-defaults</code> script and
+change this line to:</p>
+<div><div><pre><code class="language-bash">SYS_PREFIX=</code></pre></div></div>
+<p>but do not modify any other line in this script.</p>
+<p><strong>Important</strong>: after this modification the default directory
+locations may point to non-existent directories or directories that the effective
+node user won't have permissions for.</p>
+<p>In particular <code>RABBITMQ_MNESIA_BASE</code> and
+<code>RABBITMQ_LOG_BASE</code> may need to be created (the server will attempt to create them at startup), and the
+<a href="/docs/4.3/plugins">enabled plugins file</a> (<code>RABBITMQ_ENABLED_PLUGINS_FILE</code>) will need
+to be writable by <a href="/docs/4.3/cli">rabbitmq-plugins</a>.</p>
+<p>The configuration files will be looked for in <code>/etc/rabbitmq/</code>.</p>
+<h2 id="ports">Port Access</h2>
+<p>RabbitMQ nodes bind to ports (open server TCP sockets) in order to accept client
+and CLI tool connections. Other processes and tools such as SELinux may prevent
+RabbitMQ from binding to a port. When that happens, the node will fail to start.
+Refer to the <a href="/docs/4.3/networking#ports">Networking Guide</a> for more details.</p>
+<h2 id="default-user-access">Default User Access</h2>
+<p>The broker creates a user <code>guest</code> with password
+<code>guest</code>. Unconfigured clients will in general use these
+credentials. <strong>By default, these credentials can only be
+used when connecting to the broker as localhost</strong> so you
+will need to take action before connecting from any other machine.</p>
+<p>See the documentation on <a href="/docs/4.3/access-control">access control</a> for information on how to create more users and delete
+the <code>guest</code> user.</p>
+<h2 id="managing">Managing the Node</h2>
+<p>To stop the server or check its status, etc., you can invoke
+<code>sbin/rabbitmqctl</code> (as the user running
+<code>rabbitmq-server</code>). All <code>rabbitmqctl</code>
+commands will report the node absence if no broker is running.</p>
+<ul>
+<li>Invoke <code>rabbitmqctl stop</code> or <code>rabbitmqctl shutdown</code> to stop the server</li>
+<li>Invoke <code>rabbitmq-diagnostics status</code> to check whether it is running</li>
+</ul>
+<p>See <a href="/docs/4.3/cli">CLI tools guide</a> to learn more.</p>
+<h2 id="kernel-resource-limits">Controlling System Limits on Linux</h2>
+<p>RabbitMQ installations running production workloads may need system
+limits and kernel parameters tuning in order to handle a decent number of
+concurrent connections and queues. The main setting that needs adjustment
+is the max number of open files, also known as <code>ulimit -n</code>.
+The default value on many operating systems is too low for a messaging
+broker (<code>1024</code> on several Linux distributions). We recommend allowing
+for at least 65536 file descriptors for user <code>rabbitmq</code> in
+production environments. 4096 should be sufficient for many development
+workloads.</p>
+<p>There are two limits in play: the maximum number of open files the OS kernel
+allows (<code>fs.file-max</code> on Linux, <code>kern.maxfilesperproc</code> on OS X and FreeBSD) and the per-user limit (<code>ulimit -n</code>).
+The former must be higher than the latter.
+For more information about controlling the system-wide limit,
+please refer to the excellent <a href="https://github.com/basho/basho_docs/blob/master/content/riak/kv/2.2.3/using/performance/open-files-limit.md">Riak guide on open file limit tuning</a>.</p>
+<h3 id="verifying-limits">Verifying the Limit</h3>
+<p><a href="/docs/4.3/management">RabbitMQ management UI</a> displays the number of file descriptors available for it to use on the Overview tab.</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics status</code></pre></div></div>
+<p>includes the same value. The following command</p>
+<div><div><pre><code class="language-bash">ulimit -a</code></pre></div></div>
+<p>can be used to display effective limits for the current user. There may be more convenient
+OS-specific ways of doing that for a running process, such as the <code>/proc</code> filesystem on Linux.</p>
+<h3 id="chef-puppet-bosh">Configuration Management Tools</h3>
+<p>Configuration management tools (e.g. Chef, Puppet, BOSH) provide assistance
+with system limit tuning. Our <a href="/client-libraries/devtools">developer tools</a> guide
+lists relevant modules and projects.</p></main>

@@ -1,0 +1,118 @@
+# GEOADD
+
+Adds one or more members to a geospatial index. The key is created if it doesn't exist.
+
+## Syntax
+
+```text
+GEOADD key [NX|XX] [CH] longitude latitude member [longitude latitude member ...]
+```
+
+
+**Available since** 3.2.0
+
+**Group** geo
+
+**Time complexity** O(log(N)) for each item added, where N is the number of elements in the sorted set.
+
+**Arity** -5
+
+**ACL categories** GEO
+
+**Command flags** WRITE, DENYOOM
+
+## History
+
+- 6.2.0 — Added the `CH`, `NX` and `XX` options.
+
+## Arguments
+
+```json
+[
+  {
+    "name": "key",
+    "type": "key",
+    "key_spec_index": 0
+  },
+  {
+    "name": "condition",
+    "type": "oneof",
+    "optional": true,
+    "since": "6.2.0",
+    "arguments": [
+      {
+        "name": "nx",
+        "type": "pure-token",
+        "token": "NX"
+      },
+      {
+        "name": "xx",
+        "type": "pure-token",
+        "token": "XX"
+      }
+    ]
+  },
+  {
+    "name": "change",
+    "token": "CH",
+    "type": "pure-token",
+    "optional": true,
+    "since": "6.2.0"
+  },
+  {
+    "name": "data",
+    "type": "block",
+    "multiple": true,
+    "arguments": [
+      {
+        "name": "longitude",
+        "type": "double"
+      },
+      {
+        "name": "latitude",
+        "type": "double"
+      },
+      {
+        "name": "member",
+        "type": "string"
+      }
+    ]
+  }
+]
+```
+
+
+## Reply schema
+
+```json
+{
+  "description": "When used without optional arguments, the number of elements added to the sorted set (excluding score updates).  If the CH option is specified, the number of elements that were changed (added or updated).",
+  "type": "integer"
+}
+```
+
+
+## Key specifications
+
+```json
+[
+  {
+    "flags": [
+      "RW",
+      "UPDATE"
+    ],
+    "begin_search": {
+      "index": {
+        "pos": 1
+      }
+    },
+    "find_keys": {
+      "range": {
+        "lastkey": 0,
+        "step": 1,
+        "limit": 0
+      }
+    }
+  }
+]
+```

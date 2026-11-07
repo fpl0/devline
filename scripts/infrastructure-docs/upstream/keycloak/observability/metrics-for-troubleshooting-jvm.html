@@ -1,0 +1,138 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This is part of the <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting">Troubleshooting using metrics</a> guide.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>Metrics need to be enabled for Keycloak. Follow the <a href="https://www.keycloak.org/observability/configuration-metrics">Gaining insights with metrics</a> guide for more details.</p>
+</li>
+<li>
+<p>A monitoring system collecting the metrics.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_metrics"><a class="anchor" href="#_metrics"></a>Metrics</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_jvm_info"><a class="anchor" href="#_jvm_info"></a>JVM info</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jvm_info_total</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Information about the JVM such as version, runtime and vendor.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_heap_memory_usage"><a class="anchor" href="#_heap_memory_usage"></a>Heap memory usage</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jvm_memory_committed_bytes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The amount of memory that the JVM has committed for use, reflecting the portion of the allocated memory that is guaranteed to be available for the JVM to use.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jvm_memory_used_bytes</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The amount of memory currently used by the JVM, indicating the actual memory consumption by the application and JVM internals.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_garbage_collection"><a class="anchor" href="#_garbage_collection"></a>Garbage collection</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jvm_gc_pause_seconds_max</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The maximum duration, in seconds, of garbage collection pauses experienced by the JVM due to a particular cause, which helps you quickly differentiate between types of GC (minor, major) pauses.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jvm_gc_pause_seconds_sum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The total cumulative time spent in garbage collection pauses, indicating the impact of GC pauses on application performance in the JVM.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jvm_gc_pause_seconds_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Counts the total number of garbage collection pause events, helping to assess the frequency of GC pauses in the JVM.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>jvm_gc_overhead</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The percentage of CPU time spent on garbage collection, indicating the impact of GC on application performance in the JVM. It refers to the proportion of the total CPU processing time that is dedicated to executing garbage collection (GC) operations, as opposed to running application code or performing other tasks. This metric helps determine how much overhead GC introduces, affecting the overall performance of the Keycloak’s JVM.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_cpu_usage_in_kubernetes"><a class="anchor" href="#_cpu_usage_in_kubernetes"></a>CPU Usage in Kubernetes</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;"/>
+<col style="width: 50%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Metric</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>container_cpu_usage_seconds_total</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Cumulative CPU time consumed by the container in core-seconds.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_next_steps"><a class="anchor" href="#_next_steps"></a>Next steps</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Return back to the <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting">Troubleshooting using metrics</a> or proceed to <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-database">Database Metrics</a>.</p>
+</div>
+</div>
+</div> </div>
+</main>

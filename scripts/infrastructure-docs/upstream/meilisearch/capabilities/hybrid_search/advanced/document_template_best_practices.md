@@ -1,0 +1,222 @@
+# Document template best practices
+
+> This guide shows you what to do and what to avoid when writing a `documentTemplate`.
+
+When using AI-powered search, Meilisearch generates prompts by filling in your embedder's `documentTemplate` with each document's data. The better your prompt is, the more relevant your search results.
+
+This guide shows you what to do and what to avoid when writing a `documentTemplate`.
+
+## Sample document
+
+Take a look at this document from a database of movies:
+
+```json
+{
+  "id": 2,
+  "title": "Ariel",
+  "overview": "Taisto Kasurinen is a Finnish coal miner whose father has just committed suicide and who is framed for a crime he did not commit. In jail, he starts to dream about leaving the country and starting a new life. He escapes from prison but things don't go as planned...",
+  "genres": [
+    "Drama",
+    "Crime",
+    "Comedy"
+  ],
+  "poster": "https://image.tmdb.org/t/p/w500/ojDg0PGvs6R9xYFodRct2kdI6wC.jpg",
+  "release_date": 593395200
+}
+```
+
+## Do not use the default `documentTemplate`
+
+Use a custom `documentTemplate` value in your embedder configuration.
+
+> [!WARNING]
+>
+> If you do not manually set `documentTemplate`, Meilisearch falls back to a default template that includes **all searchable and non-null document fields**. This may lead to suboptimal performance and relevancy: the resulting prompt is usually longer than necessary, wastes tokens on fields that have little semantic value, and dilutes the parts of the document that actually matter.
+>
+> For best results, build short templates that only contain highly relevant data. If you are working with a long field, consider truncating it.
+
+## Test your template
+
+Use the `POST /render-template` route to test your document template on various documents.
+
+Before sending the document template as a setting embedder, you can check how it would render on documents from your index:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/render-template' \
+  -H 'Authorization: Bearer API_KEY' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{
+    "template": {
+      "kind": "inlineDocumentTemplate",
+      "inline": "A movie called {{doc.title}} whose description starts with: {{doc.overview|truncatewords:10}}"
+    },
+    "input": {
+      "kind": "indexDocument",
+      "indexUid": "movies",
+      "id": "2"
+    }
+  }'
+```
+
+Meilisearch will respond to this request with:
+
+```json
+{
+  "template": "A movie called {{doc.title}} whose description starts with: {{doc.overview|truncatewords:10}}",
+  "rendered": "A movie called Ariel whose description starts with: Taisto Kasurinen is a Finnish coal miner whose father has..."
+}
+```
+
+You can also test how a new document would render on your existing template:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/render-template' \
+  -H 'Authorization: Bearer API_KEY' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{
+    "template": {
+      "kind": "documentTemplate",
+      "indexUid": "movies",
+      "embedder": "OpenAI"
+    },
+    "input": {
+      "kind": "inlineDocument",
+      "inline": {
+        "id": "some new docid",
+        "title": "My New Movie",
+        "overview": "A nice overview for my new movie"
+      }
+    }
+  }'
+```
+
+Meilisearch will fetch the registered document template for the selected embedder and index, and render it on the provided inline document:
+
+```json
+{
+  "template": "A movie called {{doc.title}} whose description starts with: {{doc.overview|truncatewords:10}}",
+  "rendered": "A movie called My New Movie whose description starts with: A nice overview for my new movie"
+}
+```
+
+This is useful to catch unexpected errors while rendering templates:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/render-template' \
+  -H 'Authorization: Bearer API_KEY' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{
+    "template": {
+      "kind": "inlineDocumentTemplate",
+      "inline": "A buggy template that refers to an unavailable field: {{doc.doesnotexist}}"
+    },
+    "input": {
+      "kind": "indexDocument",
+      "indexUid": "movies",
+      "id": "2"
+    }
+  }'
+```
+
+The field `doesnotexist` does not exist in the document with id 2, so Meilisearch will answer with an error:
+
+```json
+{
+  "message": "error while rendering template: user error: missing field in document: liquid: Unknown index\n  with:\n    variable=doc\n    requested index=doesnotexist\n    available indexes=id, title, overview, genres, poster, release_date\n",
+  "code": "template_rendering_error",
+  "type": "invalid_request",
+  "link": "https://docs.meilisearch.com/errors#template_rendering_error"
+}
+```
+
+## Only include highly relevant information
+
+Take a look at your document and identify the most relevant fields. A good `documentTemplate` for the sample document could be:
+
+```
+"A movie called {{doc.title}} about {{doc.overview}}"
+```
+
+In the sample document, `poster` and `id` contain data that has little semantic importance and can be safely excluded. The data in `genres` and `release_date` is very useful for filters, but say little about this specific film.
+
+This leaves two relevant fields: `title` and `overview`.
+
+## Keep prompts short
+
+For the best results, keep prompts somewhere between 15 and 45 words:
+
+```
+"A movie called {{doc.title}} about {{doc.overview | truncatewords: 20}}"
+```
+
+In the sample document, the `overview` alone is 49 words. Use Liquid's [`truncate`](https://shopify.github.io/liquid/filters/truncate/) or [`truncatewords`](https://shopify.github.io/liquid/filters/truncatewords/) to shorten it.
+
+Short prompts do not have enough information for the embedder to properly understand the query context. Long prompts instead provide too much information and make it hard for the embedder to identify what is truly relevant about a document.
+
+## Add guards for missing fields
+
+Some documents might not contain all the fields you expect. If your template directly references a missing field, Meilisearch will throw an error when indexing documents.
+
+To prevent this, use Liquid’s `if` statements to add guards around fields:
+
+```
+{% if doc.title %}
+A movie called {{ doc.title }}
+{% endif %}
+```
+
+This ensures the template only tries to include data that already exists in a document. If a field is missing, the embedder still receives a valid and useful prompt without errors.
+
+## Conclusion
+
+In this article you saw the main steps to generating prompts that lead to relevant AI-powered search results:
+
+* Do not use the default `documentTemplate`
+* Only include relevant data
+* Truncate long fields
+* Add guards for missing fields
+
+## Handle embedding failures
+
+By default, if a document template fails to render or an embedder request fails, the entire indexing batch fails. This means a single problematic document can block all other documents in the same batch.
+
+With the experimental `MEILI_EXPERIMENTAL_CONFIG_EMBEDDER_FAILURE_MODES` environment variable, you can configure Meilisearch to ignore these errors instead:
+
+```bash
+# Ignore template rendering failures only
+MEILI_EXPERIMENTAL_CONFIG_EMBEDDER_FAILURE_MODES=ignore_document_template_failures meilisearch
+
+# Ignore embedder request failures only
+MEILI_EXPERIMENTAL_CONFIG_EMBEDDER_FAILURE_MODES=ignore_embedder_failures meilisearch
+
+# Ignore both types of failures
+MEILI_EXPERIMENTAL_CONFIG_EMBEDDER_FAILURE_MODES=ignore_document_template_failures,ignore_embedder_failures meilisearch
+```
+
+> [!WARNING]
+>
+> Ignoring errors means some documents may not have embeddings, which affects search quality. Documents without embeddings will not appear in semantic or hybrid search results.
+
+> [!NOTE]
+>
+> This is an experimental feature. Cloud users should contact support to enable it.
+
+## Next steps
+
+> [card] [Get started with hybrid search](https://www.meilisearch.com/docs/capabilities/hybrid_search/getting_started)
+>
+> Set up AI-powered search and configure your first embedder.
+
+> [card] [Choose an embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/choose_an_embedder)
+>
+> Compare available embedding providers and pick the right one for your use case.
+
+> [card] [Configure a REST embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_rest_embedder)
+>
+> Connect Meilisearch to any embedding provider through a REST API.
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

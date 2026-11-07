@@ -1,0 +1,162 @@
+<main><header><h1>RabbitMQ tutorial - "Hello World!"</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<p>RabbitMQ is a message broker: it accepts and forwards messages. You can think
+about it as a post office: when you put the mail that you want posting in a
+post box, you can be sure that the letter carrier will eventually deliver the
+mail to your recipient. In this analogy, RabbitMQ is a post box, a post
+office, and a letter carrier.</p>
+<p>The major difference between RabbitMQ and the post office is that it doesn't
+deal with paper, instead it accepts, stores, and forwards binary blobs of data
+‒ <em>messages</em>.</p>
+<p>RabbitMQ, and messaging in general, uses some jargon.</p>
+<ul>
+<li>
+<p><em>Producing</em> means nothing more than sending. A program that sends messages
+is a <em>producer</em> :</p>
+<!-- -->
+</li>
+<li>
+<p><em>A queue</em> is the name for the post box in RabbitMQ. Although messages flow
+through RabbitMQ and your applications, they can only be stored inside a
+<em>queue</em>. A <em>queue</em> is only bound by the host's memory &amp; disk limits, it's
+essentially a large message buffer.</p>
+<p>Many <em>producers</em> can send messages that go to one queue, and many
+<em>consumers</em> can try to receive data from one <em>queue</em>.</p>
+<p>This is how we represent a queue:</p>
+<!-- -->
+</li>
+<li>
+<p><em>Consuming</em> has a similar meaning to receiving. A <em>consumer</em> is a program
+that mostly waits to receive messages:</p>
+<!-- -->
+</li>
+</ul>
+<p>Note that the producer, consumer, and broker do not have to reside on the same
+host; indeed in most applications they don't. An application can be both a
+producer and consumer, too.</p>
+<h2 id="hello-world">"Hello World"</h2>
+<h3 id="using-the-netc-client">(using the .NET/C# Client)</h3>
+<p>In this part of the tutorial we'll write two programs in C#; a
+producer that sends a single message, and a consumer that receives
+messages and prints them out.  We'll gloss over some of the detail in
+the .NET client API, concentrating on this very simple thing just to get
+started.  It's the "Hello World" of messaging.</p>
+<p>In the diagram below, "P" is our producer and "C" is our consumer. The
+box in the middle is a queue - a message buffer that RabbitMQ keeps
+on behalf of the consumer.</p>
+<!-- -->
+<blockquote>
+<h4 id="the-net-client-library">The .NET client library</h4>
+<p>RabbitMQ speaks multiple protocols. This tutorial uses AMQP 0-9-1, which is an open,
+general-purpose protocol for messaging. There are a number of clients
+for RabbitMQ in <a href="/client-libraries/devtools">many different
+languages</a>. We'll
+use the .NET client provided by RabbitMQ.</p>
+<p>The client supports <a href="https://www.microsoft.com/net/core">.NET Core</a> as
+well as .NET Framework 4.6.2+. This tutorial will use RabbitMQ .NET client 7.0 and
+.NET Core so please ensure that
+you have it <a href="https://www.microsoft.com/net/core">installed</a> and in your PATH.</p>
+<p>You can also use the .NET Framework to complete this tutorial however the
+setup steps will be different.</p>
+<p>RabbitMQ .NET Client version 7 is distributed via <a href="https://www.nuget.org/packages/RabbitMQ.Client">nuget</a>.</p>
+<p>This tutorial assumes you are using PowerShell on Windows. On MacOS and Linux nearly
+any shell will work.</p>
+</blockquote>
+<h3 id="setup">Setup</h3>
+<p>First let's verify that you have .NET Core toolchain in <code>PATH</code>:</p>
+<div><div><pre><code class="language-powershell">dotnet --help</code></pre></div></div>
+<p>should produce a help message.</p>
+<p>Now let's generate two projects, one for the publisher and one for the consumer:</p>
+<div><div><pre><code class="language-powershell">dotnet new console --name Send
+mv Send/Program.cs Send/Send.cs
+dotnet new console --name Receive
+mv Receive/Program.cs Receive/Receive.cs</code></pre></div></div>
+<p>This will create two new directories named <code>Send</code> and <code>Receive</code>.</p>
+<p>Then add the client dependency.</p>
+<div><div><pre><code class="language-powershell">cd Send
+dotnet add package RabbitMQ.Client
+cd ../Receive
+dotnet add package RabbitMQ.Client</code></pre></div></div>
+<p>Now we have the .NET project set up we can write some code.</p>
+<h3 id="sending">Sending</h3>
+<!-- -->
+<p>We'll call our message publisher (sender) <code>Send.cs</code> and our message consumer (receiver)
+<code>Receive.cs</code>.  The publisher will connect to RabbitMQ, send a single message,
+then exit.</p>
+<p>In
+<a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/Send/Send.cs"><code>Send.cs</code></a>,
+we need to use some namespaces:</p>
+<div><div><div>dotnet/Send/Send.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/Send/Send.cs#L1-L2
+">View on GitHub</a></div></div>
+<p>then we can create a connection to the server:</p>
+<div><div><div>dotnet/Send/Send.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/Send/Send.cs#L1-L6
+">View on GitHub</a></div></div>
+<p>The connection abstracts the socket connection, and takes care of
+protocol version negotiation and authentication and so on for us. Here
+we connect to a RabbitMQ node on the local machine - hence the
+<em>localhost</em>. If we wanted to connect to a node on a different
+machine we'd simply specify its hostname or IP address here.</p>
+<p>Next we create a channel, which is where most of the API for getting
+things done resides.</p>
+<p>To send, we must declare a queue for us to send to; then we can publish a message
+to the queue:</p>
+<div><div><div>dotnet/Send/Send.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/Send/Send.cs
+">View on GitHub</a></div></div>
+<p>Declaring a queue is idempotent - it will only be created if it doesn't
+exist already. The message content is a byte array, so you can encode
+whatever you like there.</p>
+<p>When the code above finishes running, the channel and the connection
+will be disposed. That's it for our publisher.</p>
+<blockquote>
+<h4 id="sending-doesnt-work">Sending doesn't work!</h4>
+<p>If this is your first time using RabbitMQ and you don't see the "Sent"
+message then you may be left scratching your head wondering what could
+be wrong. Maybe the broker was started without enough free disk space
+(by default it needs at least 50 MB free) and is therefore refusing to
+accept messages. Check the broker <a href="https://www.rabbitmq.com/docs/4.3/logging">log file</a> to see if there
+is a <a href="https://www.rabbitmq.com/docs/4.3/alarms">resource alarm</a> logged and reduce the
+free disk space threshold if necessary.
+The <a href="https://www.rabbitmq.com/docs/4.3/configure#config-items">Configuration guide</a>
+will show you how to set <code>disk_free_limit</code>.</p>
+</blockquote>
+<h3 id="receiving">Receiving</h3>
+<p>As for the consumer, it is listening for messages from
+RabbitMQ. So unlike the publisher which publishes a single message, we'll
+keep the consumer running continuously to listen for messages and print them out.</p>
+<!-- -->
+<p>The code (in <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/Receive/Receive.cs"><code>Receive.cs</code></a>) has almost the same <code>using</code> statements as <code>Send</code>:</p>
+<div><div><div>dotnet/Receive/Receive.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/Receive/Receive.cs#L1-L3
+">View on GitHub</a></div></div>
+<p>Setting up is the same as the publisher; we open a connection and a
+channel, and declare the queue from which we're going to consume.
+Note this matches up with the queue that <code>Send</code> publishes to.</p>
+<div><div><div>dotnet/Receive/Receive.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/Receive/Receive.cs#L5-L10
+">View on GitHub</a></div></div>
+<p>Note that we declare the queue here as well. Because we might start
+the consumer before the publisher, we want to make sure the queue exists
+before we try to consume messages from it.</p>
+<p>We're about to tell the server to deliver us the messages from the
+queue. Since it will push us messages asynchronously, we provide a
+callback. That is what <code>AsyncEventingBasicConsumer.Received</code> event handler
+does.</p>
+<div><div><div>dotnet/Receive/Receive.cs</div><div><pre><code class="language-csharp">loading...</code></pre></div></div><div><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet/Receive/Receive.cs
+">View on GitHub</a></div></div>
+<h3 id="putting-it-all-together">Putting It All Together</h3>
+<p>Open two terminals.</p>
+<p>You can run the clients in any order, as both declares the queue. We will run
+the consumer first so you can see it waiting for and then receiving the
+message:</p>
+<div><div><pre><code class="language-powershell">cd Receive
+dotnet run</code></pre></div></div>
+<p>Then run the producer:</p>
+<div><div><pre><code class="language-powershell">cd Send
+dotnet run</code></pre></div></div>
+<p>The consumer will print the message it gets from the publisher via
+RabbitMQ. The consumer will keep running, waiting for messages, so try restarting
+the publisher several times.</p>
+<p>Time to move on to <a href="/tutorials/tutorial-two-dotnet">part 2</a> and build a simple <em>work queue</em>.</p></main>

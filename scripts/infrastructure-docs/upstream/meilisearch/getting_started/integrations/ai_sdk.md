@@ -1,0 +1,128 @@
+# AI SDK
+
+> Give AI agents a Meilisearch search tool using the Vercel AI SDK and @meilisearch/ai-sdk.
+
+[`@meilisearch/ai-sdk`](https://github.com/meilisearch/ai-sdk) adds Meilisearch search tools to the [Vercel AI SDK](https://ai-sdk.dev), letting an LLM decide when to search your data and how to use the results.
+
+## Requirements
+
+* A Meilisearch project with at least one index containing documents
+* A [search API key](https://www.meilisearch.com/docs/capabilities/security/how_to/manage_api_keys) for that project
+* An API key from an LLM provider (this example uses OpenAI, but any provider supported by the AI SDK works)
+
+## Install
+
+```bash
+npm install ai @ai-sdk/openai @meilisearch/ai-sdk
+```
+
+Add your credentials to your environment:
+
+```bash
+MEILISEARCH_URL=https://your-project.meilisearch.io
+MEILISEARCH_KEY=your-search-api-key
+OPENAI_API_KEY=your-openai-api-key
+```
+
+## Give an agent a search tool
+
+```ts
+import { generateText, stepCountIs } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { meilisearchSearch } from "@meilisearch/ai-sdk";
+
+const { text } = await generateText({
+  model: openai("gpt-5.4-mini"),
+  prompt: "Find two movies about time travel, then summarize the difference.",
+  tools: {
+    search: meilisearchSearch({
+      host: "MEILISEARCH_URL",
+      apiKey: "MEILISEARCH_KEY",
+      indexUid: "movies",
+      description: "Search the movies database",
+    }),
+  },
+  stopWhen: stepCountIs(5),
+});
+
+console.log(text);
+```
+
+The model decides whether and how many times to call `search` before answering. The `description` field tells it what the index contains and when to use it.
+
+> [card] [Agentic movie search demo](https://www.meilisearch.com/docs/resources/demos/agentic_movie_search)
+>
+> See a movie recommendation agent built with this integration
+
+> [card] [AI SDK demo](https://github.com/meilisearch/ai-sdk-demo)
+>
+> Next.js chatbox example application
+
+## Use Meilisearch MCP
+
+The AI SDK can also connect to the [Meilisearch MCP server](https://www.meilisearch.com/docs/getting_started/integrations/mcp). It wraps the tools exposed by the server and passes them to the model like any other tool. This is the quickest way to get started, because you do not configure any search tool yourself. If you need typed tools and control over search parameters, use `meilisearchSearch` as shown above.
+
+Before you start, [enable the MCP route](https://www.meilisearch.com/docs/getting_started/integrations/mcp#enable-the-mcp-route) and [create an API key for MCP](https://www.meilisearch.com/docs/getting_started/integrations/mcp#create-an-api-key-for-mcp). The key needs the `search`, `documents.get`, and `indexes.get` actions, otherwise calls to `listIndexes` and `describeIndex` fail. The default search API key is not enough.
+
+Install the MCP client package:
+
+```bash
+npm install @ai-sdk/mcp
+```
+
+Create an MCP client, load its tools, and pass them to `generateText`:
+
+```ts
+import { createMCPClient } from "@ai-sdk/mcp";
+import { generateText, isStepCount } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const mcpClient = await createMCPClient({
+  transport: {
+    type: "http",
+    url: "https://your-project.meilisearch.io/mcp",
+    headers: { Authorization: "Bearer YOUR_API_KEY" },
+  },
+});
+
+try {
+  const tools = await mcpClient.tools();
+
+  const { text } = await generateText({
+    model: openai("gpt-5.4-mini"),
+    tools,
+    // Allow several steps: list indexes, describe, search, then answer
+    stopWhen: isStepCount(5),
+    prompt: "Recommend recent action movies about revenge",
+  });
+
+  console.log(text);
+} finally {
+  await mcpClient.close();
+}
+```
+
+For the list of available tools and limitations, see the [MCP guide](https://www.meilisearch.com/docs/getting_started/integrations/mcp#available-tools). If the client cannot connect, see [troubleshooting](https://www.meilisearch.com/docs/getting_started/integrations/mcp#troubleshooting).
+
+## Going further
+
+> [card] [Getting started with agentic search](https://www.meilisearch.com/docs/capabilities/agentic_search/getting_started)
+>
+> Build a multi-turn chatbot with streaming responses.
+
+> [card] [Display source documents](https://www.meilisearch.com/docs/capabilities/agentic_search/how_to/display_source_documents)
+>
+> Show users which documents an agent used to answer.
+
+> [card] [Configure guardrails](https://www.meilisearch.com/docs/capabilities/agentic_search/how_to/configure_guardrails)
+>
+> Keep agents on topic and grounded in your data.
+
+> [card] [Handle errors and fallbacks](https://www.meilisearch.com/docs/capabilities/agentic_search/how_to/handle_errors_and_fallbacks)
+>
+> Make your agent resilient to search and LLM failures.
+
+For the full list of available tools, see the [SDK repository](https://github.com/meilisearch/ai-sdk).
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

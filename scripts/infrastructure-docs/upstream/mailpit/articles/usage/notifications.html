@@ -1,0 +1,27 @@
+<main>
+		
+		<h1>Message notifications</h1>
+		<p>Depending on your requirements, Mailpit provides various methods to notify you when new messages are received.</p>
+
+<div>
+	Please note that notifications require a working WebSocket connection to the Mailpit server. If you are using a proxy to access Mailpit, please ensure your WebSocket is routing correctly.
+</div>
+
+<h2 id="favicon-counter">Favicon counter</h2>
+<p>The browser tab favicon includes an unread message counter, which will automatically update when new messages are received. This is available on desktop browsers only, and when any open tab is running Mailpit.</p>
+<h2 id="message-toast">Message toast</h2>
+<p>When new messages arrive, Mailpit will display a clickable toast (element) at the bottom right of the page, showing a brief summary of the message. Clicking on this will open the message. This is only visible when viewing the Mailpit web UI, and the toasts automatically disappear after a few seconds. This feature is automatically disabled if <a href="#browser-notifications">browser notifications</a> are enabled.</p>
+<h2 id="browser-notifications">Browser notifications</h2>
+<p>You can optionally enable browser notifications by clicking on the “bell” icon at the bottom left. If enabled, toast notifications are disabled. You must have Mailpit open in any tab for notifications to work.</p>
+<div>
+	Browser notifications are only enabled if viewing the web UI via the <code>localhost</code> hostname, or if accessing the web UI via <a href="/docs/configuration/http/">HTTPS</a>. This is not a Mailpit limitation but rather due to standard web browser security features.
+</div>
+
+<h2 id="webhooks">Webhooks</h2>
+<p>You can integrate third-party tools by setting a webhook for Mailpit to call when new messages arrive. See <a href="/docs/integration/webhook/">webhook integration</a> for more information.</p>
+
+
+		
+		
+		
+	</main>

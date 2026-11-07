@@ -1,0 +1,23 @@
+<main><header><h1>Metadata store</h1></header>
+<h2 id="role-of-the-metadata-store">Role of the metadata store</h2>
+<p>The metadata store is the database where RabbitMQ records everything except
+queue and stream messages:</p>
+<ul>
+<li>users and permissions in the <a href="/docs/4.3/access-control">internal authentication backend</a></li>
+<li><a href="/docs/4.3/vhosts">virtual hosts</a></li>
+<li>topology: exchanges, queues, streams, bindings</li>
+<li><a href="/docs/4.3/parameters">runtime parameters</a></li>
+<li><a href="/docs/4.3/policies">policies</a></li>
+</ul>
+<figure><figcaption>Role of the metadata store</figcaption></figure>
+<p>In a cluster, the metadata store replicates this information across all RabbitMQ nodes.</p>
+<h2 id="khepri">Khepri</h2>
+<figure><figcaption>Khepri logo</figcaption></figure>
+<p>RabbitMQ uses <a href="https://rabbitmq.github.io/khepri/">Khepri</a>, a metadata store developed
+by the RabbitMQ team. Khepri is the only supported metadata store starting with RabbitMQ 4.3.
+It replaced Mnesia, the metadata store used by earlier releases.</p>
+<p>Like <a href="/docs/4.3/quorum-queues">quorum queues</a> and <a href="/docs/4.3/streams">streams</a>, Khepri uses the
+<a href="https://raft.github.io/">Raft consensus algorithm</a>. A majority of cluster nodes
+must be available for metadata updates and cluster membership changes.</p>
+<p>The following guides cover <a href="/docs/4.3/metadata-store/clustering">clustering</a>, <a href="/docs/4.3/metadata-store/everyday-operations">everyday operations</a>,
+and <a href="/docs/4.3/metadata-store/failure-recovery">failure recovery</a> with Khepri.</p></main>

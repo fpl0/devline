@@ -1,0 +1,171 @@
+<main><header><h1>Your first object</h1></header>
+<p>Acme's <code>order-svc</code> already publishes order messages into the <code>ORDERS</code>
+stream. But an order produces more than a message. Once payment clears it
+produces an invoice PDF, a file too large and too binary to send as
+a message payload. That file needs to be stored somewhere, and the <code>warehouse</code> service
+needs to fetch it back before it ships the box.</p>
+<p>That somewhere is an <strong>object store</strong>. This page creates Acme's first bucket,
+stores one invoice in it, and gets that invoice back. This page covers two operations,
+<code>put</code> and <code>get</code>.</p>
+<h2 id="a-bucket-holds-objects">A bucket holds objects</h2>
+<p>A <strong>bucket</strong> is a named object store. An <strong>object</strong> is one stored file:
+a name and its bytes. The bucket for this chapter is <code>INVOICES</code>, and it
+will hold invoice PDFs for Acme's orders.</p>
+<p>A bucket is backed by a JetStream stream, the same kind you built in
+the <a href="/learn/jetstream">JetStream deep dive</a>. You don't create that
+stream yourself; creating the bucket creates it for you. Everything you
+already know about streams still applies underneath, and this chapter
+points back to it rather than re-teaching it.</p>
+<p>Create the bucket with a name and a human-readable description:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Create the INVOICES bucket. A bucket is a named object store: hand it a
+# name and a description and the server provisions the JetStream stream
+# that backs it. `order-svc` will put invoice PDFs here; `warehouse` will
+# get them before shipping.
+#
+# The --description text is stored on the bucket and shows up in
+# `nats object info INVOICES`.
+nats object add INVOICES --description "Invoice PDFs"</code></pre></div></div>
+<p>The description is stored on the bucket and shows up whenever you inspect
+it. The bucket name follows the same rule as a stream name: letters,
+digits, underscores, and dashes only. <code>INVOICES</code> is fine.</p>
+<h2 id="put-store-a-name-and-bytes">Put: store a name and bytes</h2>
+<p><strong>Put</strong> is the store verb. You give the store an object name and its
+bytes, and the store keeps them. The bytes can come from a file on disk,
+from memory, or from a stream you read as you go. Every client offers
+convenient forms for these.</p>
+<p>Here <code>order-svc</code> puts the invoice for order <code>ord_8w2k</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Put a file into the bucket. `order-svc` hands the store a name and the
+# bytes; the store splits the bytes into chunks, computes a running
+# SHA-256 digest as it goes, and finishes by writing one metadata message
+# that records the name, size, chunk count, and digest.
+#
+# By default the object name is the file path exactly as you type it
+# (cleaned), not just its basename: putting ./invoices/invoice-ord_8w2k.pdf
+# would store the object as `invoices/invoice-ord_8w2k.pdf`. Run the command
+# from the file's directory, or pass --name to control the stored name. Here
+# the argument is a bare filename, so the object is stored as
+# invoice-ord_8w2k.pdf.
+nats object put INVOICES invoice-ord_8w2k.pdf
+
+# You can also pipe bytes in from stdin instead of a file on disk. Then
+# --name is required, because there is no filename to take the name from.
+echo "PDF-bytes-for-ord_8w2k" | nats object put INVOICES --name invoice-ord_8w2k.pdf</code></pre></div></div>
+<p>Three things happen inside that one call. First, the store splits the bytes into pieces. Each piece is one message.
+You'll see that splitting in detail on the <a href="/learn/object-store/chunking">next page</a>;
+for now it's enough to know a large file doesn't become one giant
+message.</p>
+<p>Second, as the bytes flow past, the store computes a running <strong>SHA-256
+digest</strong>, a fixed-size fingerprint of the exact bytes you put. A digest
+is a one-way hash: the same bytes always produce the same digest, and any
+change to the bytes produces a different one.</p>
+<p>Third, once the bytes are stored, the store writes a final metadata
+record for the object. That record holds the object's name, its size, the
+number of pieces, and the digest. The digest is the part that matters on
+get.</p>
+<h2 id="get-fetch-by-name-verified">Get: fetch by name, verified</h2>
+<p><strong>Get</strong> is the fetch verb. You ask for an object by name, and the store
+hands the bytes back. The <code>warehouse</code> service gets the invoice it needs
+to ship <code>ord_8w2k</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Get the file back. `warehouse` asks for the object by name. The store
+# reads the metadata for that name, streams the chunks back in order,
+# reassembles them, and verifies the reassembled bytes against the stored
+# SHA-256 digest before handing them over. A digest mismatch is an error,
+# not a silently truncated file.
+#
+# Without --output the bytes are written to a file named after the object
+# in the current directory.
+nats object get INVOICES invoice-ord_8w2k.pdf
+
+# Override the destination filename with --output. The target directory
+# must already exist; the CLI writes the file, it does not create parent
+# directories.
+nats object get INVOICES invoice-ord_8w2k.pdf --output ./warehouse/invoice.pdf</code></pre></div></div>
+<p>Get verifies the bytes before returning them. The store reads the object's metadata record,
+streams the pieces back in order, reassembles them, and recomputes the
+SHA-256 digest of what it reassembled. Only if that digest matches the
+one recorded on put does get return the bytes. If the two differ (a
+piece went missing, a transfer was cut short), get returns an error
+instead of a corrupt file.</p>
+<p>That's the contract of an object store: what you get is byte-for-byte
+what you put, or you get an error. The store does not return a quietly
+truncated file.</p>
+<h2 id="watch-put-and-get-flow">Watch put and get flow</h2>
+<p>The animation below shows the round trip. On put, <code>order-svc</code> sends the
+pieces and then the metadata record into the <code>INVOICES</code> bucket. On get,
+<code>warehouse</code> reads the metadata first, then pulls the pieces in order,
+reassembles them, and verifies the digest before handing the invoice
+over.</p>
+<div></div>
+<p>Put writes the pieces and then the metadata, while get reads the metadata
+and then the pieces and then verifies. That ordering is what lets get know how many pieces to expect and what
+digest to check them against.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two mistakes are common on a first object. Both come from treating put
+and get as if they couldn't fail.</p>
+<p><strong>A digest mismatch means do not use the bytes.</strong> The metadata record is
+written last, after the pieces, so an interrupted put (the process dies, the
+connection drops) leaves no gettable object at all: a get reports the name as
+not found, not a corrupt file. A digest mismatch is a different failure. It
+means the object was stored whole but some of its pieces were lost or
+corrupted afterward, so get verifies the reassembled bytes against the stored
+digest and returns <code>ErrDigestMismatch</code>. The mistake is to ignore that error
+and use the bytes anyway. Do check the
+get result before you act on it; an <code>ErrDigestMismatch</code> means retry the
+get, and a repeated mismatch means the object is damaged and should be
+put again. Don't assume a put "worked" without a get confirming it
+round-trips.</p>
+<p><strong>Getting a missing object is an error, not empty bytes.</strong> Ask for a name
+that was never put, or one that has been deleted, and get fails with a
+not-found error; it doesn't hand back an empty file. The <code>warehouse</code>
+must treat "invoice not found" as a real branch: the invoice may not
+have been produced yet. Do check for the not-found case and retry or wait;
+don't ship the order on the assumption that an absent invoice is an empty
+one.</p>
+<p>Here's the not-found path, and the safe check that precedes a get:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Getting a name that was never put — or one that has been deleted —
+# fails with a not-found error rather than returning empty bytes. Always
+# check the result of a get before using what it returns.
+#
+#   nats: error: nats: object not found
+#
+# In a client library this surfaces as ErrObjectNotFound. Treat it as a
+# normal branch: the warehouse asked for an invoice that has not been
+# produced yet, so wait and retry rather than shipping without it.
+nats object get INVOICES invoice-ord_NOPE.pdf
+
+# Confirm the object exists before you depend on its bytes. `nats object
+# info` returns the metadata if the name is present and the same
+# not-found error if it is not.
+nats object info INVOICES invoice-ord_8w2k.pdf</code></pre></div></div>
+<p>The full set of object store configuration options is documented in
+<a href="/reference/">Reference</a>. We only need put, get, and the digest behavior
+here.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have:</p>
+<ul>
+<li>An <code>INVOICES</code> bucket, backed by a JetStream stream the server created
+for you.</li>
+<li>One object, <code>invoice-ord_8w2k.pdf</code>, put by <code>order-svc</code>.</li>
+<li>That same invoice fetched back by <code>warehouse</code>, with its SHA-256 digest
+verified on the way out.</li>
+</ul>
+<p>The session is live. The next pages add to this exact bucket rather than
+starting over.</p>
+<h2 id="whats-next">What's next</h2>
+<p>Put split the invoice into pieces and get reassembled them. The next page
+names that mechanism, <strong>chunking</strong>, and stores an invoice large enough
+to span many chunks, so you can read the chunk count for yourself.</p>
+<p>Continue to <a href="/learn/object-store/chunking">Chunking</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/jetstream">JetStream deep dive</a> — the streams that back every
+bucket.</li>
+<li><a href="/reference/">Reference</a> — the full set of object store configuration
+options.</li>
+<li><a href="/learn/key-value">Key-Value deep dive</a> — the sibling store for small,
+multi-revision values.</li>
+</ul></main>

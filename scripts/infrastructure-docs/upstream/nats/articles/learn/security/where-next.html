@@ -1,0 +1,169 @@
+<main><header><h1>Where to go next</h1></header>
+<p>The previous page closed the last gap: TLS on the wire, a client
+certificate as an identity, and the JetStream store encrypted on disk.
+The <code>ORDERS</code> world is secured end to end. This page puts the whole model
+back together in one picture, then points you at the chapters and
+references that go past where this one stops.</p>
+<h2 id="the-whole-model-in-one-picture">The whole model in one picture</h2>
+<p>Every page in this chapter added one piece, and each piece answers one
+question:</p>
+<ul>
+<li>An <strong>account</strong> is the tenant boundary — whose traffic is this? Traffic in
+<code>ORDERS</code> never reaches <code>ANALYTICS</code>, because the two accounts have separate
+subject spaces.</li>
+<li>A <strong>user</strong> is an identity inside that account — who are you? <code>order-svc</code> and
+<code>analytics-reader</code> each prove an identity before the server admits them.</li>
+<li><strong>Permissions</strong> decide which subjects a user may publish and subscribe to.
+<code>order-svc</code> may publish <code>orders.&gt;</code> and nothing else; the allow-list closes
+the rest.</li>
+<li><strong>TLS</strong> protects the wire those messages travel over. The bytes between
+client and server are encrypted, and with mTLS the client's certificate can
+be the identity.</li>
+</ul>
+<p>The chapter also crossed that isolation once: a matched export and
+import shares <code>orders.shipped</code> from <code>ORDERS</code> into <code>ANALYTICS</code> while
+everything else stays separate.</p>
+<p>If you can answer those four questions for a connection, you understand
+its security posture. Everything else in this chapter is detail on how
+you configure each answer.</p>
+<h2 id="the-two-ways-to-answer-who-are-you">The two ways to answer "who are you?"</h2>
+<p>One choice is worth restating: authentication. The chapter built the
+same two-account world twice on purpose, once per style.</p>
+<p><strong>Centralized authentication</strong> keeps the user list in the server's own
+config. The server checks a credential against that list directly.
+A change means editing the server's config and reloading it
+(<code>nats-server --signal reload</code>) — no restart. It's the right tool for
+one server and a handful of users.</p>
+<p><strong>Decentralized authentication</strong> moves the user list out of the server.
+An operator signs accounts, accounts sign users, and the server trusts
+only the operator. Adding a user touches no server config at all. It's
+the right tool when you have many tenants, or when teams need to issue
+their own credentials.</p>
+<p>Both produce the same runtime model: an authenticated user, scoped to an
+account, bound by permissions. They differ only in where the identity
+lives and who signs it.</p>
+<p>The chapter also taught a third answer:
+<a href="/learn/security/auth-callout">auth callout</a> hands the decision to a
+service you run, so the check can live in whatever identity system you
+already have. To revisit a single piece, the
+<a href="/learn/security/">chapter map</a> lists every page with what it covers.</p>
+<h2 id="reading-the-reference">Reading the reference</h2>
+<p>This chapter showed one runnable happy path per concept. It deliberately
+left out the exhaustive tables: the full lists of TLS cipher suites,
+JWT claims, and export options.</p>
+<p>When you need that depth, the generated <a href="/reference/">Reference</a> is the
+source. It documents the wire protocol and the configuration surface in
+full. Use this chapter to understand how the pieces fit; use the
+reference for the exact field, type, and default.</p>
+<h2 id="what-this-chapter-did-not-cover">What this chapter did not cover</h2>
+<p>This chapter taught security as it applies to a single server and a pair
+of accounts. Four things sit past that boundary, and each has its own
+chapter.</p>
+<p><strong>Multiple servers.</strong> A cluster, a leaf node, and a gateway are each a
+connection type, and each carries its own TLS and authentication. The
+<a href="/learn/clustering">Clustering</a> chapter builds those topologies; the
+per-link <code>tls {}</code> settings are in the
+<a href="/reference/config/tls">TLS reference</a>.</p>
+<p><strong>Leaf nodes specifically.</strong> A leaf node connects an edge server (or a
+laptop) into a hub, often across a trust boundary. It authenticates to the
+hub with the same accounts and credentials this chapter already covered:
+<a href="/learn/security/accounts-and-multitenancy">Accounts and multitenancy</a>
+binds a connection to an account, and
+<a href="/learn/security/decentralized-auth">Decentralized auth</a> mints the
+credentials it presents. Where those credentials attach in the hub's
+<code>leafnodes {}</code> block is shown in
+<a href="/learn/topologies/leaf-nodes">Leaf nodes</a>.</p>
+<p><strong>Hardening the deployment.</strong> The wider posture of a production
+deployment (file permissions on creds, system-account access, limits
+that stop one tenant starving another) is collected in
+<a href="/learn/deployment/hardening">Deployment hardening</a>.</p>
+<p><strong>JetStream's stored data.</strong> Encryption at rest — turning it on,
+choosing the cipher, and rotating the key — has its own section on the
+<a href="/learn/security/encryption#encryption-at-rest">Encryption &amp; TLS</a> page.
+Whether a stream survives losing the server that holds it is
+replication, not security; that's
+<a href="/learn/jetstream/surviving-node-loss">Surviving node loss</a>. Security
+decides who may access a stream; replication decides whether it's still
+there to be accessed.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You can answer the four questions (account, user, permissions, TLS) for
+any NATS connection. You've built the same two-account <code>ORDERS</code> world
+twice: once in centralized config and once under the ACME operator. You
+shared exactly one subject across the boundary, and you've seen a third
+authentication style hand the decision to a service of your own.</p>
+<p>If you're done with the scratch setup, tear it down: stop any
+<code>nats-server</code> you started, delete the scratch configs, certificates, and
+JetStream store directory, and remove the operator store — the directory
+you pointed <code>XDG_DATA_HOME</code> at if you isolated it, or the <code>ACME</code>
+operator inside the default store location shown on the
+<a href="/learn/security/operator-mode">Operator mode</a> page.</p>
+<p>The chapters linked above take the model to multiple servers, more
+tenants, and a production deployment.</p>
+<h2 id="production-checklist">Production checklist</h2>
+<p>Every page in this chapter closed with a Pitfalls section. This gathers
+the action items from all of them in one place. Each group links back to
+the page that explains it.</p>
+<h3 id="authentication-basics--see-pitfalls">Authentication basics — see <a href="/learn/security/authentication-basics#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Give every server a user list so an unauthenticated connect is rejected.</li>
+<li><input/> <!-- -->Store bcrypt hashes, not plaintext passwords, in any deployed config.</li>
+<li><input/> <!-- -->Keep credentials out of committed config: reference a secret store and <code>.gitignore</code> the real file.</li>
+<li><input/> <!-- -->Put credentials in a named context, never in the connection URL.</li>
+</ul>
+<h3 id="authorization--see-pitfalls">Authorization — see <a href="/learn/security/authorization#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Allow <code>_INBOX.&gt;</code> on the subscribe side for any user that makes requests.</li>
+<li><input/> <!-- -->Prefer a wildcard matching the user's real subject space over an enumerated allow-list.</li>
+<li><input/> <!-- -->Scope each user to its actual subject prefix — never grant <code>&gt;</code>.</li>
+<li><input/> <!-- -->Check the subscriber's deny lists when messages silently go missing: a wildcard subscription overlapping a deny is accepted and filtered at delivery with no error.</li>
+</ul>
+<h3 id="accounts-and-multitenancy--see-pitfalls">Accounts and multitenancy — see <a href="/learn/security/accounts-and-multitenancy#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Point <code>no_auth_user</code> at a deliberately narrow user, never a wide-open account.</li>
+<li><input/> <!-- -->Declare a <code>SYS</code> account with a user and set <code>system_account: SYS</code> so server events stay reachable.</li>
+<li><input/> <!-- -->Never rely on a shared subject name to bridge accounts; use an explicit export/import.</li>
+</ul>
+<h3 id="cross-account--see-pitfalls">Cross-account — see <a href="/learn/security/cross-account#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Pair every export with its import: in config mode an unmatched import stops the server at boot, and an unmatched export silently moves nothing.</li>
+<li><input/> <!-- -->Match the export type to the data flow: <code>stream</code> for one-way, <code>service</code> for request/reply.</li>
+<li><input/> <!-- -->Subscribe to the remapped subject when an import adds a <code>prefix:</code> or <code>to:</code>.</li>
+</ul>
+<h3 id="operator-mode--see-pitfalls">Operator mode — see <a href="/learn/security/operator-mode#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Run <code>nats auth account push</code> after every account change — including user revocations and signing-key changes, which live in the account JWT — so the server's resolver matches your store.</li>
+<li><input/> <!-- -->Keep the system account configured; the nats-based resolver refuses to start without it.</li>
+<li><input/> <!-- -->Give <code>.creds</code> files <code>0600</code> permissions; never bake, log, or commit them.</li>
+<li><input/> <!-- -->Consider monitoring issues if using credentials which have expiration times baked in</li>
+</ul>
+<h3 id="decentralized-authentication--see-pitfalls">Decentralized authentication — see <a href="/learn/security/decentralized-auth#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Back up the operator offline before building anything on it: <code>nats auth operator backup ACME acme-operator.backup</code>.</li>
+<li><input/> <!-- -->Configure the server with the operator JWT — public material only — never a private seed.</li>
+<li><input/> <!-- -->Sign users with a scoped signing key, not the account root seed.</li>
+<li><input/> <!-- -->Mint credentials with a deliberate expiry (<code>nats auth user credential order-svc.creds order-svc ORDERS --expire 720h</code>) and pair it with a re-issue plan.</li>
+</ul>
+<h3 id="auth-callout--see-pitfalls">Auth callout — see <a href="/learn/security/auth-callout#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Run more than one <code>auth-svc</code> instance and set <code>timeout</code> deliberately; the service is on the connection path.</li>
+<li><input/> <!-- -->List only <code>auth-svc</code> in <code>auth_users</code>; every other user must go through the callout.</li>
+<li><input/> <!-- -->Run <code>auth-svc</code> in its own account, and reach for <code>xkey</code> when the wire carries secrets.</li>
+</ul>
+<h3 id="encryption--tls--see-pitfalls">Encryption &amp; TLS — see <a href="/learn/security/encryption#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Add <code>verify</code> (or <code>verify_and_map</code>): TLS alone encrypts but doesn't authenticate the client.</li>
+<li><input/> <!-- -->Match the <code>verify_and_map</code> user string to the certificate identity (read it with <code>openssl x509 -noout -subject</code>).</li>
+<li><input/> <!-- -->Configure TLS on cluster, leafnode, and gateway blocks too, not just clients.</li>
+<li><input/> <!-- -->Give each cluster node's certificate both <code>serverAuth</code> and <code>clientAuth</code> extended key usage; the same cert acts as server and client on routes.</li>
+<li><input/> <!-- -->Migrate to TLS-first with a duration value (<code>handshake_first: "300ms"</code>) before setting it to <code>true</code>, so legacy clients keep connecting during the rollout.</li>
+<li><input/> <!-- -->Rotate certificates ahead of expiry and send <code>nats-server --signal reload</code> afterwards; certificate files are read once at startup.</li>
+<li><input/> <!-- -->Keep the JetStream encryption key out of the config file (<code>key: $JS_KEY</code>), and carry <code>prev_key</code> for one rotation restart only.</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/">Reference</a> — every field, type, and default in full.</li>
+<li><a href="/concepts/security">Core Concepts → Security</a> — the five-minute
+overview of everything this chapter expanded.</li>
+<li><a href="/learn/clustering">Clustering</a> — the deep dive where multiple
+servers, routes, and gateways are built.</li>
+</ul></main>

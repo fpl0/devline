@@ -42,8 +42,14 @@ Client package archives, source code, license notices, and Devline’s integrati
 The current catalog records official upstream sources for all 23 bundled reference families. This is a provenance audit, not a blanket legal clearance or a byte-for-byte comparison of every transformed article.
 
 - **SwiftUI is prepared from the selected local Apple SDK.** Devline uses Apple’s declarations and documentation comments, with examples where the SDK provides them. The separately bundled Swift language book covers the language. A SwiftUI project’s documentation-readiness result reports a missing reference until a compatible local snapshot is installed. [Apple’s SwiftUI reference](https://developer.apple.com/documentation/swiftui/)
-- **Infrastructure reference and help are separate.** `infrastructure@2026.11.07+devline.2` contains five PostgreSQL manual pages and one SeaweedFS API reference. Devline’s 13 setup and portability guides live under `data/help/infrastructure/` and are presented as Devline Help, outside reference search and coverage counts. The other service references remain explicit offline gaps.
+- **Infrastructure reference and help are separate.** `infrastructure@2026.11.07+devline.3` contains official references for the ten catalog releases. Each service’s source manifest records its exact image release, documentation provenance, scope, and omissions. The app surfaces coverage in Infrastructure. Devline’s 13 setup and portability guides live under `data/help/infrastructure/` and are presented as Devline Help, outside reference search and coverage counts. [Infrastructure source inventory](data/docs/infrastructure/2026.11.07+devline.3/SOURCES.md)
 - The previously published mixed infrastructure `.1` snapshot stays byte-for-byte intact as a historical archive. It is excluded from the current bundled reference catalog and current update-channel selection.
+
+### Infrastructure snapshot maintenance
+
+For a new catalog release, update its manifest under `scripts/infrastructure-docs/upstream/` using the publisher’s redistributable material. Keep the publisher notice and exact documentation version, including when the docs follow a release series or a separately versioned client. Build a new immutable revision with Pandoc 3.13 using `python3 scripts/fetch-docs.py --cache <scratch-dir> --reference <scratch-dir> --only infrastructure`. The infrastructure build reads its checked-in sources and can run offline. Keep releases required by existing starter pins available.
+
+Update each catalog service’s offline entry point and coverage from its source manifest, then refresh the combined runtime catalog. `scripts/check-infrastructure.py` verifies the catalog and source inventory across all shards. `scripts/check-doc-packs.py` audits the rendered articles and links.
 
 ### Local SwiftUI SDK import
 

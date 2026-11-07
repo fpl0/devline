@@ -1,0 +1,26 @@
+<main><header><h1>Java Tools</h1></header>
+<p>This page documents some Java-based utility programs (PerfTest, Tracer).</p>
+<h2 id="load-testing">PerfTest</h2>
+<p>RabbitMQ has a throughput testing tool, <a href="https://github.com/rabbitmq/rabbitmq-perf-test/">PerfTest</a>, that is based on the Java client and can be
+configured to simulate basic and advanced workloads as well.</p>
+<p>PerfTest Documentation:</p>
+<ul>
+<li>For <a href="https://perftest.rabbitmq.com/">the latest stable release</a></li>
+<li>For <a href="https://perftest-dev.rabbitmq.com/">the latest development build</a></li>
+</ul>
+<h2 id="stream-load-testing">PerfTest for Streams (RabbitMQ Stream Protocol)</h2>
+<p>There is a separate version of <a href="https://github.com/rabbitmq/rabbitmq-stream-perf-test/">PerfTest for streams</a> that uses <a href="https://www.rabbitmq.com/docs/4.3/stream">RabbitMQ Stream Protocol</a> internally.</p>
+<p>Stream PerfTest Documentation:</p>
+<ul>
+<li>For <a href="https://rabbitmq.github.io/rabbitmq-stream-perf-test/stable/htmlsingle/">the latest stable release</a></li>
+<li>For <a href="https://rabbitmq.github.io/rabbitmq-stream-perf-test/snapshot/htmlsingle/">the latest development build</a></li>
+</ul>
+<h2 id="tracer">Tracer</h2>
+<p>The tracer is a very basic, very simple AMQP 0-9-1 protocol analyzer, similar in
+purpose to <a href="/amqp-wireshark">Wireshark</a>.
+Use it with the <code>runtracer</code> or <code>runtracer.bat</code> script:</p>
+<div><div><pre><code class="language-bash">runtracer [proxy-port] [upstream-host] [upstream-port]</code></pre></div></div>
+<table><thead><tr><th>Parameter</th><th>Description</th><th>Default value</th></tr></thead><tbody><tr><td>proxy-port</td><td>port to listen for incoming client connections on</td><td>5673</td></tr><tr><td>upstream-host</td><td>hostname to use when making an outbound connection in response to an incoming connection</td><td>localhost</td></tr><tr><td>upstream-port</td><td>port number to use when making an outbound connection</td><td>5672</td></tr></tbody></table>
+<h2 id="tracer-download">Download and Source Code</h2>
+<p>Releases can be obtained from <a href="https://github.com/rabbitmq/rabbitmq-tracer/releases">GitHub</a>.</p>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tracer">Source repository</a> is hosted on GitHub.</p></main>

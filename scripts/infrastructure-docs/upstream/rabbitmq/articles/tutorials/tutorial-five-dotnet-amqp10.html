@@ -1,0 +1,27 @@
+<main><header><h1>RabbitMQ tutorial - Topics</h1></header>
+<h2 id="topics">Topics</h2>
+<h3 id="using-the-amqp-10-net-client">(using the AMQP 1.0 .NET client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-four-dotnet-amqp10">previous tutorial</a> we used a <code>direct</code> exchange to route by a single criterion (severity). <strong>Topic</strong> exchanges route by <strong>patterns</strong> in the routing key — useful when messages carry multiple dimensions (for example <code>kern.critical</code>).</p>
+<!-- -->
+<p>The sample declares exchange <code>logs_topic</code> with type <code>topic</code>. The publisher sets the routing key on <code>PublisherBuilder().Exchange(exchangeName).Key(routingKey)</code>. The consumer passes one or more binding keys (patterns) on the command line and binds the temporary queue for each.</p>
+<p>Topic binding rules:</p>
+<ul>
+<li><code>*</code> substitutes exactly one word.</li>
+<li><code>#</code> substitutes zero or more words.</li>
+<li>Words are separated by <code>.</code> in routing keys.</li>
+</ul>
+<h3 id="running">Running</h3>
+<div><div><pre><code class="language-bash">dotnet run --project ReceiveLogsTopic/ReceiveLogsTopic.csproj "kern.*"
+dotnet run --project EmitLogTopic/EmitLogTopic.csproj kern.critical "A critical kernel error"</code></pre></div></div>
+<h3 id="source">Source</h3>
+<ul>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/EmitLogTopic/Program.cs"><code>EmitLogTopic/Program.cs</code></a></li>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/ReceiveLogsTopic/Program.cs"><code>ReceiveLogsTopic/Program.cs</code></a></li>
+</ul>
+<p>Now we can move on to <a href="/tutorials/tutorial-six-dotnet-amqp10">tutorial 6</a> to learn about the RPC (request/reply) pattern with RabbitMQ.</p></main>

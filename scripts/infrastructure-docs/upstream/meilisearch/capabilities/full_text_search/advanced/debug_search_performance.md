@@ -1,0 +1,196 @@
+# Debug search performance
+
+> Use the showPerformanceDetails parameter to get detailed timing breakdowns for each stage of a search query.
+
+When a search query is slower than expected, it can be difficult to tell which part of the pipeline is responsible. The `showPerformanceDetails` parameter returns per-stage timing information so you can pinpoint bottlenecks without guesswork.
+
+## How it works
+
+Set `showPerformanceDetails` to `true` in any search request. Meilisearch will include a `performanceDetails` object in the response, breaking down how much time each stage of the search pipeline consumed.
+
+This parameter is supported on all search routes:
+
+* `POST /indexes/{indexUid}/search`
+* `GET /indexes/{indexUid}/search`
+* `POST /multi-search`
+* `POST /indexes/{indexUid}/similar`
+* `GET /indexes/{indexUid}/similar`
+
+## Basic usage
+
+Add `showPerformanceDetails` to a standard search request:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/movies/search' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{
+    "q": "glass",
+    "showPerformanceDetails": true
+  }'
+```
+
+The response includes the usual search results along with a `performanceDetails` object:
+
+```json
+{
+  "hits": [
+    { "id": 1, "title": "Glass Onion" }
+  ],
+  "query": "glass",
+  "processingTimeMs": 4,
+  "performanceDetails": {
+    "wait in queue": "295.29µs",
+    "search > tokenize query": "436.67µs",
+    "search > evaluate query": "649.00µs",
+    "search > keyword ranking": "515.71µs",
+    "search > format": "288.54µs",
+    "search": "3.56ms"
+  }
+}
+```
+
+## Understanding performance stages
+
+Each key in `performanceDetails` represents a stage of the search pipeline. Stage names are hierarchical, using `>` as a separator (e.g., `search > keyword ranking`).
+
+### Top-level stages
+
+| Stage | Description |
+| - | - |
+| `wait in queue` | Time waiting in search queue. Meilisearch limits concurrent searches, so a high value here means your instance is handling too many simultaneous queries. |
+| `preprocess filters` | Time to process the foreign filters before starting the main process. |
+| `process` | Total time for the search/similar operation, including all sub-stages below. |
+
+### Sub-stages
+
+These appear as children of the stages. Not all stages appear in every query; Meilisearch only reports stages that were actually executed.
+
+| Stage | Description |
+| - | - |
+| `prepare` | Time at the start of each step, gathering and reshaping everything for the execution. |
+| `tokenize query` | Breaking the query string into individual tokens. Typically very fast unless the query is unusually long. |
+| `embed query` | Generating vector embeddings for the query. Only appears when using [hybrid or semantic search](https://www.meilisearch.com/docs/capabilities/hybrid_search/overview). Duration depends on your embedder provider and network latency. |
+| `evaluate filter` | Evaluating [filter expressions](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/advanced/filter_expression_syntax) to narrow the candidate set. Complex filters or many filterable attributes increase this time. |
+| `evaluate query` | Retrieving the set of documents matching the query. This combines filter results with the full document set to establish which documents are eligible for ranking. |
+| `keyword ranking` | Ranking candidates using the keyword ranking rules. Often the most significant stage for broad queries on large datasets. |
+| `placeholder ranking` | Ranking candidates using the sort and the custom ranking rules ([placeholder search](https://www.meilisearch.com/docs/capabilities/full_text_search/getting_started/placeholder_search)). Appears instead of `keyword ranking` when `q` is empty or missing. |
+| `semantic ranking` | Ranking candidates based on the vector similarity with the embedding. Only appears when using [hybrid or semantic search](https://www.meilisearch.com/docs/capabilities/hybrid_search/overview). |
+| `personalization` | Applying [search personalization](https://www.meilisearch.com/docs/capabilities/personalization/overview) to re-rank results based on user context. Only appears when personalization is configured. |
+| `facet distribution` | Computing facet value counts for the `facets` parameter. Cost scales with the number of faceted attributes and unique values. See [maxValuesPerFacet](https://www.meilisearch.com/docs/capabilities/full_text_search/advanced/performance_tuning#lower-max-values-per-facet). |
+| `format` | Formatting results: [highlighting, cropping](https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/highlight_search_results), building the response payload. Cost scales with the number of attributes to highlight/crop and the size of document fields. |
+| `hydrate documents` | Fetching full document data, including [linked index](https://www.meilisearch.com/docs/capabilities/indexing/how_to/document_relations) joins. |
+
+### Federated search stages
+
+When using `showPerformanceDetails` at the `federation` level, you see these stages instead:
+
+| Stage | Description |
+| - | - |
+| `partition queries` | Organizing queries by index and remote host. |
+| `start remote search` | Initiating search requests to remote Meilisearch instances. Only appears when using [network search](https://www.meilisearch.com/docs/resources/self_hosting/sharding/overview). |
+| `execute local search` | Executing queries against local indexes. |
+| `wait for remote results` | Waiting for remote instances to respond. High values indicate network latency or slow remote instances. |
+| `merge` | Merging and deduplicating results from all sources into a single ranked list. |
+| `merge facets` | Combining facet distributions from all sources. |
+
+## Multi-search
+
+In multi-search requests, set `showPerformanceDetails` on each individual query that you want to profile:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/multi-search' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{
+    "queries": [
+      {
+        "indexUid": "movies",
+        "q": "glass",
+        "showPerformanceDetails": true
+      },
+      {
+        "indexUid": "actors",
+        "q": "samuel",
+        "showPerformanceDetails": true
+      }
+    ]
+  }'
+```
+
+Each result in the response includes its own `performanceDetails`, letting you compare timing across indexes and queries.
+
+## Federated search
+
+For federated multi-search, set `showPerformanceDetails` in the `federation` object to get timing details for the combined search:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/multi-search' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{
+    "federation": {
+      "showPerformanceDetails": true
+    },
+    "queries": [
+      { "indexUid": "movies", "q": "glass" },
+      { "indexUid": "books", "q": "glass" }
+    ]
+  }'
+```
+
+## Similar documents
+
+The similar documents endpoint also supports `showPerformanceDetails`:
+
+```bash
+curl \
+  -X POST 'MEILISEARCH_URL/indexes/movies/similar' \
+  -H 'Content-Type: application/json' \
+  --data-binary '{
+    "id": "143",
+    "showPerformanceDetails": true
+  }'
+```
+
+## Practical tips
+
+### Identify the bottleneck
+
+Look for the stage with the highest duration. Common patterns:
+
+* **High `wait in queue`**: your instance is overloaded with concurrent searches. Scale your hardware or reduce query volume.
+* **High `evaluate filter`**: complex [filters](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/getting_started) expressions or too many filterable attributes. Use [granular filterable attributes](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/configure_granular_filters) to disable unused filter features.
+* **High `evaluate query`**: complex query containing a lot of words or matching a lot of synonyms, generating a complex query tree that is expensive to evaluate. Add [stop words](https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_stop_words), reduce synonyms cardinality.
+* **High `keyword ranking`**: the query necessitates a lot of iterations in the ranking rules to retrieve the requested amount of documents, reduce the offset and limit parameters, limit [searchable attributes](https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_searchable_attributes), or lower [`maxTotalHits`](https://www.meilisearch.com/docs/capabilities/full_text_search/advanced/performance_tuning#lower-max-total-hits).
+* **High `embed query`**: your embedder is slow. Consider switching to a faster model, using a local embedder for search with [composite embedders](https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/composite_embedders), or caching embeddings.
+* **High `facet distribution`**: too many faceted attributes or high `maxValuesPerFacet`. Lower it to the number of facet values you actually display.
+* **High `format`**: large `attributesToRetrieve`, `attributesToHighlight`, or `attributesToCrop`. Reduce to only the fields your UI needs.
+* **High `wait for remote results`**: network latency to remote instances. Check network connectivity or colocate instances.
+
+### Compare before and after
+
+Use `showPerformanceDetails` before and after configuration changes (adding stop words, adjusting searchable attributes, modifying the search cutoff) to measure the impact of each optimization.
+
+### Disable in production
+
+Collecting performance details adds a small amount of overhead to each search request. Use this parameter for debugging and profiling, then remove it from production queries.
+
+> [card] [Performance tuning](https://www.meilisearch.com/docs/capabilities/full_text_search/advanced/performance_tuning)
+>
+> Optimize search speed and relevancy for large datasets
+
+> [card] [Ranking pipeline](https://www.meilisearch.com/docs/capabilities/full_text_search/advanced/ranking_pipeline)
+>
+> Understand how Meilisearch ranks search results
+
+> [card] [Configure search cutoff](https://www.meilisearch.com/docs/capabilities/full_text_search/how_to/configure_search_cutoff)
+>
+> Set time limits to guarantee consistent response times
+
+> [card] [Search API reference](https://www.meilisearch.com/docs/reference/api/search/search-with-post)
+>
+> Full API reference for the search endpoint
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

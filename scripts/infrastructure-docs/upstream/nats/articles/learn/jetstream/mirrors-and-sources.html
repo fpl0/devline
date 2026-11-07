@@ -1,0 +1,493 @@
+<main><header><h1>Mirrors and sources</h1></header>
+<p>So far the running example has been a single <code>ORDERS</code> stream.</p>
+<p>This page covers the two ways to build one stream from another.
+A <strong>mirror</strong> is a read-only copy of a single stream. Sources
+aggregate many streams into one.</p>
+<p>Both behaviors are specified in
+<a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-59.md">ADR-59</a>, the authoritative document for stream
+sourcing and mirroring.</p>
+<h2 id="what-a-mirror-is">What a mirror is</h2>
+<p>A mirror is a stream that continuously copies every message from one
+upstream stream.</p>
+<div></div>
+<p>The copy is exact. A message in the mirror keeps the same sequence
+number, the same timestamp, and the same subject it had upstream. If
+<code>orders.created</code> was sequence <code>1</code> in <code>ORDERS</code>, it's sequence <code>1</code> in the
+mirror too.</p>
+<p>A mirror is read-only. You can't publish to it directly, because it
+listens on no subjects of its own. Its only job is to follow the
+upstream. A publish lands in whatever stream owns the subject, not the mirror.</p>
+<p>A mirror keeps its own retention. The upstream might keep messages for
+seven days while the mirror keeps them forever — the mirror's own limits
+decide what it stores, independent of the upstream's.</p>
+<p>Its configuration is fixed at creation. You can't point a mirror at a
+different upstream or add a filter later; to change any of that you delete
+it and create it again. That's cheap, because the upstream still holds the
+data and the new mirror catches up on its own.</p>
+<h2 id="what-sources-are">What sources are</h2>
+<p>Where a mirror copies from one upstream, a stream with <strong>sources</strong> pulls from
+several upstreams at once and merges them into a single stream.</p>
+<p>Consider three regional order streams — <code>ORDERS-US</code>, <code>ORDERS-EU</code>,
+<code>ORDERS-APAC</code>. A stream that lists all three as sources becomes one
+combined <code>ALL-ORDERS</code> view, fed by every region.</p>
+<div></div>
+<p>The merge interleaves. Messages from one upstream keep their own order,
+but across upstreams there's no ordering guarantee, and the aggregate
+gives them fresh sequence numbers as they arrive — it doesn't preserve
+each upstream's the way a mirror does.</p>
+<p>A sourced stream can also listen on its own subjects. Unlike a mirror, it
+may accept direct publishes alongside the messages it pulls in, so one
+stream can hold both what it gathered and what was published straight to it.</p>
+<p>Sources can also change after creation. You add an upstream, drop one, or
+adjust a filter by updating the stream config — no need to delete and
+recreate.</p>
+<h2 id="mirror-or-source">Mirror or source?</h2>
+<p>The two solve different problems. A mirror is one stream copied exactly; a
+source is many streams merged into one.</p>
+<table><thead><tr><th></th><th>Mirror</th><th>Source</th></tr></thead><tbody><tr><td>Upstreams</td><td>exactly one</td><td>one or many</td></tr><tr><td>Sequence numbers</td><td>kept from the upstream</td><td>fresh, interleaved across sources</td></tr><tr><td>Own subjects, direct publishes</td><td>no — read-only</td><td>yes, optional</td></tr><tr><td>Change the config later</td><td>no — delete and recreate</td><td>yes — add, drop, or edit sources</td></tr></tbody></table>
+<p>Reach for a <strong>mirror</strong> when you want a second copy of one stream: a read
+replica close to a remote region, a stream that survives the loss of the
+upstream's cluster, or a long-retention archive of a short-retention stream.</p>
+<p>Reach for <strong>sources</strong> when you want to combine many streams into one:
+merging per-region or per-tenant streams for reporting, or building a
+derived view that draws from several streams.</p>
+<h2 id="build-them">Build them</h2>
+<h3 id="build-the-orders-archive-mirror">Build the ORDERS-ARCHIVE mirror</h3>
+<p>Create a second stream that mirrors <code>ORDERS</code>. Call it <code>ORDERS-ARCHIVE</code>,
+and give it no limits, so it becomes a permanent record of every order:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Create ORDERS-ARCHIVE as a read-only mirror of the ORDERS stream.
+# A mirror takes no --subjects of its own; it follows the upstream.
+nats stream add ORDERS-ARCHIVE --mirror ORDERS
+
+# Confirm the mirror caught up. The Mirror Information section reports
+# the upstream stream name, the replication Lag, and the Last Seen time.
+nats stream info ORDERS-ARCHIVE</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Create ORDERS-ARCHIVE as a read-only mirror of ORDERS. A mirror takes
+// no subjects of its own; it follows the upstream stream.
+const jsm = await jetstreamManager(nc);
+const info = await jsm.streams.add({
+  name: "ORDERS-ARCHIVE",
+  mirror: { name: "ORDERS" },
+});
+console.log(`Created mirror ${info.config.name} of ${info.config.mirror?.name}`);</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Create ORDERS-ARCHIVE as a read-only mirror of ORDERS. A mirror takes
+// no subjects of its own; it follows the upstream stream.
+stream, err := js.CreateStream(ctx, jetstream.StreamConfig{
+	Name:   "ORDERS-ARCHIVE",
+	Mirror: &amp;jetstream.StreamSource{Name: "ORDERS"},
+})
+if err != nil {
+	panic(err)
+}
+
+// Confirm: the new stream mirrors ORDERS.
+cfg := stream.CachedInfo().Config
+fmt.Printf("Created mirror %s of %s\n", cfg.Name, cfg.Mirror.Name)</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Create ORDERS-ARCHIVE as a read-only mirror of ORDERS. A mirror takes
+# no subjects of its own; it follows the upstream stream.
+info = await js.add_stream(name="ORDERS-ARCHIVE", mirror=StreamSource(name="ORDERS"))
+
+print(f"Created mirror {info.config.name} of {info.config.mirror.name}")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Create ORDERS-ARCHIVE as a read-only mirror of ORDERS. A mirror
+// takes no subjects of its own; it follows the upstream stream.
+JetStreamManagement jsm = nc.jetStreamManagement();
+StreamInfo streamInfo = jsm.addStream(StreamConfiguration.builder()
+        .name("ORDERS-ARCHIVE")
+        .mirror(Mirror.builder().sourceName("ORDERS").build())
+        .storageType(StorageType.File)
+    .build());
+
+// Confirm: the new stream mirrors ORDERS
+StreamConfiguration config = streamInfo.getConfiguration();
+System.out.println("Created mirror " + config.getName()
+        + " of " + config.getMirror().getSourceName());</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Create ORDERS-ARCHIVE as a read-only mirror of ORDERS. A mirror takes
+// no subjects of its own; it follows the upstream stream.
+let stream = js
+    .create_stream(jetstream::stream::Config {
+        name: "ORDERS-ARCHIVE".to_string(),
+        mirror: Some(Source {
+            name: "ORDERS".to_string(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    })
+    .await?;
+
+// Confirm: the new stream mirrors ORDERS.
+let cfg = &amp;stream.cached_info().config;
+println!(
+    "Created mirror {} of {}",
+    cfg.name,
+    cfg.mirror.as_ref().map_or("unknown", |m| m.name.as_str())
+);</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Create ORDERS-ARCHIVE as a read-only mirror of ORDERS. A mirror takes
+// no subjects of its own; it follows the upstream stream.
+var stream = await js.CreateStreamAsync(new StreamConfig(name: "ORDERS-ARCHIVE", subjects: [])
+{
+    Mirror = new StreamSource { Name = "ORDERS" },
+});
+
+// Confirm: the new stream mirrors ORDERS
+output.WriteLine($"Created mirror {stream.Info.Config.Name} of {stream.Info.Config.Mirror!.Name}");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Create ORDERS-ARCHIVE as a read-only mirror of ORDERS. A mirror takes
+// no subjects of its own; it follows the upstream stream.
+if (s == NATS_OK)
+{
+    jsStreamConfig_Init(&amp;mc);
+    jsStreamSource_Init(&amp;mirror);
+    mirror.Name = "ORDERS";
+    mc.Name     = "ORDERS-ARCHIVE";
+    mc.Mirror   = &amp;mirror;
+    s = js_AddStream(&amp;si, js, &amp;mc, NULL, &amp;jerr);
+}
+
+// Confirm: the new stream mirrors ORDERS.
+if (s == NATS_OK)
+    printf("Created mirror %s of %s\n", si-&gt;Config-&gt;Name, si-&gt;Config-&gt;Mirror-&gt;Name);</code></pre></div></div>
+<p>The <code>--mirror ORDERS</code> flag tells the server this new stream is a mirror of
+<code>ORDERS</code> rather than a normal stream. You don't give it <code>--subjects</code>,
+because a mirror listens on no subjects of its own. The CLI exposes only
+the simplest mirror; for one that filters or rewrites subjects you supply a
+JSON config, covered in the Reference.</p>
+<p>Right after creation the mirror catches up. Within moments it holds the
+same three orders that <code>ORDERS</code> does, reported in a section a normal stream
+doesn't have:</p>
+<div><div><pre><code class="language-text">Mirror Information:
+
+          Stream Name: ORDERS
+                  Lag: 0
+            Last Seen: 1.20s</code></pre></div></div>
+<p><strong>Stream Name</strong> is the upstream the mirror follows. <strong>Lag</strong> is how many
+messages it's still behind — <code>0</code> means fully caught up, and a lag that
+climbs and stays high means it can't keep pace. <strong>Last Seen</strong> is the time
+since the last message or heartbeat from the upstream; a small, steady value is healthy.</p>
+<p>Publish a fourth order into <code>ORDERS</code>, then re-run <code>nats stream info ORDERS-ARCHIVE</code>. The mirror picks it up on its own, with no consumer and no
+client code involved, and the lag ticks back to <code>0</code>.</p>
+<h3 id="build-the-all-orders-source">Build the ALL-ORDERS source</h3>
+<p>A source needs streams to aggregate. Create three regional streams, each
+owning its own subjects, then create <code>ALL-ORDERS</code> to source all three at
+once:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Sources aggregate many streams into one. First, the three regional streams
+# ALL-ORDERS will pull from — each owns its own subjects:
+nats stream add ORDERS-US   --subjects 'us.orders.&gt;'
+nats stream add ORDERS-EU   --subjects 'eu.orders.&gt;'
+nats stream add ORDERS-APAC --subjects 'apac.orders.&gt;'
+
+# Create ALL-ORDERS as an aggregate of all three. A sourced stream can list
+# several upstreams (a mirror takes exactly one). It needs no --subjects of
+# its own.
+nats stream add ALL-ORDERS --source ORDERS-US --source ORDERS-EU --source ORDERS-APAC
+
+# Confirm. The Source Information section lists each upstream, with its own Lag.
+nats stream info ALL-ORDERS
+
+# Source Information:
+#
+#           Stream Name: ORDERS-US
+#                   Lag: 0
+#             Last Seen: 1.20s
+#
+#           Stream Name: ORDERS-EU
+#                   Lag: 0
+#             Last Seen: 1.20s
+#
+#           Stream Name: ORDERS-APAC
+#                   Lag: 0
+#             Last Seen: 1.20s</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Create ALL-ORDERS as an aggregate that sources the three regional streams
+// into one. Unlike a mirror, a stream can list several sources.
+const info = await jsm.streams.add({
+  name: "ALL-ORDERS",
+  sources: [
+    { name: "ORDERS-US" },
+    { name: "ORDERS-EU" },
+    { name: "ORDERS-APAC" },
+  ],
+});
+console.log(`Created ${info.config.name} sourcing ${info.config.sources?.length} streams`);</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Create ALL-ORDERS as an aggregate that sources the three regional streams
+// into one. Unlike a mirror, a stream can list several sources.
+stream, err := js.CreateStream(ctx, jetstream.StreamConfig{
+	Name: "ALL-ORDERS",
+	Sources: []*jetstream.StreamSource{
+		{Name: "ORDERS-US"},
+		{Name: "ORDERS-EU"},
+		{Name: "ORDERS-APAC"},
+	},
+})
+if err != nil {
+	panic(err)
+}
+
+cfg := stream.CachedInfo().Config
+fmt.Printf("Created %s sourcing %d streams\n", cfg.Name, len(cfg.Sources))</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Create ALL-ORDERS as an aggregate that sources the three regional streams
+# into one. Unlike a mirror, a stream can list several sources.
+info = await js.add_stream(
+    name="ALL-ORDERS",
+    sources=[
+        StreamSource(name="ORDERS-US"),
+        StreamSource(name="ORDERS-EU"),
+        StreamSource(name="ORDERS-APAC"),
+    ],
+)
+
+print(f"Created {info.config.name} sourcing {len(info.config.sources)} streams")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Create ALL-ORDERS as an aggregate that sources the three regional
+// streams into one. Unlike a mirror, a stream can list several sources.
+StreamInfo streamInfo = jsm.addStream(StreamConfiguration.builder()
+        .name("ALL-ORDERS")
+        .sources(
+            Source.builder().sourceName("ORDERS-US").build(),
+            Source.builder().sourceName("ORDERS-EU").build(),
+            Source.builder().sourceName("ORDERS-APAC").build())
+        .storageType(StorageType.File)
+    .build());
+
+// Confirm: the aggregate lists three sources
+StreamConfiguration config = streamInfo.getConfiguration();
+System.out.println("Created " + config.getName()
+        + " sourcing " + config.getSources().size() + " streams");</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Create ALL-ORDERS as an aggregate that sources the three regional streams
+// into one. Unlike a mirror, a stream can list several sources.
+let stream = js
+    .create_stream(jetstream::stream::Config {
+        name: "ALL-ORDERS".to_string(),
+        sources: Some(vec![
+            Source {
+                name: "ORDERS-US".to_string(),
+                ..Default::default()
+            },
+            Source {
+                name: "ORDERS-EU".to_string(),
+                ..Default::default()
+            },
+            Source {
+                name: "ORDERS-APAC".to_string(),
+                ..Default::default()
+            },
+        ]),
+        ..Default::default()
+    })
+    .await?;
+
+let cfg = &amp;stream.cached_info().config;
+println!(
+    "Created {} sourcing {} streams",
+    cfg.name,
+    cfg.sources.as_ref().map_or(0, |s| s.len())
+);</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Create ALL-ORDERS as an aggregate that sources the three regional
+// streams into one. Unlike a mirror, a stream can list several sources.
+var stream = await js.CreateStreamAsync(new StreamConfig(name: "ALL-ORDERS", subjects: [])
+{
+    Sources =
+    [
+        new StreamSource { Name = "ORDERS-US" },
+        new StreamSource { Name = "ORDERS-EU" },
+        new StreamSource { Name = "ORDERS-APAC" },
+    ],
+});
+
+// Confirm: the aggregate lists three sources
+output.WriteLine($"Created {stream.Info.Config.Name} sourcing {stream.Info.Config.Sources!.Count} streams");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Create ALL-ORDERS as an aggregate that sources the three regional
+// streams into one. Unlike a mirror, a stream can list several sources.
+jsStreamConfig  sc;
+jsStreamSource  us, eu, apac;
+jsStreamSource  *sources[] = {&amp;us, &amp;eu, &amp;apac};
+
+jsStreamSource_Init(&amp;us);
+us.Name = "ORDERS-US";
+jsStreamSource_Init(&amp;eu);
+eu.Name = "ORDERS-EU";
+jsStreamSource_Init(&amp;apac);
+apac.Name = "ORDERS-APAC";
+
+jsStreamConfig_Init(&amp;sc);
+sc.Name = "ALL-ORDERS";
+sc.Sources = sources;
+sc.SourcesLen = 3;
+
+s = js_AddStream(&amp;si, js, &amp;sc, NULL, &amp;jerr);
+if (s == NATS_OK)
+    printf("Created %s sourcing %d streams\n",
+           si-&gt;Config-&gt;Name, si-&gt;Config-&gt;SourcesLen);</code></pre></div></div>
+<p><code>ALL-ORDERS</code> takes no <code>--subjects</code> of its own here; it just lists its
+upstreams. Its info carries a Source Information section — one block per
+upstream, because each source replicates on its own:</p>
+<div><div><pre><code class="language-text">Source Information:
+
+          Stream Name: ORDERS-US
+                  Lag: 0
+            Last Seen: 1.20s
+
+          Stream Name: ORDERS-EU
+                  Lag: 0
+            Last Seen: 1.20s
+
+          Stream Name: ORDERS-APAC
+                  Lag: 0
+            Last Seen: 1.20s</code></pre></div></div>
+<p>Each upstream has its own Lag and Last Seen. <code>ALL-ORDERS</code> now holds every
+order from every region, interleaved in arrival order. Add or drop a region
+later by updating the stream — no recreation needed.</p>
+<h2 id="filters-transforms-and-reach">Filters, transforms, and reach</h2>
+<p>A mirror or source can copy a subset of subjects with a filter, rewrite
+subjects with a subject transform, or reach a stream in another account
+or JetStream domain. Each is one extra field on the mirror or source
+configuration.</p>
+<p>The full set of mirror and source options (<code>filter_subject</code>,
+<code>subject_transforms</code>, <code>opt_start_seq</code>, <code>external</code>, and the rest) is
+documented in
+<a href="/reference/jetstream/api/stream/create">Reference → Stream Configuration</a>.
+We use only the plain <code>--mirror</code> and <code>--source</code> forms here.</p>
+<p>Reaching across an account or domain involves a consumer API subject, a
+delivery subject, and a flow control subject, each needing an export with the
+right type. Setting one wrong is a common mistake —
+the Pitfalls below cover what goes wrong, and
+<a href="/reference/jetstream/cross-account-subjects">Reference → Cross-account subjects</a>
+lists each subject, its export type, and a worked config.</p>
+<p>Using mirrors for disaster recovery (switching over to a mirror when the
+primary cluster is lost) is its own operational topic, covered in
+<a href="/learn/backup-recovery/mirrors-and-sources">Operate → Backup &amp; Recovery</a>.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Mirrors and sources add little configuration, but a few of their rules
+are easy to get wrong the first time.</p>
+<p><strong>Treating a mirror as writable.</strong> A mirror listens on no subjects of its
+own, so no subject routes a publish to it. Publish <code>orders.shipped</code> and the
+message lands in the origin <code>ORDERS</code> stream that owns that subject — never in
+<code>ORDERS-ARCHIVE</code>. A plain publish reaches the origin unless subject mapping or
+a cross-domain setup redirects it, in which case it fails. Force the mirror by
+name with a <code>Nats-Expected-Stream: ORDERS-ARCHIVE</code> header and the server rejects
+the publish with <code>expected stream does not match</code> (error <code>10060</code>), because the
+subject still routed to <code>ORDERS</code>, not the mirror. A mirror is read-only either
+way: publish to the upstream <code>ORDERS</code> and let the mirror copy the message on
+its own.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# A mirror is read-only. It captures no subjects of its own, so a publish
+# aimed at the mirror name reaches no stream. A JetStream publish waits for
+# a PubAck that never comes and fails with "no responders available".
+# (A plain `nats pub` would instead report "Published N bytes" and the
+# message would silently go nowhere.)
+nats pub --jetstream ORDERS-ARCHIVE '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+# Published 88 bytes to "ORDERS-ARCHIVE"
+# nats: error: nats: no responders available for request
+
+# Publish to the upstream ORDERS stream instead. The mirror copies the
+# message on its own, with no client code involved.
+nats pub --jetstream orders.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+# Published 88 bytes to "orders.created"
+# Stored in Stream: ORDERS Sequence: 4</code></pre></div></div>
+<p><strong>Treating mirror contents as real-time.</strong> A mirror is eventually consistent:
+the server copies the upstream stream continuously, so the mirror can run
+slightly behind. During a burst of writes, its <code>Lag</code> climbs above <code>0</code>
+until it catches up. Don't assume a message in
+<code>ORDERS</code> is already in <code>ORDERS-ARCHIVE</code> the instant it lands. Read the
+<code>Lag</code> field first, and treat a lag that climbs and stays high as a sign
+the mirror can't keep pace.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# A mirror is eventually consistent, not real-time. Read the Lag field
+# before you trust the mirror to hold what the upstream just received.
+# Lag 0 means fully caught up; a non-zero Lag means messages are still
+# in flight from the upstream.
+nats stream info ORDERS-ARCHIVE
+
+# Mirror Information:
+#
+#           Stream Name: ORDERS
+#                   Lag: 0
+#             Last Seen: 1.20s</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// A mirror is eventually consistent. Read its lag before trusting it to
+// hold what the upstream just received: 0 means fully caught up.
+const jsm = await jetstreamManager(nc);
+const info = await jsm.streams.info("ORDERS-ARCHIVE");
+console.log(`Upstream:  ${info.mirror?.name}`);
+console.log(`Lag:       ${info.mirror?.lag}`);
+console.log(`Last seen: ${info.mirror?.active} ns ago`);</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// A mirror is eventually consistent. Read its Lag before trusting it to
+// hold what the upstream just received: 0 means fully caught up.
+stream, err := js.Stream(ctx, "ORDERS-ARCHIVE")
+if err != nil {
+	panic(err)
+}
+
+info, err := stream.Info(ctx)
+if err != nil {
+	panic(err)
+}
+
+fmt.Printf("Upstream:  %s\n", info.Mirror.Name)
+fmt.Printf("Lag:       %d\n", info.Mirror.Lag)
+fmt.Printf("Last seen: %s ago\n", info.Mirror.Active)</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># A mirror is eventually consistent. Read its lag before trusting it to
+# hold what the upstream just received: 0 means fully caught up.
+info = await js.stream_info("ORDERS-ARCHIVE")
+
+print(f"Upstream:  {info.mirror.name}")
+print(f"Lag:       {info.mirror.lag}")
+print(f"Last seen: {info.mirror.active}")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// A mirror is eventually consistent. Read its lag before trusting
+// it to hold what the upstream just received: 0 means caught up.
+StreamInfo streamInfo = jsm.getStreamInfo("ORDERS-ARCHIVE");
+MirrorInfo mirror = streamInfo.getMirrorInfo();
+
+System.out.println("Upstream:  " + mirror.getName());
+System.out.println("Lag:       " + mirror.getLag());
+System.out.println("Last seen: " + mirror.getActive());</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// A mirror is eventually consistent. Read its lag before trusting it to
+// hold what the upstream just received: 0 means fully caught up.
+let mut stream = js.get_stream("ORDERS-ARCHIVE").await?;
+let info = stream.info().await?;
+let Some(mirror) = info.mirror.as_ref() else {
+    println!("stream is not a mirror");
+    return Ok(());
+};
+
+println!("Upstream:  {}", mirror.name);
+println!("Lag:       {}", mirror.lag);
+println!("Last seen: {:?} ago", mirror.active);</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// A mirror is eventually consistent. Read its lag before trusting it to
+// hold what the upstream just received: 0 means fully caught up.
+var stream = await js.GetStreamAsync("ORDERS-ARCHIVE");
+var mirror = stream.Info.Mirror!;
+
+output.WriteLine($"Upstream:  {mirror.Name}");
+output.WriteLine($"Lag:       {mirror.Lag}");
+output.WriteLine($"Last seen: {mirror.Active}");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// A mirror is eventually consistent. Read its Lag before trusting it to
+// hold what the upstream just received: 0 means fully caught up.
+s = js_GetStreamInfo(&amp;si, js, "ORDERS-ARCHIVE", NULL, &amp;jerr);
+if ((s == NATS_OK) &amp;&amp; (si-&gt;Mirror != NULL))
+{
+    printf("Upstream:  %s\n", si-&gt;Mirror-&gt;Name);
+    printf("Lag:       %" PRIu64 "\n", si-&gt;Mirror-&gt;Lag);
+    printf("Last seen: %.2fs ago\n", (double) si-&gt;Mirror-&gt;Active / 1E9);
+}</code></pre></div></div>
+<p><strong>Combining a filter with a transform on one source.</strong> On a single source
+or mirror entry, you can set <code>filter_subject</code> or <code>subject_transforms</code>,
+but not both: the server rejects a config that sets both. Use
+<code>filter_subject</code> when you only need to select a subset of subjects, and
+<code>subject_transforms</code> when you also need to rename them (a transform
+filters and renames in one step). Don't reach for both fields on the
+same entry. Pick the one that fits.</p>
+<p><strong>Cross-domain config that fails silently.</strong> Reaching a stream in another
+account or JetStream domain needs the <code>external</code> block plus matching
+exports and imports on both sides, and each subject has a required
+type. The consumer API and flow-control subjects are <em>service</em>
+exports, because they work as request and reply. The delivery subject is
+a <em>stream</em> export, because the messages flow one way. Get a type wrong
+and replication doesn't fail with an error; the mirror never catches
+up. Check each import type against
+<a href="/reference/jetstream/cross-account-subjects">Reference → Cross-account subjects</a>.
+Setting up cross-account and cross-domain access is part of configuring
+accounts and authorization.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have:</p>
+<ul>
+<li>an <code>ORDERS</code> stream, unchanged</li>
+<li>an <code>ORDERS-ARCHIVE</code> mirror — an exact, read-only copy of it</li>
+<li>an <code>ALL-ORDERS</code> aggregate that sources three regional streams into one</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>The next page covers <a href="/learn/jetstream/get-direct">reading messages directly</a>:
+getting one message or a batch straight from the stream, with no consumer,
+served by any replica or mirror. After that,
+<a href="/learn/jetstream/subject-mapping">subject mapping</a>,
+<a href="/learn/jetstream/message-ttl">per-message TTL</a>, and
+<a href="/learn/jetstream/policies">stream and consumer policies</a>, then
+<a href="/learn/jetstream/where-next">Where to go next</a> recaps the chapter.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-59.md">Reference → ADR-59</a> — the authoritative spec for
+mirroring and sourcing behavior.</li>
+<li><a href="/reference/jetstream/api/stream/create">Reference → Stream Configuration</a>
+— every mirror and source field and its valid values.</li>
+<li><a href="/reference/jetstream/cross-account-subjects">Reference → Cross-account subjects</a>
+— the subject formats, a worked export/import config, and leafnode
+permissions.</li>
+<li><a href="/learn/backup-recovery/mirrors-and-sources">Operate → Backup &amp; Recovery</a>
+— using mirrors for disaster recovery.</li>
+</ul></main>

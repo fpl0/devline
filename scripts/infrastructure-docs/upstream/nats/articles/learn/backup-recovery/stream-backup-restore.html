@@ -1,0 +1,296 @@
+<main><header><h1>Stream backup and restore</h1></header>
+<p>The <code>ORDERS</code> stream holds every order Acme has ever taken. Replication
+keeps it available when a node dies, but it doesn't protect you from a
+mistake: an accidental <code>nats stream purge</code>, a bad migration, or a logic bug
+that deletes the wrong messages. To recover from those you need a copy
+the cluster can't touch — a point in time you can return to.</p>
+<p>This page makes that copy and proves it works. It introduces two
+operations and nothing else: taking a snapshot of <code>ORDERS</code>, and restoring the
+stream from one.</p>
+<h2 id="a-snapshot-is-a-point-in-time-copy">A snapshot is a point-in-time copy</h2>
+<p>A <strong>snapshot</strong> is a complete copy of a stream as it exists at one
+instant: every message, the stream's configuration, and, if you ask for
+it, the state of its consumers. The server takes the snapshot and
+streams it to you in chunks; the CLI writes those chunks to a directory.</p>
+<p>That directory holds two things. A <code>backup.json</code> file records the
+stream's configuration and state: its subjects, retention, limits, and
+sequence range. Alongside it is the messages themselves, compressed with
+S2. Together they're everything you need to recreate the stream from
+scratch.</p>
+<p>The archive comes in two shapes, and which one you get depends on the
+server. NATS 2.15 writes <code>stream.arc.s2</code>, an archive format the CLI can
+read and rewrite. Older servers write <code>stream.tar.s2</code>, a tarball of the
+stream's on-disk files. Restore accepts either, so backups you already
+have keep working. The backup commands later on this page need the 2.15
+shape.</p>
+<p>Take a snapshot of <code>ORDERS</code> into a dated, off-site directory:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Take a point-in-time snapshot of the ORDERS stream and write it to a
+# dated, off-site directory. The snapshot is two files: a backup.json
+# (the stream config + state) and an S2-compressed archive carrying the
+# messages -- stream.arc.s2 from a 2.15 server, stream.tar.s2 from an
+# older one.
+#
+# --consumers includes the durable consumer config and delivery
+# position, so a restore brings back not just the messages but the
+# shipping and analytics consumers exactly where they were.
+
+nats backup stream ORDERS ./backups/orders/2026-06-04 --consumers
+
+# Expected tail of the output:
+#
+#   Starting backup of Stream "ORDERS" with 1 data file
+#   ...
+#   Received 4 MiB compressed data in 128 chunks for stream "ORDERS"
+#   in 0.41s, 4.0 MiB uncompressed
+#
+# After this, ./backups/orders/2026-06-04/ holds backup.json and the
+# archive. Ship that directory off-site (see the cron + encrypt script
+# on the page) — a snapshot left next to the live cluster does not
+# survive the event that takes the cluster down.
+#
+# On NATS 2.15 and newer, check it without a server before you trust it:
+#
+#   nats backup validate ./backups/orders/2026-06-04</code></pre></div></div>
+<p>The directory name carries the date on purpose. A snapshot is a point in
+time, and naming it <code>2026-06-04</code> makes that explicit. Tomorrow's snapshot
+goes in <code>2026-06-05</code>, and you keep the dated snapshots under
+<code>./backups/orders/</code>. We make that automatic later; here it's one
+command.</p>
+<p>Consumer state matters more than it looks. By default the snapshot
+records each durable consumer's config and delivery position: the
+<strong>consumer state</strong>. Restore that snapshot and the <code>shipping</code> and
+<code>analytics</code> consumers come back exactly where they left off, not at the
+start of the stream. Pass <code>--no-consumers</code> and the snapshot carries the
+messages but forgets the consumers reading them, so keep the default when
+you back up a production stream.</p>
+<h2 id="how-the-snapshot-streams-off-the-server">How the snapshot streams off the server</h2>
+<p>A snapshot doesn't arrive as one big download. The server cuts the
+archive into chunks and pushes them to an inbox subject, keeping up to a
+window's worth of unacknowledged chunks in flight at once — 8 MiB by
+default, which is 64 of the default 128 KiB chunks. Each client ack frees
+a slot for the next chunk, and if no ack arrives for about five seconds
+the backup aborts. That windowed backpressure keeps a large stream from
+overwhelming a slow disk or a high-latency link.</p>
+<div></div>
+<p>The request lands on the snapshot API, the server answers with the
+config and state, and then the message chunks flow to the inbox with an
+ack per chunk until the archive and <code>backup.json</code> are written to the
+backup store. The two settings that govern this, chunk size and window
+size, have sensible defaults, and you only change them when the
+defaults time out. We cover them in the <a href="#pitfalls">Pitfalls</a>.</p>
+<p>The full set of snapshot request options is documented in
+<a href="/reference/jetstream/api/stream/snapshot">Reference → Snapshot Stream</a>.
+We only need the behavior here.</p>
+<h2 id="restore-rebuilds-the-stream">Restore rebuilds the stream</h2>
+<p>A snapshot becomes useful when you turn it back into a stream.
+<strong>Restore</strong> reads a snapshot directory and recreates the stream from it:
+same messages, same sequence numbers, same configuration. The server
+checks the archive's header to tell the two formats apart, so you don't
+have to say which one you have. If the snapshot included consumer state,
+restore brings the consumers back too.</p>
+<p>Restore the directory you just wrote:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Rebuild the ORDERS stream from a snapshot directory. Restore streams
+# the archive back into JetStream and recreates the stream byte for
+# byte: same messages, same sequence numbers, same config, and — since
+# this snapshot was taken with --consumers — the same shipping and
+# analytics consumers at their saved delivery position.
+#
+# The stream must not already exist. Restore recreates it; it does not
+# merge into a live stream.
+
+nats backup restore stream ./backups/orders/2026-06-04
+
+# Expected tail of the output:
+#
+#   Starting restore of Stream "ORDERS" from ./backups/orders/2026-06-04
+#   ...
+#   Restored stream "ORDERS" in 0.38s
+#
+#   Information for Stream ORDERS
+#   ...
+#            Messages: 1,000
+#       First Sequence: 1
+#        Last Sequence: 1,000
+#
+# Note: the stream name comes from backup.json. You cannot rename the
+# stream on restore — if you need a copy under a new name, restore to
+# the original name and then mirror or source it.
+#
+# Restore reads either archive format, so a backup taken from an older
+# server still restores.</code></pre></div></div>
+<p>One rule shapes how you use restore: <strong>the stream name cannot change on
+restore.</strong> The name lives in <code>backup.json</code>, and the server rejects a
+restore that would land under a different name. A snapshot of <code>ORDERS</code>
+restores as <code>ORDERS</code>, never as <code>ORDERS_COPY</code>. That keeps a restore
+unambiguous: it rebuilds one stream under its own name rather than forking it
+into a new one. If you
+do need a second copy under a new name, restore to <code>ORDERS</code> first and
+then mirror or source it, which
+<a href="/learn/backup-recovery/mirrors-and-sources">Mirrors and sources</a> covers.</p>
+<p>Restore also expects the stream not to already exist. It recreates the
+stream; it doesn't merge a snapshot into a live one. So a real recovery
+is: confirm the broken stream is gone (or remove it), then restore.</p>
+<h2 id="verify-the-counts">Verify the counts</h2>
+<p>A restore you didn't check is unverified. The last step is always to read
+the rebuilt stream's state back and confirm it matches the source.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# A restore you did not verify is a restore you do not have. After
+# rebuilding ORDERS, read its state back and confirm the message count
+# and last sequence match what the snapshot claimed.
+#
+# nats stream info prints both halves of the stream: the configuration
+# you asked for and the state actually on disk. The numbers under State
+# are the ones to check against the source.
+
+nats stream info ORDERS
+
+# Look at the State block:
+#
+#   State:
+#
+#            Messages: 1,000
+#               Bytes: 4.0 MiB
+#       First Sequence: 1
+#        Last Sequence: 1,000
+#     Active Consumers: 2
+#
+# Messages and Last Sequence must match the live stream you snapshotted.
+# Active Consumers should show shipping and analytics back (because the
+# snapshot used --consumers). If Messages is lower than expected, the
+# snapshot was taken under live writes that did not finish — snapshot a
+# quiesced stream, or accept the snapshot's point in time as your RPO.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// After rebuilding ORDERS, read its state back and confirm the
+// message count and last sequence match what the snapshot held.
+s = js_GetStreamInfo(&amp;si, js, "ORDERS", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    printf("Messages        : %" PRIu64 "\n", si-&gt;State.Msgs);
+    printf("First Sequence  : %" PRIu64 "\n", si-&gt;State.FirstSeq);
+    printf("Last Sequence   : %" PRIu64 "\n", si-&gt;State.LastSeq);
+    // With a --consumers snapshot, shipping and analytics are
+    // back, so this should report 2.
+    printf("Active Consumers: %d\n", (int) si-&gt;State.Consumers);
+}</code></pre></div></div>
+<p>Look at the <code>State</code> block. <code>Messages</code> and <code>Last Sequence</code> must match the
+stream you snapshotted, and <code>Active Consumers</code> shows <code>shipping</code> and
+<code>analytics</code> back if you used <code>--consumers</code>. Matching counts are what prove
+the archive is real; the backup command exiting zero does not prove it on
+its own.</p>
+<h2 id="read-the-backup-without-restoring-it">Read the backup without restoring it</h2>
+<p>Verifying by restoring means standing up somewhere to restore into. From
+2.15 you don't have to: the archive is a format the CLI understands, so a
+backup directory can be checked offline.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# A backup you have not read is a backup you do not have. From NATS 2.15
+# the archive is a format the CLI can parse, so you can check a backup
+# directory offline.
+#
+# validate walks the archive and confirms it is complete and restorable.
+
+nats backup validate ./backups/orders/2026-06-04
+
+# Expected output:
+#
+#   Validating backup in ./backups/orders/2026-06-04
+#   ...
+#   Backup of stream "ORDERS" is valid and restorable
+
+# info reports what is actually inside, which is how you confirm a
+# nightly job captured what you think it did:
+
+nats backup info ./backups/orders/2026-06-04 --subjects
+
+# Look for:
+#
+#   Stream:             ORDERS
+#   Messages:           1,000
+#   First Sequence:     1
+#   Last Sequence:      1,000
+#   Consumers:          2
+#
+# --subjects adds the per-subject message counts, so a missing
+# orders.created is visible here rather than during an incident.
+#
+# Both commands read only the 2.15 archive format (stream.arc.s2). Point
+# them at a backup taken from an older server and they refuse it; that
+# backup still restores, it just cannot be inspected offline.</code></pre></div></div>
+<p><code>nats backup validate</code> walks the archive and reports whether it's complete
+and restorable. <code>nats backup info</code> prints what's inside — stream name,
+message count, sequence range, consumers — and <code>--subjects</code> breaks the
+counts down per subject, which is how you catch a nightly job that has been
+quietly capturing an empty stream.</p>
+<p>There's also <code>nats backup edit</code>, which writes a <em>new</em> backup from an
+existing one rather than changing it in place. It filters by subject, time,
+sequence range, header, or payload match, and can renumber the kept
+messages from 1. Its <code>--obfuscate</code> flag replaces names, subjects, and
+message bodies with keyed hashes and zeros of the same length, so you can
+send a support case a backup with the same shape as your production data
+but none of its contents. The key file it writes beside the target turns
+the hashes back into real values through <code>nats backup lookup</code>.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Four common pitfalls, each scoped to this page's two operations: snapshot
+and restore.</p>
+<p><strong>Before 2.15, memory streams cannot be snapshotted.</strong> The older backup
+format copies a stream's on-disk files, so a stream with <code>Storage: Memory</code>
+has nothing to copy and the backup fails. NATS 2.15 reads the messages
+themselves rather than the files, which is what lets it back up and restore
+memory streams too. If any server you back up from is older than 2.15,
+treat file storage as a requirement for anything you can't lose, and check
+the storage type before you rely on a snapshot rather than finding out
+during an incident:</p>
+<div><div><pre><code class="language-bash">nats stream info ORDERS | grep Storage</code></pre></div></div>
+<p><strong>The stream name cannot change on restore.</strong> As above, the server
+rejects a restore that would rename the stream with <code>stream name may not be changed during restore</code>. Restore to the original name. If you need a
+copy under a different name, restore first and then mirror or source it;
+<a href="/learn/backup-recovery/mirrors-and-sources">Mirrors and sources</a> covers
+that.</p>
+<p><strong>Flow control can time out on slow disks or distant links.</strong> The server
+waits a few seconds for the client to acknowledge each chunk. On a slow
+disk or a high-latency link the acknowledgment can arrive late, and the
+backup aborts with a flow-control timeout (<code>408 No Flow Response</code>). The
+fix is to send smaller chunks and a smaller window so each round trip is
+cheaper:</p>
+<div><div><pre><code class="language-bash"># Smaller chunks and a smaller window survive a slow or distant link.
+nats backup stream ORDERS ./backups/orders/2026-06-04 \
+  --consumers --chunk-size 64k --window-size 1m</code></pre></div></div>
+<p><strong><code>--no-consumers</code> silently drops consumer state.</strong> Consumer state is
+included by default; pass <code>--no-consumers</code> and the snapshot carries
+messages only. The restore rebuilds the stream with no consumers, and
+nothing warns you until <code>shipping</code> is missing in production. Keep the
+default unless you plan to recreate every consumer by hand.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have:</p>
+<ul>
+<li>A dated, off-site snapshot of <code>ORDERS</code> under <code>./backups/orders/</code>:
+<code>backup.json</code> plus the compressed archive.</li>
+<li>A restore procedure that rebuilds the stream byte-identical, under its
+original name, with its consumers intact.</li>
+<li>A verification step that proves the restore by matching message counts.</li>
+</ul>
+<p>This is your recovery point: the instant you can return to after an
+accidental delete or a logic error. On its own, though, it won't protect
+you from losing the whole site. For that you need a live copy somewhere
+else.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The next page stands up that live copy. A <strong>mirror</strong> of <code>ORDERS</code> at a
+second site keeps a continuously updated copy you can fail over to, and
+it distinguishes a snapshot (your recovery point) from a
+mirror (your recovery time).</p>
+<p>Continue to
+<a href="/learn/backup-recovery/mirrors-and-sources">Mirrors and sources</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/api/stream/snapshot">Reference → Snapshot Stream</a>
+— every snapshot request option and its valid range.</li>
+<li><a href="/reference/jetstream/api/stream/restore">Reference → Restore Stream</a>
+— the restore request schema.</li>
+<li><a href="/reference/jetstream/advisory/snapshot-create">Reference → Snapshot Create Advisory</a>
+— the event the server emits when a snapshot starts, for backup alerting.</li>
+<li><a href="/release-notes/upgrade-to-2.15">Upgrade to 2.15</a> — the backup format
+change and what else moved in the same release.</li>
+</ul></main>

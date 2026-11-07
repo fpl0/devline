@@ -151,13 +151,28 @@ enum Commands {
         ports: Vec<cli_infra::Port>,
     },
     #[command(about = "List available packs and installed versions")]
-    Library,
+    Library {
+        #[command(subcommand)]
+        command: Option<Library>,
+    },
     #[command(
         about = "Print shell completions",
         after_long_help = "Install zsh completions with live local pack and starter IDs:\n  mkdir -p ~/.zfunc\n  devline completions zsh > ~/.zfunc/_devline\n  # Add the following to ~/.zshrc, before any existing compinit call:\n  fpath=(~/.zfunc $fpath)\n  autoload -Uz compinit; compinit\n\nLoad for the current Bash session:\n  source <(devline completions bash)\n\nInstall for Fish:\n  mkdir -p ~/.config/fish/completions\n  devline completions fish > ~/.config/fish/completions/devline.fish"
     )]
     Completions { shell: clap_complete::Shell },
 }
+
+#[derive(Subcommand)]
+enum Library {
+    /// Read or change automatic cleanup after installing a newer release.
+    Retention {
+        #[arg(long)]
+        keep_latest: Option<bool>,
+    },
+    /// Delete older local docsets, starters, and image archives.
+    Purge,
+}
+
 #[derive(Args, Default)]
 struct Scope {
     #[arg(long)]
@@ -1743,7 +1758,20 @@ fn run(cli: &Cli) -> Result<i32> {
                 request(cli, json!({"command":"jobs.cancel","job_id":id}))?,
             ),
         },
-        Some(Commands::Library) => ("catalog", request(cli, json!({"command":"catalog"}))?),
+        Some(Commands::Library { command }) => match command {
+            None => ("catalog", request(cli, json!({"command":"catalog"}))?),
+            Some(Library::Retention { keep_latest }) => {
+                let mut payload = json!({"command":"library.retention"});
+                if let Some(keep_latest) = keep_latest {
+                    payload["keep_latest"] = json!(keep_latest);
+                }
+                ("library-retention", request(cli, payload)?)
+            }
+            Some(Library::Purge) => (
+                "library-purged",
+                request(cli, json!({"command":"library.purge"}))?,
+            ),
+        },
         Some(Commands::Runtimes {
             command: None | Some(Runtimes::List),
         }) => (
@@ -2219,6 +2247,14 @@ fn run(cli: &Cli) -> Result<i32> {
             "updates-cleared" => {
                 println!("App update channel cleared. Devline will show Local build.")
             }
+            "library-retention" => println!(
+                "Keep only the latest local version after updates: {}",
+                if data["keep_latest"] == true { "on" } else { "off" }
+            ),
+            "library-purged" => println!(
+                "Older releases removed\n  Documentation  {}\n  App starters   {}\n  Image archives  {}",
+                data["docs"], data["starters"], data["images"]
+            ),
             "docs-list" => render_packages(
                 &data,
                 "No matching docs packs. Run devline docs list to see the full catalog.",

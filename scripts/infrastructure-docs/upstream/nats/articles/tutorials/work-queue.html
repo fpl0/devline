@@ -1,0 +1,164 @@
+<main><header><h1>3. Share work across workers</h1></header><p>In this tutorial you'll run two workers that share one subject and watch
+the server split the work between them. You'll publish six messages to
+<code>tasks</code>, and each one goes to exactly one worker — never both. That's a
+<strong>queue group</strong>: a pool of subscribers that share a name and divide the
+load.</p>
+<div></div>
+<h2 id="what-youll-need">What you'll need</h2>
+<ul>
+<li><code>nats-server</code> and the <code>nats</code> CLI installed. If you haven't installed
+them yet, do the <a href="/tutorials/hello-nats">Hello NATS</a> tutorial first.</li>
+<li>Four terminal windows: one for the server, two for the workers, and one
+to publish.</li>
+</ul>
+<h2 id="step-1-start-the-server">Step 1: Start the server</h2>
+<p>In the first terminal, start <code>nats-server</code>:</p>
+<div><div><pre><code class="language-bash">nats-server</code></pre></div></div>
+<p>You should see startup logs ending with a ready line:</p>
+<div><div><pre><code class="language-text">[INF] Server is ready</code></pre></div></div>
+<p>Leave it running.</p>
+<h2 id="step-2-start-the-first-worker">Step 2: Start the first worker</h2>
+<p>In the second terminal, subscribe to the <code>tasks</code> subject as a member of
+the <code>workers</code> queue group. The <code>--queue</code> flag is what makes this a queue
+group member instead of a plain subscriber:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Subscribe to the "tasks" subject as a member of the "workers" queue group.
+# The --queue flag names the group. Every subscriber that names the same
+# group on the same subject shares the load: each message is delivered to
+# exactly one member. Run this in two terminals to watch work split between
+# them. Press Ctrl-C to stop.
+nats sub tasks --queue workers</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The callback runs once for each task the server hands this worker.
+static void
+onTask(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("received on \"%s\": %.*s\n",
+           natsMsg_GetSubject(msg),
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+    natsMsg_Destroy(msg);
+}
+    // Subscribe to the "tasks" subject as a member of the "workers" queue
+    // group. Every subscriber that names the same group on the same subject
+    // shares the load: each message is delivered to exactly one member.
+    // Run this program twice to watch work split between the two copies.
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;sub, conn, "tasks", "workers",
+                                          onTask, NULL);</code></pre></div></div>
+<p>You should see the worker waiting for messages:</p>
+<div><div><pre><code class="language-text">17:42:10 Subscribing on tasks</code></pre></div></div>
+<p>Leave it running.</p>
+<h2 id="step-3-start-the-second-worker">Step 3: Start the second worker</h2>
+<p>In the third terminal, run the exact same command. Because it names the
+same queue group <code>workers</code> on the same subject <code>tasks</code>, it joins the same
+group:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Subscribe to the "tasks" subject as a member of the "workers" queue group.
+# The --queue flag names the group. Every subscriber that names the same
+# group on the same subject shares the load: each message is delivered to
+# exactly one member. Run this in two terminals to watch work split between
+# them. Press Ctrl-C to stop.
+nats sub tasks --queue workers</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The callback runs once for each task the server hands this worker.
+static void
+onTask(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("received on \"%s\": %.*s\n",
+           natsMsg_GetSubject(msg),
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+    natsMsg_Destroy(msg);
+}
+    // Subscribe to the "tasks" subject as a member of the "workers" queue
+    // group. Every subscriber that names the same group on the same subject
+    // shares the load: each message is delivered to exactly one member.
+    // Run this program twice to watch work split between the two copies.
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;sub, conn, "tasks", "workers",
+                                          onTask, NULL);</code></pre></div></div>
+<p>You should see the same waiting line:</p>
+<div><div><pre><code class="language-text">17:42:18 Subscribing on tasks</code></pre></div></div>
+<p>You now have two workers in one group. Both terminals are idle; neither
+has received anything yet.</p>
+<h2 id="step-4-publish-the-work">Step 4: Publish the work</h2>
+<p>In the fourth terminal, publish six messages to <code>tasks</code>. The <code>--count</code>
+flag repeats the publish six times, and the CLI replaces <code>{{ Count }}</code>
+with the message number:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Publish six messages to the "tasks" subject. The --count flag sends the
+# publish that many times, and {{ Count }} is replaced with the message
+# number (1, 2, 3, ...). With two workers in the "workers" queue group,
+# the server hands each message to exactly one of them.
+nats pub tasks "task {{ Count }}" --count 6</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Publish six messages to the "tasks" subject. With two workers in
+// the "workers" queue group, the server hands each message to
+// exactly one of them.
+char task[32];
+int  i;
+
+for (i = 1; (s == NATS_OK) &amp;&amp; (i &lt;= 6); i++)
+{
+    snprintf(task, sizeof(task), "task %d", i);
+    s = natsConnection_PublishString(conn, "tasks", task);
+    if (s == NATS_OK)
+        printf("published \"%s\" to \"tasks\"\n", task);
+}</code></pre></div></div>
+<p>You should see the publisher confirm one line per message:</p>
+<div><div><pre><code class="language-text">17:42:30 Published 6 bytes to "tasks"
+17:42:30 Published 6 bytes to "tasks"
+17:42:30 Published 6 bytes to "tasks"
+17:42:30 Published 6 bytes to "tasks"
+17:42:30 Published 6 bytes to "tasks"
+17:42:30 Published 6 bytes to "tasks"</code></pre></div></div>
+<h2 id="step-5-watch-the-split">Step 5: Watch the split</h2>
+<p>Look at your two worker terminals. The six messages are split between
+them: each worker receives some, and no message appears in both. One
+terminal might show:</p>
+<div><div><pre><code class="language-text">[#1] Received on "tasks"
+task 1
+
+[#2] Received on "tasks"
+task 3
+
+[#3] Received on "tasks"
+task 5</code></pre></div></div>
+<p>and the other:</p>
+<div><div><pre><code class="language-text">[#1] Received on "tasks"
+task 2
+
+[#2] Received on "tasks"
+task 4
+
+[#3] Received on "tasks"
+task 6</code></pre></div></div>
+<p>The server picks one member per message, so the exact split varies. What
+never varies: every message goes to exactly one worker.</p>
+<p>Publish again to see it balance once more:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Publish six messages to the "tasks" subject. The --count flag sends the
+# publish that many times, and {{ Count }} is replaced with the message
+# number (1, 2, 3, ...). With two workers in the "workers" queue group,
+# the server hands each message to exactly one of them.
+nats pub tasks "task {{ Count }}" --count 6</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Publish six messages to the "tasks" subject. With two workers in
+// the "workers" queue group, the server hands each message to
+// exactly one of them.
+char task[32];
+int  i;
+
+for (i = 1; (s == NATS_OK) &amp;&amp; (i &lt;= 6); i++)
+{
+    snprintf(task, sizeof(task), "task %d", i);
+    s = natsConnection_PublishString(conn, "tasks", task);
+    if (s == NATS_OK)
+        printf("published \"%s\" to \"tasks\"\n", task);
+}</code></pre></div></div>
+<p>The new batch spreads across the two workers the same way. Press Ctrl-C
+in each terminal to stop.</p>
+<h2 id="what-you-built">What you built</h2>
+<p>Two workers shared the <code>tasks</code> subject through the <code>workers</code> queue group,
+and the server delivered each message to exactly one of them. Add a third
+worker with the same command and the group resizes itself. The work
+spreads across all three with no extra setup.</p>
+<h2 id="next">Next</h2>
+<ul>
+<li>Build a stream that keeps messages so a worker can replay them later:
+<a href="/tutorials/first-stream">First stream</a>.</li>
+<li>Understand how the server picks a member, how groups resize live, and
+when to reach for a durable work queue instead:
+<a href="/learn/core-nats/queue-groups">Queue groups deep dive</a>.</li>
+</ul></main>

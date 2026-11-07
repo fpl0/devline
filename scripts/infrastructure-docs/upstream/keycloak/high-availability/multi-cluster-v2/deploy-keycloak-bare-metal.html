@@ -1,0 +1,237 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This guide describes advanced Keycloak configurations for bare-metal servers or virtual machines that will recover from single node failures or site failures.
+These instructions are intended for use with the setup described in the <a href="https://www.keycloak.org/high-availability/multi-cluster-v2/concepts">Concepts for multi-cluster deployments (v2)</a> guide.
+Ensure that the <a href="https://www.keycloak.org/high-availability/multi-cluster-v2/introduction#multi-cluster-v2-infrastructure-requirements">Multi-cluster deployments (v2)</a> infrastructure requirements are met before proceeding.
+You should verify the performance and failure behavior of your specific environment.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://openjdk.java.net/">OpenJDK 25</a> installed on each node.</p>
+</li>
+<li>
+<p><a href="https://github.com/keycloak/keycloak/releases/download/26.8.2/keycloak-26.8.2.zip">keycloak-26.8.2.zip</a> downloaded and extracted on each node.</p>
+</li>
+<li>
+<p>A highly available database deployed with synchronous replication across sites, reachable from all Keycloak nodes. The following example assumes a PostgreSQL database.
+Any Keycloak supported database may be used provided that the selected database deployment can satisfy the required high-availability, synchronous-replication, consistency and latency characteristics. Database HA design and failover behavior are outside Keycloak and must be validated with the database vendor.
+How to configure the database for high availability is out of scope for this guide.</p>
+</li>
+<li>
+<p>TLS certificate and private key files for HTTPS.</p>
+</li>
+<li>
+<p>A load balancer in front of the Keycloak nodes.</p>
+</li>
+<li>
+<p>The database CA certificate file for securing the database connection.</p>
+</li>
+<li>
+<p>Network connectivity between all Keycloak nodes within each site for cache clustering and failure detection (TCP ports 7800 and 57800 by default).
+See the <a href="https://www.keycloak.org/server/caching#network-ports">Configuring distributed caches</a> guide for details.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_load_balancer_topology"><a class="anchor" href="#_load_balancer_topology"></a>Load balancer topology</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For a multi-site deployment, two load balancer topologies are common:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Per-site load balancer with a global load balancer in front</dt>
+<dd>
+<p>Each site has its own load balancer (for example, HAProxy or NGINX) that distributes traffic across the Keycloak nodes within that site, probing <code>/health/ready</code> on management port 9000 of each node.
+A global load balancer routes client traffic to the per-site load balancers, probing <code>/lb-check</code> through them to detect site-level failures.</p>
+<div class="paragraph">
+<p>This topology provides better operational isolation: individual sites can be drained or taken offline for maintenance without affecting the global load balancer configuration.</p>
+</div>
+</dd>
+<dt class="hdlist1">Single load balancer</dt>
+<dd>
+<p>One load balancer routes directly to all Keycloak nodes across all sites, probing <code>/health/ready</code> on management port 9000 of each node.</p>
+<div class="paragraph">
+<p>This topology is simpler to manage.
+Per-site operational tasks such as draining a site for maintenance or isolating a failing site require reconfiguring a shared component, which increases operational risk.</p>
+</div>
+</dd>
+</dl>
+</div>
+<div class="paragraph">
+<p>The following example assumes a per-site topology with a global load balancer.</p>
+</div>
+<div class="paragraph">
+<p>With the <code>stateless</code> feature, Keycloak does not store session data in memory, so configuring sticky sessions on the load balancer is no longer recommended as it will not provide a performance benefit.</p>
+</div>
+<div class="paragraph">
+<p>See the <a href="https://www.keycloak.org/server/reverseproxy">Configuring a reverse proxy</a> guide for details on configuring a reverse proxy with Keycloak.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_procedure"><a class="anchor" href="#_procedure"></a>Procedure</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The following setup assumes a TLS passthrough setup, though this is not limited to this configuration.
+This procedure assumes one Keycloak instance per host.
+Running multiple instances on the same host requires additional port configuration and is not covered by this guide.</p>
+</div>
+<div class="paragraph">
+<p>Perform the following steps on each Keycloak node at each site:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Determine the sizing of the deployment using the <a href="https://www.keycloak.org/high-availability/multi-cluster/concepts-memory-and-cpu-sizing">Concepts for sizing CPU and memory resources</a> guide.
+For this setup, you might see approximately twice the CPU usage and write IOPS on your database, though your results might vary based on your use case.</p>
+</li>
+<li>
+<p>Set the database credentials using environment variables to avoid exposing them in shell history or the process list:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="nb">export </span><span class="nv">KC_DB_USERNAME</span><span class="o">=</span>&lt;DB_USERNAME&gt;
+<span class="nb">export </span><span class="nv">KC_DB_PASSWORD</span><span class="o">=</span>&lt;DB_PASSWORD&gt;</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Start Keycloak with the following command, replacing the placeholder values with your environment-specific settings:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.sh start <span class="se">\</span>
+    <span class="nt">--db</span><span class="o">=</span>postgres <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="nt">--db-url</span><span class="o">=</span>jdbc:postgresql://&lt;DATABASE_URL&gt;:5432/keycloak <span class="se">\ </span><i class="conum" data-value="1"></i><b>(1)</b>
+    <span class="nt">--db-pool-initial-size</span><span class="o">=</span>30 <span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="nt">--db-pool-min-size</span><span class="o">=</span>30 <span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="nt">--db-pool-max-size</span><span class="o">=</span>30 <span class="se">\ </span><i class="conum" data-value="2"></i><b>(2)</b>
+    <span class="nt">--features</span><span class="o">=</span>stateless <span class="se">\ </span><i class="conum" data-value="3"></i><b>(3)</b>
+    <span class="nt">--cache-embedded-cluster-name</span><span class="o">=</span>&lt;CLUSTER_NAME&gt; <span class="se">\ </span><i class="conum" data-value="4"></i><b>(4)</b>
+    <span class="nt">--hostname</span><span class="o">=</span>&lt;KEYCLOAK_HOSTNAME&gt; <span class="se">\ </span><i class="conum" data-value="5"></i><b>(5)</b>
+    <span class="nt">--https-certificate-file</span><span class="o">=</span>/path/to/tls.crt <span class="se">\ </span><i class="conum" data-value="6"></i><b>(6)</b>
+    <span class="nt">--https-certificate-key-file</span><span class="o">=</span>/path/to/tls.key <span class="se">\ </span><i class="conum" data-value="6"></i><b>(6)</b>
+    <span class="nt">--db-tls-mode</span><span class="o">=</span>verify-server <span class="se">\ </span><i class="conum" data-value="7"></i><b>(7)</b>
+    <span class="nt">--truststore-paths</span><span class="o">=</span>/path/to/db-ca.pem <span class="se">\ </span><i class="conum" data-value="7"></i><b>(7)</b>
+    <span class="nt">--proxy-protocol-enabled</span><span class="o">=</span><span class="nb">true</span> <span class="se">\ </span><i class="conum" data-value="8"></i><b>(8)</b>
+    <span class="nt">--shutdown-delay</span><span class="o">=</span>30 <span class="se">\ </span><i class="conum" data-value="8"></i><b>(8)</b>
+    <span class="nt">--health-enabled</span><span class="o">=</span><span class="nb">true</span> <span class="se">\</span>
+    <span class="nt">--metrics-enabled</span><span class="o">=</span><span class="nb">true</span> <span class="se">\ </span><i class="conum" data-value="9"></i><b>(9)</b>
+    <span class="nt">--event-metrics-user-enabled</span><span class="o">=</span><span class="nb">true</span> <span class="se">\</span>
+    <span class="nt">--log-console-output</span><span class="o">=</span>json <span class="se">\</span>
+    <span class="nt">--http-max-queued-requests</span><span class="o">=</span>1000 <i class="conum" data-value="10"></i><b>(10)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Set the database vendor and URL.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>The database connection pool initial, max and min size should be identical to allow statement caching for the database.
+The values shown are a starting point for production deployments; adjust to meet the needs of your system.
+With the <code>stateless</code> feature, authentication sessions and action tokens are stored in the database, which increases database load compared to setups with an external Infinispan cluster. Adjust the pool size accordingly.
+See the <a href="https://www.keycloak.org/high-availability/multi-cluster/concepts-database-connections">Concepts for database connection pools</a> guide for details.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Enable the <code>stateless</code> feature to remove the requirement for an external Infinispan cluster.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Set a unique cluster name that identifies this cluster. Each cluster must have a distinct name; no two clusters may share the same name.
+This option is only available if the <code>stateless</code> feature is enabled.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Set the hostname clients use to connect to Keycloak. This must be the same on every site and match the hostname configured on the external load balancer, so that the OIDC issuer is identical regardless of which site answers.
+If the public URL uses a port other than 443, include the port (for example, <code>https://auth.example.com:8443</code>).</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Provide the TLS certificate and private key files for HTTPS.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>Secure the database connection. Specify the path to the database CA certificate file. Keycloak automatically loads certificates from the specified truststore path.
+For non-production-grade environments without database TLS, set <code>--db-tls-mode</code> to <code>disabled</code> and omit <code>--truststore-paths</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="8"></i><b>8</b></td>
+<td>Enable the PROXY protocol so that Keycloak can read the real client IP address from the PROXY protocol header sent by the load balancer.
+To use this option, the load balancer must also be configured to send PROXY protocol headers (for example, <code>send-proxy-v2</code> in HAProxy).
+If your load balancer does not support the PROXY protocol, remove this option to use plain HTTPS.
+Do not set <code>--proxy-headers</code> when using TLS passthrough; the two options are mutually exclusive.
+See the <a href="https://www.keycloak.org/server/haproxy-passthrough">HAProxy with TLS passthrough</a> or <a href="https://www.keycloak.org/server/traefik-passthrough">Traefik with TLS passthrough</a> guides for complete examples.
+The <code>--shutdown-delay</code> keeps Keycloak running long enough for the load balancer to detect the shutdown via health check failures and remove the node from rotation.
+Set this value to at least the load balancer’s detection time (health check interval multiplied by the failure threshold).
+See the Graceful HTTP shutdown section in the <a href="https://www.keycloak.org/server/reverseproxy">Configuring a reverse proxy</a> guide for details.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="9"></i><b>9</b></td>
+<td>To be able to analyze the system under load, enable the metrics endpoint.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="10"></i><b>10</b></td>
+<td>Limit the number of queued requests for load shedding. All exceeding requests are served with an HTTP 503.
+See the <a href="https://www.keycloak.org/high-availability/multi-cluster/concepts-threads#multi-cluster-load-shedding">Concepts for configuring thread pools</a> guide about load shedding for details.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-v2-bare-metal-verify-deployment"><a class="anchor" href="#multi-cluster-v2-bare-metal-verify-deployment"></a>Verify the deployment</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Confirm that each Keycloak node is ready by checking the health endpoint on the management port:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">curl <span class="nt">-sk</span> <span class="nt">-w</span> <span class="s1">'\n%{http_code}\n'</span> https://localhost:9000/health/ready</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A healthy node returns HTTP 200 with an overall status of <code>UP</code>.
+The <code>checks</code> array contains the readiness checks enabled for the deployment.</p>
+</div>
+<div class="paragraph">
+<p>Repeat this check for each node in each site.</p>
+</div>
+<div class="paragraph">
+<p>To verify the hostname configuration, confirm that the OIDC issuer is identical on every site by querying each site’s load balancer:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">curl <span class="nt">-sk</span> https://&lt;SITE_LB_HOSTNAME&gt;/realms/master/.well-known/openid-configuration | jq .issuer</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Additionally, verify that <code>/lb-check</code> per site returns <code>200 OK</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">curl <span class="nt">-sk</span> <span class="nt">-w</span> <span class="s1">'\n%{http_code}\n'</span> https://&lt;SITE_LB_HOSTNAME&gt;/lb-check</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Finally, verify that the external load balancer routes traffic to both sites.</p>
+</div>
+</div>
+</div> </div>
+</main>

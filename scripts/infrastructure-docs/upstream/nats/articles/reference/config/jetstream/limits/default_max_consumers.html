@@ -1,0 +1,10 @@
+<main><header><h1>default_max_consumers</h1></header>
+<div>Available since NATS Server <code>2.15</code></div>
+<div><span><span>Hot Reloadable</span></span><div>Read live at the moment a consumer is created, so the new value applies to the next consumer created on any stream, including a stream that already exists. It does not remove consumers that already exceed it.</div></div>
+<p>The default maximum number of consumers allowed on a stream that
+does not set its own <code>max_consumers</code>, and whose account has no
+consumer limit either. Set to <code>-1</code> to disable this default and
+allow an unlimited number of consumers, matching pre-2.15
+behavior.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>integer</code></td><td>-</td><td>-</td></tr></tbody></table></main>

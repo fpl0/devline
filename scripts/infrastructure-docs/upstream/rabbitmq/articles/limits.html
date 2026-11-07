@@ -1,0 +1,81 @@
+<main><header><h1>Configurable Limits and Timeouts</h1></header>
+<h2 id="introduction">Introduction</h2>
+<p>This guide provides an overview of the configurable limits and timeouts provided by RabbitMQ.</p>
+<p>This guide intentionally leaves out some advanced limits as well as limits that cannot be configured via <code>rabbitmq.conf</code>,
+virtual host <a href="/docs/4.3/vhosts#limits">metadata</a>, <a href="/docs/4.3/policies">policies</a>, or other configuration means,
+but are instead controlled programmatically (for example, by RabbitMQ core or plugins).</p>
+<div class="admonition note"><div class="admonition-title">note</div><div><p>In this guide, we define a configurable limit as a setting, configured via <code>rabbitmq.conf</code>, virtual host <a href="/docs/4.3/vhosts#limits">metadata</a>,
+a <a href="/docs/4.3/policies">policy</a>, an <a href="/docs/4.3/policies#operator-policies">operator policy</a>, or any other means, that controls how many connections, channels, queues, streams,
+or other application-controlled resources would be allowed in a cluster or on a specific node.</p><p>Many of these limits are covered in more detail in dedicated guides.</p></div></div>
+<h2 id="why">Why Use Configurable Limits</h2>
+<p>Modern messaging and streaming protocols, such as those supported by RabbitMQ, give application
+developers the freedom to define their topology resources (such as queues and streams, exchanges, bindings
+and so on).</p>
+<p>Some of these resources can be unintentionally leaked by applications. For example, an application
+can leave a connection (or channel, session) open, not clean up queues or streams that are
+no longer needed, and so on.</p>
+<p>Configurable limits are a protection mechanism that allows cluster operators to prevent such
+applications from using enough resources to affect other applications or cluster stability.</p>
+<p>Such guardrails are particularly important when RabbitMQ clusters are offered as a service.</p>
+<h2 id="available-limits">Available Limits</h2>
+<h3 id="per-virtual-host">Per Virtual Host Limits</h3>
+<p><a href="/docs/4.3/vhosts#limits">Per virtual host limits</a>, as the name suggests, apply to a specific
+virtual host:</p>
+<ul>
+<li>The maximum number of concurrent client connections in the virtual host</li>
+<li>The maximum number of queues and streams that can be declared in a virtual host</li>
+</ul>
+<h3 id="per-user">Per User Limits</h3>
+<p><a href="/docs/4.3/user-limits">Per user limits</a> apply to user accounts (usernames):</p>
+<ul>
+<li>The maximum number of concurrent client connections that authenticate as that user</li>
+<li>The maximum number of concurrent channels open across all of the user's connections</li>
+</ul>
+<h3 id="per-connection">Per Connection Limits</h3>
+<p>Per connection limits apply to individual client connections.</p>
+<table><thead><tr><th><a href="/docs/4.3/configure"><code>rabbitmq.conf</code> Setting</a></th><th>Type</th><th>Description</th><th>Default</th></tr></thead><tbody><tr><td><code>max_channels_per_connection</code></td><td>integer</td><td>Maximum number of AMQP 0-9-1 channels a client can open on a single connection. Protects against applications <a href="/docs/4.3/channels#monitoring">leaking channels</a>. Channel number 0 is reserved for internal use. While the default is 2047, values between 16 and 128 are recommended for most use cases.</td><td>2047</td></tr><tr><td><code>session_max_per_connection</code></td><td>integer</td><td>Maximum number of AMQP 1.0 sessions per connection</td><td>1</td></tr><tr><td><code>link_max_per_session</code></td><td>integer</td><td>Maximum number of AMQP 1.0 links per session</td><td>10</td></tr><tr><td><code>handshake_timeout</code></td><td>integer (milliseconds)</td><td>Maximum time allowed for AMQP 0-9-1 and AMQP 1.0 handshake to complete</td><td>10000 (10 seconds)</td></tr><tr><td><code>ssl_handshake_timeout</code></td><td>integer (milliseconds)</td><td>Maximum time allowed for TLS handshake to complete</td><td>5000 (5 seconds)</td></tr><tr><td><code>heartbeat</code></td><td>integer (seconds)</td><td><a href="/docs/4.3/heartbeats">Heartbeat timeout</a> value suggested by the server during connection negotiation</td><td>60</td></tr><tr><td><code>frame_max</code></td><td>integer (bytes)</td><td>Maximum AMQP 1.0, AMQP 0-9-1 and <a href="/docs/4.3/stream">RabbitMQ Stream Protocol</a> frame size. <strong>Should not be changed</strong>; rely on server and client library defaults.</td><td>131072 (128 KiB)</td></tr><tr><td><code>initial_frame_max</code></td><td>integer (bytes)</td><td>Maximum frame size before connection tuning. <strong>Should not be changed</strong>; rely on server and client library defaults.</td><td>8192</td></tr></tbody></table>
+<p>Some protocols supported by RabbitMQ have their own specific limits.</p>
+<h4 id="mqtt">MQTT</h4>
+<p><a href="/docs/4.3/mqtt">MQTT</a> connections have a session expiry interval limit:</p>
+<table><thead><tr><th><a href="/docs/4.3/configure"><code>rabbitmq.conf</code> Setting</a></th><th>Type</th><th>Description</th><th>Default</th></tr></thead><tbody><tr><td><code>mqtt.max_session_expiry_interval_seconds</code></td><td>integer (seconds)</td><td>Maximum <a href="/docs/4.3/mqtt#queue-properties-and-arguments">session expiry interval</a> that MQTT clients can request</td><td>86400 (1 day)</td></tr></tbody></table>
+<h3 id="per-channel">Per Channel Limits</h3>
+<p><code>consumer_max_per_channel</code> controls the maximum number of consumers that can be registered on a single channel.
+This setting protects against applications leaking consumers.</p>
+<p>The default is unlimited. To set a limit, configure it in <code>rabbitmq.conf</code>:</p>
+<div><div><pre><code class="language-ini">consumer_max_per_channel = 10</code></pre></div></div>
+<h3 id="per-cluster">Per Cluster Limits</h3>
+<p>The following settings are defined in <code>rabbitmq.conf</code> but effectively
+apply to the entire cluster, because the entities they limit are replicated across all nodes.</p>
+<table><thead><tr><th><a href="/docs/4.3/configure"><code>rabbitmq.conf</code> Setting</a></th><th>Type</th><th>Description</th><th>Default</th></tr></thead><tbody><tr><td><code>vhost_max</code></td><td>integer</td><td>Maximum number of virtual hosts that can be created in the cluster</td><td>unlimited</td></tr><tr><td><code>cluster_exchange_limit</code></td><td>integer</td><td>Maximum number of exchanges that can be declared in the cluster</td><td>unlimited</td></tr><tr><td><code>cluster_queue_limit</code></td><td>integer</td><td>Maximum number of queues that can be declared in the cluster</td><td>unlimited</td></tr></tbody></table>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>As these settings are cluster-wide but configured individually for each node using its <code>rabbitmq.conf</code> configuration file,
+they must be set to the same value across all cluster nodes.</p></div></div>
+<h3 id="per-node">Per Node Limits</h3>
+<p>Per node limits apply to individual cluster nodes. They affect all virtual hosts and users.</p>
+<p>Due to their coarse-grained nature, these limits are typically used as guardrails in
+environments where RabbitMQ clusters are offered as a service and cluster operators have no
+understanding or control over what the deployed applications do.</p>
+<p>See also: <a href="/docs/4.3/networking#open-file-handle-limit">open file handles limit</a>.</p>
+<table><thead><tr><th><a href="/docs/4.3/configure"><code>rabbitmq.conf</code> Setting</a></th><th>Type</th><th>Description</th><th>Default</th></tr></thead><tbody><tr><td><code>consumer_timeout</code></td><td>positive integer (milliseconds)</td><td>Defines <a href="/docs/4.3/consumers#acknowledgement-timeout">how long RabbitMQ will wait for delivery acknowledgements</a> from consumers</td><td>1800000 (30 minutes)</td></tr><tr><td><code>max_connections</code></td><td>integer</td><td>Maximum number of concurrent AMQP 1.0 and AMQP 0-9-1 connections a node will accept</td><td>unlimited</td></tr><tr><td><code>mqtt.max_connections</code></td><td>integer</td><td>Maximum number of concurrent MQTT connections a node will accept</td><td>unlimited</td></tr><tr><td><code>channel_max_per_node</code></td><td>integer</td><td>Maximum number of channels across all connections on a node</td><td>unlimited</td></tr><tr><td><code>ranch_connection_max</code></td><td>integer</td><td>Maximum number of concurrent TCP connections a node will accept; includes <a href="/docs/4.3/http-api-reference">HTTP API</a> connections</td><td>unlimited</td></tr><tr><td><code>stream.max_connections</code></td><td>integer</td><td>Maximum number of concurrent <a href="/docs/4.3/stream">RabbitMQ Stream Protocol</a> client connections a node will accept</td><td>unlimited</td></tr><tr><td><code>max_message_size</code></td><td>integer (bytes)</td><td>Maximum message size that messaging and streaming clients can publish. Messages larger than this will be rejected. Maximum allowed value is 512 MiB.</td><td>16777216 (16 MiB)</td></tr><tr><td><code>management.http.max_body_size</code></td><td>integer (bytes)</td><td>Maximum HTTP API request body size</td><td>20971520 (20 MiB)</td></tr></tbody></table>
+<p><code>connection_max</code> and <code>channel_max</code> remain supported aliases for <code>max_connections</code>
+and <code>max_channels_per_connection</code>, respectively. Prefer the newer names.</p>
+<h3 id="per-queue">Per Queue Limits</h3>
+<p>Individual queues can have limits configured via <a href="/docs/4.3/policies">policies</a>:</p>
+<ul>
+<li><a href="/docs/4.3/maxlength">Queue length limit</a>: limits ready messages or their total size. Quorum queues also count delayed messages and messages pending at-least-once dead lettering.
+When the limit is reached, messages are either dropped from the head or new publishes are rejected.</li>
+<li><a href="/docs/4.3/ttl#per-queue-message-ttl">Message TTL</a>: messages in a queue expire after a specified time period.</li>
+<li><a href="/docs/4.3/ttl#queue-ttl">Queue TTL</a>: queues are automatically deleted after a period of inactivity.</li>
+<li><strong>Delivery limit</strong> (<a href="/docs/4.3/quorum-queues#poison-message-handling">quorum queues</a>): maximum number of delivery attempts before a message is dropped or dead-lettered.
+Default is 20 in RabbitMQ 4.0+, was unlimited in 3.x. Configured via the <code>delivery-limit</code> policy key or queue argument.</li>
+<li><strong>Priority levels</strong> (<a href="/docs/4.3/priority">priority queues</a>): <code>x-max-priority</code> queue argument defines the maximum priority level (1-255).
+Values between 1 and 5 are recommended for optimal performance.</li>
+</ul>
+<h3 id="per-stream">Per Stream Limits</h3>
+<p>Streams have <a href="/docs/4.3/streams#retention">retention settings</a> that control data expiration:</p>
+<ul>
+<li><code>max-age</code>: maximum age of messages in the stream (e.g., <code>7D</code> for 7 days)</li>
+<li><code>max-length-bytes</code>: maximum total size of the stream in bytes</li>
+</ul>
+<p>When retention limits are reached, the oldest segments are discarded. These can be configured via
+<a href="/docs/4.3/policies">policies</a> or as <a href="/docs/4.3/streams#declaring">optional stream arguments</a> at stream declaration time.</p>
+<p>Consult the <a href="/docs/4.3/streams">streams guide</a> to learn more.</p></main>

@@ -1,0 +1,259 @@
+<main><header><h1>Message headers</h1></header>
+<p>Every message so far has been a subject and a payload. NATS lets you attach a
+third thing: <strong>headers</strong>, key/value metadata that rides with the message
+alongside the payload. The payload is the business data. A header is anything
+you want the receiver to know about that data without reading it out of the
+body: who sent it, what format it's in, or an ID to trace it by.</p>
+<p>You've already seen a header without naming it. When a request finds
+<a href="/learn/core-nats/request-reply#no-responders">no responders</a>, the server
+answers with a header and no payload. This page shows the whole mechanism
+behind that signal.</p>
+<h2 id="the-header-format">The header format</h2>
+<p>A header block is text, and it looks like HTTP. It opens with a version line,
+<code>NATS/1.0</code>, followed by one or more <code>Key: Value</code> pairs, each on its own line:</p>
+<div><div><pre><code class="language-text">NATS/1.0
+Content-Type: application/json
+Acme-Request-Id: req_7f3c9a</code></pre></div></div>
+<p>Each pair is one key and one value. A key can appear on more than one line to
+carry several values, and the receiver reads back all of them. So a header is
+really a key mapped to a list of values, even though most keys hold just one.</p>
+<p>NATS keeps the case of your keys exactly as you write them and treats them as
+case-sensitive, so <code>Content-Type</code> and <code>content-type</code> are two different keys.
+Many HTTP libraries fold keys to a single canonical case; NATS doesn't, so
+pick one spelling for a key and use it on both ends.</p>
+<p>The header block travels as part of the message but separately from the
+payload, so the body a receiver reads is exactly the bytes you published. A
+service that ignores headers sees the same JSON it always did.</p>
+<h2 id="setting-and-reading-headers">Setting and reading headers</h2>
+<p>From the CLI, <code>-H</code> (or <code>--header</code>) attaches a header as a <code>Key:Value</code> pair, and
+you repeat the flag for each one you want. <code>nats pub</code> takes it:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Publish an orders.created message with two headers attached. -H (or
+# --header) takes a Key:Value pair; repeat it to add more than one header.
+# The headers travel alongside the JSON body, they are not part of it.
+#
+#   Content-Type     tells receivers how to read the body
+#   Acme-Request-Id  a value your own code sets, here the upstream request
+#                    that produced this order
+nats pub orders.created \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' \
+  -H 'Content-Type:application/json' \
+  -H 'Acme-Request-Id:req_7f3c9a'</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Build an orders.created message with two headers attached. The
+// headers travel alongside the JSON body, they are not part of it:
+//   Content-Type     tells receivers how to read the body
+//   Acme-Request-Id  a value your own code sets, here the upstream
+//                    request that produced this order
+const char *order =
+    "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+    "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}";
+
+if (s == NATS_OK)
+    s = natsMsg_Create(&amp;msg, "orders.created", NULL,
+                       order, (int) strlen(order));
+if (s == NATS_OK)
+    s = natsMsgHeader_Set(msg, "Content-Type", "application/json");
+if (s == NATS_OK)
+    s = natsMsgHeader_Set(msg, "Acme-Request-Id", "req_7f3c9a");
+
+if (s == NATS_OK)
+    s = natsConnection_PublishMsg(conn, msg);</code></pre></div></div>
+<p>On the receiving side, <code>nats sub</code> prints each header as a <code>Key: Value</code> line
+above the body, so you can see exactly what the publisher attached:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Subscribe to orders.created and watch the headers arrive. nats sub prints
+# each header as a Key: Value line, then a blank line, then the body. Run the
+# publish snippet in another terminal to produce output like this (the two
+# header lines can print in either order):
+#
+#   [#1] Received on "orders.created"
+#   Content-Type: application/json
+#   Acme-Request-Id: req_7f3c9a
+#
+#   {"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}
+#
+# Add --headers-only to print just the headers and skip the body, handy for
+# inspecting metadata on a busy subject.
+nats sub orders.created</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Print each message's headers as Key: Value lines, then a blank line,
+// then the body -- so you can see exactly what the publisher attached.
+static void
+onMsg(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    const char* *keys = NULL;
+    int         nkeys = 0;
+    int         i;
+
+    if (natsMsgHeader_Keys(msg, &amp;keys, &amp;nkeys) == NATS_OK)
+    {
+        for (i = 0; i &lt; nkeys; i++)
+        {
+            const char *val = NULL;
+
+            if (natsMsgHeader_Get(msg, keys[i], &amp;val) == NATS_OK)
+                printf("%s: %s\n", keys[i], val);
+        }
+        free((void*) keys);
+    }
+    printf("\n%.*s\n", natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+
+    natsMsg_Destroy(msg);
+}
+    // Subscribe to orders.created and watch the headers arrive. Run the
+    // headers publish snippet in another terminal to produce output.
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "orders.created", onMsg, NULL);</code></pre></div></div>
+<p>Client libraries expose the same thing as a header type on the message. You
+build it with <code>Set</code> to give a key a value or <code>Add</code> to append another value to
+a key, and read it back with <code>Get</code> for the first value of a key or <code>Values</code>
+for the whole list.</p>
+<p><code>Content-Type</code> in the example is the one header nearly everyone uses: it tells
+receivers how to read the body, <code>application/json</code> here. The rest of the keys
+are yours to name. Keep the <code>Nats-</code> prefix out of your own keys, though, since
+NATS reserves it for system headers; some of those drive
+<a href="/learn/jetstream">JetStream</a> and are out of scope for core NATS.</p>
+<h2 id="a-request-id-and-a-trace-id">A request ID and a trace ID</h2>
+<p>Request-reply is a natural place for headers. When the warehouse asks the
+inventory service <a href="/learn/core-nats/request-reply">whether an item is in stock</a>,
+the question and the answer are two messages, and headers let you tag them
+without touching the order payload.</p>
+<p>Attach an <code>Acme-Request-Id</code> to name this one call, and an <code>Acme-Trace-Id</code>, a
+<strong>correlation ID</strong>: a value every message in the same logical operation
+carries, so you can follow one order across services. The responder reads the
+trace ID off the request and copies it onto the reply:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Carry a trace id through a request and watch it come back on the reply.
+#
+# Terminal 1 - an echo responder on orders.inventory.check. --echo reflects
+# each request straight back and copies its headers onto the reply, so the
+# trace id you send returns to you. A real inventory service would instead
+# copy just the trace id onto its own {"in_stock":...} answer.
+#   nats reply orders.inventory.check --echo
+#
+# Terminal 2 - send the check with a trace id and a request id attached.
+# nats request prints the reply's headers, so you will see Acme-Trace-Id come
+# back (alongside a NATS-Reply-Counter the echo responder adds).
+nats request orders.inventory.check \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' \
+  -H 'Acme-Trace-Id:trace_5e21' \
+  -H 'Acme-Request-Id:req_7f3c9a' \
+  --timeout 2s</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Carry a trace id through a request. Run a responder in another
+// terminal first, e.g.: nats reply orders.inventory.check --echo
+// (--echo reflects the request back and copies its headers onto the
+// reply, so the trace id you send returns to you).
+const char *order =
+    "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+    "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}";
+
+if (s == NATS_OK)
+    s = natsMsg_Create(&amp;req, "orders.inventory.check", NULL,
+                       order, (int) strlen(order));
+if (s == NATS_OK)
+    s = natsMsgHeader_Set(req, "Acme-Trace-Id", "trace_5e21");
+if (s == NATS_OK)
+    s = natsMsgHeader_Set(req, "Acme-Request-Id", "req_7f3c9a");
+
+// Send the check and wait up to 2 seconds for the reply.
+if (s == NATS_OK)
+    s = natsConnection_RequestMsg(&amp;reply, conn, req, 2000);
+
+// The trace id comes back on the reply's headers, so you can match
+// this answer to the operation that asked the question.
+if (s == NATS_OK)
+{
+    const char *traceID = NULL;
+
+    if (natsMsgHeader_Get(reply, "Acme-Trace-Id", &amp;traceID) == NATS_OK)
+        printf("Acme-Trace-Id: %s\n", traceID);
+    printf("%.*s\n",
+           natsMsg_GetDataLength(reply), natsMsg_GetData(reply));
+}</code></pre></div></div>
+<p>Because the reply comes back carrying the trace ID you sent, you can match this
+answer to the order you asked about, even with many checks in flight at once.
+Your payload stayed a clean order document the whole way.</p>
+<h2 id="status-codes-from-the-server">Status codes from the server</h2>
+<p>The server uses headers as well. It signals a client in-band with a
+<strong>status code</strong> placed right on the version line. Instead of <code>NATS/1.0</code> alone,
+the line reads <code>NATS/1.0 503</code>, and the message carries no payload.</p>
+<p>You've met exactly this. The <a href="/learn/core-nats/request-reply#no-responders">no responders</a>
+signal is a reply with the header line <code>NATS/1.0 503</code> and an empty body; your
+client recognizes the code and turns it into a distinct no-responders error.
+That's the whole mechanism: a status on the header line and no payload, read
+by the client before your code ever sees a message.</p>
+<h2 id="header-support-is-negotiated-at-connect">Header support is negotiated at connect</h2>
+<p>Headers work only when both ends agree to them, and they settle that when the
+connection opens. The server advertises header support in the INFO line it
+sends first, a <code>headers</code> field that's on by default. The client reads that and
+declares its own support in the CONNECT it sends back. By the time you publish
+anything, both sides know headers are in play.</p>
+<p>Every current server and client supports headers, so this negotiation succeeds
+quietly and you never think about it. It has one visible failure mode: a server
+with <code>no_header_support</code> set in its configuration, or one old enough to predate
+the feature. Against such a server the client sees no header support
+advertised, and any publish that carries a header fails on the client with
+<code>headers not supported by this server</code>, before the message reaches the wire.
+The <a href="/learn/core-nats/connecting">Connecting</a> page covers the INFO and CONNECT
+handshake.</p>
+<p>The same agreement gates the previous section: because the no-responders signal
+arrives as a header, a connection without header support can't receive it
+either.</p>
+<h2 id="try-it">Try it</h2>
+<p>Open two terminals against your running server.</p>
+<div><div><pre><code class="language-bash"># Terminal 1 — watch orders.created with headers rendered
+nats sub orders.created</code></pre></div></div>
+<div><div><pre><code class="language-bash"># Terminal 2 — publish an order tagged with a content type and a request ID
+nats pub orders.created \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' \
+  -H 'Content-Type:application/json' \
+  -H 'Acme-Request-Id:req_7f3c9a'</code></pre></div></div>
+<p>Terminal 1 prints the headers above the body (the two header lines can print
+in either order):</p>
+<div><div><pre><code class="language-text">[#1] Received on "orders.created"
+Content-Type: application/json
+Acme-Request-Id: req_7f3c9a
+
+{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}</code></pre></div></div>
+<p>Now add <code>--headers-only</code> to the subscriber and publish again. You get the
+header lines and no body, which is how you inspect metadata on a busy subject
+without printing every payload.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>Reading a key with the wrong case.</strong> Header keys are case-sensitive. If a
+publisher sends <code>Content-Type</code> and you read <code>content-type</code>, you get an empty
+value and no error. Match the exact spelling the sender used, and settle on one
+convention across your services.</p>
+<p><strong>Headers count against the payload limit.</strong> The server checks the combined
+size of the header block and the body against <code>max_payload</code>, the same 1 MB
+ceiling the <a href="/learn/core-nats/publish-subscribe#the-1-mb-payload-limit">payload faces on its own</a>.
+A large header block leaves less room for the body, and if the two together
+cross the limit the server rejects the publish.</p>
+<p><strong>Putting real data in headers.</strong> Headers are for small metadata that describes
+the message: an ID, a content type, a flag. Large or structured data belongs in
+the payload, where receivers expect it. Data stuffed into headers inflates
+every message and competes with the body for <code>max_payload</code>. Keep headers short
+and keep the body authoritative.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The Acme world now tags its messages with metadata that travels beside the
+payload:</p>
+<ul>
+<li>A publisher attaches headers with <code>-H</code> (or a client's <code>Set</code>/<code>Add</code>); a
+subscriber reads them with <code>nats sub</code> (or <code>Get</code>/<code>Values</code>).</li>
+<li>A request carries a request ID and a trace ID, and the responder copies the
+trace ID onto the reply so you can correlate the two.</li>
+<li>The server uses headers in-band as well, which is how the <code>NATS/1.0 503</code>
+no-responders signal reaches you.</li>
+<li>Header support is agreed at connect, and every current server and client has
+it.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>Headers travel with a message to wherever its subject leads. Sometimes you need
+to change where that is: rewrite a subject as it enters the server, so
+<code>orders.created</code> can also arrive under another name without the publisher
+knowing. That's subject mapping, on the
+<a href="/learn/core-nats/subject-mapping">next page</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/core-nats/request-reply#no-responders">Request-reply → No responders</a> —
+the status header this page generalizes.</li>
+<li><a href="/learn/core-nats/connecting">Connecting</a> — the INFO and CONNECT handshake
+that negotiates header support.</li>
+<li><a href="/reference/protocols/client">Reference → Client protocol</a> — the wire-level
+<code>HPUB</code>/<code>HMSG</code> frames and the exact header format.</li>
+</ul></main>

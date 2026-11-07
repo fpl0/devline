@@ -1,0 +1,9 @@
+<main><header><h1>dial_timeout</h1></header>
+<div>Available since NATS Server <code>2.15</code></div>
+<div><span><span>Requires Restart</span></span></div>
+<p>How long to wait for the TCP connection to this remote to be
+established. Overrides the server-wide <code>leafnodes.dial_timeout</code>
+for this remote only. If not set, the server-wide value applies,
+which itself defaults to <code>1s</code>.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>duration</code></td><td>Duration as a string with units such as 100ms, 10s, 5m, or 2h.</td><td>-</td></tr></tbody></table></main>

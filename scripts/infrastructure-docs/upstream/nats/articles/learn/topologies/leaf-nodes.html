@@ -1,0 +1,216 @@
+<main><header><h1>Leaf nodes</h1></header>
+<p>Acme now runs a super-cluster: <code>east</code> and <code>west</code>, joined by gateways.
+Both clusters live in cloud regions Acme controls. The ORDERS workload
+moves freely between them.</p>
+<p>The next site is different. Acme has a factory floor that publishes
+<code>orders.*</code> from machines on the plant network. That network sits behind
+a firewall. Nothing on the internet can dial into it. The factory can
+only reach out.</p>
+<p>A gateway won't help here. A gateway joins two clusters that can both
+accept connections from each other. The factory can't accept anything.
+This page introduces one shape built for exactly that constraint: the
+leaf node. Everything else on the page (how it bridges interest, how it
+binds to an account) is part of understanding that one shape.</p>
+<h2 id="what-a-leaf-node-is">What a leaf node is</h2>
+<p>A <strong>leaf node</strong> is a NATS server that opens an <em>outbound</em> connection to
+a remote NATS system and bridges subject interest across it.</p>
+<p>The outbound direction is what makes this work. The factory's server dials
+the <code>east</code> cluster; <code>east</code> never dials the factory. As long as the
+factory can make one connection out to the hub, the bridge works: no
+inbound firewall rule, no public address on the factory side.</p>
+<p>The server the leaf dials is the <strong>hub</strong>. In Acme's case the hub is the
+<code>east</code> cluster. The leaf is <code>factory-1</code>.</p>
+<p>Once the link is up, the leaf is a regular NATS server to anyone on the
+factory floor. A machine publishes <code>orders.created</code> to <code>factory-1</code> the
+same way it would publish to any server. The machine needs no
+leaf-specific configuration.</p>
+<p>What the leaf adds is the bridge across the link. When a client
+somewhere on the hub subscribes to
+<code>orders.&gt;</code>, that interest flows down the leaf link, and <code>factory-1</code>
+forwards matching messages up to the hub. When a factory machine
+subscribes, hub traffic flows down. The leaf carries only subjects that
+have interest on the other side. This is the same interest propagation
+clusters use internally; the leaf just extends it across one outbound
+hop. (Routing and replication inside a cluster are covered in the
+<a href="/learn/clustering">Clustering deep dive</a>.)</p>
+<div></div>
+<p>The wire-level detail of the leaf node protocol (how interest and
+messages are framed across the link) is documented in
+<a href="/reference/protocols/leafnode">Reference → Leafnode protocol</a>. Here we
+only need the config and the bridging behavior.</p>
+<h2 id="the-hub-side-accept-leaf-connections">The hub side: accept leaf connections</h2>
+<p>The hub opens a port for leaf nodes to dial. On every <code>east</code> server,
+add a <code>leafnodes {}</code> block with a <code>listen</code> address.</p>
+<p>The default leaf node port is <code>7422</code>. It's a fourth kind of listener,
+separate from the client port (4222), the route port (6222), and the
+gateway port (7222) — one port per kind of connection.</p>
+<p>Here's <code>n1-east</code>, the same east cluster config from before, now also
+accepting leaf connections. Only the <code>leafnodes</code> block is new:</p>
+<div><div><pre><code class="language-conf"># n1-east.conf — the east cluster config, now accepting leaf connections
+server_name: n1-east
+listen: 127.0.0.1:4222
+
+jetstream {
+  store_dir: "./js/n1-east"
+}
+
+cluster {
+  name: east
+  listen: 127.0.0.1:6222
+  routes: [
+    nats://127.0.0.1:6223
+  ]
+}
+
+# NEW: accept inbound leaf node connections on 7422
+leafnodes {
+  listen: 127.0.0.1:7422
+}</code></pre></div></div>
+<p>Add a <code>leafnodes {}</code> block to <code>n2-east</code> and <code>n3-east</code> too. Since all three
+run on one machine, give each its own leafnode port — 7423 and 7424, the
+way their client and cluster ports are already offset. A leaf can dial
+any hub server, so listing several gives it somewhere to reconnect if one
+is down.</p>
+<h2 id="the-leaf-side-dial-out-with-a-remote">The leaf side: dial out with a remote</h2>
+<p>The leaf does the opposite. Instead of <em>listening</em> for leaf
+connections, <code>factory-1</code> declares a <strong>remote</strong>: the hub it dials.</p>
+<p>A remote lives in <code>leafnodes.remotes</code>. The one field it can't do without
+is <code>urls</code> — where to dial the hub:</p>
+<div><div><pre><code class="language-conf"># factory-1.conf — a leaf that dials the east cluster
+server_name: factory-1
+listen: 127.0.0.1:4300
+
+leafnodes {
+  remotes: [
+    {
+      urls: [
+        "nats://127.0.0.1:7422"
+        "nats://127.0.0.1:7423"
+        "nats://127.0.0.1:7424"
+      ]
+    }
+  ]
+}</code></pre></div></div>
+<p><code>factory-1</code> has no <code>cluster {}</code> block and no <code>gateway {}</code> block. It's a
+standalone server that reaches the rest of Acme through one outbound
+link — that's what lets it run on the plant network with nothing but
+egress. Its own client port (<code>4300</code>) is separate from the hub's.</p>
+<p>The <code>urls</code> point at each hub server's leafnode listen port. Listing all
+three gives the leaf somewhere to reconnect if one hub server is down.</p>
+<p>One leaf isn't limited to one hub. <code>remotes</code> is a list: a leaf can hold
+several, each dialing a different NATS system, and bridge them all through
+the one server. A leaf can also run its own <code>leafnodes { listen }</code> block and
+become a hub for leaves further out — leaf links compose into trees, not
+just a single hub and spoke.</p>
+<p>In production a remote usually carries two more fields — <code>credentials</code> to
+prove who the leaf is, and <code>account</code> to bind its traffic to a specific
+account. We skip both here — the leaf bridges in the default account —
+and come back to them in
+<a href="#accounts-the-production-layer">Accounts: the production layer</a>.</p>
+<h2 id="accounts-the-production-layer">Accounts: the production layer</h2>
+<p>The auth-free setup above bridges in NATS's default account, which is all
+the demo needs. A production deployment usually isn't auth-free: it puts
+each workload in its own <strong>account</strong> — NATS's unit of subject isolation, a
+flat space of subjects separate from every other — and a leaf remote
+carries two more fields to join one:</p>
+<ul>
+<li><code>account</code> selects which local account on the leaf the bridged interest
+joins.</li>
+<li><code>credentials</code> is a <code>.creds</code> file that proves the leaf's identity to the
+hub, which attaches it to the matching account there.</li>
+</ul>
+<p>Point both ends at the same account and the factory floor and the cloud
+share one isolated subject space across the link. Setting up accounts,
+minting those credentials, and authorizing leaf connections is the job of
+the <a href="/learn/security">Security deep dive</a>; here we stay in the default
+account.</p>
+<h2 id="local-clients-stay-hidden-behind-the-leaf">Local clients stay hidden behind the leaf</h2>
+<p>A factory machine connects to <code>factory-1</code> as a plain client. It never
+appears on the hub as a connection. The hub sees one thing: the leaf
+link from <code>factory-1</code>.</p>
+<p>This is the address-space property of a leaf. The leaf's local clients
+live behind it. The hub deals with the leaf, not with the hundred
+machines on the plant network. Add a thousand more machines and the hub
+still sees one leaf link.</p>
+<p>The bridge is by <em>interest</em>, not by exposing clients. A hub subscriber
+to <code>orders.&gt;</code> receives factory orders without ever knowing how many
+machines produced them, or that they came from a leaf at all.</p>
+<p>That covers connections. Subjects are separate: whether a factory
+subject stays on the floor or reaches the hub depends on the account the
+leaf binds to. Bound to its own account, only the subjects that account
+imports and exports cross the link — that's <strong>address-space isolation</strong>, an
+account decision (the <a href="#accounts-the-production-layer">production layer</a>
+above), not something the leaf link gives you for free. In the default
+account this page uses there's no subject boundary; interest flows across
+the leaf the way it flows across a cluster's routes.</p>
+<h2 id="send-a-message-across-the-leaf-link">Send a message across the leaf link</h2>
+<p>Stand up the hub and the leaf, subscribe on the factory floor, and
+publish from the hub. The order crosses the leaf link in the
+hub-to-leaf direction.</p>
+<p>Subscribe to <code>orders.&gt;</code> on <code>factory-1</code>, in its own terminal:</p>
+<div><div><pre><code class="language-bash">nats sub "orders.&gt;" --server nats://localhost:4300</code></pre></div></div>
+<p>In another terminal, publish to an <code>east</code> hub server:</p>
+<div><div><pre><code class="language-bash">nats pub orders.shipped "order ord_8w2k shipped" --server nats://localhost:4222</code></pre></div></div>
+<p>The order arrives on the factory floor:</p>
+<div><div><pre><code class="language-text">[#1] Received on "orders.shipped"
+order ord_8w2k shipped</code></pre></div></div>
+<p>The leaf carried the factory's <code>orders.&gt;</code> interest up to the hub, and the
+hub forwarded the matching message down — neither side opened a connection
+to the other beyond the single leaf link.</p>
+<h2 id="jetstream-over-a-leaf">JetStream over a leaf</h2>
+<p>If <code>factory-1</code> runs its own JetStream (a local <code>ORDERS</code> store on the
+plant floor), it needs a JetStream <strong><a href="/reference/config/jetstream/domain">domain</a></strong>.</p>
+<p>A domain is a name that isolates one JetStream system from another across
+a leaf link, so the factory's streams and the hub's streams stay
+separate and addressable. Without distinct domains, a leaf's JetStream
+and its hub's JetStream collide.</p>
+<p>Copying stream data across the leaf (a local factory mirror of the hub's
+<code>ORDERS</code>, or sourcing factory orders up into a hub stream) is the
+subject of <a href="/learn/jetstream/mirrors-and-sources">JetStream → Mirrors and sources</a>.
+We only name the domain concept here.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two problems commonly come up the first time you attach a leaf.</p>
+<p><strong>Treating the leaf like an inbound connection.</strong> A leaf dials <em>out</em>.
+The hub <code>listen</code>s on 7422; the leaf declares a <code>remotes</code> entry pointing
+at the hub. People reverse this (a <code>listen</code> on the factory, expecting
+the hub to dial in) and nothing connects, because the hub never reaches
+out. Put the <code>remotes</code> block on the side that has only
+egress (the factory), and the <code>leafnodes { listen }</code> block on the side
+that accepts connections (the hub).</p>
+<p><strong>Expecting JetStream to span the leaf without a domain.</strong> A leaf and
+its hub don't automatically get separate JetStream systems. If
+<code>factory-1</code> enables JetStream while sharing the hub's system account, it
+extends the <em>hub's</em> JetStream rather than running its own, so a stream
+you create on the factory floor may land on the hub, not locally. Give
+the leaf its own JetStream domain when you want a distinct local
+store. Copying data between the two domains across the leaf is
+<a href="/learn/jetstream/mirrors-and-sources">JetStream → Mirrors and sources</a>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>Acme's deployment now reaches the edge:</p>
+<ul>
+<li><code>east</code> and <code>west</code> clusters, joined by gateways (a super-cluster)</li>
+<li>a leaf node, <code>factory-1</code>, dialing <code>east</code> over an outbound link on
+port 7422</li>
+<li>the leaf bridging <code>orders.*</code> interest both ways over that one link, in
+the default account (bind it to a named account in production)</li>
+<li>factory machines connected to <code>factory-1</code> as plain clients, hidden
+behind the leaf, sharing one subject space with the cloud</li>
+</ul>
+<p>Publishing and subscribing didn't change. A factory machine publishes
+<code>orders.created</code> to <code>factory-1</code> exactly the way a client did against the
+dev server <code>n1</code> on <a href="/learn/topologies/single-server">Single server</a>.</p>
+<h2 id="whats-next">What's next</h2>
+<p>You've met all four shapes: a single server, a cluster, a
+super-cluster, and a leaf. The next page,
+<a href="/learn/topologies/putting-it-together">Putting it together</a>, composes
+them into the full Acme picture and draws the address-space isolation
+that makes the whole thing scale.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/protocols/leafnode">Reference → Leafnode protocol</a> — the
+wire-level framing of the leaf link</li>
+<li><a href="/learn/security">Security deep dive</a> — minting leaf credentials and
+authorizing leaf connections on the hub</li>
+<li><a href="/learn/jetstream/mirrors-and-sources">JetStream → Mirrors and sources</a>
+— copying stream data across a leaf with JetStream domains</li>
+</ul></main>

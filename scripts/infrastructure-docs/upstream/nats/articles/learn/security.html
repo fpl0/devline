@@ -1,0 +1,88 @@
+<main><header><h1>Security Deep Dive</h1></header>
+<p>Security in NATS comes down to three questions about every connection:
+who are you, what are you allowed to do, and is the wire safe. This
+chapter answers each one in turn, then ties them together by securing a
+real workload.</p>
+<p>The workload is the order platform from the JetStream chapter. It uses
+the same <code>ORDERS</code> name (now an account, not a stream) and the same
+message shape, with access controls in place. The same server runs
+across the whole chapter, reconfigured a step at a time.</p>
+<h2 id="the-three-parts-of-security">The three parts of security</h2>
+<p>Every page in this chapter belongs to one of three parts.</p>
+<p><strong>Authentication</strong> answers who you are. A connecting application
+presents proof of identity (a password, a token, a bearer JWT; or presents a
+signature using a secret: mTLS or NKeys (perhaps with non-bearer JWTs)),
+and the server decides whether to admit it. The authentication
+pages cover this, from <a href="/learn/security/authentication-basics">Authentication basics</a>
+through <a href="/learn/security/operator-mode">Operator mode</a> and
+<a href="/learn/security/decentralized-auth">Decentralized authentication</a>, plus
+<a href="/learn/security/auth-callout">Auth callout</a>.</p>
+<p><strong>Authorization</strong> answers what you're allowed to do. Once admitted, a
+user can publish and subscribe only to the subjects you grant it; the
+server denies everything else. The <a href="/learn/security/authorization">Authorization</a> page
+covers this.</p>
+<p><strong>Encryption</strong> answers whether the wire is safe. TLS protects each
+connection from eavesdropping and tampering, and a client certificate
+can serve as the identity itself. The <a href="/learn/security/encryption">Encryption &amp; TLS</a> page
+covers this.</p>
+<h2 id="accounts-scope-all-three">Accounts scope all three</h2>
+<p>A fourth idea scopes all three: the <strong>account</strong>.</p>
+<p>An account is an isolated tenant. Each account has its own users and its
+own subject space. Two accounts never see
+each other's messages unless you deliberately connect them.
+<a href="/learn/security/accounts-and-multitenancy">Accounts and multitenancy</a> builds the two
+accounts this chapter uses, and <a href="/learn/security/cross-account">Cross-account</a>
+connects them.</p>
+<p>A user authenticates into an account, where permissions decide what it
+may do, over a connection that TLS keeps safe.</p>
+<p>If your server configuration does not appear to configure accounts, then
+you are using the implicit global account (<code>$G</code>).</p>
+<h2 id="what-youll-have-built">What you'll have built</h2>
+<p>By the end of this chapter you'll have secured the order platform two
+different ways, both producing the same running system.</p>
+<ul>
+<li>Two accounts, <code>ORDERS</code> and <code>ANALYTICS</code>, that can't see each other's
+traffic by default.</li>
+<li>A user <code>order-svc</code> in <code>ORDERS</code> that may publish <code>orders.&gt;</code> and nothing
+else, and a user <code>analytics-reader</code> in <code>ANALYTICS</code> that may read only
+the orders it's shown.</li>
+<li>A deliberate bridge: <code>ORDERS</code> exports the subject <code>orders.shipped</code>
+and <code>ANALYTICS</code> imports it, so analytics sees shipped orders and
+no other order events.</li>
+<li>The same setup rebuilt under an operator named <code>ACME</code>, where the
+server trusts the operator's public key instead of a config user list.</li>
+<li>TLS on the client connection, with mutual TLS as the next step up.</li>
+<li>An external <code>auth-svc</code> that authenticates clients on the server's
+behalf through an auth callout.</li>
+</ul>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You've read the <a href="/concepts/security">Core Concepts → Security</a> primer
+or are otherwise comfortable with NATS basics: publishing, subscribing,
+and <a href="/concepts/subjects">subjects</a>. This chapter doesn't re-teach those.</p>
+<p>It also assumes you know JetStream, since the running scenario is the
+same <code>ORDERS</code> platform. If you haven't, the
+<a href="/concepts/jetstream">Core Concepts → JetStream</a> primer is enough
+background, and the <a href="/learn/jetstream">JetStream deep dive</a> covers it in
+full. You don't need to have built the streams to follow the security
+work.</p>
+<h2 id="how-to-read-it">How to read it</h2>
+<p>Each page introduces at most two new concepts. The same accounts and
+users carry forward, and each page states exactly how the configuration
+changes from the last.</p>
+<p>Security in NATS has many knobs: cipher suites, every JWT claim, every
+resolver type. Where a feature has a long list of options, the page
+covers only what you need to understand the concept and links to
+<a href="/reference/">Reference</a> for the rest.</p>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/security/authentication-basics">Authentication basics</a></td><td>Centralized, config-based auth and the credential types</td></tr><tr><td><a href="/learn/security/authorization">Authorization</a></td><td>Subject permissions: publish and subscribe allow and deny lists</td></tr><tr><td><a href="/learn/security/accounts-and-multitenancy">Accounts and multitenancy</a></td><td>An account is an isolated tenant; the <code>$G</code> and <code>$SYS</code> accounts</td></tr><tr><td><a href="/learn/security/cross-account">Cross-account</a></td><td>Exports and imports that share one subject across tenants</td></tr><tr><td><a href="/learn/security/operator-mode">Operator mode</a></td><td>The <code>nats auth</code> workflow and the account resolver</td></tr><tr><td><a href="/learn/security/decentralized-auth">Decentralized authentication</a></td><td>The operator, account, and user trust chain, with nkeys and JWTs</td></tr><tr><td><a href="/learn/security/auth-callout">Auth callout</a></td><td>Delegating the authentication decision to an external service</td></tr><tr><td><a href="/learn/security/encryption">Encryption &amp; TLS</a></td><td>TLS per connection type, mutual TLS identity mapping, TLS-first handshakes, and encryption at rest</td></tr><tr><td><a href="/learn/security/where-next">Where to go next</a></td><td>A map of what's beyond this chapter</td></tr></tbody></table>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need:</p>
+<ul>
+<li>A working <code>nats-server</code>. The early pages start it with
+<code>nats-server -c nats.conf</code>, editing the config file by hand.</li>
+<li>The <code>nats</code> CLI installed. The chapter's examples are CLI; the operator
+pages use the <code>nats auth</code> commands built into the same <code>nats</code> CLI.
+Client libraries take the same credentials on their connect call.</li>
+</ul>
+<p>Open a terminal and keep a config file handy. Continue to
+<a href="/learn/security/authentication-basics">Authentication basics</a>.</p></main>

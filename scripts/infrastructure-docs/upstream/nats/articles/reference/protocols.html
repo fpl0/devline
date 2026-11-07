@@ -1,0 +1,49 @@
+<main><header><h1>Protocols</h1></header>
+<p>NATS uses text-based protocols for all communication between clients, servers, and clusters. These protocols are designed to be simple, efficient, and easy to implement.</p>
+<h2 id="protocol-types">Protocol Types</h2>
+<h3 id="client-protocol"><a href="/reference/protocols/client">Client Protocol</a></h3>
+<p>The fundamental protocol for client-server communication. This text-based protocol defines how clients connect, authenticate, publish messages, create subscriptions, and handle responses. Features include:</p>
+<ul>
+<li>Simple text-based commands (PUB, SUB, UNSUB)</li>
+<li>Optional TLS encryption</li>
+<li>Built-in heartbeat mechanism (PING/PONG)</li>
+<li>Support for request-reply patterns</li>
+<li>Header support for metadata</li>
+</ul>
+<h3 id="route-protocol"><a href="/reference/protocols/route">Route Protocol</a></h3>
+<p>Used for intra-cluster communication between NATS servers. Routes create a full mesh topology where every server connects to every other server in the cluster. Key characteristics:</p>
+<ul>
+<li>Automatic message routing between servers</li>
+<li>Interest propagation for efficient message delivery</li>
+<li>Cluster-wide state synchronization</li>
+<li>Fault tolerance and automatic failover</li>
+</ul>
+<h3 id="leafnode-protocol"><a href="/reference/protocols/leafnode">Leafnode Protocol</a></h3>
+<p>Enables lightweight, unidirectional connections from edge servers to a central cluster. Ideal for:</p>
+<ul>
+<li>IoT and edge deployments</li>
+<li>Hub-and-spoke architectures</li>
+<li>Reducing bandwidth usage</li>
+<li>Selective message propagation</li>
+<li>Account isolation</li>
+</ul>
+<h3 id="gateway-protocol"><a href="/reference/protocols/gateway">Gateway Protocol</a></h3>
+<p>Connects multiple NATS clusters into a super-cluster while maintaining cluster autonomy. Benefits include:</p>
+<ul>
+<li>Cross-cluster communication</li>
+<li>Geographic distribution</li>
+<li>Interest-only message exchange</li>
+<li>Account mapping and isolation</li>
+<li>Optimized for WAN connections</li>
+</ul>
+<h2 id="protocol-selection">Protocol Selection</h2>
+<table><thead><tr><th>Use Case</th><th>Recommended Protocol</th></tr></thead><tbody><tr><td>Client applications</td><td>Client Protocol</td></tr><tr><td>High availability cluster</td><td>Route Protocol</td></tr><tr><td>Edge/IoT deployments</td><td>Leafnode Protocol</td></tr><tr><td>Multi-region/Multi-cloud</td><td>Gateway Protocol</td></tr></tbody></table>
+<h2 id="common-protocol-features">Common Protocol Features</h2>
+<p>All NATS protocols share these characteristics:</p>
+<ul>
+<li>Text-based - Human-readable for easy debugging</li>
+<li>Lightweight - Minimal overhead for high performance</li>
+<li>Secure - TLS support across all protocols</li>
+<li>Resilient - Automatic reconnection and failover</li>
+<li>Efficient - Interest-based message routing</li>
+</ul></main>

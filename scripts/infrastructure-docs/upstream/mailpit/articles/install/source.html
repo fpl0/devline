@@ -1,0 +1,31 @@
+<main>
+		
+		<h1>Building from source</h1>
+		<p>Mailpit’s source code can be downloaded from <a href="https://github.com/axllent/mailpit">https://github.com/axllent/mailpit</a>.</p>
+<p>Go (&gt;= version 1.24) and npm are required to compile Mailpit.</p>
+<div><pre><code class="language-shell"><span><span>git clone git@github.com:axllent/mailpit.git
+</span></span><span><span><span>cd</span> mailpit
+</span></span></code></pre></div><h2 id="building-the-ui">Building the UI</h2>
+<p>The Mailpit web user interface is built with Node.js.
+In the project’s root (top) directory, run the following to install the required node modules:</p>
+<h3 id="installing-the-node-modules">Installing the node modules</h3>
+<div><pre><code class="language-shell"><span><span>npm install
+</span></span></code></pre></div><h3 id="building-the-web-ui">Building the web UI</h3>
+<div><pre><code class="language-shell"><span><span>npm run build
+</span></span></code></pre></div><p>You can also run <code>npm run watch</code>, which will watch for changes and rebuild the HTML/CSS/JS automatically when changes are detected.
+Please note that you must restart Mailpit (<code>go run .</code>) and refresh your browser to load the changes.</p>
+<h2 id="build-the-mailpit-binary">Build the Mailpit binary</h2>
+<p>Once you have the assets compiled, you can build Mailpit as follows:</p>
+<div><pre><code class="language-shell"><span><span>go build -ldflags <span>"-s -w"</span>
+</span></span></code></pre></div><h2 id="building-a-stand-alone-sendmail-binary">Building a stand-alone sendmail binary</h2>
+<p>If you do not intend to either symlink <code>sendmail</code> to mailpit or configure your existing sendmail to route mail to
+Mailpit (<a href="../sendmail/">see instructions</a>), you can optionally build a stand-alone sendmail binary.
+Please note that this is not intended for use with anything other than Mailpit.</p>
+<div><pre><code class="language-shell"><span><span><span>cd</span> sendmail
+</span></span><span><span>go build -ldflags <span>"-s -w"</span>
+</span></span></code></pre></div>
+
+		
+		
+		
+	</main>

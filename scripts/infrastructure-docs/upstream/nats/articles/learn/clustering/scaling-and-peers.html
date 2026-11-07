@@ -1,0 +1,215 @@
+<main><header><h1>Scaling and peer management</h1></header>
+<p>The <code>ORDERS</code> stream runs at <code>R=3</code> on <code>n1-east</code>, <code>n2-east</code>, and
+<code>n3-east</code>, placed where the <a href="/learn/clustering/placement">Placement</a>
+page pinned it. That peer set isn't frozen. You can grow it — raise the
+replica count so a copy lands on another server — or move a replica off a
+server to retire it, without taking the stream down or losing the agreement
+the rest of this chapter built.</p>
+<p>This page changes the membership of a RAFT group while it keeps serving.
+A <strong>peer</strong> here is a RAFT-group member, as it has been since
+<a href="/learn/clustering/raft-and-leaders">Raft and leaders</a>: one server's
+role inside the <code>ORDERS</code> group. Growing or shrinking that set is <strong>peer
+management</strong>, and it comes in two halves: <strong>growing the group</strong> so a new
+peer catches up, and <strong>moving a replica off</strong> a server.</p>
+<div></div>
+<p>The animation shows both halves: a fourth server joins the group and
+streams the entries it's missing until it's caught up; later a replica is
+moved off a server, which drops its RAFT subscriptions while the rest carry
+on.</p>
+<h2 id="growing-the-group-a-new-peer-catches-up">Growing the group: a new peer catches up</h2>
+<p>You grow a stream's group by raising its replica count. The fourth server
+has to be a running member of <code>east</code> already, so start <code>n4-east</code> with the
+same cluster config the
+<a href="/learn/clustering/forming-a-cluster">first page</a> used, and let it join the
+mesh. Then raise <code>ORDERS</code> from three replicas to four:</p>
+<div><div><pre><code class="language-bash">nats --server nats://127.0.0.1:4222 stream edit ORDERS --replicas=4</code></pre></div></div>
+<p>You don't name the new server. The meta leader assigns the extra replica to
+a server that qualifies under the stream's placement (the tags from the
+<a href="/learn/clustering/placement">Placement</a> page), records the new peer set in
+its assignment log, and the <code>ORDERS</code> group picks it up. <code>n4-east</code> is now a
+member.</p>
+<p>It isn't a useful one yet, because a brand-new peer holds none of the
+stream's history. So it <strong>catches up</strong> first. Catchup is how a new or behind
+peer streams the entries it's missing: the leader feeds it the log from where
+it's short, the peer applies each entry into its stream store, and its lag
+shrinks toward zero. Lag here is just a count: how many entries behind the
+leader's log the peer still is.</p>
+<p>Adding the peer changes the quorum right away: an <code>R=4</code> group commits once
+three peers hold a write, not two. What the new peer can't do while its log
+is empty is win an election — it stays an observer until the leader's first
+entries reach it, so it never campaigns on state it doesn't have. The
+practical rule is simpler: don't lean on <code>n4-east</code> as a data-bearing replica
+until <code>stream info</code> shows it <code>current</code>, because until then only the peers
+that already hold the data can serve it.</p>
+<p>You watch the catchup in the same place you read everything else about
+the group, the <code>Cluster</code> block of <code>nats stream info</code>:</p>
+<div><div><pre><code class="language-bash">nats --server nats://127.0.0.1:4222 stream info ORDERS</code></pre></div></div>
+<p>The <code>Replicas</code> list now shows a fourth entry, and its lag counts down
+as catchup proceeds:</p>
+<div><div><pre><code class="language-text">Cluster Information:
+
+                Name: east
+              Leader: n1-east
+             Replica: n2-east, current, seen 0.12s ago
+             Replica: n3-east, current, seen 0.20s ago
+             Replica: n4-east, outdated, seen 0.18s ago, 14,231 operations behind</code></pre></div></div>
+<p><code>outdated</code> and the operations-behind count are catchup in progress.
+When <code>n4-east</code> reads <code>current</code> with no lag, it holds the full stream and
+pulls its weight as a replica like any other peer.</p>
+<h2 id="moving-a-replica-off-a-server">Moving a replica off a server</h2>
+<p>To move a stream off a server, you <strong>evacuate</strong> the peer. This doesn't
+shrink the stream: it moves the replica off the named server and onto
+another server that qualifies, so <code>ORDERS</code> stays at its replica count. The
+command names the stream and the peer to clear:</p>
+<div><div><pre><code class="language-bash">nats --server nats://127.0.0.1:4222 stream cluster evacuate ORDERS n4-east</code></pre></div></div>
+<p>The meta leader picks a replacement peer and records the new peer set, but
+<code>n4-east</code> doesn't drop out at that point. It stays in the group, serving the
+stream, while the replacement joins and catches up the same way a grown peer
+does. Only once the replacement is caught up does the membership change that
+drops <code>n4-east</code> commit. If the evacuated peer held leadership, the group
+elects a new leader before it goes, so leadership lands on a peer that
+stays.</p>
+<p>If no other server qualifies — placement leaves nowhere to put the replica —
+the request fails with <code>peer remap failed</code> and nothing moves. That refusal
+is the point: the alternative would be dropping to two replicas on a stream
+you asked to keep at three. Fix the placement, or add a server that
+satisfies it, then evacuate again.</p>
+<p>Consumers move with the stream. A consumer pinned to the same server can
+also be moved on its own:</p>
+<div><div><pre><code class="language-bash">nats --server nats://127.0.0.1:4222 consumer cluster evacuate ORDERS NEW n4-east</code></pre></div></div>
+<p>To change the replica <em>count</em> — shrink <code>R=3</code> to <code>R=1</code>, say — edit the stream
+instead: <code>nats stream edit ORDERS --replicas=1</code>. Evacuating moves a replica
+between servers; <code>--replicas</code> sets how many replicas there are.</p>
+<p>Re-read the group after an evacuation and expect a move in progress rather
+than a finished one. Both peers are listed while it runs, with the
+replacement behind on lag, and <code>nats</code> marks a peer that is joining or on its
+way out <code>(pending)</code>.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Move a replica off one server, safely, then verify the new peer set
+# before trusting the change.
+#
+# This assumes the east cluster (n1-east on 4222, n2-east on 4223,
+# n3-east on 4224, plus a fourth server n4-east) is running and ORDERS
+# holds a replica on n4-east. Evacuating does NOT shrink the stream: it
+# moves the replica off n4-east onto another qualifying server, so the
+# replica count stays the same. Make ONE change at a time and wait for a
+# leader and a caught-up replacement before the next -- stacking changes
+# can drop the peers holding the data below a majority and the stream
+# stops committing.
+
+# First, read the current peer set. The Cluster block lists the leader
+# and every replica with its lag. Confirm there is a leader and that
+# every replica's lag is 0 before you change anything — a peer mid
+# catchup is not safe to lean on.
+nats --server nats://127.0.0.1:4222 stream info ORDERS
+
+# Move the replica off one server by name. The meta leader picks a
+# replacement server and records the new peer set, but n4-east does not
+# drop out yet: it keeps serving the stream while the replacement joins
+# and catches up, and only then does the change removing it commit.
+#
+# If no other server qualifies -- placement is too narrow, or the cluster
+# is too small -- the request fails with "peer remap failed" and NOTHING
+# moves. That refusal protects the replica count; fix the placement or
+# add a qualifying server, then run this again. Do not reach for --force.
+#
+# (To change the replica COUNT, use: nats stream edit ORDERS --replicas=N)
+nats --server nats://127.0.0.1:4222 stream cluster evacuate ORDERS n4-east
+
+# A single consumer can be moved on its own the same way:
+#
+#   nats --server nats://127.0.0.1:4222 consumer cluster evacuate ORDERS NEW n4-east
+
+# Verify. Run this while the move is in flight and you see it in
+# progress: both peers listed, the replacement behind on lag, and a
+# "(pending)" marker on the peer joining or on its way out.
+#
+# The move is done when n4-east is gone from the Replicas list and the
+# migration section is no longer printed. Do not wait on lag reaching 0
+# instead: a stream taking constant writes always has followers slightly
+# behind, since a write commits once a quorum holds it.
+#
+# If the move looks stuck, the migration section carries a status line
+# saying what it is waiting on.
+nats --server nats://127.0.0.1:4222 stream info ORDERS</code></pre></div></div>
+<p>The move is done when <code>n4-east</code> is gone from the <code>Replicas</code> list and
+<code>stream info</code> stops printing the migration section it shows while a
+reconfiguration is in flight. Don't wait on lag reaching zero instead: a
+stream taking constant writes always has followers a little behind, because
+a write commits once a quorum has it rather than once everyone does. If a
+move looks stuck, that migration section carries a status line saying what
+it's waiting on — the <a href="/learn/clustering/desired-state">next page</a> reads it
+properly.</p>
+<p>Removing a server from the JetStream <strong>meta</strong> group is a different command,
+<code>nats server cluster peer-remove</code>, and that one allows only one change at a
+time: ask for a second while one is in flight and it answers
+<code>cluster member change is in progress</code>. Let one finish before the next. It's
+also for a different situation — a server that is gone and isn't coming
+back. Evacuating is what you reach for while the server is still running.</p>
+<p>Always stop the server before you peer-remove it. A running server that
+gets peer-removed reacts by turning JetStream off on itself, so you take a
+live node out of service instead of retiring a stopped one.</p>
+<p>The full set of peer-management and stream-assignment operations is
+documented in <a href="/reference/jetstream/api/meta">Reference</a>. We only need
+grow, move, and the verify step here.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two mistakes are common the first time you resize a live group. Both
+come from this page's two concepts: growing a group with catchup, and
+moving a replica off a server.</p>
+<p><strong>Scaling up costs you failure headroom until the new peer catches up.</strong>
+Raising <code>ORDERS</code> from three replicas to four raises the quorum with it: a
+four-peer group commits once three peers hold a write, where three peers
+needed two. The new peer joins the group before it holds any of the
+stream's history, so until it catches up it can't supply one of those three
+acks — which leaves all three of the original peers having to. Lose one of
+them mid-catchup and writes stall until the new peer is caught up. For that
+window a four-replica stream tolerates fewer failures than the three-replica
+one it grew from, which is the opposite of what raising the count suggests.
+It closes when <code>nats stream info</code> shows the new peer <code>current</code>.</p>
+<p><strong><code>peer remap failed</code> means nothing moved, and that's the safe outcome.</strong>
+Evacuating a stream or a consumer refuses to proceed when no server
+qualifies to take the replica — placement is too narrow, or the cluster is
+too small — rather than completing the move and leaving the group a replica
+short. Read the error as "fix the placement and try again", not as a failure
+to work around with <code>--force</code>. The one command that behaves differently is
+<code>nats server cluster evacuate</code>, which drains a whole server best-effort and
+<em>will</em> leave an asset under-replicated if nothing qualifies; the
+<a href="/learn/clustering/desired-state">next page</a> covers that difference.</p>
+<p>Evacuating also leaves the replica count alone. To go from <code>R=3</code> to <code>R=1</code>,
+read the current count from <code>nats stream info</code> and edit it with
+<code>nats stream edit --replicas</code>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You can now resize a live RAFT group without taking the stream down:</p>
+<ul>
+<li>You grew the <code>ORDERS</code> group by raising <code>--replicas</code>, watched the new
+peer catch up, and learned not to lean on it until <code>stream info</code> shows
+it <code>current</code>.</li>
+<li>You moved a replica off a server with <code>nats stream cluster evacuate</code>,
+saw the meta leader re-place it to keep the replica count, and confirmed a
+leader was back before touching it again.</li>
+<li>You know that a refused evacuation (<code>peer remap failed</code>) has moved
+nothing, and that it is protecting the stream's replica count.</li>
+</ul>
+<p>The <code>ORDERS</code> stream is back on <code>n1-east</code>, <code>n2-east</code>, and <code>n3-east</code>, the
+same three peers it started on — but now you can grow or shrink that set
+on purpose.</p>
+<h2 id="whats-next">What's next</h2>
+<p>You've changed the group one peer at a time and waited for each change to
+land. From 2.15 the server records where a reconfiguration is heading and
+converges on it for you, which is what makes draining a whole server a
+single command — and what makes a move you started by mistake something you
+can roll back.</p>
+<p>Continue to <a href="/learn/clustering/desired-state">Desired state and evacuation</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/clustering/raft-and-leaders">Raft and leaders</a> — election and
+<code>leader-stepdown</code>, which an evacuation triggers when it moves the
+leader.</li>
+<li><a href="/learn/clustering/desired-state">Desired state and evacuation</a> — the
+2.15 model these operations run under, and the bulk evacuate command.</li>
+<li><a href="/reference/jetstream/api/meta">Reference → meta API</a> — the full set
+of peer-management and stream-assignment operations.</li>
+<li><a href="/learn/backup-recovery">Backup &amp; recovery</a> — take a backup before a
+risky resize, so a lost replica is recoverable.</li>
+</ul></main>

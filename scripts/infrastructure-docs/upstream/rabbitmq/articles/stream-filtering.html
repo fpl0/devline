@@ -1,0 +1,838 @@
+<main><header><h1>Stream Filtering</h1></header>
+<p>RabbitMQ can deliver the same messages in a stream to multiple consumers.
+Since some consumers need only specific subsets of messages, RabbitMQ provides filtering features that allow consumers to receive only the messages they're interested in.</p>
+<h2 id="on-disk-stream-layout">On Disk Stream Layout</h2>
+<p>When messages are appended to a stream, RabbitMQ assigns each message a monotonically increasing offset.</p>
+<p>The on disk layout of a stream looks as follows:</p>
+<p><img src="/assets/images/stream-segments-chunks-messages-4f07a7c7d5ac04e5be77f44c802acb02.svg"/></p>
+<p>A stream consists of many segment files.
+There is one index file per segment file.
+The index file contains a mapping from an offset and timestamp to a position in the segment file.
+When a client application provides a stream offset, the index file enables RabbitMQ to quickly locate the corresponding message in the segment file.</p>
+<p>Each segment file is made up of chunks and each chunk is made up of messages.
+The number of messages in a chunk depends on the ingress rate, i.e. how fast messages are published to the stream.
+If the ingress rate is high, there are many messages within a chunk.
+If the ingress rate is low, it can happen that each chunk contains only a single message.</p>
+<h2 id="filter-stages-overview">Filter Stages Overview</h2>
+<p>Stream messages can be filtered at three distinct stages, highlighted in green below.
+Each filtering stage is optional.
+Without any filters configured, clients consume all messages from the stream they attach to.</p>
+<!-- -->
+<h2 id="stage-1-bloom-filter">Stage 1: Bloom Filter</h2>
+<p>A <a href="https://en.wikipedia.org/wiki/Bloom_filter">Bloom filter</a> is a space-efficient probabilistic data structure that is used to test whether an element is a member of a set. False positive are possible, but false negatives are not.</p>
+<p>Bloom filtering works as follows:
+Publishers can optionally assign a filter value (string) to each message.
+Before writing a chunk of messages to disk, RabbitMQ collects all these filter values into a Bloom filter data structure and stores it in the chunk's header.</p>
+<p>A consumer can optionally provide one or multiple filter values when attaching to a stream.
+When reading a chunk header including the Bloom filter from disk, RabbitMQ evaluates efficiently whether <strong>any</strong> of the filter values provided by the consumer matches any message in the chunk. If there is at least one match, RabbitMQ will read all messages in that chunk from disk.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p><strong>Bloom filters are highly efficient.</strong></p><p>When a Bloom filter evaluates to false, RabbitMQ skips the entire chunk — it doesn't read messages from disk, parse them into memory, or send them to the client.
+This saves resources across the entire system: server CPU, memory, and disk I/O; network bandwidth; and client CPU and memory.</p></div></div>
+<p>Bloom filters are the most efficient way to filter.
+However, since they operate on the chunk level (rather than the message level) and since false positives can occur, Bloom filters are most commonly used together with <a href="#stage-2-amqp-filter-expressions">Stage 2: AMQP Filter Expressions</a> or <a href="#stage-3-client-side-filtering">Stage 3: Client-Side Filtering</a>.</p>
+<p>By default, when a consumer sets a Bloom filter, RabbitMQ does not deliver messages that lack a filter value.
+To change this behavior and receive also messages without a filter value, set the AMQP 1.0 filter <code>rabbitmq:stream-match-unfiltered</code> or the AMQP 0.9.1 consumer argument <code>x-stream-match-unfiltered</code> to <code>true</code>.</p>
+<p>As described in <a href="/docs/4.3/streams#declaring">Declaring a RabbitMQ stream</a>, the <code>x-stream-filter-size-bytes</code> argument can be configured to set the Bloom filter size.
+The default of 16 bytes should be sufficient for most use cases.
+Configuring a higher value can reduce the false positive rate of the Bloom filter, but leads to more storage overhead.
+Increasing the Bloom filter size can make sense if your workload requires a high number of unique filter values (high cardinality), for example the filter value represents a customer ID and each message has a different customer ID.</p>
+<p>Bloom filters can be used with AMQP 1.0, AMQP 0.9.1, the RabbitMQ Stream protocol, and STOMP.</p>
+<p>For a detailed description of Bloom filters and the RabbitMQ Stream protocol, read the following blog posts:</p>
+<ol>
+<li><a href="/blog/2023/10/16/stream-filtering">Stream Filtering</a></li>
+<li><a href="/blog/2023/10/24/stream-filtering-internals">Stream Filtering Internals</a></li>
+</ol>
+<h4 id="example-bloom-amqp-10">Example: Bloom Filter AMQP 1.0</h4>
+<p>For the Bloom filtering feature to work, a message must be published with an associated Bloom filter value, specified by the <code>x-stream-filter-value</code> message annotation:</p>
+<h4>Java</h4><div><div><pre><code class="language-java">Message message = publisher.message(body)
+    .annotation("x-stream-filter-value", "invoices"); // set Bloom filter value
+publisher.publish(message, context -&gt; {
+    // confirm callback
+});</code></pre></div></div><h4>C#</h4><div><div><pre><code class="language-csharp">var message = new AmqpMessage(body);
+message.Annotation("x-stream-filter-value", "invoices"); // set Bloom filter value
+PublishResult pr = await publisher.PublishAsync(message);</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">publisher.publish(
+    Message(
+        Converter.string_to_bytes(body="myBody"),
+        annotations={"x-stream-filter-value": "invoices"}, # set Bloom filter value
+    )</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">message := amqp.NewMessage(body)
+message.Annotations = amqp.Annotations{
+    "x-stream-filter-value": "invoices", // set Bloom filter value
+}
+publishResult, err := publisher.Publish(context.Background(), message)</code></pre></div></div><h4>Erlang</h4><div><div><pre><code class="language-erlang">Msg = amqp10_msg:set_message_annotations(
+        %% set Bloom filter value
+        #{&lt;&lt;"x-stream-filter-value"&gt;&gt; =&gt; &lt;&lt;"invoices&gt;&gt;},
+        amqp10_msg:set_application_properties(
+          #{&lt;&lt;"category"&gt;&gt; =&gt; &lt;&lt;"invoices"&gt;&gt;},
+          amqp10_msg:new(&lt;&lt;"my-tag"&gt;&gt;, &lt;&lt;"my-payload"&gt;&gt;))),
+amqp10_client:send_msg(Sender, Msg),</code></pre></div></div><h4>JavaScript</h4><div><div><pre><code class="language-javascript">const message = createAmqpMessage({
+        body: "Hello World!",
+        annotations: { "x-stream-filter-value": "invoices" }, // set Bloom filter value
+      })
+await publisher.publish(message)</code></pre></div></div>
+<p>A receiver must use a filter with descriptor <code>rabbitmq:stream-filter</code>.
+This filter accepts a string or a list of strings.
+If a list of strings is provided, they are logically concatenated with an <code>OR</code> operator, that is, it's enough for one or some of the strings to apply.</p>
+<p>Most language examples that follow combine a Bloom filter (Stage 1) with client-side filtering (Stage 3).
+The Erlang example shows how to combine a Bloom filter (Stage 1) with an AMQP Filter Expression (Stage 2), such that there is no need for client-side filtering (Stage 3).</p>
+<h4>Java</h4><div><div><pre><code class="language-java">Consumer consumer = connection.consumerBuilder()
+    .queue("some-stream")
+    .stream()
+         // This Bloom filter will be evaluated server-side per chunk (Stage 1).
+        .filterValues("invoices", "orders")
+        .filterMatchUnfiltered(true)
+    .builder()
+    .messageHandler((ctx, msg) -&gt; {
+        String filterValue = (String) msg.annotation("x-stream-filter-value");
+        // This filter will be evaluted client-side per message (Stage 3).
+        if ("invoices".equals(filterValue) || "orders".equals(filterValue)) {
+            // message processing
+        }
+        ctx.accept();
+    })
+    .build();</code></pre></div></div><h4>C#</h4><div><div><pre><code class="language-csharp">IConsumer consumer = await connection.ConsumerBuilder()
+    .Queue("some-stream")
+    .Stream()
+    // This Bloom filter will be evaluated server-side per chunk (Stage 1).
+    .FilterValues(["invoices", "orders"])
+    .FilterMatchUnfiltered(true)
+    .Builder()
+    .MessageHandler(async (context, message) =&gt; {
+        string filterValue = (string)message.Annotation("x-stream-filter-value");
+        // This filter will be evaluted client-side per message (Stage 3).
+        if (filterValue.Equals("invoices")|| filterValue.Equals("orders"))
+        {
+            // message processing
+        }
+        context.Accept();
+    }
+).BuildAndStartAsync();</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">class MyMessageHandler(AMQPMessagingHandler):
+
+    def __init__(self):
+        super().__init__()
+
+    def on_message(self, event: Event):
+        filterValue = event.message.annotations["x-stream-filter-value"]
+        ### This filter will be evaluted client-side per message (Stage 3).
+        if filterValue == "invoices" or filterValue == "orders":
+            ### message processing
+
+        self.delivery_context.accept(event)
+
+stream_address = AddressHelper.queue_address("some-stream")
+consumer = connection.consumer(
+    stream_address,
+    message_handler=MyMessageHandler(),
+    ### This Bloom filter will be evaluated server-side per chunk (Stage 1).
+    stream_filter_options=StreamOptions(stream_filters=["invoices", "orders"], match_unfiltered=True),
+)</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">consumer, err := connection.NewConsumer(context.Background(), qName, &amp;
+        StreamConsumerOptions{
+            Offset:           &amp;OffsetFirst{},
+            // This Bloom filter will be evaluated server-side per chunk (Stage 1).
+            Filters:          []string{"invoices", "orders"},
+        })
+
+deliveryContext, err := consumer.Receive(context.Background())
+var filterValue string
+filterValue = deliveryContext.Message().Annotations["x-stream-filter-value"].(string)
+// This filter will be evaluted client-side per message (Stage 3).
+if filterValue == "orders" || filterValue == "invoices"  {
+    // process message ...
+}
+err = deliveryContext.Accept(context.Background())</code></pre></div></div><h4>Erlang</h4><div><div><pre><code class="language-erlang">Address = rabbitmq_amqp_address:queue(&lt;&lt;"some-stream"&gt;&gt;),
+Filter = #{%% This Bloom filter will be evaluated server-side per chunk (Stage 1).
+           &lt;&lt;"my Bloom filter"&gt;&gt; =&gt;
+           #filter{descriptor = &lt;&lt;"rabbitmq:stream-filter"&gt;&gt;,
+                   value = {utf8, &lt;&lt;"invoices"&gt;&gt;}},
+
+           %% This filter will be evaluted server-side per message (Stage 2).
+           &lt;&lt;"my AMQP Property filter"&gt;&gt; =&gt;
+           #filter{descriptor = &lt;&lt;"amqp:application-properties-filter"&gt;&gt;,
+                   value = {map, [{{utf8, &lt;&lt;"category"&gt;&gt;},
+                                   {utf8, &lt;&lt;"invoices"&gt;&gt;}}]}}},
+{ok, Receiver} = amqp10_client:attach_receiver_link(
+                   Session, &lt;&lt;"my receiver"&gt;&gt;, Address,
+                   unsettled, none, Filter),
+receive {amqp10_event, {link, Receiver, attached}} -&gt; ok
+after 5000 -&gt; exit(missing_attached)
+end,
+
+%% No need for client-side filtering (Stage 3) because the server will
+%% deliver only messages with category=invoices
+ok = amqp10_client:flow_link_credit(Receiver, 100, 50),
+receive {amqp10_msg, Receiver, Message} -&gt;
+            %% Process message...
+            ok = amqp10_client:accept_msg(Receiver, Message)
+after 5000 -&gt; exit(missing_msg)
+end,</code></pre></div></div><h4>JavaScript</h4><div><div><pre><code class="language-javascript">const consumer = await connection.createConsumer({
+      stream: {
+        name: "some-stream",
+        offset: Offset.first(),
+        matchUnfiltered: true,
+        filterValues: ["invoices", "orders"], // This Bloom filter will be evaluated server-side per chunk (Stage 1).
+      },
+      messageHandler: (context, message) =&gt; {
+        // This filter will be evaluated client-side per message (Stage 3).
+        if (
+          message.message_annotations &amp;&amp;
+          ["invoices", "orders"].includes(message.message_annotations["x-stream-filter-value"])
+        ) {
+          // message processing
+        }
+        context.accept()
+      },
+    })
+consumer.start()</code></pre></div></div>
+<h4 id="example-bloom-amqp-091">Example: Bloom Filter AMQP 0.9.1</h4>
+<p>For the Bloom filtering feature to work, a message must be published with an associated Bloom filter value, specified by the <code>x-stream-filter-value</code> header:</p>
+<h4>Java</h4><div><div><pre><code class="language-java">channel.basicPublish(
+  "", // default exchange
+  "invoices",
+  new AMQP.BasicProperties.Builder()
+    .headers(Collections.singletonMap(
+      // set Bloom filter value
+      "x-stream-filter-value", "emea"
+    ))
+    .build(),
+  body
+);</code></pre></div></div>
+<p>A consumer must use the <code>x-stream-filter</code> consumer argument if it wants to receive only messages for the given filter value(s).
+This argument accepts a string or an array of strings.
+If an array of strings is provided, they are logically concatenated with an <code>OR</code> operator, that is, it's enough for one or some of the strings to apply.</p>
+<h4>Java</h4><div><div><pre><code class="language-java">// Consumer prefetch must be specified when consuming from a stream.
+channel.basicQos(100);
+
+channel.basicConsume(
+  "invoices",
+  false,
+  // This Bloom filter will be evaluated server-side per chunk (Stage 1).
+  Collections.singletonMap("x-stream-filter", "emea"),
+  (consumerTag, message) -&gt; {
+    Map&lt;String, Object&gt; headers = message.getProperties().getHeaders();
+    // This filter will be evaluted client-side per message (Stage 3).
+    if ("emea".equals(headers.get("x-stream-filter-value"))) {
+      // message processing ...
+    }
+    // Ack is required to receive more messages from the stream.
+    channel.basicAck(message.getEnvelope().getDeliveryTag(), false);
+  },
+  consumerTag -&gt; { });</code></pre></div></div>
+<p>As shown in the snippet above, there should be some client-side filtering logic as well because server-side Bloom filter can contain false positives and is performed only on the entire chunk level.</p>
+<h4 id="example-bloom-stream">Example: Bloom Filter Stream Protocol</h4>
+<h4>Java</h4><div><div><pre><code class="language-java">Producer producer = environment.producerBuilder()
+  .stream("invoices")
+  // The Java library will set the Bloom filter value by extracting
+  // the value from key "region" in the message's application properties.
+  .filterValue(msg -&gt; msg.getApplicationProperties().get("region").toString())  
+  .build();</code></pre></div></div>
+<h4>Java</h4><div><div><pre><code class="language-java">Consumer consumer = environment.consumerBuilder()
+  .stream("invoices")
+  .filter()
+    // This Bloom filter will be evaluated server-side per chunk (Stage 1).
+    .values("emea")  
+    // This filter will be evaluted client-side per message (Stage 3).
+    .postFilter(msg -&gt; "emea".equals(msg.getApplicationProperties().get("region")))  
+  .builder()
+  .messageHandler((ctx, msg) -&gt; {
+    // message processing ...
+  })
+  .build();</code></pre></div></div>
+<h2 id="stage-2-amqp-filter-expressions">Stage 2: AMQP Filter Expressions</h2>
+<p>AMQP filter expressions are logical statements that consumers provide when attaching to a stream.
+RabbitMQ nodes evaluate these expressions against message metadata.
+If the message matches, RabbitMQ delivers the message to the client.</p>
+<p>The filter syntax is defined in the AMQP 1.0 extension specification <a href="https://docs.oasis-open.org/amqp/filtex/v1.0/csd01/filtex-v1.0-csd01.html">AMQP Filter Expressions Version 1.0 Committee Specification Draft 01</a>.
+RabbitMQ supports a subset of this specification as described below.</p>
+<p>AMQP filter expressions are either <a href="https://docs.oasis-open.org/amqp/filtex/v1.0/csd01/filtex-v1.0-csd01.html#_Toc67929259"><strong>Property</strong> Filter Expressions</a> or <a href="https://docs.oasis-open.org/amqp/filtex/v1.0/csd01/filtex-v1.0-csd01.html#_Toc67929276"><strong>SQL</strong> Filter Expressions</a>.</p>
+<div class="admonition note"><div class="admonition-title">note</div><div><p>Property Filter Expressions and SQL Filter Expressions are mutually exclusive.
+A consumer can define either a Property Filter or SQL Filter, but not both.</p></div></div>
+<p>AMQP filter expressions enable multiple clients to concurrently consume specific subsets of messages from the same stream while preserving message order.</p>
+<h3 id="property-filter-expressions">Property Filter Expressions</h3>
+<p>Property filter expressions enable RabbitMQ to match each message's metadata against reference patterns provided by the consumer when attaching to the stream.</p>
+<p>RabbitMQ implements:</p>
+<ul>
+<li><a href="https://docs.oasis-open.org/amqp/filtex/v1.0/csd01/filtex-v1.0-csd01.html#_Toc67929270">§ 4.2.4 properties filter</a>: Applies to the immutable properties section of the message.</li>
+<li><a href="https://docs.oasis-open.org/amqp/filtex/v1.0/csd01/filtex-v1.0-csd01.html#_Toc67929271">§ 4.2.5 application-properties filter</a>: Applies to the immutable application-properties section of the message.</li>
+</ul>
+<p>As described in the specification, prefix and suffix matching is supported using <code>&amp;p:&lt;prefix&gt;</code> and <code>&amp;s:&lt;suffix&gt;</code> modifiers.</p>
+<h4 id="example-property-filter-expressions">Example: Property Filter Expressions</h4>
+<p>The following example causes RabbitMQ to deliver only messages for which <strong>all</strong> of the following apply:</p>
+<ul>
+<li>field <code>user-id</code> is <code>John</code></li>
+<li>field <code>subject</code> starts with the prefix <code>Order</code></li>
+<li>the application property key <code>region</code> is <code>emea</code></li>
+</ul>
+<h4>Java</h4><div><div><pre><code class="language-java">Consumer consumer = connection.consumerBuilder()
+    .stream().filter()
+        .userId("John".getBytes(UTF_8))
+        .subject("&amp;p:Order")
+        .property("region", "emea")
+    .stream().builder()
+    .queue("my-queue")
+    .messageHandler((ctx, msg ) -&gt; {
+        // message processing
+    })
+    .build();</code></pre></div></div><h4>C#</h4><div><div><pre><code class="language-csharp">IConsumer consumer = await connection.ConsumerBuilder().Queue("my-queue").
+    MessageHandler((context, message) =&gt;
+        {
+            // process the messages
+        }
+    ).Stream().Offset(StreamOffsetSpecification.First).Filter()
+    .UserId("John"u8.ToArray())
+    .Subject("&amp;p:Order")
+    .Property("region", "emea")
+    .Stream().Builder()
+    .BuildAndStartAsync();</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">    var subjectPrt = "&amp;p:Order"
+    consumer, err := amqpConnection.NewConsumer(context.Background(), "my-queue",
+    &amp;rmq.StreamConsumerOptions{
+        Offset: &amp;rmq.OffsetFirst{},
+        StreamFilterOptions: &amp;rmq.StreamFilterOptions{
+            Properties: &amp;amqp.MessageProperties{Subject: &amp;subjectPrt, UserID: []byte("John")},
+            ApplicationProperties: map[string]interface{}{"region": "emea"},
+            },
+    })</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">   consumer = connection.consumer(
+        "my-queue",
+        message_handler=MyMessageHandler(),
+        consumer_options=StreamConsumerOptions(
+            offset_specification=OffsetSpecification.first,
+            filter_options=StreamFilterOptions(
+                message_properties=MessageProperties(
+                    subject="&amp;p:Order",
+                    user_id= "John".encode("utf-8"),
+
+                ),
+                application_properties={"region": "emea"},
+            ),
+        ),
+    )</code></pre></div></div><h4>Erlang</h4><div><div><pre><code class="language-erlang">Filter = #{&lt;&lt;"filter-name-1"&gt;&gt; =&gt;
+           #filter{
+              descriptor = &lt;&lt;"amqp:properties-filter"&gt;&gt;,
+              value = {map, [{{symbol, &lt;&lt;"user-id"&gt;&gt;}, {binary, &lt;&lt;"John"&gt;&gt;}},
+                             {{symbol, &lt;&lt;"subject"&gt;&gt;}, {utf8, &lt;&lt;"&amp;p:Order"&gt;&gt;}}]}},
+
+           &lt;&lt;"filter-name-2"&gt;&gt; =&gt;
+           #filter{
+              descriptor = &lt;&lt;"amqp:application-properties-filter"&gt;&gt;,
+              value = {map, [{{utf8, &lt;&lt;"region"&gt;&gt;}, {utf8, &lt;&lt;"emea"&gt;&gt;}}]}}},
+
+{ok, Receiver} = amqp10_client:attach_receiver_link(
+                   Session, &lt;&lt;"my receiver"&gt;&gt;, Address,
+                   unsettled, none, Filter),</code></pre></div></div><h4>JavaScript</h4><div><div><pre><code class="language-javascript">const consumer = await connection.createConsumer({
+      stream: {
+        name: "my-queue",
+        offset: Offset.first(),
+        messagePropertiesFilter: { 
+          subject: "&amp;p:Order",
+          user_id: "John"
+        },
+        applicationPropertiesFilter: {
+          region: "emea",
+        },
+      },
+      messageHandler: (context, message) =&gt; {
+        // process the messages
+      },
+    })
+consumer.start()</code></pre></div></div>
+<h3 id="sql-filter-expressions">SQL Filter Expressions</h3>
+<p>RabbitMQ supports filtering messages using complex expressions based on SQL WHERE clause syntax.
+Consumers provide these SQL statements when attaching to the stream.</p>
+<p>SQL Filter Expressions provide a superset of the functionalities provided by Property Filter Expressions.</p>
+<p>RabbitMQ supports a subset of the <a href="https://docs.oasis-open.org/amqp/filtex/v1.0/csd01/filtex-v1.0-csd01.html#_Toc67929276">SQL Filter Expressions syntax</a>.
+Below, we describe what is currently supported and what is not.</p>
+<p>Reserved words and operator names must be written in upper case:</p>
+<ul>
+<li><code>AND</code> <code>OR</code>, <code>NOT</code></li>
+<li><code>IN</code>, <code>IS</code>, <code>NULL</code>, <code>LIKE</code>, <code>ESCAPE</code></li>
+<li><code>TRUE</code>, <code>FALSE</code></li>
+<li><code>UTC</code></li>
+</ul>
+<h4 id="amqp-10-message-sections">AMQP 1.0 Message Sections</h4>
+<h5 id="-supported-sections">✅ Supported Sections</h5>
+<ul>
+<li>
+<p><strong>Header</strong> - <code>header</code> or <code>h</code> (only <code>priority</code> field)</p>
+<ul>
+<li>Example: <code>header.priority = 4</code></li>
+<li>Example: <code>h.priority = 4</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Properties</strong> - <code>properties</code> or <code>p</code></p>
+<ul>
+<li>Example: <code>properties.message_id = 12345</code></li>
+<li>Example: <code>p.user_id = 0x426F62</code></li>
+<li>Example: <code>p.to = 'orders'</code></li>
+<li>Example: <code>p.subject LIKE 'Order%'</code></li>
+<li>Example: <code>p.reply_to = '/queues/q1'</code></li>
+<li>Example: <code>p.correlation_id IS NOT NULL</code></li>
+<li>Example: <code>p.content_type = 'application/json'</code></li>
+<li>Example: <code>p.content_encoding IN ('gzip', 'zstd', 'deflate')</code></li>
+<li>Example: <code>p.absolute_expiry_time &gt; UTC()</code></li>
+<li>Example: <code>p.creation_time &lt; 1753365622460</code></li>
+<li>Example: <code>p.group_id = 'Group A'</code></li>
+<li>Example: <code>p.group_sequence % 3 = 0</code></li>
+<li>Example: <code>p.reply_to_group_id = 'Group B'</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Application Properties</strong> - <code>application_properties</code> or <code>a</code></p>
+<ul>
+<li>Example: <code>application_properties.color = 'blue'</code> (fully qualified)</li>
+<li>Example: <code>a.color = 'blue'</code> (shorthand)</li>
+<li>Example: <code>color = 'blue'</code> (unqualified fields default to application properties)</li>
+</ul>
+</li>
+</ul>
+<h5 id="-unsupported-sections">❌ Unsupported Sections</h5>
+<ul>
+<li><strong>Header</strong> - Fields other than <code>priority</code></li>
+<li><strong>Delivery Annotations</strong> - <code>delivery_annotations</code> or <code>d</code></li>
+<li><strong>Message Annotations</strong> - <code>message_annotations</code> or <code>m</code></li>
+<li><strong>Footer</strong> - <code>footer</code> or <code>f</code></li>
+</ul>
+<h4 id="constants">Constants</h4>
+<h5 id="-supported">✅ Supported</h5>
+<ul>
+<li>
+<p><strong>Integer constants</strong></p>
+<ul>
+<li>Example: <code>age = 25</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Decimal and Approximate number constants</strong></p>
+<ul>
+<li>Example: <code>temperature = -5.5</code></li>
+<li>Example: <code>value = 1.23E6</code> (scientific notation)</li>
+</ul>
+</li>
+<li>
+<p><strong>Boolean constants</strong></p>
+<ul>
+<li>Example: <code>active = TRUE</code></li>
+<li>Example: <code>deleted = FALSE</code></li>
+</ul>
+</li>
+<li>
+<p><strong>String constants</strong> (single or double quotes)</p>
+<ul>
+<li>Example: <code>name = 'Alice'</code></li>
+<li>Example: <code>city = "New York"</code></li>
+<li>Example: <code>quote = 'It''s great'</code> (escaped quotes)</li>
+<li>Example: <code>emojis = '😎☀️'</code> (UTF-8 characters)</li>
+</ul>
+</li>
+<li>
+<p><strong>Binary constants</strong></p>
+<ul>
+<li>Example: <code>properties.message_id = 0x0123456789ABCDEF</code></li>
+</ul>
+</li>
+</ul>
+<h5 id="-not-supported">❌ Not Supported</h5>
+<ul>
+<li><strong>Special numeric constants</strong>
+<ul>
+<li>IEEE 754 infinity value: <code>INF</code></li>
+<li>IEEE 754 not-a-number value: <code>NAN</code></li>
+</ul>
+</li>
+</ul>
+<h4 id="identifiers">Identifiers</h4>
+<p>Identifiers refer for example to fields of the properties section or keys of the application properties section.</p>
+<h5 id="-supported-1">✅ Supported</h5>
+<ul>
+<li>
+<p><strong>Regular identifiers</strong></p>
+<ul>
+<li>Example: <code>properties.subject = 'EMEA'</code></li>
+<li>Example: <code>order_status = 'pending'</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Delimited identifiers</strong> (for special characters or reserved words)</p>
+<ul>
+<li>Example: <code>[order-status] = 'pending'</code></li>
+<li>Example: <code>[order status] = 'pending'</code></li>
+<li>Example: <code>[注文状況] = 'pending'</code></li>
+</ul>
+</li>
+</ul>
+<h5 id="-not-supported-1">❌ Not Supported</h5>
+<ul>
+<li><strong>Composite type references</strong> (array/map access)</li>
+</ul>
+<h4 id="unary-and-binary-logical-operators">Unary and Binary Logical Operators</h4>
+<h5 id="-all-supported">✅ All Supported</h5>
+<ul>
+<li>
+<p><strong>AND</strong></p>
+<ul>
+<li>Example: <code>header.priority &gt; 4 AND properties.subject = 'orders'</code></li>
+</ul>
+</li>
+<li>
+<p><strong>OR</strong></p>
+<ul>
+<li>Example: <code>status = 'new' OR status = 'pending'</code></li>
+</ul>
+</li>
+<li>
+<p><strong>NOT</strong></p>
+<ul>
+<li>Example: <code>NOT cancelled</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Parentheses for grouping</strong></p>
+<ul>
+<li>Example: <code>(category = 'books' OR category = 'music') AND price &lt; 20</code></li>
+</ul>
+</li>
+</ul>
+<h4 id="comparison-operators">Comparison Operators</h4>
+<h5 id="-all-supported-1">✅ All Supported</h5>
+<ul>
+<li>
+<p><strong>Equality</strong>: <code>=</code></p>
+<ul>
+<li>Example: <code>customer_id = 12345</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Inequality</strong>: <code>&lt;&gt;</code> or <code>!=</code></p>
+<ul>
+<li>Example: <code>status &lt;&gt; 'cancelled'</code></li>
+<li>Example: <code>region != 'EU'</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Greater than</strong>: <code>&gt;</code></p>
+<ul>
+<li>Example: <code>age &gt; 18</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Greater than or equal</strong>: <code>&gt;=</code></p>
+<ul>
+<li>Example: <code>p.creation_time &gt;= 1753690918262</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Less than</strong>: <code>&lt;</code></p>
+<ul>
+<li>Example: <code>quantity &lt; 10</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Less than or equal</strong>: <code>&lt;=</code></p>
+<ul>
+<li>Example: <code>discount &lt;= 0.25</code></li>
+</ul>
+</li>
+</ul>
+<h4 id="arithmetic-operators">Arithmetic Operators</h4>
+<h5 id="-supported-for-numeric-types-only">✅ Supported (for numeric types only)</h5>
+<ul>
+<li>
+<p><strong>Addition</strong>: <code>+</code></p>
+<ul>
+<li>Example: <code>quantity + 5 &gt; stock_level</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Subtraction</strong>: <code>-</code></p>
+<ul>
+<li>Example: <code>price - discount &gt; 10</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Multiplication</strong>: <code>*</code></p>
+<ul>
+<li>Example: <code>quantity * price &gt; 100</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Division</strong>: <code>/</code></p>
+<ul>
+<li>Example: <code>total / quantity &lt; 50</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Modulo</strong>: <code>%</code></p>
+<ul>
+<li>Example: <code>p.group_sequence % 2 = 0</code> (even group sequences)</li>
+</ul>
+</li>
+<li>
+<p><strong>Unary plus/minus</strong>: <code>+</code>, <code>-</code></p>
+<ul>
+<li>Example: <code>balance &lt; +100</code></li>
+<li>Example: <code>balance &lt; -100</code></li>
+</ul>
+</li>
+</ul>
+<h5 id="-not-supported-2">❌ Not Supported</h5>
+<ul>
+<li><strong>String or symbol concatenation with <code>+</code></strong>
+<ul>
+<li>Example: <code>firstname + lastname = 'JohnDoe'</code></li>
+</ul>
+</li>
+</ul>
+<h4 id="other-logical-predicates">Other Logical Predicates</h4>
+<h5 id="-supported-2">✅ Supported</h5>
+<ul>
+<li>
+<p><strong>IS NULL</strong></p>
+<ul>
+<li>Example: <code>p.reply_to IS NULL</code></li>
+<li>Example: <code>category IS NOT NULL</code></li>
+</ul>
+</li>
+<li>
+<p><strong>LIKE</strong> (with <code>%</code> and <code>_</code> wildcards)</p>
+<ul>
+<li>Example: <code>name LIKE 'John%'</code> (starts with John)</li>
+<li>Example: <code>name NOT LIKE 'John%'</code> (does not start with John)</li>
+<li>Example: <code>product LIKE 'John % Doe'</code> (John Doe with any middle name)</li>
+<li>Example: <code>email LIKE '%@example.com'</code> (ends with @example.com)</li>
+<li>Example: <code>code LIKE '___ABC'</code> (3 characters followed by ABC)</li>
+</ul>
+</li>
+<li>
+<p><strong>LIKE with ESCAPE</strong></p>
+<ul>
+<li>Example: <code>underscored LIKE '\_%' ESCAPE '\'</code> is true for <code>'_foo'</code> and false for <code>'bar'</code></li>
+</ul>
+</li>
+<li>
+<p><strong>IN</strong></p>
+<ul>
+<li>Example: <code>status IN ('new', 'pending', 'processing')</code></li>
+<li>Example: <code>environment NOT IN ('DEV', 'STAGING')</code></li>
+</ul>
+</li>
+</ul>
+<h5 id="-not-supported-3">❌ Not Supported</h5>
+<ul>
+<li><strong>EXISTS</strong> predicate</li>
+</ul>
+<h4 id="functions">Functions</h4>
+<h5 id="-supported-3">✅ Supported</h5>
+<ul>
+<li><strong>UTC()</strong> - returns current UTC time in milliseconds<!-- -->
+<ul>
+<li>Example: <code>p.absolute_expiry_time IS NULL OR p.absolute_expiry_time &gt; UTC()</code> selects non-expired messages</li>
+</ul>
+</li>
+</ul>
+<h5 id="-not-supported-4">❌ Not Supported</h5>
+<ul>
+<li><strong>LOWER</strong> - lowercase conversion</li>
+<li><strong>UPPER</strong> - uppercase conversion</li>
+<li><strong>LEFT</strong> - left substring</li>
+<li><strong>RIGHT</strong> - right substring</li>
+<li><strong>SUBSTRING</strong> - substring extraction</li>
+<li><strong>DATE</strong> - ISO 8601 date parsing</li>
+</ul>
+<h4 id="example-sql-filter-expressions">Example: SQL Filter Expressions</h4>
+<p>The following example causes RabbitMQ to deliver only messages for which <strong>all</strong> of the following apply:</p>
+<ul>
+<li>field <code>user-id</code> is <code>John</code></li>
+<li>field <code>subject</code> starts with the prefix <code>Order</code></li>
+<li>the application provided key <code>region</code> is <code>emea</code></li>
+</ul>
+<h4>Java</h4><div><div><pre><code class="language-java">Consumer consumer = connection.consumerBuilder()
+    .stream().filter()
+        .sql("properties.user_id = 'John' AND " +
+             "properties.subject LIKE 'Order%' AND " +
+             "region = 'emea'")
+    .stream().builder()
+    .queue("my-queue")
+    .messageHandler((ctx, msg ) -&gt; {
+        // message processing
+    })
+    .build();</code></pre></div></div><h4>C#</h4><div><div><pre><code class="language-csharp">IConsumer consumer = await connection.ConsumerBuilder().Queue("my-queue").
+    MessageHandler((context, message) =&gt;
+        {
+            // process the messages
+        }
+    ).Stream().Offset(StreamOffsetSpecification.First).Filter()
+      .Sql("properties.user_id = 'John' AND" 
+         + "properties.subject LIKE 'Order%' AND region = 'emea'")
+      .Stream().Builder()
+    .Stream().Builder()
+    .BuildAndStartAsync();</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">consumer, err := amqpConnection.NewConsumer(context.Background(), "my-queue",
+        &amp;rmq.StreamConsumerOptions{
+            Offset: &amp;rmq.OffsetFirst{},
+            StreamFilterOptions: &amp;rmq.StreamFilterOptions{
+                SQL: "properties.user_id = 'John' AND " 
+                + "properties.subject LIKE 'Order%' AND region = 'emea'",
+            },
+        })</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">consumer = connection.consumer(
+        "my-queue",
+        message_handler=MyMessageHandler(),
+        consumer_options=StreamConsumerOptions(
+            offset_specification=OffsetSpecification.first,
+            filter_options=StreamFilterOptions(
+                sql="properties.user_id = 'John' AND "
+                    + "properties.subject LIKE 'Order%' AND region = 'emea'",
+            ),
+        ),
+    )</code></pre></div></div><h4>Erlang</h4><div><div><pre><code class="language-erlang">Expression = &lt;&lt;"properties.user_id = 'John' AND "
+               "properties.subject LIKE 'Order%' AND "
+               "region = 'emea'"&gt;&gt;,
+Filter = #{&lt;&lt;"sql-filter"&gt;&gt; =&gt; #filter{descriptor = &lt;&lt;"amqp:sql-filter"&gt;&gt;,
+                                       value = {utf8, Expression}}},
+
+{ok, Receiver} = amqp10_client:attach_receiver_link(
+                   Session, &lt;&lt;"my receiver"&gt;&gt;, Address,
+                   unsettled, none, Filter),</code></pre></div></div><h4>JavaScript</h4><div><div><pre><code class="language-javascript">const consumer = await connection.createConsumer({
+      stream: {
+        name: "my-queue",
+        offset: Offset.first(),
+        sqlFilter: "properties.user_id = 'John' AND"
+          + "properties.subject LIKE 'Order%' AND region = 'emea'"
+      },
+      messageHandler: (context, message) =&gt; {
+        // process the messages
+      },
+    })
+consumer.start()</code></pre></div></div>
+<h3 id="error-handling">Error Handling</h3>
+<h4 id="definitional-errors">Definitional Errors</h4>
+<p>At the time the consumer attaches to the stream, RabbitMQ will check for the syntactic correctness of the filter, for example whether the SQL expression is valid.
+If the provided filter is invalid, RabbitMQ will exclude this filter in the <a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-transport-v1.0-os.html#type-attach">attach</a> frame sent to the client.
+In addition, RabbitMQ might log a warning with a reason why the filter is invalid.
+The client library should then detach the link and return an error to the client application.</p>
+<h4 id="evaluation-errors">Evaluation Errors</h4>
+<p>Evaluation errors occur when RabbitMQ evaluates the filter against messages at runtime and the evaluation cannot be completed.</p>
+<p>Examples of such evaluation errors include:</p>
+<ul>
+<li>comparison of non-like types: e.g. is the number 3 is greater than the string "London"?</li>
+<li>arithmetic division by zero: e.g. <code>3 / 0</code></li>
+<li>integer division remained with floating points: e.g. <code>3 % 1.2</code></li>
+</ul>
+<p>Filters that run into evaluation errors are treated as if they returned <code>false</code> or <code>unknown</code> depending on the error.
+RabbitMQ will deliver only messages to the client for which the SQL conditional expression evaluates to <code>true</code>.</p>
+<h3 id="bloom-filter-vs-amqp-filter-expressions">Bloom Filter vs. AMQP Filter Expressions</h3>
+<p>This table compares the characteristics of Bloom filters (Stage 1) and AMQP Filter Expressions (Stage 2).</p>
+<table><thead><tr><th>Feature</th><th>Bloom Filter</th><th>AMQP Filter Expressions</th></tr></thead><tbody><tr><td>Server-side filtering?</td><td>Yes</td><td>Yes</td></tr><tr><td>Stage</td><td>Stage 1: After reading the chunk header from disk, but before reading any messages from disk</td><td>Stage 2: After RabbitMQ read messages from disk into memory and before they are delivered to the client</td></tr><tr><td>Granularity</td><td>Publisher sets filter value per message, but RabbitMQ evaluates the filter per chunk</td><td>Per message</td></tr><tr><td>False Positives</td><td>Possible: Requires additional per-message filtering at stage 2 or stage 3.</td><td>None</td></tr><tr><td>Supported Protocols</td><td>AMQP 1.0, AMQP 0.9.1, RabbitMQ Stream protocol, STOMP</td><td>AMQP 1.0</td></tr><tr><td>Support for Multiple Values to Filter on (Publisher)</td><td>No: Publishers can assign only one filter value per message.</td><td>Yes: Publishers can define multiple values in the properties or application-properties sections.</td></tr><tr><td>Support for Multiple Filter Expressions (Consumer)</td><td>Yes: Consumers can specify multiple filter values, and a message is delivered if <em>any</em> filter value matches.</td><td>Yes: Consumers can provide multiple filter expressions.</td></tr><tr><td>Filter Complexity</td><td>Low: Simple string equality match</td><td>High: Complex SQL queries possible</td></tr><tr><td>Evaluation Speed in messages per second</td><td>up to millions</td><td>up to hundreds of thousands</td></tr><tr><td>Broker Overhead</td><td>Minimal: Bloom filter membership checks use constant time. If chunk matches and the RabbitMQ Streams protocol is used, the <a href="https://man7.org/linux/man-pages/man2/sendfile.2.html">sendfile</a> system call optimizes chunk delivery without messages entering user space. If chunk does not match, RabbitMQ won't even read messages from disk.</td><td>Implemented mostly using efficient Erlang pattern matching. However, every message is read into memory for each consumer (unless combined with a Bloom filter).</td></tr><tr><td>Network and client-side Overhead</td><td>Higher: Entire chunk is transferred even if only the filter value of a single message matches.</td><td>Lower: Only messages matching the filter are transferred.</td></tr></tbody></table>
+<h3 id="combining-bloom-filter-and-amqp-filter-expressions">Combining Bloom Filter and AMQP Filter Expressions</h3>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>By combining Bloom filters with AMQP (and especially SQL) filter expressions, RabbitMQ delivers the best of both:
+efficient chunk-level filtering at stage 1 to skip unnecessary disk I/O, CPU, and memory usage, followed by precise message-level filtering stage 2 for complex business logic — all server-side.</p></div></div>
+<h4 id="example-bloom-sql">Example: Combining Bloom Filter and SQL Filter Expressions</h4>
+<p>Consider a stream containing various customer-related events such as:</p>
+<ul>
+<li><code>user.login</code></li>
+<li><code>product.view</code></li>
+<li><code>cart.add</code></li>
+<li><code>cart.remove</code></li>
+<li><code>order.created</code></li>
+<li><code>review.submitted</code></li>
+<li>etc.</li>
+</ul>
+<p>The following example provides a complex SQL filter expression that queries events where all of the following conditions apply:</p>
+<ul>
+<li>order created within the last hour</li>
+<li>in one of the regions <code>AMER</code>, <code>EMEA</code>, or <code>AJP</code></li>
+<li>the order must be of high priority or high price or be submitted by a premium customer</li>
+</ul>
+<h4>Java</h4><div><div><pre><code class="language-java">Consumer consumer = connection.consumerBuilder()
+    .stream()
+        // This Bloom filter will be evaluated server-side per chunk (Stage 1).
+        .filterValues("order.created")
+        .filter()
+            // This complex SQL filter expression will be evaluted server-side
+            // per message at stage 2.
+            .sql("p.subject = 'order.created' AND " +
+                 "p.creation_time &gt; UTC() - 3600000 AND " +
+                 "region IN ('AMER', 'EMEA', 'APJ') AND " +
+                 "(h.priority &gt; 4 OR price &gt;= 99.99 OR premium_customer = TRUE)")
+    .stream().builder()
+    .queue("my-queue")
+    .messageHandler((ctx, msg ) -&gt; {
+        // message processing
+    })
+    .build();</code></pre></div></div><h4>C#</h4><div><div><pre><code class="language-csharp">IConsumer consumer = await connection.ConsumerBuilder().Queue("my-queue").
+    MessageHandler((context, message) =&gt;
+    // message processing
+    }).Stream().Offset(StreamOffsetSpecification.First)
+    // This Bloom filter will be evaluated server-side per chunk (Stage 1). 
+    .FilterValues("order.created")
+    .Filter()
+     // This complex SQL filter expression will be evaluted server-side
+     // per message at stage 2.     
+    .Sql("p.subject = 'order.created' AND " +
+         "p.creation_time &gt; UTC() - 3600000 AND " +
+         "region IN ('AMER', 'EMEA', 'APJ') AND " +
+         "(h.priority &gt; 4 OR price &gt;= 99.99 OR premium_customer = TRUE)").Stream().Builder()
+    .BuildAndStartAsync().ConfigureAwait(false);</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-csharp">consumer, err := amqpConnection.NewConsumer(context.Background(), "my-queue",
+    &amp;rmq.StreamConsumerOptions{
+        Offset: &amp;rmq.OffsetFirst{},
+        StreamFilterOptions: &amp;rmq.StreamFilterOptions{
+            // This Bloom filter will be evaluated server-side per chunk (Stage 1).
+            Values: []string{"order.created"},
+            // This complex SQL filter expression will be evaluted server-side
+            // per message at stage 2.
+            SQL:"p.subject = 'order.created' AND " +
+                "p.creation_time &gt; UTC() - 3600000 AND " +
+                "region IN ('AMER', 'EMEA', 'APJ') AND " +
+                "(h.priority &gt; 4 OR price &gt;= 99.99 OR premium_customer = TRUE)",
+            },
+        })</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python">    consumer = consumer_connection.consumer(
+        "my-queue",
+        message_handler=MyMessageHandler(),
+        # the consumer will only receive messages with filter value banana and subject yellow
+        # and application property from = italy
+        consumer_options=StreamConsumerOptions(
+            offset_specification=OffsetSpecification.first,
+            filter_options=StreamFilterOptions(
+                # This Bloom filter will be evaluated server-side per chunk (Stage 1).
+                values=["order.created"],
+                # This complex SQL filter expression will be evaluted server-side
+                # per message at stage 2.
+                sql="p.subject = 'order.created' AND " +
+                "p.creation_time &gt; UTC() - 3600000 AND " +
+                "region IN ('AMER', 'EMEA', 'APJ') AND " +
+                "(h.priority &gt; 4 OR price &gt;= 99.99 OR premium_customer = TRUE)",
+            ),
+        ),
+    )</code></pre></div></div><h4>Erlang</h4><div><div><pre><code class="language-erlang">Expression = &lt;&lt;"p.subject = 'order.created' AND "
+               "p.creation_time &gt; UTC() - 3600000 AND "
+               "region IN ('AMER', 'EMEA', 'APJ') AND "
+               "(h.priority &gt; 4 OR price &gt;= 99.99 OR premium_customer = TRUE)"&gt;&gt;,
+
+Filter = #{%% This Bloom filter will be evaluated server-side per chunk at stage 1.
+           &lt;&lt;"my Bloom filter"&gt;&gt; =&gt;
+           #filter{descriptor = &lt;&lt;"rabbitmq:stream-filter"&gt;&gt;,
+                   value = {utf8, &lt;&lt;"order.created"&gt;&gt;}},
+
+           %% This complex SQL filter expression will be evaluted server-side
+           %% per message at stage 2.
+           &lt;&lt;"sql-filter"&gt;&gt; =&gt; #filter{descriptor = &lt;&lt;"amqp:sql-filter"&gt;&gt;,
+                                       value = {utf8, Expression}}},
+
+{ok, Receiver} = amqp10_client:attach_receiver_link(
+                   Session, &lt;&lt;"my receiver"&gt;&gt;, Address,
+                   unsettled, none, Filter),</code></pre></div></div><h4>JavaScript</h4><div><div><pre><code class="language-javascript">const consumer = await connection.createConsumer({
+      stream: {
+        name: "my-queue",
+        offset: Offset.first(),
+        filterValues: ["order.created"], // This Bloom filter will be evaluated server-side per chunk (Stage 1).
+        sqlFilter: "p.subject = 'order.created' AND " +
+         "p.creation_time &gt; UTC() - 3600000 AND " +
+         "region IN ('AMER', 'EMEA', 'APJ') AND " +
+         "(h.priority &gt; 4 OR price &gt;= 99.99 OR premium_customer = TRUE)",  // This complex SQL filter expression will be evaluted server-side
+                                                                           // per message at stage 2.     
+      },
+      messageHandler: (context, message) =&gt; {
+          // message processing
+      },
+    })
+consumer.start()</code></pre></div></div>
+<p>If <code>order.created</code> events represent only a small percentage of all events, RabbitMQ can filter the stream efficiently because only a small fraction of messages need to be parsed and evaluated in memory.</p>
+<h2 id="stage-3-client-side-filtering">Stage 3: Client-Side Filtering</h2>
+<p>After RabbitMQ sends messages to the client, additional filtering can occur either in the client library or in the client application itself.</p>
+<p>Filtering client-side allows for the highest flexibility because the client is not constrained by the server-side filtering primitives. For example, the client can filter by examining the message body.</p>
+<p>Examples of how to combine client-side filtering (Stage 3) with server-side Bloom filtering (Stage 1) are provided in the <a href="#example-bloom-amqp-10">Bloom Filter AMQP 1.0 Example</a> and <a href="#example-bloom-amqp-091">Bloom Filter AMQP 0.9.1 Example</a>.</p></main>

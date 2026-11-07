@@ -1,0 +1,13 @@
+<main><header><h1>Consumer Action</h1></header>
+<p>Consumer lifecycle events.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<div><div><pre><code class="language-text">$JS.EVENT.ADVISORY.CONSUMER.CREATED.{stream}.{consumer}
+$JS.EVENT.ADVISORY.CONSUMER.DELETED.{stream}.{consumer}</code></pre></div></div>
+<p>Where:</p>
+<ul>
+<li><code>{stream}</code> is the stream name</li>
+<li><code>{consumer}</code> is the consumer name</li>
+</ul>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>An Advisory sent when a Consumer is created or deleted</p><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.consumer_action"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>action</span><span>string</span><span>required</span></div><div>The action that the event describes</div><div><span>Allowed values:</span><code>create</code><code>delete</code></div></div><div><div><span>stream</span><span>string</span><span>required</span></div><div>The name of the Stream that the Consumer belongs to</div></div><div><div><span>consumer</span><span>string</span></div><div>The name of the Consumer that's acted on</div></div><div><div><span>domain</span><span>string</span></div><div>The domain of the JetStream server the event is from</div></div></div></div></main>

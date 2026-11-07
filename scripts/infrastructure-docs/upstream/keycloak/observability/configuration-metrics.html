@@ -1,0 +1,186 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak has built in support for metrics. This guide describes how to enable and configure server metrics.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_enabling_metrics"><a class="anchor" href="#_enabling_metrics"></a>Enabling Metrics</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>It is possible to enable metrics using the build time option <code>metrics-enabled</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start <span class="nt">--metrics-enabled</span><span class="o">=</span><span class="nb">true</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_querying_metrics"><a class="anchor" href="#_querying_metrics"></a>Querying Metrics</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak exposes metrics at the following endpoint on the management interface at:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>/metrics</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information about the management interface, see <a href="https://www.keycloak.org/server/management-interface">Configuring the Management Interface</a>.
+The response from the endpoint uses a <code>application/openmetrics-text</code> content type and it is based on the Prometheus (OpenMetrics) text format. The snippet below
+is an example of a response:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code># HELP base_gc_total Displays the total number of collections that have occurred. This attribute lists -1 if the collection count is undefined for this collector.
+# TYPE base_gc_total counter
+base_gc_total{name="G1 Young Generation",} 14.0
+# HELP jvm_memory_usage_after_gc_percent The percentage of long-lived heap pool used after the last GC event, in the range [0..1]
+# TYPE jvm_memory_usage_after_gc_percent gauge
+jvm_memory_usage_after_gc_percent{area="heap",pool="long-lived",} 0.0
+# HELP jvm_threads_peak_threads The peak live thread count since the Java virtual machine started or peak was reset
+# TYPE jvm_threads_peak_threads gauge
+jvm_threads_peak_threads 113.0
+# HELP agroal_active_count Number of active connections. These connections are in use and not available to be acquired.
+# TYPE agroal_active_count gauge
+agroal_active_count{datasource="default",} 0.0
+# HELP base_memory_maxHeap_bytes Displays the maximum amount of memory, in bytes, that can be used for memory management.
+# TYPE base_memory_maxHeap_bytes gauge
+base_memory_maxHeap_bytes 1.6781410304E10
+# HELP process_start_time_seconds Start time of the process since unix epoch.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.675188449054E9
+# HELP system_load_average_1m The sum of the number of runnable entities queued to available processors and the number of runnable entities running on the available processors averaged over a period of time
+# TYPE system_load_average_1m gauge
+system_load_average_1m 4.005859375
+
+...</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_next_steps"><a class="anchor" href="#_next_steps"></a>Next steps</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Read the guides <a href="https://www.keycloak.org/observability/keycloak-service-level-indicators">Monitoring performance with Service Level Indicators</a> and <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting">Troubleshooting using metrics</a> to see how to use the metrics.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_relevant_options"><a class="anchor" href="#_relevant_options"></a>Relevant options</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch options">
+<colgroup>
+<col style="width: 75%;"/>
+<col style="width: 12.5%;"/>
+<col style="width: 12.5%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"></th>
+<th class="tableblock halign-left valign-top"><em>Type</em> or Values</th>
+<th class="tableblock halign-left valign-top">Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>cache-metrics-histograms-enabled</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Enable histograms for metrics for the embedded caches.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--cache-metrics-histograms-enabled</code><br/>
+<strong>Env:</strong> <code>KC_CACHE_METRICS_HISTOGRAMS_ENABLED</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when metrics are enabled</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>http-metrics-histograms-enabled</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Enables a histogram with default buckets for the duration of HTTP server requests.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--http-metrics-histograms-enabled</code><br/>
+<strong>Env:</strong> <code>KC_HTTP_METRICS_HISTOGRAMS_ENABLED</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when metrics are enabled</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>http-metrics-slos</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Service level objectives for HTTP server requests.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">Use this instead of the default histogram, or use it in combination to add additional buckets. Specify a list of comma-separated values defined in milliseconds. Example with buckets from 5ms to 10s: 5,10,25,50,250,500,1000,2500,5000,10000</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--http-metrics-slos</code><br/>
+<strong>Env:</strong> <code>KC_HTTP_METRICS_SLOS</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when metrics are enabled</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><em>String</em></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>metrics-enabled</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">If the server should expose metrics.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If enabled, metrics are available at the <code>/metrics</code> endpoint.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--metrics-enabled</code><br/>
+<strong>Env:</strong> <code>KC_METRICS_ENABLED</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div> </div>
+</main>

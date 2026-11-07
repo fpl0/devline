@@ -1,0 +1,85 @@
+<main><header><h1>Upgrade to NATS 2.12</h1></header>
+<p>This guide is for existing NATS users upgrading from version 2.11.x. It summarizes what's new and what to watch for, with links to pages that cover each feature in depth.</p>
+<p>For the complete changelog, see the <a href="https://github.com/nats-io/nats-server/releases/tag/v2.12.0">v2.12.0 release notes on GitHub</a>. For the story behind the release, see the <a href="https://nats.io/blog/nats-server-2.12-release/">announcement post</a>.</p>
+<h2 id="features">Features</h2>
+<h3 id="streams">Streams</h3>
+<ul>
+<li>
+<p><strong>Atomic batch publish:</strong> The <code>AllowAtomicPublish</code> stream configuration option allows to atomically publish N messages into a stream. This includes support for replicated and non-replicated streams, as well as doing per-message consistency checks prior to committing the batch. See <a href="/learn/jetstream/advanced-publishing">Advanced publishing</a> and <a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-50.md">ADR-50</a>.</p>
+</li>
+<li>
+<p><strong>Distributed Counter CRDT:</strong> The <code>AllowMsgCounter</code> stream configuration option allows increment/decrement counter semantics on a stream. These counter streams can also be mirrored or aggregated through stream mirroring and sourcing. More information is available in <a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-49.md">ADR-49</a>.</p>
+</li>
+<li>
+<p><strong>Delayed Message Scheduling:</strong> The <code>AllowMsgSchedules</code> stream configuration option allows the scheduling of messages. Users can use this feature for delayed publishing/scheduling of messages. More information is available in <a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-51.md">ADR-51</a>.</p>
+</li>
+</ul>
+<h3 id="consumers">Consumers</h3>
+<ul>
+<li><strong>Prioritized pull consumer policy:</strong> In addition to the consumer policies like overflow or client pinning, a new <code>prioritized</code> policy has been added. In contrast with the overflow policy, this allows a consumer to receive messages sooner instead of delaying failover, but at the cost of potentially flip-flopping work between clients. See <a href="/learn/jetstream/priority-groups">Priority groups</a> and <a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-42.md#prioritized-policy">ADR-42</a>.</li>
+</ul>
+<h3 id="operations">Operations</h3>
+<ul>
+<li>
+<p><strong>Server metadata:</strong> Similar to <code>server_tags</code> which contains a set of tags describing the server, <code>server_metadata</code> is a map containing string keys and values describing metadata of the server.</p>
+</li>
+<li>
+<p><strong>Promoting mirrors:</strong> A stream that's mirroring can now be promoted to be the primary, enabling new disaster recovery methodology. The current primary stream should be deleted or have its configured subjects removed prior to promoting mirrors, before configuring the promoted mirrors to start listening on those subjects. See <a href="/learn/backup-recovery/disaster-recovery">Disaster recovery</a>.</p>
+</li>
+<li>
+<p><strong>Exponential backoff on route and gateway connections:</strong> Cluster routes and gateways can now use exponential backoff on reconnection attempts by setting <code>connect_backoff</code>. If <code>true</code>, will start exponential backoff at 1 second up to 30 seconds. This can slow down the speed of reconnection but significantly reduces the amount of DNS queries and general connection attempts during server restarts or outages.</p>
+</li>
+<li>
+<p><strong>Offline assets:</strong> When downgrading to an older version, the server can now recognize new features were used and puts the stream and/or consumer into an unsupported/offline mode. For more information, read also the downgrade considerations. More information is available in <a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-44.md#offline-assets">ADR-44</a>.</p>
+</li>
+<li>
+<p><strong>Stream/consumer scaleup and reset disk/state protection:</strong> The server now has better protections against leader elections based on empty state. This also improves reliability of replicated in-memory streams. Usually a quorum of servers needs to be online and contain data. Now all but one server can be restarted and the in-memory stream's data can reliably be caught back up. However, during such a scenario all servers involved with replication of that stream will need to be available, not just what's needed for quorum. This lets the servers decide the best course of action to preserve all data.</p>
+</li>
+</ul>
+<h2 id="improvements">Improvements</h2>
+<ul>
+<li>
+<p><strong>Async stream flushing:</strong> Replicated streams will now asynchronously flush data to the underlying store on disk, resulting in a significant improvement in performance. Writes to a replicated stream are still persisted synchronously in the Raft log prior to committing them, so the improved performance has no downsides with respect to consistency.</p>
+</li>
+<li>
+<p><strong>Elastic pointers in the filestore:</strong> File-based streams now use elastic pointers for its write-through caches. This allows the server to better respond during garbage collection, these caches can be evicted early to avoid out-of-memory conditions (see upgrade considerations below).</p>
+</li>
+<li>
+<p><strong>Use cipher suites from <code>crypto/tls</code>:</strong> New cipher suites are now automatically added. Additionally, insecure cipher suites are disabled by default, but can be allowed when enabling <code>allow_insecure_cipher_suites</code>.</p>
+</li>
+<li>
+<p><strong>System events for the <code>$G</code> account:</strong> The global account (<code>$G</code>) will now also produce system events, such as connect and disconnect events.</p>
+</li>
+<li>
+<p><strong><code>GOMAXPROCS</code> and <code>GOMEMLIMIT</code> in server stats:</strong> The server stats already contained the CPU and memory usage of the server but now also contains the effective Go limits.</p>
+</li>
+<li>
+<p><strong>New subject transforms: <code>partition(n)</code> and <code>random(n)</code>:</strong> In addition to <code>partition(n, …)</code> which allows to determine a partition number based on tokens at specified indices, <code>partition(n)</code> and <code>random(n)</code> are convenience functions to create a partition or random number up to <code>n</code> based on the whole subject.</p>
+</li>
+<li>
+<p><strong>Account name and user logging:</strong> Any logging related to a client connection, for example when reaching maximum connections or for authentication errors, will now include the account name and user of that client connection. Connection closed logging now includes the remote server name.</p>
+</li>
+<li>
+<p><strong>Isolated leaf node property:</strong> In a large deployment with lots of leaf nodes, propagating east-west interest can result in a lot of traffic, which is wasted if leaf nodes don't need to be able to publish/subscribe to each other directly. Instead of the workaround of setting the cluster name of those leaf nodes to be the same, the <code>isolate_leafnode_interest</code> property can now be used.</p>
+</li>
+<li>
+<p><strong>Disable leaf node connection through config reload:</strong> This allows disabling a remote leaf node using configuration reload, when using <code>disabled: true</code>. If changed from false to true, a solicited leaf node will be disconnected and will not reconnect. If changed from true to false, the leafnode will be solicited again.</p>
+</li>
+</ul>
+<h2 id="upgrade-considerations">Upgrade considerations</h2>
+<h3 id="memory-usage">Memory usage</h3>
+<p>With the new elastic pointers in the filestore, it is expected that a NATS Server running 2.12 may show a different memory usage pattern to before. In some systems this may result in lower resident set size (RSS) reported, in others it may result in higher, depending on the number of assets and publish/access patterns.</p>
+<p>For the first time, the server will be able to respond to memory pressure by freeing filestore caches on demand and returning the memory to the operating system. This reduces the chance that sudden spikes in utilisation will result in an out-of-memory (OOM) kill. However, this means that the server can more optimistically retain caches in memory when available resources allow in order to facilitate improved read access times.</p>
+<p>This behaviour is largely controlled by the GC thresholds as set by the <code>GOMEMLIMIT</code> <a href="https://tip.golang.org/doc/gc-guide#Memory_limit">environment variable</a>. You may wish to tune this value in your environment based on available system memory, or in the case of Kubernetes environments, memory reservations.</p>
+<h3 id="strict-jetstream-api">Strict JetStream API</h3>
+<p>Starting from version v2.11, the server would start logging the following statement if an invalid JetStream request was received:</p>
+<div><div><pre><code class="language-text">[WRN] Invalid JetStream request '$G &gt; $JS.API.STREAM.CREATE.test-stream': json: unknown field "unknown"</code></pre></div></div>
+<p>Starting from version v2.12, the server will not only log, but also return an error to the client as "strict mode" is now enabled by default. This means invalid JetStream requests will be rejected by default.</p>
+<p>If the above log message is observed, please make sure that the application or client is sending correct requests to the server and that NATS client libraries are up-to-date. Strict mode can be temporarily disabled in the server configuration, allowing you more time to fix the issue:</p>
+<div><div><pre><code class="language-text">jetstream {
+  strict: false
+}</code></pre></div></div>
+<h2 id="downgrade-considerations">Downgrade considerations</h2>
+<h3 id="stream-state">Stream state</h3>
+<p>When downgrading from v2.12 to v2.11, the stream state files on disk will be rebuilt due to a change in the format of these files in v2.12. This requires re-scanning all stream message blocks, which may use higher CPU than usual and will likely take longer for the restarted node to report healthy. This will only happen on the first restart after downgrading and will not result in data loss.</p>
+<p>When downgrading, only downgrade to v2.11.9 or higher. Starting from this version, the server will recognize the use of new v2.12 features and will safely put the stream and/or consumer that uses these new features into an unsupported/offline mode. Importantly, this will both protect the data as well as the server itself from accessing unsupported features or data.</p></main>

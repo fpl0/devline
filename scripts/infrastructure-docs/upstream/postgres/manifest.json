@@ -1,0 +1,19 @@
+{
+  "publisher": "PostgreSQL Global Development Group",
+  "version": "18.6",
+  "provenance": "Rendered manual from the exact [PostgreSQL 18.6 documentation release archive](https://apt.postgresql.org/pub/latest/postgresql-18.6-docs.tar.gz). The [REL_18_6 copyright notice](https://github.com/postgres/postgres/blob/REL_18_6/COPYRIGHT) permits redistribution of the documentation. The per-page links use the publisher's PostgreSQL 18 documentation URLs, which may track a later 18.x patch online.",
+  "license": "PostgreSQL",
+  "notices": ["COPYRIGHT"],
+  "coverage": "Complete English HTML manual for 18.6, including the tutorial, SQL language, administration, interfaces, tools, extensions, and release notes.",
+  "omissions": "Separate PDF and duplicate man page formats are outside the searchable snapshot.",
+  "entry": "index",
+  "html_archive": {
+    "path": "postgresql-18.6-docs.tar.gz",
+    "root": "postgresql-18.6/doc/src/sgml/html",
+    "sha256": "0419dec0d3b7ca55a80c0519a1dd88a8d172019ef9841288889f0281ea1f97ed",
+    "count": 1148,
+    "url": "https://www.postgresql.org/docs/18/",
+    "selector": {"id": "docContent"}
+  },
+  "documents": []
+}

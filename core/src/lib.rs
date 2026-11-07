@@ -243,6 +243,7 @@ fn install_docs_job(
     if id == apple_docs::PACK_ID {
         return apple_docs::install(ctx, version, job);
     }
+    let _lock = lock_library(ctx)?;
     let pack = ctx
         .catalog
         .docs
@@ -386,17 +387,29 @@ fn verify_doc_source<'a>(
     Ok(bundled)
 }
 
+// Callers hold the library lock from source selection through publication.
 pub(crate) fn install_doc_pack(ctx: &Context, pack: &DocPack, directory: &Path) -> Result<Value> {
+    install_doc_pack_with_preference(ctx, pack, directory, pack.local_only)
+}
+
+fn install_doc_pack_with_preference(
+    ctx: &Context,
+    pack: &DocPack,
+    directory: &Path,
+    prefer: bool,
+) -> Result<Value> {
     let pack = verify_doc_source(ctx, pack, directory)?;
-    let _lock = lock_library(ctx)?;
     let mut db = ctx.database()?;
     let tx = db.transaction()?;
     let mut result = import_doc_pack(&tx, pack, directory)?;
-    if pack.local_only {
+    if prefer {
         doc_updates::prefer_release(&tx, &pack.id, &pack.version)?;
+    }
+    if pack.local_only {
         result["local_only"] = json!(true);
     }
     tx.commit()?;
+    doc_updates::prune_after_install(ctx, &[(pack.id.as_str(), pack.version.as_str())])?;
     Ok(result)
 }
 
@@ -671,22 +684,22 @@ pub fn execute(request: &Value) -> Result<Value> {
             request["focus_text"].as_str(),
         ),
         "reading.remove" => reference::remove(&ctx, text_arg(request, "id")?),
+        "library.retention" => updates::retention(&ctx, request),
+        "library.purge" => {
+            let _lock = lock_library(&ctx)?;
+            let docs = doc_updates::prune(&ctx, None)?;
+            let starters = templates::prune(&ctx, None)?;
+            drop(_lock);
+            let images = infrastructure::prune(&ctx)?;
+            Ok(json!({"docs":docs,"starters":starters,"images":images}))
+        }
         "docs.remove" => {
             let _lock = lock_library(&ctx)?;
-            let mut db = ctx.database()?;
-            let tx = db.transaction()?;
             let id = text_arg(request, "id")?;
             let version = text_arg(request, "version")?;
-            tx.execute("INSERT INTO docs_fts(docs_fts,rowid,title,body,stack) SELECT 'delete',rowid,title,body,stack FROM documents WHERE pack_id=?1 AND version=?2",params![id,version])?;
-            tx.execute("DELETE FROM aliases WHERE document_id IN (SELECT id FROM documents WHERE pack_id=?1 AND version=?2)",params![id,version])?;
-            tx.execute(
-                "DELETE FROM documents WHERE pack_id=?1 AND version=?2",
-                params![id, version],
-            )?;
-            tx.execute(
-                "DELETE FROM packs WHERE id=?1 AND version=?2",
-                params![id, version],
-            )?;
+            let mut db = ctx.database()?;
+            let tx = db.transaction()?;
+            doc_updates::remove_index(&tx, id, version)?;
             tx.commit()?;
             Ok(json!({"removed":true}))
         }

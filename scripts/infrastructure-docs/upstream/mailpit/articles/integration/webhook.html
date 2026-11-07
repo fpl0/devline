@@ -1,0 +1,27 @@
+<main>
+		
+		<h1>Webhook</h1>
+		<p>You can optionally set a webhook URL to be called when a message is received, allowing Mailpit to trigger events in other web services.
+Mailpit has been tested with <a href="https://n8n.io/">n8n</a>, but it should work equally well with any service that allows webhook configuration.</p>
+<p>Mailpit will send a JSON POST to this URL with a <a href="https://mailpit.axllent.org/docs/api-v1/view.html#get-/api/v1/message/-ID-">message summary</a> (see Response -&gt; Schema) of the received message.</p>
+<p>To set a webhook URL, use the <code>--webhook-url &lt;URL&gt;</code> (@env <code>MP_WEBHOOK_URL=&lt;url&gt;</code>) option.</p>
+<h2 id="notes">Notes:</h2>
+<ul>
+<li>You can use basic authentication by adding the user and password to the webhook URL (e.g., <code>https://user:password@example.com/webhook</code>).</li>
+<li>Only received messages will trigger the webhook (i.e., not deleted messages, etc.).</li>
+<li>The JSON data contains only the message summary and cannot be modified.</li>
+<li>Webhook calls are, by default, limited to 1 request per second. When the limit is reached, any subsequent messages are ignored (not queued) until the time period is reached.</li>
+<li>Failed webhook calls are not retried.</li>
+<li>If a Mailpit label has been specified, a <code>Mailpit-Label</code> header is automatically added to the webhook request.</li>
+</ul>
+<h2 id="rate-limiting">Rate limiting</h2>
+<p>By default, Mailpit will rate-limit webhook calls to one request per second to prevent unintended DoS attacks when a burst of messages is received.
+You can increase the rate limit using the <code>--webhook-limit 5</code> (@env <code>MP_WEBHOOK_LIMIT=5</code>) option to allow one call every 5 seconds, or if you do not wish to rate limit at all, set <code>--webhook-limit 0</code>.</p>
+<h2 id="delay">Delay</h2>
+<p>You can also add a delay (in seconds) before each webhook call using the <code>--webhook-delay &lt;seconds&gt;</code> (@env <code>MP_WEBHOOK_DELAY=&lt;seconds&gt;</code>) option.</p>
+
+
+		
+		
+		
+	</main>

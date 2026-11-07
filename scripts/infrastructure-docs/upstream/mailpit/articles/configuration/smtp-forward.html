@@ -1,0 +1,68 @@
+<main>
+		
+		<h1>SMTP forwarding</h1>
+		<p>Mailpit can <strong>automatically forward</strong> a copy of <strong>all</strong> incoming messages to a <strong>predefined</strong> email address (or addresses) via another SMTP server.
+This can be useful if you wish to process (or keep a copy of) all emails in another mailbox.</p>
+<p><strong>Note</strong>: This differs significantly from <a href="../smtp-relay/">SMTP relaying</a> which sends a copy to the addresses defined in the email itself.</p>
+<p>To enable SMTP forwarding, the configuration file (yaml syntax) must be provided to Mailpit either via <code>--smtp-forward-config &lt;config-file&gt;</code> or the environment variable <code>MP_SMTP_FORWARD_CONFIG=&lt;config-file&gt;</code>.</p>
+<h2 id="smtp-forward-configuration">SMTP forward configuration</h2>
+<div><pre><code class="language-yaml"><span><span><span>to</span><span>:</span><span> </span><span>&lt;email-address&gt;</span><span> </span><span># required - comma-separated list of email addresses</span><span>
+</span></span></span><span><span><span>host</span><span>:</span><span> </span><span>&lt;hostname-or-ip&gt;</span><span> </span><span># required - SMTP host or IP to send via</span><span>
+</span></span></span><span><span><span>port</span><span>:</span><span> </span><span>&lt;port&gt;</span><span> </span><span># optional - SMTP port, default 25</span><span>
+</span></span></span><span><span><span>starttls</span><span>:</span><span> </span><span>&lt;true|false&gt;</span><span> </span><span># optional - connect using STARTTLS, default false</span><span>
+</span></span></span><span><span><span>tls</span><span>:</span><span> </span><span>&lt;true|false&gt;</span><span> </span><span># optional - connect using TLS, default false</span><span>
+</span></span></span><span><span><span>allow-insecure</span><span>:</span><span> </span><span>&lt;true|false&gt;</span><span> </span><span># optional - do not validate TLS certificate, default false</span><span>
+</span></span></span><span><span><span>auth</span><span>:</span><span> </span><span>&lt;none|plain|login|cram-md5&gt;</span><span> </span><span># optional - default none</span><span>
+</span></span></span><span><span><span>username</span><span>:</span><span> </span><span>&lt;username&gt;</span><span> </span><span># required for plain, login and cram-md5 auth</span><span>
+</span></span></span><span><span><span>password</span><span>:</span><span> </span><span>&lt;password&gt;</span><span> </span><span># required for plain &amp; login auth</span><span>
+</span></span></span><span><span><span>secret</span><span>:</span><span> </span><span>&lt;cram-secret&gt;</span><span> </span><span># required for cram-md5 auth</span><span>
+</span></span></span><span><span><span>return-path</span><span>:</span><span> </span><span>&lt;bounce-address&gt;</span><span> </span><span># optional - overrides Return-Path for all forwarded emails</span><span>
+</span></span></span><span><span><span>override-from</span><span>:</span><span> </span><span>&lt;email-address&gt;</span><span> </span><span># optional - overrides the From email address</span><span>
+</span></span></span><span><span><span>subject-prefix</span><span>:</span><span> </span><span>&lt;text&gt;</span><span> </span><span># optional - text to prepend to the Subject of all forwarded emails</span><span>
+</span></span></span><span><span><span>forward-smtp-errors</span><span>:</span><span> </span><span>&lt;true|false&gt;</span><span> </span><span># optional - whether to log smtp-errors or forward them to upstream-client</span><span>
+</span></span></span></code></pre></div><h3 id="notes">Notes</h3>
+<p>The <code>return-path</code> configuration option will add or overwrite the <code>Return-Path</code> for all forwarded messages.
+This is useful for providing a valid email address to catch any accidental bounces and prevent SPF errors for email domain names.
+Servers such as Gmail have become very strict about the mail they accept, and unresolvable Return-Path addresses, or unauthorised Return-Path addresses (SPF / DMARC) get rejected very easily.</p>
+<p>Also see <a href="#override-from">Override From</a> to change the <code>From</code> email address on all forwarded messages, and <a href="#subject-prefix">Subject prefix</a> to prepend text to the <code>Subject</code>.</p>
+<h4 id="override-from">Override From</h4>
+<p>Some SMTP servers require any messages to come from a specific address.
+If you set the <code>override-from</code> value, Mailpit will overwrite the original <code>From</code> <strong>email address</strong> (leaving the name intact where possible) and add a new <code>X-Original-From</code> header containing the original value.</p>
+<p>For example, if set to <code>me@mydomain.com</code>, then this will change</p>
+<div><pre><code class="language-shell"><span><span>From: <span>"Original Recipient"</span> &lt;original@example.com&gt;
+</span></span></code></pre></div><p>to</p>
+<div><pre><code class="language-shell"><span><span>X-Original-From: original@example.com
+</span></span><span><span>From: <span>"Original Recipient"</span> &lt;me@mydomain.com&gt;
+</span></span></code></pre></div><h4 id="subject-prefix">Subject prefix</h4>
+<p>To make it clear that a message was sent from a test system, set <code>subject-prefix</code> and Mailpit will prepend it to the <code>Subject</code> of all forwarded messages.
+The prefix is trimmed of leading and trailing whitespace, and is always separated from the original subject by a single space.
+It cannot contain line breaks.</p>
+<p>For example, if set to <code>[TEST]</code>, then this will change</p>
+<div><pre><code class="language-shell"><span><span>Subject: Purchase Order Request XYZ1234
+</span></span></code></pre></div><p>to</p>
+<div><pre><code class="language-shell"><span><span>Subject: <span>[</span>TEST<span>]</span> Purchase Order Request XYZ1234
+</span></span></code></pre></div><p>Encoded subjects (RFC 2047) are decoded before the prefix is added, and the result is re-encoded if it contains non-ASCII characters.
+If a message has no <code>Subject</code>, it will be set to the prefix alone.</p>
+<h4 id="setting-via-environment">Setting via environment</h4>
+<p>For convenience, the entire forwarding configuration can be set via environment variables. The only required values are the <code>MP_FORWARD_TO</code> &amp; <code>MP_SMTP_FORWARD_HOST</code> fields.</p>
+<div><pre><code class="language-shell"><span><span><span>MP_SMTP_FORWARD_TO</span><span>=</span>&lt;email-address&gt;                   <span># required - comma-separated list of email addresses top forward to</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_HOST</span><span>=</span>&lt;hostname-or-ip&gt;                <span># required - SMTP host or IP to send via</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_PORT</span><span>=</span>&lt;port&gt;                          <span># optional - default 25</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_STARTTLS</span><span>=</span>&lt;true<span>|</span>false&gt;                <span># optional - connect using STARTTLS, default false</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_TLS</span><span>=</span>&lt;true<span>|</span>false&gt;                     <span># optional - connect using TLS, default false</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_ALLOW_INSECURE</span><span>=</span>&lt;true<span>|</span>false&gt;          <span># optional - do not validate TLS certificate, default false</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_AUTH</span><span>=</span>&lt;none<span>|</span>plain<span>|</span>login<span>|</span>cram-md5&gt;     <span># optional - default none</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_USERNAME</span><span>=</span>&lt;username&gt;                  <span># required for plain, login and cram-md5 auth</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_PASSWORD</span><span>=</span>&lt;password&gt;                  <span># required for plain &amp; login auth</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_SECRET</span><span>=</span>&lt;cram-secret&gt;                 <span># required for cram-md5 auth</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_RETURN_PATH</span><span>=</span>&lt;bounce-address&gt;         <span># optional - overrides Return-Path for all released emails</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_OVERRIDE_FROM</span><span>=</span>&lt;email-address&gt;        <span># optional - overrides the From email address</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_SUBJECT_PREFIX</span><span>=</span>&lt;text&gt;                <span># optional - text to prepend to the Subject of all forwarded emails</span>
+</span></span><span><span><span>MP_SMTP_FORWARD_FWD_SMTP_ERRORS</span><span>=</span>&lt;true<span>|</span>false&gt;         <span># optional - whether to log smtp-errors or forward them to upstream-client</span>
+</span></span></code></pre></div><p>For security reasons, these options are not available as CLI flags.</p>
+
+
+		
+		
+		
+	</main>

@@ -1,0 +1,33 @@
+<main><header><h1>Build RabbitMQ .NET Client from Source</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guides describes the process of building the .NET client library from source.</p>
+<p>The repository is hosted on GitHub. Clone it with</p>
+<div><div><pre><code class="language-bash">git clone https://github.com/rabbitmq/rabbitmq-dotnet-client.git</code></pre></div></div>
+<h2 id="prerequisites">Required Libraries and Tools</h2>
+<p>To build the .NET/C# client libraries on Windows, you will need</p>
+<ul>
+<li>.NET Core or Microsoft .NET 4.6.1 or later</li>
+<li>Microsoft Visual Studio Community Edition 2017 or later</li>
+</ul>
+<h2 id="building">Building from Source</h2>
+<h3 id="building-on-windows-with-vs">On Windows with Visual Studio</h3>
+<p>To build the client with Visual Studio, first run</p>
+<div><div><pre><code class="language-powershell">build.bat</code></pre></div></div>
+<p>in repository root.
+This will perform the required code generation as well as building a release version of the library.</p>
+<p>Then</p>
+<ul>
+<li>Open <code>RabbitMQDotNetClient.sln</code> in Visual Studio.</li>
+<li>Build the solution.</li>
+</ul>
+<h3 id="building-on-windows-no-vs">On Windows without Visual Studio</h3>
+<p>To build the client without Visual Studio, run</p>
+<div><div><pre><code class="language-powershell">build.bat</code></pre></div></div>
+<p>in repository root.
+This will perform the required code generation as well as building a release version of the library.</p>
+<h2 id="building-on-linux">On Linux and MacOS</h2>
+<p>The library can be built on Linux and MacOS using .NET Core 2.</p>
+<p>Run</p>
+<div><div><pre><code class="language-bash">build.sh</code></pre></div></div>
+<p>This will perform the required
+code generation as well as building a release version of the library.</p></main>

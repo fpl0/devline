@@ -1,0 +1,172 @@
+<main><header><h1>JetStream in a cluster</h1></header>
+<p>The previous page left Acme with a three-server cluster called <code>east</code>:
+<code>n1-east</code>, <code>n2-east</code>, and <code>n3-east</code>, joined by routes into a full mesh.
+Clients connect to any of them and fail over to another when one dies.</p>
+<p>Core publish and subscribe already work across that mesh. A message
+published on <code>n1-east</code> reaches a subscriber on <code>n3-east</code> over a route,
+and nothing on this page changes that.</p>
+<p>What this page changes is what JetStream does on the cluster. JetStream is
+already enabled on the <code>east</code> cluster, but no stream lives on it yet. This page
+creates <code>ORDERS</code> replicated across the three servers, so it survives the loss of
+any one of them.</p>
+<p>This page introduces two ideas: the <strong>meta layer</strong> that the cluster runs
+for JetStream, and what it means for a stream to be <strong>replicated</strong> across
+the servers of that cluster.</p>
+<h2 id="the-meta-layer">The meta layer</h2>
+<p>A single JetStream server answers stream and consumer requests on its
+own. A cluster can't work that way: the three servers have to agree on
+what streams exist and where each one lives, so a <code>create ORDERS</code> sent to
+any of them makes one stream, not three. That agreement needs a single
+decision-maker.</p>
+<p>So a JetStream cluster runs a coordinator. The servers elect one
+<strong>meta leader</strong>, and the meta leader owns every decision about <em>where</em>
+streams and consumers live: which servers hold a new stream, which server
+holds each copy, and what happens when a server disappears.</p>
+<p>The set of servers participating in that coordination is the <strong>meta
+group</strong>. Every JetStream-enabled server in the cluster belongs to it.
+One of them is the meta leader, and the rest are followers.</p>
+<p>Which server wins that election doesn't matter and isn't something you
+choose. What matters is that exactly one server coordinates where streams
+and consumers live, and the others can take over if it fails.</p>
+<p>The meta leader decides where a stream lives, but it doesn't handle the
+writes to it. Those go through replication, which the rest of this page
+covers.</p>
+<h2 id="a-replicated-stream-needs-an-odd-number-of-servers">A replicated stream needs an odd number of servers</h2>
+<p>The meta group reaches its decisions by majority vote. A majority of a
+group needs more than half its members reachable, which is why a
+JetStream cluster wants an odd number of servers.</p>
+<p>Three servers form a clean majority of two. Lose one server and two
+remain, still a majority, so the meta group keeps coordinating and your
+streams keep serving. This is exactly why Acme runs three, not two.</p>
+<p>Lose a second server, though, and the majority is gone. With one of three
+left, no write can reach a majority, so the stream stops accepting new
+messages until a server comes back. A write is never stored on a single
+copy that a majority hasn't confirmed. Three servers is what lets any single
+one fail while writes keep flowing.</p>
+<p>An even count gives you no extra protection here. Two servers have no majority once
+one is gone, and four tolerate the same single failure that three do while
+costing an extra server. That's why production clusters run an odd
+count, typically three or five — a stream keeps at most five copies, so
+more servers add capacity, not more copies of one stream.</p>
+<p>The wire-level detail of how that majority vote works (the Raft
+protocol, election timing, and log replication) lives in the
+<a href="/learn/clustering">Clustering &amp; Replication</a> deep dive. What matters here:
+run an odd number of servers so a majority can always form, with one server
+coordinating.</p>
+<h2 id="make-orders-survive-a-server-loss">Make ORDERS survive a server loss</h2>
+<p>The <code>ORDERS</code> stream lived on a single server through the <a href="/learn/jetstream">JetStream
+chapter</a>.
+Now that <code>east</code> is a cluster with JetStream on, you create the stream here —
+and because there are three servers, you create it replicated, so it
+survives one of them dying.</p>
+<p>A stream picks how many copies of itself to keep: its <strong>replica factor</strong>.
+One copy is <code>R1</code>, the default a stream takes unless you ask for more — the
+single-server behavior you've run all along. Three copies is <code>R3</code>, the
+production floor, and a three-server cluster is exactly enough to hold them.</p>
+<p>If you stopped the cluster after the last page, start all three servers
+again first:</p>
+<div><div><pre><code class="language-bash">nats-server -c n1-east.conf &amp;
+nats-server -c n2-east.conf &amp;
+nats-server -c n3-east.conf &amp;</code></pre></div></div>
+<p>Create <code>ORDERS</code> on the cluster with three replicas:</p>
+<div><div><pre><code class="language-bash">nats stream add ORDERS --subjects "orders.&gt;" --replicas=3 --defaults</code></pre></div></div>
+<p>Then ask what it did. The same <code>nats stream info</code> you ran on one server now
+includes a Cluster Information section, because the stream lives on more
+than one:</p>
+<div><div><pre><code class="language-bash">nats stream info ORDERS</code></pre></div></div>
+<div><div><pre><code class="language-text">Cluster Information:
+
+                 Name: east
+        Cluster Group: S-R3F-xK2p9aLm
+               Leader: n1-east
+              Replica: n3-east, current, seen 0.00s ago
+              Replica: n2-east, current, seen 0.00s ago</code></pre></div></div>
+<p>Read this section top to bottom. <code>Name: east</code> is the cluster the stream lives in. Replication stays inside
+one cluster; it's the unit a stream is replicated across.</p>
+<p><code>Cluster Group</code> is the internal name for this stream's own coordination
+group: its own Raft group, separate from the meta group. Each stream
+gets one.</p>
+<p><code>Leader: n1-east</code> is where the stream's writes land. One of the three
+copies takes every write to <code>ORDERS</code> first, then sends it to the other
+replicas, and the write is acknowledged only once a majority hold it. The two
+<code>Replica</code> lines are the copies that follow. <code>current</code> means a copy has
+recently checked in and holds the same data; <code>seen</code> reports how long
+since it last reported.</p>
+<p>This stream's leader, <code>n1-east</code>, is whichever copy the cluster picked to
+take its writes — not necessarily the server coordinating the meta group.
+The two are chosen independently: the meta leader only places the stream,
+and once placed the stream handles its own writes wherever it landed. You
+configure neither; both fall out of the same majority rule, and the
+<a href="/learn/clustering">Clustering &amp; Replication</a> deep dive covers how they're
+chosen and how they move when a server dies.</p>
+<h2 id="consumers-replicate-too">Consumers replicate too</h2>
+<p>A consumer has state worth protecting as well: how far a reader has gotten
+and which messages are still waiting for an ack. The meta leader places
+consumers just as it places streams, and each consumer gets its own Raft
+group and leader — chosen independently of the stream's, so a consumer can
+lead on <code>n1-east</code> while its stream leads on <code>n3-east</code>. <code>nats consumer info</code>
+shows a Cluster Information section of its own.</p>
+<p>By default a consumer takes its stream's replica count, so a consumer on
+R3 <code>ORDERS</code> is replicated three ways too and keeps its place through a
+server loss. You can set it lower, but an R1 consumer on an R3 stream is
+its own single point of failure: its position lives on one server, so
+losing that server loses the reader's place even though the stream
+survives. The <a href="/learn/clustering">Clustering &amp; Replication</a> deep dive
+covers consumer placement and the replica options in full.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A cluster does not make JetStream highly available on its own. Three habits
+cause problems at the topology level.</p>
+<p><strong>An R1 stream on a cluster still has no HA.</strong> A stream created on a cluster
+defaults to a single replica unless you ask for more. R1 puts one copy on one
+server, so losing that server loses the stream; the cluster around it changes
+nothing. Don't assume "it runs on the cluster" means "it survives a failure."
+Audit replica counts and raise the streams that matter to R3.</p>
+<p>This audit has a runnable form. First, list every stream stuck at one
+replica — on a cluster, a single copy means no failover:</p>
+<div><div><pre><code class="language-bash">nats stream find --replicas=1</code></pre></div></div>
+<p>Raise anything that turns up with <code>nats stream edit &lt;stream&gt; --replicas=3</code>.
+Then assert <code>ORDERS</code> itself holds the three replicas you expect. The check
+exits non-zero when a stream is under-replicated, so it wires straight into a
+health monitor:</p>
+<div><div><pre><code class="language-bash">nats server check stream --stream=ORDERS --peer-expect=3</code></pre></div></div>
+<div><div><pre><code class="language-text">OK ORDERS OK:3 peers OK:0 sources | sources=0</code></pre></div></div>
+<p><strong>An even server count gives you no extra protection.</strong> A majority needs more than half the
+group reachable, so four servers tolerate the same single loss that three do at
+the cost of an extra server, and two have no majority left once one is gone.
+Run an odd number of servers so a majority can always form, never an even
+count like four or six.</p>
+<p><strong>All three replicas in one failure domain defeat R3.</strong> Three copies survive
+one server loss only if the three servers can fail independently. Spread across
+one rack or one availability zone, a single power or network event takes all
+three at once. Steering which servers a stream lands on is placement, covered in
+the <a href="/learn/clustering">Clustering &amp; Replication</a> deep dive. This page only
+flags that R3 alone does not guarantee independent failures.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>Acme's deployment now looks like this:</p>
+<ul>
+<li>The <code>east</code> cluster (<code>n1-east</code>, <code>n2-east</code>, <code>n3-east</code>) runs JetStream
+on every server, each with its own <code>store_dir</code>.</li>
+<li>The cluster elects a <strong>meta leader</strong> that coordinates where streams and
+consumers live.</li>
+<li><code>ORDERS</code> is an R3 stream: three copies across the three servers,
+with one of them taking every write.</li>
+<li>The order service publishes exactly as it always has and gets a
+durability promise it didn't have on a single server.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>The next page leaves a single cluster behind. Acme stands up a second
+cluster, <code>west</code>, and joins it to <code>east</code> with <strong>gateways</strong>, the connection
+that turns two clusters into a
+<a href="/learn/topologies/super-clusters">super-cluster</a>. The <code>ORDERS</code> stream's
+replicas stay inside <code>east</code>, though — joining clusters doesn't stretch one
+stream across them.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/clustering">Operate → Clustering &amp; Replication</a> — Raft, quorum,
+replication, and placement worked through on a real cluster.</li>
+<li><a href="/learn/jetstream/surviving-node-loss">Learn → Surviving node loss</a> —
+file-vs-memory storage durability and the in-flight-publish edge cases
+this page doesn't cover.</li>
+<li><a href="/reference/jetstream/api/meta">Reference → JetStream Meta API</a> — the
+meta-group endpoints the cluster uses to place streams and consumers.</li>
+</ul></main>

@@ -1,0 +1,50 @@
+<main><header><h1>Which protocols does RabbitMQ support?</h1></header>
+<p>RabbitMQ supports several messaging protocols, directly and through the
+use of plugins. This page describes the supported protocols and
+helps differentiate between them.</p>
+<h2 id="amqp-091">AMQP 0-9-1</h2>
+<p>RabbitMQ was originally developed to <a href="/amqp-0-9-1-protocol">support AMQP 0-9-1</a>.
+As such this protocol has been the first "core" protocol supported by
+the broker. We have <a href="/docs/4.3/extensions">extended</a> AMQP 0-9-1 in various ways.</p>
+<p>AMQP 0-9-1 is a binary protocol, and defines quite strong
+messaging semantics. For clients it's a reasonably easy
+protocol to implement, and as such there
+are <a href="/client-libraries/devtools">a large number of client libraries</a> available for
+many different programming languages and environments.</p>
+<p><a href="/tutorials">RabbitMQ tutorials</a> are available for AMQP 0-9-1.</p>
+<h2 id="amqp-10">AMQP 1.0</h2>
+<p><a href="/docs/4.3/amqp">AMQP 1.0</a> is a more modern protocol.
+It is an <a href="https://www.iso.org/standard/64955.html">ISO/IEC 19464</a> and <a href="https://www.amqp.org/node/102">OASIS</a> standard.</p>
+<p>Despite the name, AMQP 1.0 is a very different protocol from AMQP 0-9-1 / 0-9 / 0-8, sharing nothing at the wire level.
+AMQP 1.0 imposes fewer semantic requirements and is therefore supported by more message brokers.
+The protocol is more complex than AMQP 0-9-1, and there are fewer client implementations.</p>
+<p><a href="/blog/2024/08/05/native-amqp">AMQP 1.0 has become a "core" protocol in RabbitMQ 4.0</a>.</p>
+<h2 id="rabbitmq-streams">RabbitMQ Streams</h2>
+<p>The <a href="https://github.com/rabbitmq/rabbitmq-server/blob/v3.13.x/deps/rabbitmq_stream/docs/PROTOCOL.adoc">RabbitMQ Streams protocol</a> allows communicating with <a href="/docs/4.3/streams">streams</a> at very high throughput.
+RabbitMQ supports the streams protocol natively via a <a href="/docs/4.3/stream">plugin</a>.</p>
+<p><a href="/tutorials">RabbitMQ tutorials</a> are available for the RabbitMQ Streams protocol.</p>
+<h2 id="mqtt">MQTT</h2>
+<p><a href="http://mqtt.org/">MQTT</a> is a binary protocol
+emphasising lightweight publish / subscribe messaging,
+targeted towards clients in constrained devices. It has
+well defined messaging semantics for publish / subscribe,
+but not for other messaging idioms.</p>
+<p>RabbitMQ supports MQTT versions 3.1, 3.1.1, and 5.0 <a href="/blog/2023/03/21/native-mqtt">natively</a> via a <a href="/docs/4.3/mqtt">plugin</a>.</p>
+<h2 id="stomp">STOMP</h2>
+<p><a href="http://stomp.github.io/">STOMP</a> is a text-based
+messaging protocol emphasising (protocol) simplicity. It
+defines little in the way of messaging semantics, but is
+easy to implement and very easy to implement partially (it's
+the only protocol that can be used by hand over telnet).</p>
+<p>RabbitMQ supports STOMP (all current versions) via
+a <a href="/docs/4.3/stomp">plugin</a> by proxying internally over AMQP 0-9-1.</p>
+<h2 id="websocket">WebSocket</h2>
+<p>Browser applications can use any of the following three application layer protocols to communicate with RabbitMQ over the <a href="https://datatracker.ietf.org/doc/html/rfc6455">WebSocket protocol</a>:</p>
+<ol>
+<li><a href="/blog/2025/04/16/amqp-websocket">AMQP 1.0 over WebSocket</a></li>
+<li><a href="/docs/4.3/web-mqtt">MQTT over WebSocket</a></li>
+<li><a href="/docs/4.3/web-stomp">STOMP over WebSocket</a></li>
+</ol>
+<h2 id="http">HTTP</h2>
+<p>While HTTP is not really a messaging protocol, the <a href="/docs/4.3/management">management plugin</a> supports a simple HTTP API to send and receive messages.
+This is primarily intended for diagnostic purposes but can be used for low volume messaging without <a href="/docs/4.3/reliability">reliable delivery</a>.</p></main>

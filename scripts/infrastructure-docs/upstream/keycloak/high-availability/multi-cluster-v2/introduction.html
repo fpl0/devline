@@ -1,0 +1,249 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak allows deployments that consist of multiple Keycloak instances that connect to each other using its embedded Infinispan caches.
+Load balancers can distribute the load evenly across those instances.
+Such setups are intended for transparent networks; see <a href="https://www.keycloak.org/high-availability/single-cluster/introduction">Single-cluster deployments</a> for more details.</p>
+</div>
+<div class="paragraph">
+<p>A multi-cluster setup adds additional components to provide high availability that may be needed for some environments.</p>
+</div>
+<div class="paragraph">
+<p>Unlike the standard <a href="https://www.keycloak.org/high-availability/multi-cluster/introduction">Multi-cluster deployments (v1)</a>, it removes the requirement for an external Infinispan cluster.
+This simplifies the deployment architecture and lifts any requirement for a specific environment such as Kubernetes or AWS.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_when_to_use_a_multi_cluster_setup"><a class="anchor" href="#_when_to_use_a_multi_cluster_setup"></a>When to use a multi-cluster setup</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The multi-cluster deployment capabilities of Keycloak are targeted at use cases that:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Are constrained to a single region or an equivalent low-latency setup.</p>
+</li>
+<li>
+<p>Permit planned outages for maintenance.</p>
+</li>
+<li>
+<p>Fit within a defined user and request count.</p>
+</li>
+<li>
+<p>Can accept the impact of periodic outages.</p>
+</li>
+<li>
+<p>Provide data centers with the appropriate network latency and database configuration.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-v2-infrastructure-requirements"><a class="anchor" href="#multi-cluster-v2-infrastructure-requirements"></a>Infrastructure requirements</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To run multi-cluster v2, use an infrastructure that meets the following requirements:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>A highly available database with synchronous replication.</strong></p>
+<div class="paragraph">
+<p>Without synchronous replication, a database failover or a stale database read can result in data loss or an inconsistent state, including user sessions, recent configuration changes, or authentication state.</p>
+</div>
+</li>
+<li>
+<p><strong>Two or more clusters with low latency for read, write, and commit operations to the database.</strong></p>
+<div class="paragraph">
+<p>A commit latency of less than 5 ms is suggested, and below 10 ms is required.</p>
+</div>
+<div class="paragraph">
+<p>With synchronous replication, each commit includes a round-trip from the database primary to its replica to transfer the write-ahead log.
+High commit latency slows every write operation, including login and token requests, and can cause cascading timeouts and low throughput.</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Synchronized clocks across all nodes.</strong></p>
+<div class="paragraph">
+<p>Keycloak uses timestamps to detect cluster membership and to distribute cache invalidation messages between clusters.
+Clocks must be synchronized using NTP or an equivalent mechanism.
+A clock skew of more than 10 seconds between clusters can cause cache invalidation messages to not be delivered, leading to stale cached data.</p>
+</div>
+</li>
+<li>
+<p><strong>An external load balancer to balance requests between the clusters and probe their availability.</strong></p>
+<div class="paragraph">
+<p>Without a load balancer that actively probes the Keycloak health endpoints, site failures are not detected automatically, and traffic continues to be routed to a failed site or split-brain partitions until manual intervention.</p>
+</div>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>While equivalent setups should work, you will need to verify the performance and failure behavior of your environment.
+We provide functional tests, failure tests and load tests in the <a href="https://www.keycloak.org/keycloak-benchmark/">Keycloak Benchmark Project</a>.</p>
+</div>
+<div class="paragraph">
+<p>Latency and latency spikes amplify in the response time of the service and can lead to queued requests, timeouts, and failed requests.
+Networking problems can cause downtimes until the failure detection isolates problematic nodes.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-v2-tested-configuration"><a class="anchor" href="#multi-cluster-v2-tested-configuration"></a>Tested Configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>We regularly test Keycloak with the following configuration:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Two OpenShift single-AZ clusters, in the same AWS Region</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Provisioned with <a href="https://www.redhat.com/en/technologies/cloud-computing/openshift/aws">Red Hat OpenShift Service on AWS</a> (ROSA),
+using ROSA HCP.</p>
+</li>
+<li>
+<p>All worker nodes reside in a single Availability Zone.</p>
+</li>
+<li>
+<p>OpenShift version 4.21.</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Amazon Aurora PostgreSQL database</p>
+<div class="ulist">
+<ul>
+<li>
+<p>High availability with a primary DB instance in one availability zone, and a synchronously replicated reader in the second availability zone.</p>
+</li>
+<li>
+<p>Version 17.5</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>AWS Global Accelerator, sending traffic to both ROSA clusters</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-v2-load"><a class="anchor" href="#multi-cluster-v2-load"></a>Tested load</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>We regularly test Keycloak with the following load:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>1,000,000 users</p>
+</li>
+<li>
+<p>300 requests per second</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>It is imperative that your production deployments are integrated with an observability stack in order to identify issues
+early and facilitate troubleshooting when they do arise. Additional demand on Keycloak makes isolating issues harder,
+therefore this becomes increasingly pertinent as the total number of users and requests per second increases.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>While we did not see a hard limit in our tests with these values, we ask you to test for higher volumes with horizontally and vertically scaled Keycloak instances and databases.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="multi-cluster-v2-limitations"><a class="anchor" href="#multi-cluster-v2-limitations"></a>Limitations</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>During certain failure scenarios, there may be downtime of several minutes depending on the configuration of the database, the load balancer, or Keycloak. By default, Keycloak detects the failure of another node within one minute and either isolates it from the cluster or propagates its state via readiness probes to the load balancer.</p>
+</li>
+<li>
+<p>After certain failure scenarios, manual intervention may be required depending on the database vendor.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_next_steps"><a class="anchor" href="#_next_steps"></a>Next steps</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The different guides introduce the necessary concepts and building blocks.
+For each building block, a blueprint shows how to set up a fully functional example.
+Additional performance tuning and security hardening are still recommended when preparing a production setup.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_concept_and_building_block_overview"><a class="anchor" href="#_concept_and_building_block_overview"></a>Concept and building block overview</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/multi-cluster-v2/concepts">Concepts for multi-cluster deployments (v2)</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_example_blueprint"><a class="anchor" href="#_example_blueprint"></a>Example blueprint</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/multi-cluster-v2/deploy-keycloak-kubernetes">Deploying Keycloak for HA with the Operator (v2)</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/multi-cluster-v2/deploy-keycloak-bare-metal">Deploying Keycloak for HA on bare-metal or virtual machines (v2)</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_operational_procedures"><a class="anchor" href="#_operational_procedures"></a>Operational procedures</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/multi-cluster-v2/upgrades">Managing upgrades (v2)</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/multi-cluster-v2/migrate-from-v1-to-v2">Migrating from multi-cluster v1 to v2</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div> </div>
+</main>

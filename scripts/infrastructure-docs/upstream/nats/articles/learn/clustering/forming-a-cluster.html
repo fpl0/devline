@@ -1,0 +1,233 @@
+<main><header><h1>Forming a cluster</h1></header>
+<p>The <a href="/learn/topologies/your-first-cluster">Topologies chapter</a> wired three
+servers into the cluster <code>east</code> and showed a client surviving a server
+loss. It covered the <code>cluster {}</code> block and the shape it produces. It did
+not cover the <em>how</em>: how a server you pointed at one peer
+ends up holding a route to every peer.</p>
+<p>This page covers that. It's the first mechanism of the chapter, the
+one every later page builds on. Before servers can elect a leader or
+replicate a write, they have to find each other. Two ideas do that work:
+a route, the connection one server opens to another, and gossip,
+the way servers tell each other who else is in the cluster.</p>
+<p>We use the same <code>east</code> cluster the whole way: <code>n1-east</code>, <code>n2-east</code>, and
+<code>n3-east</code>, client ports 4222/4223/4224, route ports 6222/6223/6224. By
+the end of the page they're running and have discovered themselves from
+a single seed.</p>
+<h2 id="a-route-is-a-server-to-server-connection">A route is a server-to-server connection</h2>
+<p>A <strong>route</strong> is the connection one <code>nats-server</code> opens to another so the
+two act as one cluster. It isn't a client connection. A client connects
+on the client port (4222); a route connects on a separate route port
+(6222). The two never share a port, and that distinction has practical
+consequences: half of cluster-formation bugs are a route pointed at the
+client port.</p>
+<p>A route is bidirectional once open. Whichever server dialed, both ends
+afterward send and receive over the same link: subscription interest in
+one direction, the messages that match it in the other. With three
+servers fully connected, every server holds a route to the other two, so
+each is exactly one hop from all the rest.</p>
+<p>Routes come in two kinds, and this page covers how to tell them apart.</p>
+<p>An <strong>explicit route</strong> is one you configured. You wrote its address into
+the <code>routes</code> list in <code>nats.conf</code>, and the server dials it on startup.
+This is the seed: the address a fresh server uses to find the cluster at
+all.</p>
+<p>An <strong>implicit route</strong> is one the server opened on its own, to a peer it
+was <em>not</em> configured to know. The server learned that peer existed and
+dialed it without you writing its address anywhere. Implicit routes are
+how a cluster fills in the connections you didn't configure, and they
+come from gossip.</p>
+<h2 id="gossip-turns-one-seed-into-a-full-mesh">Gossip turns one seed into a full mesh</h2>
+<p>You configured <code>n2-east</code> and <code>n3-east</code> with a single explicit route each,
+both pointing at <code>n1-east</code>. Yet the running cluster has every server
+connected to every other. The connections you never wrote appear on their
+own through <strong>gossip</strong>.</p>
+<p>Gossip is route discovery by INFO redistribution. When two servers form a
+route, each sends the other an <strong>INFO</strong> message, a small protocol frame
+carrying its own address. The receiver learns that peer exists and dials
+it. A server then forwards that INFO to the other peers
+it already holds routes to, so each of them learns the new peer and dials
+it too. Those self-opened connections are implicit routes.</p>
+<p>Trace it on <code>east</code>. <code>n1-east</code> boots and waits. <code>n2-east</code> boots, dials its
+explicit route to <code>n1-east</code>, and the two exchange INFO. <code>n3-east</code> boots,
+dials <em>its</em> explicit route to <code>n1-east</code>, and now <code>n1-east</code> knows about
+both newcomers. On the next INFO exchange, <code>n1-east</code> tells <code>n2-east</code> about
+<code>n3-east</code>. <code>n2-east</code> has no route to <code>n3-east</code>, so it opens one — an
+implicit route that completes the mesh.</p>
+<div></div>
+<p>This is why each server only needs one seed address. You point them all at
+<code>n1-east</code>; gossip discovers the rest. Adding a fourth server later means
+giving it one route, to <code>n1-east</code>, and nothing else.</p>
+<p>The wire-level detail of the INFO frame and the route handshake (every
+field a server advertises, the protocol verbs) lives in
+<a href="/reference/protocols/route">Reference → Route protocol</a>. We only need the
+behavior here: each INFO announces one peer's address, and a server
+forwards a new peer's INFO to the routes it already holds so they dial it
+too.</p>
+<h2 id="stand-up-the-seed-and-two-joiners">Stand up the seed and two joiners</h2>
+<p>These are the <code>east</code> configs from Topologies, with JetStream still enabled
+— the later pages replicate a stream on it. We read them here for what
+they tell us about routes, not as a shape to choose; that choice belongs to
+<a href="/learn/topologies/your-first-cluster">Topologies → Your first cluster</a>.
+One detail differs from that page: here <code>n1-east</code> carries no <code>routes</code> of
+its own, so the pure seed pattern stands out.</p>
+<p><code>n1-east</code> is the seed. It carries no <code>routes</code> of its own; the others find
+it.</p>
+<div><div>n1-east.conf</div><div><pre><code class="language-conf">server_name: n1-east
+listen: 127.0.0.1:4222
+
+jetstream {
+  store_dir: "./js/n1-east"
+}
+
+cluster {
+  name: east
+  listen: 127.0.0.1:6222
+}</code></pre></div></div>
+<p>Three things in the <code>cluster {}</code> block control formation.</p>
+<p><code>name</code> is the cluster identifier, <code>east</code>. Every server that should join
+must set the exact same name. A route to a server whose name differs is
+rejected the moment the names are compared: the server logs
+<code>Rejecting connection, cluster name ... does not match ...</code> and closes the
+route, so the odd server forms a separate cluster of its own. See
+<a href="#pitfalls">Pitfalls</a> for how to catch it in the log.</p>
+<p><code>listen</code> is the route port this server accepts routes on: <code>6222</code>, one
+above the client port and never the same as it. This is the port peers
+dial, not clients.</p>
+<p><code>routes</code> is the list of seed addresses to dial on startup. <code>n1-east</code> has
+none, so it only waits. The joiners carry one each.</p>
+<p><code>n2-east</code> is the same pattern with its own ports and a single explicit
+route back to the seed:</p>
+<div><div>n2-east.conf</div><div><pre><code class="language-conf">server_name: n2-east
+listen: 127.0.0.1:4223
+
+jetstream {
+  store_dir: "./js/n2-east"
+}
+
+cluster {
+  name: east
+  listen: 127.0.0.1:6223
+  routes: [
+    nats://127.0.0.1:6222
+  ]
+}</code></pre></div></div>
+<p><code>n3-east</code> repeats it, one port higher, pointing at the same seed. It
+does <strong>not</strong> list <code>n2-east</code>, and it doesn't need to: gossip will supply
+that route.</p>
+<div><div>n3-east.conf</div><div><pre><code class="language-conf">server_name: n3-east
+listen: 127.0.0.1:4224
+
+jetstream {
+  store_dir: "./js/n3-east"
+}
+
+cluster {
+  name: east
+  listen: 127.0.0.1:6224
+  routes: [
+    nats://127.0.0.1:6222
+  ]
+}</code></pre></div></div>
+<p>Start all three, each with its own config file:</p>
+<div><div><pre><code class="language-bash">nats-server -c n1-east.conf &amp;
+nats-server -c n2-east.conf &amp;
+nats-server -c n3-east.conf &amp;</code></pre></div></div>
+<p><code>n1-east</code> comes up first. As the joiners dial their explicit route to it,
+they exchange INFO, learn about each other, and open the implicit routes
+that complete the mesh, all within a moment of the last server starting.</p>
+<p>The full set of <code>cluster {}</code> fields (<code>pool_size</code>, <code>compression</code>,
+<code>authorization</code>, the per-link <code>tls {}</code> block) is documented in
+<a href="/reference/config/cluster">Reference → Cluster config</a>. We only need
+<code>name</code>, <code>listen</code>, and <code>routes</code> to form the cluster.</p>
+<h2 id="confirm-the-mesh-formed">Confirm the mesh formed</h2>
+<p>Check the cluster's state from the outside. The <code>nats server</code> commands here
+query the system account (<code>$SYS</code>), which these configs don't set up; add one
+(the <a href="/learn/security">Security deep dive</a> covers it) and connect with its
+credentials before you run them.</p>
+<div><div><pre><code class="language-bash">nats server list</code></pre></div></div>
+<p>The list shows all three servers as one cluster, each with its route count:</p>
+<div><div><pre><code class="language-text">╭─────────────────────────────────────────────────────────────────────────╮
+│                             Server Overview                                │
+├─────────┬─────────┬──────┬─────────┬─────┬───────┬──────┬────────┬────────┤
+│ Name    │ Cluster │ Host │ Version │ JS  │ Conns │ Subs │ Routes │ Uptime │
+├─────────┼─────────┼──────┼─────────┼─────┼───────┼──────┼────────┼────────┤
+│ n1-east │ east    │ ...  │ 2.x.x   │ yes │     0 │    9 │      8 │  1m2s  │
+│ n2-east │ east    │ ...  │ 2.x.x   │ yes │     0 │    9 │      8 │  58s   │
+│ n3-east │ east    │ ...  │ 2.x.x   │ yes │     0 │    9 │      8 │  55s   │
+╰─────────┴─────────┴──────┴─────────┴─────┴───────┴──────┴────────┴────────╯</code></pre></div></div>
+<p>Every row's <code>Cluster</code> column reads <code>east</code>, so the three joined one cluster
+and not three separate ones. The <code>Routes</code> column counts route connections,
+not peers: each link to a peer is a small pool of connections (three by
+default) plus a dedicated system-account route, so a three-server cluster
+shows several per server. What confirms the mesh is that the count is the
+same on every row and non-zero. You configured one explicit route per
+joiner; gossip supplied the rest.</p>
+<p>For one server's own view of its routes, query it directly:</p>
+<div><div><pre><code class="language-bash">nats server info n1-east</code></pre></div></div>
+<p>This prints <code>n1-east</code>'s perspective: its client port, the routes it
+holds, and the cluster name it belongs to. The route list there is the
+explicit seed plus every implicit route gossip added.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A cluster is straightforward to form, but three details have to be correct.
+Each one leaves you with a running server that isn't in the cluster you
+meant — sometimes with nothing but a line in the server log to tell you.</p>
+<p><strong>A mismatched <code>cluster.name</code> forms two clusters.</strong> The name is
+what binds servers together. Set <code>name: east</code> on two servers and
+<code>name: eest</code> on the third, and the third's route is rejected: its log reads
+<code>Rejecting connection, cluster name "east" does not match "eest"</code> and it
+forms its own one-server cluster that never merges. Unless you read that
+line, you're left with two clusters that look like one until a message
+fails to cross. Set the identical <code>name</code> on every server, then confirm they
+joined as one before trusting the cluster:</p>
+<div><div><pre><code class="language-bash">nats server list</code></pre></div></div>
+<p>If every row shows <code>east</code>, the mesh is complete. A stray name, or a server
+missing from the list, means it formed a separate cluster. Fix the <code>name</code>
+and restart it.</p>
+<p><strong>Pointing <code>routes</code> at the client port (4222) never forms the mesh.</strong> The
+route port (6222) and the client port (4222) are different listeners. A
+<code>routes</code> entry of <code>nats://127.0.0.1:4222</code> aims at the client listener,
+which speaks the client protocol, not the route protocol. The route never
+establishes and the server runs alone. Always point <code>routes</code> at a peer's
+route port: <code>6222</code>, not <code>4222</code>.</p>
+<p><strong>One seed is enough, but list two or three anyway.</strong> Gossip means a
+single seed route is sufficient to discover the whole cluster. The risk is
+boot ordering: if every joiner seeds off <code>n1-east</code> alone and <code>n1-east</code>
+happens to be down when they start, none of them can find the cluster.
+Listing two or three seed routes lets formation survive any one seed being
+unavailable at boot. Don't rely on a single seed in production:</p>
+<div><div><pre><code class="language-conf">cluster {
+  name: east
+  listen: 127.0.0.1:6223
+  routes: [
+    nats://127.0.0.1:6222
+    nats://127.0.0.1:6224
+  ]
+}</code></pre></div></div>
+<h2 id="where-you-are">Where you are</h2>
+<p>The <code>east</code> cluster is running and has discovered itself from one seed:</p>
+<ul>
+<li><code>n1-east</code>, <code>n2-east</code>, and <code>n3-east</code> are up on client ports
+4222/4223/4224 and route ports 6222/6223/6224.</li>
+<li>Each joiner carried one explicit route to <code>n1-east</code>; gossip opened the
+implicit routes that complete the mesh, so every server holds a route to
+the other two.</li>
+<li><code>nats server list</code> shows all three under cluster <code>east</code>, each with the
+same non-zero route count.</li>
+</ul>
+<p>The servers can now reach each other. What they can't yet do is <em>agree</em>:
+decide together which server owns a stream, and keep that decision when one
+of them fails. RAFT handles that, and it's the subject of the next page.</p>
+<h2 id="whats-next">What's next</h2>
+<p>A cluster whose servers can reach each other still can't reach agreement.
+The next page introduces <strong>RAFT groups</strong> and <strong>leader election</strong>: how the
+servers in <code>east</code> pick a leader for the cluster and for each stream, and how
+they pick a new one when a leader is lost.</p>
+<p>Continue to <a href="/learn/clustering/raft-and-leaders">Raft and leaders</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/cluster">Reference → Cluster config</a> — every field of
+the <code>cluster {}</code> block.</li>
+<li><a href="/reference/protocols/route">Reference → Route protocol</a> — the wire-level
+route handshake and the INFO frame gossip uses.</li>
+<li><a href="/learn/topologies/your-first-cluster">Topologies → Your first cluster</a> —
+the same <code>east</code> cluster as a deployment shape.</li>
+</ul></main>

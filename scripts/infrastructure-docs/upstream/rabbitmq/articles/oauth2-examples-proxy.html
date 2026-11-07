@@ -1,0 +1,51 @@
+<main><header><h1>Use OAuth2 Proxy and Keycloak as OAuth 2.0 server</h1></header>
+<p>This guide explains how to set up OAuth 2.0 for RabbitMQ
+and <a href="https://oauth2-proxy.github.io/oauth2-proxy/">OAuth2 Proxy</a> as Authorization Server using the following flows:</p>
+<ul>
+<li>Access the RabbitMQ Management UI using a browser through OAuth2 Proxy</li>
+</ul>
+<div><div><pre><code class="language-plain">                    [ Keycloak ] 3. authenticate
+                      /|\  |
+                       |   | 4. token
+        2.redirect     |  \|/                                        [ RabbitMQ ]
+                [ Oauth2-Proxy ]       ----5. forward with token--&gt;  [  http    ]
+                      /|\
+                       |
+            1. rabbit_admin from a browser</code></pre></div></div>
+<h2 id="prerequisites-for-using-oauth-2-proxy-and-keycloak">Prerequisites for Using OAuth 2 Proxy and Keycloak</h2>
+<ul>
+<li>Docker</li>
+<li>make</li>
+<li>A local clone of a <a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/tree/next">GitHub repository</a> for branch <code>next</code> that contains all the configuration files and scripts used on this example.</li>
+<li>The following entries in your /etc/hosts file. Without these entries you will get DNS errors in the browser.</li>
+</ul>
+<div><div><pre><code class="language-text">localhost keycloak rabbitmq oauth2-proxy</code></pre></div></div>
+<div class="admonition info"><div class="admonition-title">info</div><div><p><code>make start-keycloak</code> or <code>make start-oauth2-proxy</code> will
+generate the TLS certificate and private keys necessary. These certificates have an expiration date.</p><p>In case of any error messages that hint at expired or invalid certificates, stop Keycloak
+and <code>oauth-proxy</code> and run <code>make clean-certs</code> to regenerate the certificates and private keys,
+then restart Keycloak and the proxy</p></div></div>
+<h2 id="deploy-keycloak">Deploy Keycloak</h2>
+<p>Deploy Keycloak by running the following command:</p>
+<div><div><pre><code class="language-bash">make start-keycloak</code></pre></div></div>
+<p>To access Keycloak Management UI, go to <a href="https://keycloak:8443/">https://keycloak:8443/</a> and enter <code>admin</code> as username and password.</p>
+<p>There is a dedicated <strong>Keycloak realm</strong> called <code>Test</code> configured as follows:</p>
+<ul>
+<li><a href="https://keycloak:8443/admin/master/console/#/realms/test/keys">rsa</a> signing key</li>
+<li>[rsa provider]<a href="https://keycloak:8443/admin/master/console/#/realms/test/keys/providers">https://keycloak:8443/admin/master/console/#/realms/test/keys/providers</a>)</li>
+<li><code>rabbitmq-proxy-client</code> client</li>
+</ul>
+<h2 id="start-oauth2-proxy">Start OAuth2 Proxy</h2>
+<p>To start OAuth2 Proxy, run the following command:</p>
+<div><div><pre><code class="language-text">make start-oauth2-proxy</code></pre></div></div>
+<p>Oauth2 Proxy is configured using <a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/tree/next/conf/oauth2-proxy/alpha-config.yaml">Alpha configuration</a>. This type of configuration inserts the access token into the HTTP <strong>Authorization</strong> header.</p>
+<h2 id="start-rabbitmq">Start RabbitMQ</h2>
+<p>To start RabbitMQ run the following command:</p>
+<div><div><pre><code class="language-text">MODE=oauth2-proxy make start-rabbitmq</code></pre></div></div>
+<p><strong>NOTE</strong>: Oauth2 Proxy requires that the <code>aud</code> claim matches the client's id. However, RabbitMQ requires the
+<code>aud</code> field to match <code>rabbitmq</code> which is the designated <code>resource_server_id</code>. Given that it has been
+impossible to configure keycloak with both values, <a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/tree/next/conf/oauth2-proxy/rabbitmq.conf">rabbitmq.conf</a> has
+the setting below which disables validation of the audience claim.</p>
+<div><div><pre><code class="language-ini">auth_oauth2.verify_aud = false</code></pre></div></div>
+<h2 id="access-management-ui">Access <a href="/docs/4.3/management">management UI</a></h2>
+<p>Go to <a href="https://oauth2-proxy:8442/">https://oauth2-proxy:8442/</a>, click on the <strong>Sign in with Keycloak OIDC</strong> link, and enter the credentials
+<code>rabbit_admin</code> as username and <code>rabbit_admin</code> as password. You should be redirected to RabbitMQ management UI.</p></main>

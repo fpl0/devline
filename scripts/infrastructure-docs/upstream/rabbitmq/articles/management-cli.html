@@ -1,0 +1,910 @@
+<main><header><h1>rabbitmqadmin v2, a Command Line Tool for the HTTP API</h1></header>
+<p><a href="https://github.com/rabbitmq/rabbitmqadmin-ng"><code>rabbitmqadmin</code> v2</a> is a command line tool that uses the HTTP API.</p>
+<p>It supports many of the operations available in the management UI:</p>
+<ul>
+<li>Listing objects (virtual hosts, users, queues, streams, permissions, policies, and so on)</li>
+<li>Creating objects</li>
+<li>Deleting objects</li>
+<li>Access to cluster and node metrics</li>
+<li>Run <a href="/docs/4.3/monitoring#health-checks">health checks</a></li>
+<li>Listing <a href="/docs/4.3/feature-flags">feature flag</a> state</li>
+<li>Listing <a href="/docs/4.3/deprecated-features">deprecated features</a> in use across the cluster</li>
+<li><a href="/docs/4.3/definitions">Definition</a> export, transformations, and import</li>
+<li>Operations on <a href="/docs/4.3/shovel">shovels</a></li>
+<li>Operations on <a href="/docs/4.3/federation">federation upstreams</a> and links</li>
+<li>Closing connections</li>
+<li>Rebalancing of queue leaders across cluster nodes</li>
+</ul>
+<p>Note that <code>rabbitmqadmin</code> is not a replacement for <a href="/docs/4.3/man/rabbitmqctl.8">rabbitmqctl</a> or
+<a href="/docs/4.3/man/rabbitmq-plugins.8">rabbitmq-plugins</a> as the HTTP API intentionally doesn't expose certain operations.</p>
+<h2 id="rabbitmqadmin-v2"><code>rabbitmqadmin</code> v2</h2>
+<p><a href="https://github.com/rabbitmq/rabbitmqadmin-ng">This generation of <code>rabbitmqadmin</code></a> is a standalone project that
+has its own development cycle that's independent from that of RabbitMQ.</p>
+<p>It is distributed as a native binary.</p>
+<h3 id="downloads">Downloads</h3>
+<p>Binaries for x86-64 Linux, aarch64 Linux, aarch64 macOS and x86-64 Windows
+are distributed via <a href="https://github.com/rabbitmq/rabbitmqadmin-ng/releases">GitHub releases</a>.</p>
+<p><code>rabbitmqadmin</code> is also available from <a href="https://github.com/rabbitmq/homebrew-tap">Team RabbitMQ's Homebrew tap</a>:</p>
+<div><div><pre><code class="language-bash">brew tap rabbitmq/tap
+brew install rabbitmqadmin</code></pre></div></div>
+<h3 id="rabbitmq-series-compatibility">RabbitMQ Series Compatibility</h3>
+<p>As of <code>rabbitmqadmin</code> 2.26.0, the tool can be used with the following RabbitMQ release series:</p>
+<ul>
+<li>4.x</li>
+<li>3.13.x</li>
+<li>3.12.x</li>
+</ul>
+<p>Not all series will support every command and argument, as older series would not have newer
+HTTP API endpoints (or support certain parameters of existing endpoints).</p>
+<h2 id="usage">Usage</h2>
+<h3 id="explore-available-command-groups-and-sub-commands">Explore Available Command Groups and Sub-Commands</h3>
+<p>To explore what command groups are available, use</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin help</code></pre></div></div>
+<p>which will output a list of command groups:</p>
+<div><div><pre><code class="language-text">Usage: rabbitmqadmin [OPTIONS] &lt;COMMAND&gt;
+
+Commands:
+  auth_attempts        Authentication attempt statistics
+  bindings             Operations on bindings
+  channels             Operations on channels
+  close                Closes connections
+  config_file          Operations on the local configuration file
+  connections          Operations on connections
+  declare              Creates or declares objects
+  definitions          Operations on definitions (everything except for messages: virtual hosts, queues, streams, exchanges, bindings, users, etc)
+  delete               Deletes objects
+  deprecated_features  Operations on deprecated features
+  exchanges            Operations on exchanges
+  export               See 'definitions export'
+  feature_flags        Operations on feature flags
+  federation           Operations on federation upstreams and links
+  global_parameters    Operations on global runtime parameters
+  health_check         Runs health checks
+  import               See 'definitions import'
+  list                 Lists objects
+  nodes                Node operations
+  operator_policies    Operations on operator policies
+  parameters           Operations on runtime parameters
+  passwords            Operations on passwords
+  permissions          Operations on user permissions
+  plugins              List enabled plugins
+  policies             Operations on policies
+  purge                Purges queues
+  queues               Operations on queues
+  rebalance            Rebalancing of leader replicas
+  show                 Overview, memory footprint breakdown, and more
+  shovels              Operations on shovels
+  streams              Operations on streams
+  tanzu                Tanzu RabbitMQ-specific commands
+  users                Operations on users
+  user_limits          Operations on per-user (resource) limits
+  vhosts               Virtual host operations
+  vhost_limits         Operations on virtual host (resource) limits
+  help                 Print this message or the help of the given subcommand(s)</code></pre></div></div>
+<p>To explore commands in a specific group, use</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin {group name} help</code></pre></div></div>
+<h3 id="explore-the-cli-with-help---help">Explore the CLI with <code>help</code>, <code>--help</code></h3>
+<p>To learn about what command groups and specific commands are available, run</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin help</code></pre></div></div>
+<p>This flag can be appended to a command or subcommand to get command-specific documentation:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin queues declare --help
+# =&gt; creates or declares things
+# =&gt;
+# =&gt; Usage: rabbitmqadmin declare [object]
+# =&gt; ...</code></pre></div></div>
+<p>Alternatively, the <code>help</code> subcommand can be given a command name. It's the equivalent
+of tagging on <code>--help</code> at the end of command name:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin queues help declare
+# =&gt; creates or declares things
+# =&gt;
+# =&gt; Usage: rabbitmqadmin declare [object]
+# =&gt; ...</code></pre></div></div>
+<p>More specific examples are covered in the Examples section below.</p>
+<h3 id="interactive-vs-use-in-scripts">Interactive vs. Use in Scripts</h3>
+<p>Like the original version, <code>rabbitmqadmin</code> v2 is first and foremost built for interactive use
+by humans. Many commands will output formatted tables, for example:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin show overview</code></pre></div></div>
+<p>will output a table that looks like this:</p>
+<div><div><pre><code class="language-text">┌───────────────────────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Overview                                                                                                                                                            │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ key                                                               │ value                                                                                           │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Product name                                                      │ RabbitMQ                                                                                        │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Product version                                                   │ 4.3.1                                                                                           │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ RabbitMQ version                                                  │ 4.3.1                                                                                           │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Erlang version                                                    │ 27.3.4                                                                                          │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Erlang details                                                    │ Erlang/OTP 27 [erts-15.2.7] [source] [64-bit] [smp:10:10] [ds:10:10:10] [async-threads:1] [jit] │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Connections (total)                                               │ 0                                                                                               │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ AMQP 0-9-1 channels (total)                                       │ 0                                                                                               │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Queues and streams (total)                                        │ 1                                                                                               │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Consumers (total)                                                 │ 0                                                                                               │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Messages (total)                                                  │ 0                                                                                               │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Messages ready for delivery (total)                               │ 0                                                                                               │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Messages delivered but unacknowledged by consumers (total)        │ 0                                                                                               │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Publishing (ingress) rate (global)                                │                                                                                                 │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Publishing confirm rate (global)                                  │                                                                                                 │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Consumer delivery (egress) rate (global)                          │                                                                                                 │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Consumer delivery in automatic acknowledgement mode rate (global) │                                                                                                 │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Consumer acknowledgement rate (global)                            │                                                                                                 │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Unroutable messages: returned-to-publisher rate (global)          │                                                                                                 │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Unroutable messages: dropped rate (global)                        │                                                                                                 │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Cluster tags                                                      │ "core": "8"                                                                                     │
+│                                                                   │ "env": "development"                                                                            │
+│                                                                   │ "machine": "X8Y33L97DQ"                                                                         │
+│                                                                   │                                                                                                 │
+├───────────────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Node tags                                                         │ "environment": "production"                                                                     │
+│                                                                   │ "purpose": "iot_ingress"                                                                        │
+│                                                                   │ "region": "ca-central-1"                                                                        │
+│                                                                   │ "series": "4.1.x"                                                                               │
+│                                                                   │                                                                                                 │
+└───────────────────────────────────────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────┘</code></pre></div></div>
+<p>As it is easy to observe, parsing such output in a script will be challenging.</p>
+<p>For this reason, <code>rabbitmqadmin</code> v2 can render results in a way that would be much more friendly
+for scripting if the <code>--non-interactive</code> flag is passed. It is a global flag so it must be
+passed before the command and subcommand name:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --non-interactive show overview</code></pre></div></div>
+<p>The output of the above command will not include any table borders and will is much easier to parse
+as a result:</p>
+<div><div><pre><code class="language-text">key
+Product name                                                      RabbitMQ
+Product version                                                   4.3.1
+RabbitMQ version                                                  4.3.1
+Erlang version                                                    27.3.4
+Erlang details                                                    Erlang/OTP 27 [erts-15.2.7] [source] [64-bit] [smp:10:10] [ds:10:10:10] [async-threads:1] [jit]</code></pre></div></div>
+<h3 id="retrieve-basic-node-information">Retrieve Basic Node Information</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin show overview</code></pre></div></div>
+<p>will display essential node information in tabular form.</p>
+<h3 id="retrieve-connection-queuestream-channel-churn-information">Retrieve Connection, Queue/Stream, Channel Churn Information</h3>
+<p>Helps assess connection, queue/stream, channel <a href="/docs/4.3/connections#high-connection-churn">churn metrics</a> in the cluster.</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin show churn</code></pre></div></div>
+<h3 id="list-cluster-nodes">List Cluster Nodes</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin nodes list</code></pre></div></div>
+<h3 id="list-virtual-hosts">List Virtual Hosts</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin vhosts list</code></pre></div></div>
+<h3 id="list-users">List Users</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin users list</code></pre></div></div>
+<h3 id="create-a-user">Create a User</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin users declare --name "a-user" --password "secure-password" --tags "monitoring,policymaker"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Create user with password hash (recommended)
+# Use 'rabbitmqadmin passwords salt_and_hash "my-password"' to generate the hash
+rabbitmqadmin users declare --name "a-user" --password-hash "$2b$12$abcdefghijklmnopqrstuvwxyz" --tags "administrator"</code></pre></div></div>
+<h3 id="delete-a-user">Delete a User</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin users delete --name "a-user"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Idempotent deletion (does not fail if the user doesn't exist)
+rabbitmqadmin users delete --name "a-user" --idempotently</code></pre></div></div>
+<h3 id="list-user-permissions">List User Permissions</h3>
+<p>See the <a href="/docs/4.3/access-control#authorisation">Access Control guide</a> for more information on permissions.</p>
+<div><div><pre><code class="language-shell"># List permissions for all users
+rabbitmqadmin permissions list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Alternative: list all permissions using the 'users permissions' command
+rabbitmqadmin users permissions</code></pre></div></div>
+<h3 id="grant-user-permissions">Grant User Permissions</h3>
+<p>See the <a href="/docs/4.3/access-control#grant-permissions">Access Control guide</a> for more information on granting permissions.</p>
+<div><div><pre><code class="language-shell"># Grant permissions to a user for a virtual host
+rabbitmqadmin --vhost "events" permissions declare --username "a-user" --configure ".*" --read ".*" --write ".*"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Grant limited permissions (read-only for specific queues)
+rabbitmqadmin --vhost "events" permissions declare --username "monitoring" --configure "" --read "^metrics\\..*" --write ""</code></pre></div></div>
+<h3 id="revoke-user-permissions">Revoke User Permissions</h3>
+<p>See the <a href="/docs/4.3/access-control#authorisation">Access Control guide</a> for more information on permissions.</p>
+<div><div><pre><code class="language-shell"># Revoke all permissions for a user in a virtual host
+rabbitmqadmin --vhost "events" permissions delete --username "a-user"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Idempotent revocation (does not fail if permissions don't exist)
+rabbitmqadmin --vhost "events" permissions delete --username "a-user" --idempotently</code></pre></div></div>
+<h3 id="list-user-connections">List User Connections</h3>
+<div><div><pre><code class="language-shell"># List connections for a specific user
+rabbitmqadmin users connections --username "a-user"</code></pre></div></div>
+<h3 id="list-queues">List Queues</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin queues list</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "monitoring" queues list</code></pre></div></div>
+<h3 id="list-exchanges">List Exchanges</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin exchanges list</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" exchanges list</code></pre></div></div>
+<h3 id="list-bindings">List Bindings</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin bindings list</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" bindings list</code></pre></div></div>
+<h3 id="bind-a-queue-to-an-exchange">Bind a Queue to an Exchange</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" bindings declare --source "events.topic" --destination-type "queue" --destination "target.queue" --routing-key "events.order.created"</code></pre></div></div>
+<h3 id="bind-a-source-exchange-to-a-destination-exchange">Bind a Source Exchange to a Destination Exchange</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" bindings declare --source "events.topic" --destination-type "exchange" --destination "events.fanout" --routing-key "events.*"</code></pre></div></div>
+<h3 id="delete-a-binding">Delete a Binding</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" bindings delete --source "events.topic" --destination-type "queue" --destination "target.queue" --routing-key "events.order.created"</code></pre></div></div>
+<h3 id="bind-an-exchange-to-a-queue-or-another-exchange">Bind an Exchange to a Queue or Another Exchange</h3>
+<p>The <code>exchanges bind</code> command is an alternative to <code>bindings declare</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" exchanges bind --source "events.topic" --destination-type "queue" --destination "events.processing" --routing-key "user.created"</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" exchanges bind --source "events.fanout" --destination-type "exchange" --destination "events.archived" --routing-key ""</code></pre></div></div>
+<h3 id="unbind-an-exchange-from-a-queue-or-another-exchange">Unbind an Exchange from a Queue or Another Exchange</h3>
+<p>The <code>exchanges unbind</code> command is an alternative to <code>bindings delete</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" exchanges unbind --source "events.topic" --destination-type "queue" --destination "events.processing" --routing-key "user.created"</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" exchanges unbind --source "events.fanout" --destination-type "exchange" --destination "events.archived" --routing-key ""</code></pre></div></div>
+<h3 id="create-a-virtual-host">Create a Virtual Host</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin vhosts declare --name "vh-789" --default-queue-type "quorum" --description "Used to reproduce issue #789"</code></pre></div></div>
+<h3 id="delete-a-virtual-host">Delete a Virtual Host</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin vhosts delete --name "vh-789"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># --idempotently means that 404 Not Found responses will not be  considered errors
+rabbitmqadmin vhosts delete --name "vh-789" --idempotently</code></pre></div></div>
+<h3 id="delete-multiple-virtual-hosts">Delete Multiple Virtual Hosts</h3>
+<div class="admonition danger"><div class="admonition-title">danger</div><div><p><strong>THIS IS AN EXTREMELY DESTRUCTIVE OPERATION AND MUST BE USED WITH EXTREME CARE.</strong></p><p>This command will delete ALL virtual hosts matching the provided regular expression pattern.
+ALL data in those virtual hosts will be permanently lost, including:</p><ul>
+<li>Queues, streams, and partitioned streams</li>
+<li>Exchanges and bindings</li>
+<li>Messages</li>
+<li>User permissions</li>
+<li>Federation upstreams and links</li>
+<li>Shovels</li>
+<li>Policies and operator policies</li>
+<li>Runtime parameters</li>
+</ul><p><strong>ALWAYS use <code>--dry-run</code> first to verify what will be deleted before running the actual deletion.</strong></p></div></div>
+<div><div><pre><code class="language-shell"># ALWAYS run with --dry-run first to see what would be deleted
+rabbitmqadmin vhosts delete_multiple --name-pattern "^test-.*" --dry-run</code></pre></div></div>
+<div><div><pre><code class="language-shell"># After verifying with --dry-run, use --approve to perform the actual deletion
+# This will delete ALL virtual hosts whose names start with "test-"
+rabbitmqadmin vhosts delete_multiple --name-pattern "^test-.*" --approve</code></pre></div></div>
+<div class="admonition note"><div class="admonition-title">note</div><div><p>The default virtual host (<code>/</code>) is always preserved and will never be deleted by this command, even if it matches the pattern.</p></div></div>
+<h3 id="enable-virtual-host-deletion-protection">Enable Virtual Host Deletion Protection</h3>
+<p>Virtual host deletion protection prevents a virtual host from being accidentally deleted. This is useful for protecting critical production virtual hosts.</p>
+<p>See the <a href="/docs/4.3/vhosts#deletion-protection">Virtual Hosts guide</a> for more information on deletion protection.</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin vhosts enable_deletion_protection --name "production"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Enable deletion protection for multiple critical virtual hosts
+rabbitmqadmin vhosts enable_deletion_protection --name "production"
+rabbitmqadmin vhosts enable_deletion_protection --name "staging"</code></pre></div></div>
+<h3 id="disable-virtual-host-deletion-protection">Disable Virtual Host Deletion Protection</h3>
+<p>See the <a href="/docs/4.3/vhosts#deletion-protection">Virtual Hosts guide</a> for more information on deletion protection.</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin vhosts disable_deletion_protection --name "production"</code></pre></div></div>
+<h3 id="list-virtual-host-limits">List Virtual Host Limits</h3>
+<div><div><pre><code class="language-shell"># List limits for all virtual hosts
+rabbitmqadmin vhost_limits list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List limits for a specific virtual host
+rabbitmqadmin --vhost "events" vhost_limits list</code></pre></div></div>
+<h3 id="set-a-virtual-host-limit">Set a Virtual Host Limit</h3>
+<div><div><pre><code class="language-shell"># Set a limit on maximum number of connections
+rabbitmqadmin --vhost "events" vhost_limits declare --name "max-connections" --value 100</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Set a limit on maximum number of queues
+rabbitmqadmin --vhost "events" vhost_limits declare --name "max-queues" --value 500</code></pre></div></div>
+<h3 id="delete-a-virtual-host-limit">Delete a Virtual Host Limit</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" vhost_limits delete --name "max-connections"</code></pre></div></div>
+<h3 id="list-user-limits">List User Limits</h3>
+<div><div><pre><code class="language-shell"># List limits for all users
+rabbitmqadmin user_limits list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List limits for a specific user
+rabbitmqadmin user_limits list --username "a-user"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Alternative using the 'users' command group
+rabbitmqadmin users limits --username "a-user"</code></pre></div></div>
+<h3 id="set-a-user-limit">Set a User Limit</h3>
+<div><div><pre><code class="language-shell"># Set a limit on maximum number of connections for a user
+rabbitmqadmin user_limits declare --username "a-user" --name "max-connections" --value 10</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Set a limit on maximum number of channels for a user
+rabbitmqadmin user_limits declare --username "a-user" --name "max-channels" --value 50</code></pre></div></div>
+<h3 id="delete-a-user-limit">Delete a User Limit</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin user_limits delete --username "a-user" --name "max-connections"</code></pre></div></div>
+<h3 id="declare-a-queue">Declare a Queue</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" queues declare --name "target.quorum.queue.name" --type "quorum" --durable true</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" queues declare --name "target.stream.name" --type "stream" --durable true</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" queues declare --name "target.classic.queue.name" --type "classic" --durable true --auto-delete false</code></pre></div></div>
+<h3 id="list-streams">List Streams</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin streams list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List streams in a specific virtual host
+rabbitmqadmin --vhost "events" streams list</code></pre></div></div>
+<h3 id="declare-a-stream">Declare a Stream</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" streams declare --name "events.stream" --expiration "3D"</code></pre></div></div>
+<h3 id="delete-a-stream">Delete a Stream</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" streams delete --name "events.stream"</code></pre></div></div>
+<h3 id="show-stream-details">Show Stream Details</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" streams show --name "events.stream"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Show only specific columns
+rabbitmqadmin --vhost "events" streams show --name "events.stream" --columns "name,messages,consumers"</code></pre></div></div>
+<h3 id="purge-a-queue">Purge a Queue</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" queues purge --name "target.queue.name"</code></pre></div></div>
+<h3 id="delete-a-queue">Delete a Queue</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" queues delete --name "target.queue.name"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># --idempotently means that 404 Not Found responses will not be considered errors
+rabbitmqadmin --vhost "events" queues delete --name "target.queue.name" --idempotently</code></pre></div></div>
+<h3 id="show-queue-details">Show Queue Details</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" queues show --name "target.queue.name"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Show only specific columns
+rabbitmqadmin --vhost "events" queues show --name "target.queue.name" --columns "name,type,messages,consumers"</code></pre></div></div>
+<h3 id="declare-an-exchange">Declare an Exchange</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" exchanges declare --name "events.all_types.topic" --type "topic" --durable true</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" exchanges declare --name "events.all_type.uncategorized" --type "fanout" --durable true --auto-delete false</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" exchanges declare --name "local.random.c60bda92" --type "x-local-random" --durable true</code></pre></div></div>
+<h3 id="delete-an-exchange">Delete an Exchange</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" exchanges delete --name "target.exchange.name"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># --idempotently means that 404 Not Found responses will not be  considered errors
+rabbitmqadmin --vhost "events" exchanges delete --name "target.exchange.name" --idempotently</code></pre></div></div>
+<h3 id="list-connections">List Connections</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin connections list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List connections for a specific virtual host
+rabbitmqadmin --vhost "events" connections list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List connections for a specific user
+rabbitmqadmin connections list_of_user --username "a-user"</code></pre></div></div>
+<h3 id="close-a-connection">Close a Connection</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin connections close --name "127.0.0.1:5672 -&gt; 127.0.0.1:59876"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Alternative using the 'close' command group
+rabbitmqadmin close connection --name "127.0.0.1:5672 -&gt; 127.0.0.1:59876"</code></pre></div></div>
+<h3 id="close-all-connections-for-a-user">Close All Connections for a User</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin connections close_of_user --username "a-user"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Alternative using the 'close' command group
+rabbitmqadmin close user_connections --username "a-user"</code></pre></div></div>
+<h3 id="list-channels">List Channels</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin channels list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List channels in a specific virtual host
+rabbitmqadmin --vhost "events" channels list</code></pre></div></div>
+<h3 id="list-consumers">List Consumers</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin consumers list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List consumers in a specific virtual host
+rabbitmqadmin --vhost "events" consumers list</code></pre></div></div>
+<h3 id="inspect-node-memory-breakdown">Inspect Node Memory Breakdown</h3>
+<p>There are two commands for reasoning about target <a href="/docs/4.3/memory-use">node's memory footprint</a>:</p>
+<div><div><pre><code class="language-shell"># displays a breakdown in bytes
+rabbitmqadmin show memory_breakdown_in_bytes --node 'rabbit@hostname'</code></pre></div></div>
+<div><div><pre><code class="language-shell"># displays a breakdown in percent
+rabbitmqadmin show memory_breakdown_in_percent --node 'rabbit@hostname'</code></pre></div></div>
+<p>Example output of <code>show memory_breakdown_in_percent</code>:</p>
+<div><div><pre><code class="language-text">┌────────────────────────────────────────┬────────────┐
+│ key                                    │ percentage │
+├────────────────────────────────────────┼────────────┤
+│ total                                  │ 100%       │
+├────────────────────────────────────────┼────────────┤
+│ Binary heap                            │ 45.10%     │
+├────────────────────────────────────────┼────────────┤
+│ Allocated but unused                   │ 23.45%     │
+├────────────────────────────────────────┼────────────┤
+│ Quorum queue ETS tables                │ 23.05%     │
+├────────────────────────────────────────┼────────────┤
+│ Other processes                        │ 5.32%      │
+├────────────────────────────────────────┼────────────┤
+│ Other (used by the runtime)            │ 4.98%      │
+├────────────────────────────────────────┼────────────┤
+│ Code                                   │ 4.54%      │
+├────────────────────────────────────────┼────────────┤
+│ Client connections: others processes   │ 3.64%      │
+├────────────────────────────────────────┼────────────┤
+│ Management stats database              │ 3.48%      │
+├────────────────────────────────────────┼────────────┤
+│ Client connections: reader processes   │ 3.22%      │
+├────────────────────────────────────────┼────────────┤
+│ Plugins and their data                 │ 3.12%      │
+├────────────────────────────────────────┼────────────┤
+│ Other (ETS tables)                     │ 1.55%      │
+├────────────────────────────────────────┼────────────┤
+│ Metrics data                           │ 0.66%      │
+├────────────────────────────────────────┼────────────┤
+│ AMQP 0-9-1 channels                    │ 0.40%      │
+├────────────────────────────────────────┼────────────┤
+│ Message store indices                  │ 0.27%      │
+├────────────────────────────────────────┼────────────┤
+│ Atom table                             │ 0.24%      │
+├────────────────────────────────────────┼────────────┤
+│ Client connections: writer processes   │ 0.19%      │
+├────────────────────────────────────────┼────────────┤
+│ Quorum queue replica processes         │ 0.10%      │
+├────────────────────────────────────────┼────────────┤
+│ Stream replica processes               │ 0.07%      │
+├────────────────────────────────────────┼────────────┤
+│ Mnesia                                 │ 0.02%      │
+├────────────────────────────────────────┼────────────┤
+│ Metadata store                         │ 0.02%      │
+├────────────────────────────────────────┼────────────┤
+│ Stream coordinator processes           │ 0.02%      │
+├────────────────────────────────────────┼────────────┤
+│ Classic queue processes                │ 0.00%      │
+├────────────────────────────────────────┼────────────┤
+│ Metadata store ETS tables              │ 0.00%      │
+├────────────────────────────────────────┼────────────┤
+│ Stream replica reader processes        │ 0.00%      │
+├────────────────────────────────────────┼────────────┤
+│ Reserved by the kernel but unallocated │ 0.00%      │
+└────────────────────────────────────────┴────────────┘</code></pre></div></div>
+<p>Note that there are <a href="/docs/4.3/memory-use#strategies">two different supported strategies</a>
+for computing memory footprint of a node. <code>rabbitmqadmin</code> will use the greater value
+for 100% when computing the relative share in percent for each category.</p>
+<p>Other factors that can affect the precision of percentage values reported  are <a href="/docs/4.3/memory-use#preallocated-memory">runtime allocator</a>
+behavior nuances and the <a href="/docs/4.3/memory-use#page-cache">kernel page cache</a>.</p>
+<p>An alternative way to access memory breakdown is via the <code>nodes</code> command group:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin nodes memory_breakdown_in_bytes --node 'rabbit@hostname'</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin nodes memory_breakdown_in_percent --node 'rabbit@hostname'</code></pre></div></div>
+<h3 id="list-feature-flags-and-their-state">List Feature Flags and Their State</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin feature_flags list</code></pre></div></div>
+<h3 id="enable-a-feature-flag">Enable a Feature Flag</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin feature_flags enable --name rabbitmq_4.0.0</code></pre></div></div>
+<h3 id="enable-all-stable-feature-flags">Enable All Stable Feature Flags</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin feature_flags enable_all</code></pre></div></div>
+<h3 id="list-deprecated-features-in-use-in-the-cluster">List Deprecated Features in Use in the Cluster</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin deprecated_features list_used</code></pre></div></div>
+<h3 id="list-all-deprecated-features">List All Deprecated Features</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin deprecated_features list</code></pre></div></div>
+<h3 id="export-definitions">Export Definitions</h3>
+<p>To export <a href="/docs/4.3/definitions">definitions</a> to standard output, use <code>definitions export --stdout</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin definitions export --stdout</code></pre></div></div>
+<p>To export definitions to a file, use <code>definitions export --file /path/to/definitions.file.json</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin definitions export --file /path/to/definitions.file.json</code></pre></div></div>
+<h3 id="export-and-transform-definitions">Export and Transform Definitions</h3>
+<p><code>definitions export</code> can transform the exported JSON definitions file it gets from the
+target node. This is done by applying one or more transformations to the exported
+JSON file.</p>
+<p>This can be useful to remove classic queue mirroring-related keys (such as <code>ha-mode</code>) from a definitions
+set originating from a 3.13.x node, or to obfuscate usernames and passwords, or exclude certain definitions file
+sections entirely.</p>
+<p>To specify what transformations should be applied, use the <code>--transformations</code> options,
+which takes a comma-separated list of  supported operation names.</p>
+<p>The following table explains what transformations are available and what they do:</p>
+<table><thead><tr><th>Transformation name</th><th>Description</th></tr></thead><tbody><tr><td><code>strip_cmq_keys_from_policies</code></td><td>Deletes all classic queue mirroring-related keys (such as <code>ha-mode</code>) from all exported policies.<br/><br/>Must be followed by <code>drop_empty_policies</code> to strip off the policies whose definition has become empty (and thus invalid at import time) after the removal of all classic queue mirroring-related keys</td></tr><tr><td><code>drop_empty_policies</code></td><td>Should be used after <code>strip_cmq_keys_from_policies</code> to strip off the policies whose definition has become empty (and thus invalid at import time) after the removal of all classic queue mirroring-related keys</td></tr><tr><td><code>obfuscate_usernames</code></td><td>Replaces usernames and passwords with dummy values.<br/><br/>For usernames the values used are: <code>obfuscated-username-1</code>, <code>obfuscated-username-2</code>, and so on.<br/><br/>For passwords the values generated are: <code>password-1</code>, <code>password-2</code>, and so forth.<br/><br/>This transformations updates both the users and the permissions sections, consistently</td></tr><tr><td><code>exclude_users</code></td><td>Removes all users from the result. Commonly used together with <code>exclude_permissions</code></td></tr><tr><td><code>exclude_permissions</code></td><td>Removes all permissions from the result. Commonly used together with <code>exclude_users</code></td></tr><tr><td><code>exclude_runtime_parameters</code></td><td>Removes all runtime parameters (including federation upstreams, shovels, WSR and SDS settings in Tanzu RabbitMQ) from the result</td></tr><tr><td><code>exclude_policies</code></td><td>Removes all policies from the result</td></tr><tr><td><code>no_op</code></td><td>Does nothing. Can be used as the default in dynamically computed transformation lists, e.g. in scripts</td></tr></tbody></table>
+<p>The following command applies two transformations named <code>strip_cmq_keys_from_policies</code> and <code>drop_empty_policies</code>
+that will strip all classic queue mirroring-related policy keys that RabbitMQ 3.13 nodes supported,
+then removes the policies that did not have any keys left (ended up having an empty definition):</p>
+<div><div><pre><code class="language-shell"># strips classic mirrored queue-related policy keys from the exported definitions, then prints them
+# to the standard output stream
+rabbitmqadmin definitions export --stdout --transformations strip_cmq_keys_from_policies,drop_empty_policies</code></pre></div></div>
+<p>The following example exports definitions without users and permissions:</p>
+<div><div><pre><code class="language-shell"># removes users and user permissions from the exported definitions, then prints them
+# to the standard output stream
+rabbitmqadmin definitions export --stdout --transformations exclude_users,exclude_permissions</code></pre></div></div>
+<p>To export definitions with usernames replaced by dummy values (usernames: <code>obfuscated-username-1</code>, <code>obfuscated-username-2</code>, and so on;
+passwords: <code>password-1</code>, <code>password-2</code>, and so forth), use the <code>obfuscate_usernames</code> transformation:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin definitions export --file /path/to/definitions.file.json --transformations obfuscate_usernames</code></pre></div></div>
+<h3 id="import-definition">Import Definition</h3>
+<p>To import definitions from the standard input, use <code>definitions import --stdin</code>:</p>
+<div><div><pre><code class="language-shell">cat /path/to/definitions.file.json | rabbitmqadmin definitions import --stdin</code></pre></div></div>
+<p>To import definitions from a file, use <code>definitions import --file /path/to/definitions.file.json</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin definitions import --file /path/to/definitions.file.json</code></pre></div></div>
+<h3 id="export-definitions-from-a-specific-virtual-host">Export Definitions from a Specific Virtual Host</h3>
+<p>To export definitions for a specific virtual host only:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" definitions export_from_vhost --stdout</code></pre></div></div>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" definitions export_from_vhost --file /path/to/vhost-definitions.json</code></pre></div></div>
+<h3 id="import-virtual-host-specific-definitions">Import Virtual Host-specific Definitions</h3>
+<p>To import definitions into a specific virtual host:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" definitions import_into_vhost --file /path/to/vhost-definitions.json</code></pre></div></div>
+<h3 id="declare-an-amqp-0-9-1-shovel">Declare an AMQP 0-9-1 Shovel</h3>
+<p>To declare a <a href="/docs/4.3/shovel-dynamic">dynamic shovel</a> that uses AMQP 0-9-1 for both source and destination, use
+<code>shovels declare_amqp091</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin shovels declare_amqp091 --name my-amqp091-shovel \
+    --source-uri amqp://username:s3KrE7@source.hostname:5672 \
+    --destination-uri amqp://username:s3KrE7@source.hostname:5672 \
+    --ack-mode "on-confirm" \
+    --source-queue "src.queue" \
+    --destination-queue "dest.queue"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># When source and destination queues already exist (predeclared topology)
+rabbitmqadmin shovels declare_amqp091 --name my-amqp091-shovel \
+    --source-uri amqp://username:s3KrE7@source.hostname:5672 \
+    --destination-uri amqp://username:s3KrE7@source.hostname:5672 \
+    --ack-mode "on-confirm" \
+    --source-queue "src.queue" \
+    --destination-queue "dest.queue" \
+    --predeclared-source \
+    --predeclared-destination</code></pre></div></div>
+<h3 id="declare-an-amqp-10-shovel">Declare an AMQP 1.0 Shovel</h3>
+<p>To declare a <a href="/docs/4.3/shovel-dynamic">dynamic shovel</a> that uses AMQP 1.0 for both source and destination, use
+<code>shovels declare_amqp10</code>.</p>
+<p>Note that</p>
+<ol>
+<li>With AMQP 1.0 shovels, credentials in the URI are mandatory (there are no defaults)</li>
+<li>With AMQP 1.0 shovels, the topology must be pre-declared (an equivalent of <code>--predeclared-source</code> and <code>--predeclared-destination</code> flags for AMQP 0-9-1 shovels)</li>
+<li>AMQP 1.0 shovels should use <a href="/docs/4.3/amqp#addresses">AMQP 1.0 addresses v2</a></li>
+</ol>
+<div><div><pre><code class="language-shell">rabbitmqadmin shovels declare_amqp10 --name my-amqp1.0-shovel \
+    --source-uri "amqp://username:s3KrE7@source.hostname:5672?hostname=vhost:src-vhost" \
+    --destination-uri "amqp://username:s3KrE7@source.hostname:5672?hostname=vhost:dest-vhost" \
+    --ack-mode "on-confirm" \
+    --source-address "/queues/src.queue" \
+    --destination-address "/queues/dest.queue"</code></pre></div></div>
+<h3 id="list-shovels">List Shovels</h3>
+<p>To list shovels across all virtual hosts, use <code>shovels list_all</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin shovels list_all</code></pre></div></div>
+<p>To list shovels in a specific virtual host:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" shovels list</code></pre></div></div>
+<h3 id="delete-a-shovel">Delete a Shovel</h3>
+<p>To delete a shovel, use <code>shovels delete --name</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin shovels delete --name my-amqp091-shovel</code></pre></div></div>
+<h3 id="manage-tls-peer-verification-for-shovels">Manage TLS Peer Verification for Shovels</h3>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>These commands should only be used in emergency situations. Disabling TLS peer verification
+reduces security. Always prefer enabling verification with proper certificates.</p></div></div>
+<div><div><pre><code class="language-shell"># Disable TLS peer verification for all shovel source URIs (emergency use only)
+rabbitmqadmin --vhost "events" shovels disable_tls_peer_verification_for_all_source_uris</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Disable TLS peer verification for all shovel destination URIs (emergency use only)
+rabbitmqadmin --vhost "events" shovels disable_tls_peer_verification_for_all_destination_uris</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Enable TLS peer verification for all shovel source URIs with certificate paths
+# Note: paths must be accessible on the RabbitMQ node(s), not the local machine
+rabbitmqadmin --vhost "events" shovels enable_tls_peer_verification_for_all_source_uris \
+  --node-local-ca-certificate-bundle-path /etc/rabbitmq/certs/ca-bundle.pem \
+  --node-local-client-certificate-file-path /etc/rabbitmq/certs/client-cert.pem \
+  --node-local-client-private-key-file-path /etc/rabbitmq/certs/client-key.pem</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Enable TLS peer verification for all shovel destination URIs with certificate paths
+rabbitmqadmin --vhost "events" shovels enable_tls_peer_verification_for_all_destination_uris \
+  --node-local-ca-certificate-bundle-path /etc/rabbitmq/certs/ca-bundle.pem \
+  --node-local-client-certificate-file-path /etc/rabbitmq/certs/client-cert.pem \
+  --node-local-client-private-key-file-path /etc/rabbitmq/certs/client-key.pem</code></pre></div></div>
+<h3 id="list-federation-upstreams">List Federation Upstreams</h3>
+<p>To list <a href="/docs/4.3/federation">federation upstreams</a> across all virtual hosts, use <code>federation list_all_upstreams</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin federation list_all_upstreams</code></pre></div></div>
+<h3 id="create-a-federation-upstream-for-exchange-federation">Create a Federation Upstream for Exchange Federation</h3>
+<p>To create a <a href="/docs/4.3/federated-exchanges">federation upstream</a>, use <code>federation declare_upstream_for_exchanges</code>.
+This command provides a reduced set of options, only those that are relevant
+specifically to exchange federation.</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "local-vhost" federation declare_upstream_for_exchanges --name "pollux" \
+                --uri "amqp://pollux.eng.megacorp.local:5672/remote-vhost" \
+                --ack-mode 'on-publish' \
+                --prefetch-count 2000 \
+                --exchange-name "overridden.name" \
+                --queue-type quorum \
+                --bind-using-nowait true</code></pre></div></div>
+<h3 id="create-a-federation-upstream-for-queue-federation">Create a Federation Upstream for Queue Federation</h3>
+<p>To create a <a href="/docs/4.3/federated-queues">federation upstream</a>, use <code>federation declare_upstream_for_queues</code>.
+This command provides a reduced set of options, only those that are relevant
+specifically to queue federation.</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "local-vhost" federation declare_upstream_for_queues --name "clusters.sirius" \
+                --uri "amqp://sirius.eng.megacorp.local:5672/remote-vhost" \
+                --ack-mode 'on-publish' \
+                --prefetch-count 2000 \
+                --queue-name "overridden.name" \
+                --consumer-tag "overriden.ctag"</code></pre></div></div>
+<h3 id="create-a-universal-federation-upstream">Create a Universal Federation Upstream</h3>
+<p>To create a <a href="/docs/4.3/federation">federation upstream</a> that will be (or can be)
+used for federating both queues and exchanges, use <code>federation declare_upstream</code>. It combines
+<a href="/docs/4.3/federation-reference">all the federation options</a>, that is,
+the options of both <code>declare_upstream_for_queues</code> and <code>declare_upstream_for_exchanges</code>.</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "local-vhost" federation declare_upstream --name "pollux" \
+                --uri "amqp://pollux.eng.megacorp.local:5672/remote-vhost" \
+                --ack-mode 'on-publish' \
+                --prefetch-count 2000 \
+                --queue-name "overridden.name" \
+                --consumer-tag "overriden.ctag" \
+                --exchange-name "overridden.name" \
+                --queue-type quorum \
+                --bind-using-nowait true</code></pre></div></div>
+<h3 id="delete-a-federation-upstream">Delete a Federation Upstream</h3>
+<p>To delete a <a href="/docs/4.3/federation">federation upstream</a>, use 'federation delete_upstream',
+which takes a virtual host and an upstream name:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "local-vhost" federation delete_upstream --name "upstream.to.delete"</code></pre></div></div>
+<h3 id="list-federation-links">List Federation Links</h3>
+<p>To list all <a href="/docs/4.3/federation">federation links</a> across all virtual hosts, use <code>federation list_all_links</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin federation list_all_links</code></pre></div></div>
+<h3 id="manage-tls-peer-verification-for-federation-upstreams">Manage TLS Peer Verification for Federation Upstreams</h3>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>These commands should only be used in emergency situations. Disabling TLS peer verification
+reduces security. Always prefer enabling verification with proper certificates.</p></div></div>
+<div><div><pre><code class="language-shell"># Disable TLS peer verification for all federation upstreams (emergency use only)
+rabbitmqadmin --vhost "events" federation disable_tls_peer_verification_for_all_upstreams</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Enable TLS peer verification for all federation upstreams with certificate paths
+# Note: paths must be accessible on the RabbitMQ node(s), not the local machine
+rabbitmqadmin --vhost "events" federation enable_tls_peer_verification_for_all_upstreams \
+  --node-local-ca-certificate-bundle-path /etc/rabbitmq/certs/ca-bundle.pem \
+  --node-local-client-certificate-file-path /etc/rabbitmq/certs/client-cert.pem \
+  --node-local-client-private-key-file-path /etc/rabbitmq/certs/client-key.pem</code></pre></div></div>
+<h3 id="rebalance-queue-leaders">Rebalance Queue Leaders</h3>
+<p>To <a href="/docs/4.3/quorum-queues#member-rebalancing">rebalance quorum queue</a> leaders across cluster nodes, use <code>rebalance queues</code>. This operation helps distribute queue leaders more evenly across cluster nodes, which can more evenly distribute load and improve resource utilization, depending on the workload.</p>
+<div><div><pre><code class="language-shell"># Rebalance queue leaders in the default virtual host (/)
+rabbitmqadmin rebalance queues</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Rebalance queue leaders in a specific virtual host
+rabbitmqadmin --vhost "production" rebalance queues</code></pre></div></div>
+<p>This operation is asynchronous and may take time to complete depending on the number of queues in the cluster. Monitor RabbitMQ logs for completion status.</p>
+<h3 id="inspect-target-endpoint-for-troubleshooting">Inspect Target Endpoint (for Troubleshooting)</h3>
+<p>Use <code>show endpoint</code> to display the computed HTTP API endpoint URI.</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin show endpoint</code></pre></div></div>
+<p>This command helps verify that <code>rabbitmqadmin</code> is targeting the correct RabbitMQ HTTP API endpoint, for example, when a <code>rabbitmqadmin.conf</code> file exists or environment variables may be set in the environment.</p>
+<h3 id="health-checks">Health Checks</h3>
+<p><code>rabbitmqadmin</code> provides various <a href="/docs/4.3/monitoring#health-checks">health check</a> commands:</p>
+<div><div><pre><code class="language-shell"># Check for local resource alarms on the target node
+rabbitmqadmin health_check local_alarms</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Check for resource alarms across the entire cluster
+rabbitmqadmin health_check cluster_wide_alarms</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Check if node is quorum critical (queues/streams would lose quorum if node shuts down)
+rabbitmqadmin health_check node_is_quorum_critical</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Check for deprecated features in use across the cluster
+rabbitmqadmin health_check deprecated_features_in_use</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Verify TCP listener is reachable on specific port
+rabbitmqadmin health_check port_listener --port 5672</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Verify TCP listener is reachable for specific protocol
+rabbitmqadmin health_check protocol_listener --protocol amqp091</code></pre></div></div>
+<p>These health checks are useful for monitoring scripts and automated cluster health verification.</p>
+<h3 id="authentication-attempt-statistics">Authentication Attempt Statistics</h3>
+<p>To display authentication attempt statistics for a specific cluster node:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin auth_attempts stats --node "rabbit@hostname"</code></pre></div></div>
+<h3 id="list-enabled-plugins">List Enabled Plugins</h3>
+<div><div><pre><code class="language-shell"># List plugins across all cluster nodes
+rabbitmqadmin plugins list_all</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List plugins enabled on a specific node
+rabbitmqadmin plugins list_on_node --node "rabbit@hostname"</code></pre></div></div>
+<h3 id="tls-configuration">TLS Configuration</h3>
+<p><code>rabbitmqadmin</code> supports connecting to RabbitMQ clusters that use <a href="/docs/4.3/ssl">TLS</a> for the HTTP API:</p>
+<div><div><pre><code class="language-shell"># Connect using TLS with default settings
+rabbitmqadmin --use-tls show overview</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Connect using TLS with custom CA certificate bundle
+rabbitmqadmin --use-tls --tls-ca-cert-file /path/to/ca-bundle.pem show overview</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Connect using TLS with client certificate authentication
+rabbitmqadmin --use-tls \
+  --tls-ca-cert-file /path/to/ca-bundle.pem \
+  --tls-cert-file /path/to/client-cert.pem \
+  --tls-key-file /path/to/client-key.pem \
+  show overview</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Disable TLS peer verification (not recommended for production)
+rabbitmqadmin --use-tls --disable-tls-peer-verification show overview</code></pre></div></div>
+<h3 id="password-hashing">Password Hashing</h3>
+<p><code>rabbitmqadmin</code> can generate password hashes compatible with RabbitMQ's <a href="/docs/4.3/passwords">password hashing</a> system:</p>
+<div><div><pre><code class="language-shell"># Hash a password using SHA256 (default)
+rabbitmqadmin passwords salt_and_hash "my-secret-password"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Override --hashing-algorithm if RabbitMQ nodes are configured to use SHA512
+rabbitmqadmin passwords salt_and_hash "my-secret-password" --hashing-algorithm SHA512</code></pre></div></div>
+<p>This is useful for pre-computing password hashes for user management scripts or when working with RabbitMQ definitions files.</p>
+<h3 id="list-policies">List Policies</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin policies list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List policies in a specific virtual host
+rabbitmqadmin --vhost "events" policies list_in</code></pre></div></div>
+<h3 id="create-a-policy">Create a Policy</h3>
+<div><div><pre><code class="language-shell"># Create a policy that sets max-length for all queues
+rabbitmqadmin --vhost "events" policies declare --name "queue-limits" --pattern ".*" --definition '{"max-length":10000}' --priority 1 --apply-to "queues"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Create a TTL policy for temporary queues
+rabbitmqadmin --vhost "events" policies declare --name "temp-queues" --pattern "temp\\..*" --definition '{"message-ttl":300000,"expires":600000}' --priority 2 --apply-to "queues"</code></pre></div></div>
+<h3 id="create-a-blanket-policy">Create a Blanket Policy</h3>
+<p>A blanket policy is a low-priority policy that matches all objects not matched by any other policy:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" policies declare_blanket --name "default-limits" \
+  --apply-to "queues" --definition '{"max-length":100000}'</code></pre></div></div>
+<h3 id="create-an-override-policy">Create an Override Policy</h3>
+<p>An override policy is created from an existing policy with a higher priority, merging additional definition keys:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" policies declare_override --name "queue-limits" \
+  --definition '{"max-length-bytes":500000000}'</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Specify a custom name for the override policy
+rabbitmqadmin --vhost "events" policies declare_override --name "queue-limits" \
+  --override-name "queue-limits-extended" --definition '{"max-length-bytes":500000000}'</code></pre></div></div>
+<h3 id="list-conflicting-policies">List Conflicting Policies</h3>
+<p>Policies with the same priority that could match the same objects are considered conflicting:</p>
+<div><div><pre><code class="language-shell"># List conflicting policies across all virtual hosts
+rabbitmqadmin policies list_conflicting</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List conflicting policies in a specific virtual host
+rabbitmqadmin --vhost "events" policies list_conflicting_in</code></pre></div></div>
+<h3 id="delete-a-policy">Delete a Policy</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" policies delete --name "queue-limits"</code></pre></div></div>
+<h3 id="list-policies-matching-an-object">List Policies Matching an Object</h3>
+<div><div><pre><code class="language-shell"># Show which policies apply to a specific queue
+rabbitmqadmin --vhost "events" policies list_matching_object --name "my.queue" --type "queue"</code></pre></div></div>
+<h3 id="patch-perform-a-partial-update-on-a-policy">Patch (Perform a Partial Update on) a Policy</h3>
+<div><div><pre><code class="language-shell"># Merge keys into an existing policy's definition (add or update keys)
+rabbitmqadmin --vhost "events" policies patch \
+  --name "queue-limits" \
+  --definition '{"max-length": 7777777, "max-length-bytes": 3333333333}'</code></pre></div></div>
+<h3 id="update-a-policy-definition-key">Update a Policy Definition Key</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" policies update_definition \
+  --name "queue-limits" \
+  --definition-key "max-length" \
+  --new-value "5000000"</code></pre></div></div>
+<h3 id="update-a-definition-key-in-all-policies-in-a-virtual-host">Update a Definition Key in All Policies in a Virtual Host</h3>
+<div><div><pre><code class="language-shell"># Re-enable federation by re-introducing the federation-upstream-set key
+rabbitmqadmin --vhost "events" policies update_definitions_of_all_in \
+  --definition-key "federation-upstream-set" \
+  --new-value "all"</code></pre></div></div>
+<h3 id="update-a-definition-key-in-all-policies-cluster-wide">Update a Definition Key in All Policies Cluster-Wide</h3>
+<div><div><pre><code class="language-shell"># Re-enable federation across all virtual hosts
+rabbitmqadmin policies update_definitions_of_all \
+  --definition-key "federation-upstream-set" \
+  --new-value "all"</code></pre></div></div>
+<h3 id="delete-definition-keys-from-a-policy">Delete Definition Keys from a Policy</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" policies delete_definition_keys \
+  --name "queue-limits" \
+  --definition-keys max-length-bytes,max-length</code></pre></div></div>
+<h3 id="delete-definition-keys-from-all-policies-in-a-virtual-host">Delete Definition Keys from All Policies in a Virtual Host</h3>
+<div><div><pre><code class="language-shell"># Temporarily disable federation by removing the federation-upstream-set key
+rabbitmqadmin --vhost "events" policies delete_definition_keys_from_all_in \
+  --definition-keys federation-upstream-set</code></pre></div></div>
+<h3 id="delete-definition-keys-from-all-policies-cluster-wide">Delete Definition Keys from All Policies Cluster-Wide</h3>
+<div><div><pre><code class="language-shell"># Temporarily disable federation across all virtual hosts
+rabbitmqadmin policies delete_definition_keys_from_all \
+  --definition-keys federation-upstream-set</code></pre></div></div>
+<h3 id="list-operator-policies">List Operator Policies</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin operator_policies list</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List operator policies in a specific virtual host
+rabbitmqadmin --vhost "events" operator_policies list_in</code></pre></div></div>
+<h3 id="create-an-operator-policy">Create an Operator Policy</h3>
+<div><div><pre><code class="language-shell"># Create an operator policy to set max queue length
+rabbitmqadmin --vhost "events" operator_policies declare --name "queue.max-length" --pattern ".*" --apply-to "queues" --definition '{"max-length":10000}' --priority 1</code></pre></div></div>
+<h3 id="delete-an-operator-policy">Delete an Operator Policy</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" operator_policies delete --name "queue.max-length"</code></pre></div></div>
+<h3 id="patch-an-operator-policys-definition">Patch an Operator Policy's Definition</h3>
+<div><div><pre><code class="language-shell"># Merge keys into an existing operator policy's definition (add or update keys)
+rabbitmqadmin --vhost "events" operator_policies patch --name "queue.max-length" --definition '{"max-length-bytes":1000000}'</code></pre></div></div>
+<h3 id="update-a-key-in-an-operator-policy-definition">Update a Key in an Operator Policy Definition</h3>
+<div><div><pre><code class="language-shell"># Update a specific key in an operator policy definition
+rabbitmqadmin --vhost "events" operator_policies update_definition --name "queue.max-length" --definition-key "max-length" --new-value 20000</code></pre></div></div>
+<h3 id="update-a-key-in-multiple-operator-policies">Update a Key in Multiple Operator Policies</h3>
+<div><div><pre><code class="language-shell"># Update a specific key in all operator policies in a virtual host
+rabbitmqadmin --vhost "events" operator_policies update_definitions_of_all_in --definition-key "max-length" --new-value 20000</code></pre></div></div>
+<h3 id="delete-keys-from-an-operator-policy-definition">Delete Keys from an Operator Policy Definition</h3>
+<div><div><pre><code class="language-shell"># Delete specific keys from an operator policy definition
+rabbitmqadmin --vhost "events" operator_policies delete_definition_keys --name "queue.max-length" --definition-keys "max-length-bytes"</code></pre></div></div>
+<h3 id="delete-keys-from-multiple-operator-policies">Delete Keys from Multiple Operator Policies</h3>
+<div><div><pre><code class="language-shell"># Delete specific keys from all operator policies in a virtual host
+rabbitmqadmin --vhost "events" operator_policies delete_definition_keys_from_all_in --definition-keys "max-length-bytes"</code></pre></div></div>
+<h3 id="list-operator-policies-matching-an-object">List Operator Policies Matching an Object</h3>
+<div><div><pre><code class="language-shell"># List operator policies that match a specific queue
+rabbitmqadmin --vhost "events" operator_policies list_matching_object --name "my.queue" --type "queue"</code></pre></div></div>
+<h3 id="list-runtime-parameters">List Runtime Parameters</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin parameters list_all</code></pre></div></div>
+<div><div><pre><code class="language-shell"># List parameters in a specific virtual host
+rabbitmqadmin --vhost "events" parameters list</code></pre></div></div>
+<h3 id="set-a-runtime-parameter">Set a Runtime Parameter</h3>
+<div><div><pre><code class="language-shell"># Set a runtime parameter.
+# Note: for federation upstreams and shovels, use the dedicated 'federation' and 'shovels' command groups instead
+rabbitmqadmin --vhost "events" parameters set --name "my-param" --component "my-component" --value '{"key":"value"}'</code></pre></div></div>
+<h3 id="clear-a-runtime-parameter">Clear a Runtime Parameter</h3>
+<div><div><pre><code class="language-shell"># Set a runtime parameter.
+# Note: for federation upstreams and shovels, use the dedicated 'federation' and 'shovels' command groups instead
+rabbitmqadmin --vhost "events" parameters clear --name "my-param" --component "my-component"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Idempotent deletion (does not fail if the parameter doesn't exist)
+rabbitmqadmin --vhost "events" parameters clear --name "my-param" --component "my-component" --idempotently</code></pre></div></div>
+<h3 id="list-global-parameters">List Global Parameters</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin global_parameters list</code></pre></div></div>
+<h3 id="set-a-global-runtime-parameter">Set a Global Runtime Parameter</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin global_parameters set --name "cluster_name" --value '"production-cluster"'</code></pre></div></div>
+<h3 id="clear-a-global-runtime-parameter">Clear a Global Runtime Parameter</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin global_parameters clear --name "cluster_name"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Idempotent deletion (does not fail if the parameter doesn't exist)
+rabbitmqadmin global_parameters clear --name "cluster_name" --idempotently</code></pre></div></div>
+<h3 id="tanzu-rabbitmq-commands">Tanzu RabbitMQ Commands</h3>
+<div class="admonition note"><div class="admonition-title">note</div><div><p>These commands are specific to Tanzu RabbitMQ and will not be available in open source RabbitMQ.</p></div></div>
+<h4 id="schema-definition-sync-sds">Schema Definition Sync (SDS)</h4>
+<p>Schema Definition Sync replicates schema definitions (queues, exchanges, bindings, etc.) across clusters.</p>
+<div><div><pre><code class="language-shell"># Check SDS status on a specific node
+rabbitmqadmin tanzu sds status_on_node --node "rabbit@hostname"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Disable SDS on a specific node
+rabbitmqadmin tanzu sds disable_on_node --node "rabbit@hostname"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Disable SDS cluster-wide
+rabbitmqadmin tanzu sds disable_cluster_wide</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Enable SDS on a specific node
+rabbitmqadmin tanzu sds enable_on_node --node "rabbit@hostname"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Enable SDS cluster-wide
+rabbitmqadmin tanzu sds enable_cluster_wide</code></pre></div></div>
+<h4 id="warm-standby-replication-wsr">Warm Standby Replication (WSR)</h4>
+<p>Warm Standby Replication provides disaster recovery capabilities by replicating data to a standby cluster.</p>
+<div><div><pre><code class="language-shell"># Check WSR status on the target node
+rabbitmqadmin tanzu wsr status</code></pre></div></div>
+<h2 id="subcommand-and-long-option-inference">Subcommand and Long Option Inference</h2>
+<p>This feature is available only in the <code>main</code> branch
+at the moment.</p>
+<p>If the <code>RABBITMQADMIN_NON_INTERACTIVE_MODE</code> is not set to <code>true</code>, this tool
+now can infer subcommand and --long-option names.</p>
+<p>This means that a subcommand can be referenced with its unique prefix,
+that is,</p>
+<ul>
+<li>'queues del' will be inferred as 'queues delete'</li>
+<li>'q del --nam "a.queue"' will be inferred as 'queues delete --name "a.queue"'</li>
+</ul>
+<p>To enable each feature, set the following environment variables to
+'true':</p>
+<ul>
+<li><code>RABBITMQADMIN_INFER_SUBCOMMANDS</code></li>
+<li><code>RABBITMQADMIN_INFER_LONG_OPTIONS</code></li>
+</ul>
+<p>This feature is only meant to be used interactively. For non-interactive
+use, it can be potentially too dangerous to allow.</p>
+<h2 id="configuration-files">Configuration Files</h2>
+<p><code>rabbitmqadmin</code> v2 supports <a href="https://toml.io/en/">TOML</a>-based configuration files
+stores groups of HTTP API connection settings under aliases ("node names" in original <code>rabbitmqadmin</code> speak).</p>
+<p>Here is an example <code>rabbitmqadmin</code> v2 configuration file:</p>
+<div><div><pre><code class="language-toml">[local]
+hostname = "localhost"
+port = 15672
+username = "lolz"
+password = "lolz"
+vhost = '/'
+
+[staging]
+hostname = "192.168.20.31"
+port = 15672
+username = "staging-2387a72329"
+password = "staging-1d20cfbd9d"
+
+[production]
+hostname = "(redacted)"
+port = 15671
+username = "user-2ca6bae15ff6b79e92"
+password = "user-92ee4c479ae604cc72"</code></pre></div></div>
+<p>Instead of specifying <code>--hostname</code> or <code>--username</code> on the command line to connect to
+a cluster (or specific node) called <code>staging</code>, a <code>--node</code> alias can be specified instead:</p>
+<div><div><pre><code class="language-shell"># will use the settings from the section called [staging]
+rabbitmqadmin --node staging show churn</code></pre></div></div>
+<p>Default configuration file path is at <code>$HOME/.rabbitmqadmin.conf</code>, as it was in
+the original version of <code>rabbitmqadmin</code>. It can be overridden on the command line:</p>
+<div><div><pre><code class="language-shell"># will use the settings from the section called [staging]
+rabbitmqadmin --config $HOME/.configuration/rabbitmqadmin.conf --node staging show churn</code></pre></div></div>
+<h3 id="show-configuration-file-path">Show Configuration File Path</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin config_file show_path</code></pre></div></div>
+<h3 id="show-configuration-file-contents">Show Configuration File Contents</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin config_file show</code></pre></div></div>
+<h3 id="add-a-node-entry-to-the-configuration-file">Add a Node Entry to the Configuration File</h3>
+<div><div><pre><code class="language-shell"># Add a new node entry for a staging cluster
+rabbitmqadmin config_file add_node --node staging --host 192.168.20.31 --port 15672 \
+  --username "staging-user" --password "staging-password"</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Add a node entry with TLS settings
+rabbitmqadmin config_file add_node --node production --host prod.example.com --port 15671 \
+  --username "prod-user" --password "prod-password" --use-tls \
+  --tls-ca-cert-file /path/to/ca-bundle.pem</code></pre></div></div>
+<div><div><pre><code class="language-shell"># Create the configuration file if it does not exist
+rabbitmqadmin config_file add_node --node local --host localhost --port 15672 \
+  --username "guest" --password "guest" --create-file-if-missing</code></pre></div></div>
+<h3 id="update-a-node-entry-in-the-configuration-file">Update a Node Entry in the Configuration File</h3>
+<div><div><pre><code class="language-shell"># Update an existing node entry (or create one if it does not exist)
+rabbitmqadmin config_file update_node --node staging --port 15673 --password "new-password"</code></pre></div></div>
+<h3 id="delete-a-node-entry-from-the-configuration-file">Delete a Node Entry from the Configuration File</h3>
+<div><div><pre><code class="language-shell">rabbitmqadmin config_file delete_node --node staging</code></pre></div></div>
+<h2 id="breaking-or-potentially-breaking-changes-compared-to-v1">Breaking or Potentially Breaking Changes Compared to v1</h2>
+<h3 id="some-non-essential-features-were-dropped">Some Non-Essential Features Were Dropped</h3>
+<p><code>rabbitmqadmin</code> v2 does not support</p>
+<ul>
+<li>Sorting of results. Instead, use <code>--non-interactive</code> and parse the spaces-separated
+output. Many modern tools for working with data parse it into a table, sort the data set,
+filter the results, and son. In fact, these features for data processing are ready available <a href="https://www.nushell.sh/">in some shells</a></li>
+<li>Column selection. This feature may be reintroduced</li>
+<li>JSON output for arbitrary commands (with the exception of <code>definitions</code> commands).
+Use the <a href="/docs/4.3/management#http-api">HTTP API directly</a> if you need to work with JSON</li>
+<li>CSV output for arbitrary commands. This format may be reintroduced</li>
+</ul>
+<h3 id="--snake-case-for-command-options">--snake-case for Command Options</h3>
+<p><code>rabbitmqadmin</code> v1 used <code>lower_case</code> for named command arguments, for example:</p>
+<div><div><pre><code class="language-shell"># Note: auto_delete
+rabbitmqadmin-v1 --vhost "vh-2" queues declare name="qq.1" type="quorum" durable=true auto_delete=false</code></pre></div></div>
+<p><code>rabbitmqadmin</code> v2 uses a more typical <code>--snake-case</code> format for the same arguments:</p>
+<div><div><pre><code class="language-shell"># Note: --auto-delete
+rabbitmqadmin --vhost "vh-2" queues declare --name "qq.1" --type "quorum" --durable true --auto-delete false</code></pre></div></div>
+<h3 id="global-arguments-come-first">Global Arguments Come First</h3>
+<p>Global flags in <code>rabbitmqadmin</code> v2 must precede the command category (e.g. <code>list</code>) and the command itself,
+namely various HTTP API endpoint options and <code>--vhost</code>:</p>
+<div><div><pre><code class="language-shell">rabbitmqadmin --vhost "events" queues declare --name "target.quorum.queue.name" --type "quorum" --durable true</code></pre></div></div>
+<h3 id="--prefix-overrides-api-path-prefix">--prefix Overrides API Path Prefix</h3>
+<p>In <code>rabbitmqadmin</code> v1, <code>--path-prefix</code> appended to the default <a href="/docs/4.3/management#path-prefix">API path prefix</a>.
+In this version, the value passed to <code>--path-prefix</code> will be used as given, in other words,
+it replaces the default prefix, <code>/api</code>.</p>
+<h3 id="configuration-file-format-moved-to-toml">Configuration File Format Moved to TOML</h3>
+<p><code>rabbitmqadmin</code> v1 supported ini configuration files that allowed
+the user to group a number of command line values under a name, e.g. a cluster or node nickname.</p>
+<p>Due to the "no dependencies other than Python" design goal of <code>rabbitmqadmin</code> v1, this feature was not really tested,
+and the specific syntax (that of ini files, supported by Python's <a href="https://docs.python.org/3/library/configparser.html"><code>ConfigParser</code></a>) linting, parsing or generation tools were not really available.</p>
+<p><code>rabbitmqadmin</code> v2 replaces this format with <a href="https://toml.io/en/">TOML</a>, a popular configuration standard
+with <a href="https://www.toml-lint.com/">verification and linting tools</a>, as well as very mature parser
+that is not at all specific to <code>rabbitmqadmin</code> v2.</p>
+<p>Here is an example <code>rabbitmqadmin</code> v2 configuration file:</p>
+<div><div><pre><code class="language-toml">[local]
+hostname = "localhost"
+port = 15672
+username = "lolz"
+password = "lolz"
+vhost = '/'
+
+[staging]
+hostname = "192.168.20.31"
+port = 15672
+username = "staging-2387a72329"
+password = "staging-1d20cfbd9d"
+
+[production]
+hostname = "(redacted)"
+port = 15671
+username = "user-efe1f4d763f6"
+password = "(redacted)"</code></pre></div></div>
+<h2 id="rabbitmqadmin-v1"><code>rabbitmqadmin</code> v1</h2>
+<p><code>rabbitmqadmin</code> v1 is the original CLI tool for the HTTP API, historically developed
+as part of the <a href="/docs/4.3/management">management plugin</a> and distributed with it.</p>
+<p>It is no longer under active development.</p>
+<h3 id="obtain-rabbitmqadmin-v1">Obtain <code>rabbitmqadmin</code> v1</h3>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>Consider switching to <code>rabbitmqadmin</code> v2. The original <code>rabbitmqadmin</code> is no longer under
+active development.</p></div></div>
+<p><code>rabbitmqadmin</code> v1 can be downloaded from any RabbitMQ node that has
+the management plugin enabled. Navigate to <code>http://{hostname}:15672/cli/rabbitmqadmin</code> to download it.
+The tool requires a supported version of Python to be installed.</p>
+<p>Alternatively, <code>rabbitmqadmin</code> v1 can be downloaded <a href="https://raw.githubusercontent.com/rabbitmq/rabbitmq-server/v4.1.x/deps/rabbitmq_management/bin/rabbitmqadmin">from GitHub</a>.</p></main>

@@ -1,0 +1,568 @@
+{
+  "publisher": "Ralph Slooten and Mailpit contributors",
+  "version": "1.33.0",
+  "provenance": "The Mailpit website source at 8d2c4706bb30744fac8cc58f72ce6e65e496aba9 (https://github.com/axllent/mailpit-website/tree/8d2c4706bb30744fac8cc58f72ce6e65e496aba9/content/docs) is an unversioned documentation snapshot from the release date of Mailpit 1.33.0. The article bodies are extracted from the publisher's Hugo v0.169.0 build after shortcode expansion. The complete REST API operation descriptions and schema are formatted from the OpenAPI 2.0 artifact shipped at the exact 1.33.0 release commit 364916b15e80a8bac1e7b0ab66a4f2b3d7d745c2 (https://github.com/axllent/mailpit/blob/364916b15e80a8bac1e7b0ab66a4f2b3d7d745c2/server/ui/api/v1/swagger.json). The static API keeps the upstream Swagger operation anchors, and an older link to the dedicated send API authentication section targets its current heading.",
+  "license": "MIT",
+  "notices": [
+    "LICENSE-WEBSITE",
+    "LICENSE-API"
+  ],
+  "coverage": "Mailpit's official documentation for installation, configuration, integrations, usage and troubleshooting, plus the complete REST API v1 operation and schema reference from the managed release.",
+  "omissions": "Interactive Swagger controls and linked external content are outside this snapshot.",
+  "entry": "index",
+  "documents": [
+    {
+      "id": "api-v1",
+      "path": "articles/api-v1.html",
+      "source_url": "https://mailpit.axllent.org/docs/api-v1/",
+      "title": "Mailpit 1.33.0 · API (v1)",
+      "aliases": [
+        "API (v1)",
+        "Mailpit API (v1)"
+      ]
+    },
+    {
+      "id": "api-v1/openapi",
+      "path": "articles/openapi.md",
+      "source_url": "https://mailpit.axllent.org/docs/api-v1/view.html",
+      "title": "Mailpit 1.33.0 · REST API (OpenAPI)",
+      "aliases": [
+        "OpenAPI",
+        "Swagger",
+        "Mailpit REST API",
+        "GET /api/v1/chaos",
+        "getChaos",
+        "PUT /api/v1/chaos",
+        "setChaosParams",
+        "GET /api/v1/info",
+        "AppInformation",
+        "GET /api/v1/message/{ID}",
+        "GetMessageParams",
+        "GET /api/v1/message/{ID}/headers",
+        "GetHeadersParams",
+        "GET /api/v1/message/{ID}/html-check",
+        "HTMLCheckParams",
+        "GET /api/v1/message/{ID}/link-check",
+        "LinkCheckParams",
+        "GET /api/v1/message/{ID}/part/{PartID}",
+        "AttachmentParams",
+        "GET /api/v1/message/{ID}/part/{PartID}/thumb",
+        "ThumbnailParams",
+        "GET /api/v1/message/{ID}/raw",
+        "DownloadRawParams",
+        "POST /api/v1/message/{ID}/release",
+        "ReleaseMessageParams",
+        "GET /api/v1/message/{ID}/rspamd-check",
+        "RspamdCheckParams",
+        "GET /api/v1/message/{ID}/sa-check",
+        "SpamAssassinCheckParams",
+        "GET /api/v1/messages",
+        "GetMessagesParams",
+        "PUT /api/v1/messages",
+        "SetReadStatusParams",
+        "DELETE /api/v1/messages",
+        "DeleteMessagesParams",
+        "GET /api/v1/search",
+        "SearchParams",
+        "DELETE /api/v1/search",
+        "DeleteSearchParams",
+        "POST /api/v1/send",
+        "SendMessageParams",
+        "GET /api/v1/tags",
+        "GetAllTags",
+        "PUT /api/v1/tags",
+        "SetTagsParams",
+        "PUT /api/v1/tags/{Tag}",
+        "RenameTagParams",
+        "DELETE /api/v1/tags/{Tag}",
+        "DeleteTagParams",
+        "GET /api/v1/webui",
+        "WebUIConfigurationResponse",
+        "GET /view/{ID}.html",
+        "GetMessageHTMLParams",
+        "GET /view/{ID}.txt",
+        "GetMessageTextParams"
+      ]
+    },
+    {
+      "id": "api-v1/websocket",
+      "path": "articles/api-v1/websocket.html",
+      "source_url": "https://mailpit.axllent.org/docs/api-v1/websocket/",
+      "title": "Mailpit 1.33.0 · Websocket",
+      "aliases": [
+        "Websocket",
+        "Mailpit Websocket"
+      ]
+    },
+    {
+      "id": "configuration",
+      "path": "articles/configuration.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/",
+      "title": "Mailpit 1.33.0 · Configuration",
+      "aliases": [
+        "Configuration",
+        "Mailpit Configuration"
+      ]
+    },
+    {
+      "id": "configuration/certificates",
+      "path": "articles/configuration/certificates.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/certificates/",
+      "title": "Mailpit 1.33.0 · TLS certificates",
+      "aliases": [
+        "TLS certificates",
+        "Mailpit TLS certificates"
+      ]
+    },
+    {
+      "id": "configuration/compression",
+      "path": "articles/configuration/compression.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/compression/",
+      "title": "Mailpit 1.33.0 · Data compression",
+      "aliases": [
+        "Data compression",
+        "Mailpit Data compression"
+      ]
+    },
+    {
+      "id": "configuration/email-storage",
+      "path": "articles/configuration/email-storage.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/email-storage/",
+      "title": "Mailpit 1.33.0 · Email storage",
+      "aliases": [
+        "Email storage",
+        "Mailpit Email storage"
+      ]
+    },
+    {
+      "id": "configuration/http",
+      "path": "articles/configuration/http.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/http/",
+      "title": "Mailpit 1.33.0 · Web UI & API server",
+      "aliases": [
+        "Web UI & API server",
+        "Mailpit Web UI & API server"
+      ]
+    },
+    {
+      "id": "configuration/passwords",
+      "path": "articles/configuration/passwords.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/passwords/",
+      "title": "Mailpit 1.33.0 · Password files",
+      "aliases": [
+        "Password files",
+        "Mailpit Password files"
+      ]
+    },
+    {
+      "id": "configuration/pop3",
+      "path": "articles/configuration/pop3.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/pop3/",
+      "title": "Mailpit 1.33.0 · POP3 server",
+      "aliases": [
+        "POP3 server",
+        "Mailpit POP3 server"
+      ]
+    },
+    {
+      "id": "configuration/prometheus",
+      "path": "articles/configuration/prometheus.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/prometheus/",
+      "title": "Mailpit 1.33.0 · Prometheus metrics",
+      "aliases": [
+        "Prometheus metrics",
+        "Mailpit Prometheus metrics"
+      ]
+    },
+    {
+      "id": "configuration/proxy",
+      "path": "articles/configuration/proxy.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/proxy/",
+      "title": "Mailpit 1.33.0 · HTTP proxy",
+      "aliases": [
+        "HTTP proxy",
+        "Mailpit HTTP proxy"
+      ]
+    },
+    {
+      "id": "configuration/rspamd",
+      "path": "articles/configuration/rspamd.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/rspamd/",
+      "title": "Mailpit 1.33.0 · Rspamd",
+      "aliases": [
+        "Rspamd",
+        "Mailpit Rspamd"
+      ]
+    },
+    {
+      "id": "configuration/runtime-options",
+      "path": "articles/configuration/runtime-options.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/runtime-options/",
+      "title": "Mailpit 1.33.0 · Runtime options",
+      "aliases": [
+        "Runtime options",
+        "Mailpit Runtime options"
+      ]
+    },
+    {
+      "id": "configuration/smtp",
+      "path": "articles/configuration/smtp.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/smtp/",
+      "title": "Mailpit 1.33.0 · SMTP server",
+      "aliases": [
+        "SMTP server",
+        "Mailpit SMTP server"
+      ]
+    },
+    {
+      "id": "configuration/smtp-forward",
+      "path": "articles/configuration/smtp-forward.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/smtp-forward/",
+      "title": "Mailpit 1.33.0 · SMTP forwarding",
+      "aliases": [
+        "SMTP forwarding",
+        "Mailpit SMTP forwarding"
+      ]
+    },
+    {
+      "id": "configuration/smtp-relay",
+      "path": "articles/configuration/smtp-relay.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/smtp-relay/",
+      "title": "Mailpit 1.33.0 · SMTP relaying",
+      "aliases": [
+        "SMTP relaying",
+        "Mailpit SMTP relaying"
+      ]
+    },
+    {
+      "id": "configuration/spamassassin",
+      "path": "articles/configuration/spamassassin.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/spamassassin/",
+      "title": "Mailpit 1.33.0 · SpamAssassin",
+      "aliases": [
+        "SpamAssassin",
+        "Mailpit SpamAssassin"
+      ]
+    },
+    {
+      "id": "configuration/troubleshooting",
+      "path": "articles/configuration/troubleshooting.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/troubleshooting/",
+      "title": "Mailpit 1.33.0 · Troubleshooting",
+      "aliases": [
+        "Troubleshooting",
+        "Mailpit Troubleshooting"
+      ]
+    },
+    {
+      "id": "configuration/ui-security-policies",
+      "path": "articles/configuration/ui-security-policies.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/ui-security-policies/",
+      "title": "Mailpit 1.33.0 · UI security policies",
+      "aliases": [
+        "UI security policies",
+        "Mailpit UI security policies"
+      ]
+    },
+    {
+      "id": "configuration/unix-domain-sockets",
+      "path": "articles/configuration/unix-domain-sockets.html",
+      "source_url": "https://mailpit.axllent.org/docs/configuration/unix-domain-sockets/",
+      "title": "Mailpit 1.33.0 · Unix domain sockets",
+      "aliases": [
+        "Unix domain sockets",
+        "Mailpit Unix domain sockets"
+      ]
+    },
+    {
+      "id": "development",
+      "path": "articles/development.html",
+      "source_url": "https://mailpit.axllent.org/docs/development/",
+      "title": "Mailpit 1.33.0 · Development",
+      "aliases": [
+        "Development",
+        "Mailpit Development"
+      ]
+    },
+    {
+      "id": "development/code-linting",
+      "path": "articles/development/code-linting.html",
+      "source_url": "https://mailpit.axllent.org/docs/development/code-linting/",
+      "title": "Mailpit 1.33.0 · Code quality & linting",
+      "aliases": [
+        "Code quality & linting",
+        "Mailpit Code quality & linting"
+      ]
+    },
+    {
+      "id": "development/getting-started",
+      "path": "articles/development/getting-started.html",
+      "source_url": "https://mailpit.axllent.org/docs/development/getting-started/",
+      "title": "Mailpit 1.33.0 · Getting started",
+      "aliases": [
+        "Getting started",
+        "Mailpit Getting started"
+      ]
+    },
+    {
+      "id": "development/swagger",
+      "path": "articles/development/swagger.html",
+      "source_url": "https://mailpit.axllent.org/docs/development/swagger/",
+      "title": "Mailpit 1.33.0 · Updating Swagger spec",
+      "aliases": [
+        "Updating Swagger spec",
+        "Mailpit Updating Swagger spec"
+      ]
+    },
+    {
+      "id": "index",
+      "path": "articles/index.html",
+      "source_url": "https://mailpit.axllent.org/docs/",
+      "title": "Mailpit features",
+      "aliases": [
+        "Mailpit features",
+        "Mailpit Mailpit features"
+      ]
+    },
+    {
+      "id": "install",
+      "path": "articles/install.html",
+      "source_url": "https://mailpit.axllent.org/docs/install/",
+      "title": "Mailpit 1.33.0 · Installation",
+      "aliases": [
+        "Installation",
+        "Mailpit Installation"
+      ]
+    },
+    {
+      "id": "install/docker",
+      "path": "articles/install/docker.html",
+      "source_url": "https://mailpit.axllent.org/docs/install/docker/",
+      "title": "Mailpit 1.33.0 · Docker images",
+      "aliases": [
+        "Docker images",
+        "Mailpit Docker images"
+      ]
+    },
+    {
+      "id": "install/sendmail",
+      "path": "articles/install/sendmail.html",
+      "source_url": "https://mailpit.axllent.org/docs/install/sendmail/",
+      "title": "Mailpit 1.33.0 · Configure sendmail",
+      "aliases": [
+        "Configure sendmail",
+        "Mailpit Configure sendmail"
+      ]
+    },
+    {
+      "id": "install/source",
+      "path": "articles/install/source.html",
+      "source_url": "https://mailpit.axllent.org/docs/install/source/",
+      "title": "Mailpit 1.33.0 · Building from source",
+      "aliases": [
+        "Building from source",
+        "Mailpit Building from source"
+      ]
+    },
+    {
+      "id": "install/supervisor",
+      "path": "articles/install/supervisor.html",
+      "source_url": "https://mailpit.axllent.org/docs/install/supervisor/",
+      "title": "Mailpit 1.33.0 · Supervisor integration",
+      "aliases": [
+        "Supervisor integration",
+        "Mailpit Supervisor integration"
+      ]
+    },
+    {
+      "id": "install/systemd",
+      "path": "articles/install/systemd.html",
+      "source_url": "https://mailpit.axllent.org/docs/install/systemd/",
+      "title": "Mailpit 1.33.0 · Systemd integration",
+      "aliases": [
+        "Systemd integration",
+        "Mailpit Systemd integration"
+      ]
+    },
+    {
+      "id": "install/testing",
+      "path": "articles/install/testing.html",
+      "source_url": "https://mailpit.axllent.org/docs/install/testing/",
+      "title": "Mailpit 1.33.0 · Testing Mailpit",
+      "aliases": [
+        "Testing Mailpit",
+        "Mailpit Testing Mailpit"
+      ]
+    },
+    {
+      "id": "integration",
+      "path": "articles/integration.html",
+      "source_url": "https://mailpit.axllent.org/docs/integration/",
+      "title": "Mailpit 1.33.0 · Integration testing",
+      "aliases": [
+        "Integration testing",
+        "Mailpit Integration testing"
+      ]
+    },
+    {
+      "id": "integration/chaos",
+      "path": "articles/integration/chaos.html",
+      "source_url": "https://mailpit.axllent.org/docs/integration/chaos/",
+      "title": "Mailpit 1.33.0 · Chaos",
+      "aliases": [
+        "Chaos",
+        "Mailpit Chaos"
+      ]
+    },
+    {
+      "id": "integration/healthcheck",
+      "path": "articles/integration/healthcheck.html",
+      "source_url": "https://mailpit.axllent.org/docs/integration/healthcheck/",
+      "title": "Mailpit 1.33.0 · Healthcheck endpoints",
+      "aliases": [
+        "Healthcheck endpoints",
+        "Mailpit Healthcheck endpoints"
+      ]
+    },
+    {
+      "id": "integration/importing",
+      "path": "articles/integration/importing.html",
+      "source_url": "https://mailpit.axllent.org/docs/integration/importing/",
+      "title": "Mailpit 1.33.0 · Importing messages",
+      "aliases": [
+        "Importing messages",
+        "Mailpit Importing messages"
+      ]
+    },
+    {
+      "id": "integration/webhook",
+      "path": "articles/integration/webhook.html",
+      "source_url": "https://mailpit.axllent.org/docs/integration/webhook/",
+      "title": "Mailpit 1.33.0 · Webhook",
+      "aliases": [
+        "Webhook",
+        "Mailpit Webhook"
+      ]
+    },
+    {
+      "id": "mailtrap",
+      "path": "articles/mailtrap.html",
+      "source_url": "https://mailpit.axllent.org/docs/mailtrap/",
+      "title": "Mailpit 1.33.0 · Mailtrap (for teams)",
+      "aliases": [
+        "Mailtrap (for teams)",
+        "Mailpit Mailtrap (for teams)"
+      ]
+    },
+    {
+      "id": "usage",
+      "path": "articles/usage.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/",
+      "title": "Mailpit 1.33.0 · Usage",
+      "aliases": [
+        "Usage",
+        "Mailpit Usage"
+      ]
+    },
+    {
+      "id": "usage/deleting-messages",
+      "path": "articles/usage/deleting-messages.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/deleting-messages/",
+      "title": "Mailpit 1.33.0 · Deleting messages",
+      "aliases": [
+        "Deleting messages",
+        "Mailpit Deleting messages"
+      ]
+    },
+    {
+      "id": "usage/html-check",
+      "path": "articles/usage/html-check.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/html-check/",
+      "title": "Mailpit 1.33.0 · HTML check",
+      "aliases": [
+        "HTML check",
+        "Mailpit HTML check"
+      ]
+    },
+    {
+      "id": "usage/html-screenshots",
+      "path": "articles/usage/html-screenshots.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/html-screenshots/",
+      "title": "Mailpit 1.33.0 · HTML screenshots",
+      "aliases": [
+        "HTML screenshots",
+        "Mailpit HTML screenshots"
+      ]
+    },
+    {
+      "id": "usage/import-export",
+      "path": "articles/usage/import-export.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/import-export/",
+      "title": "Mailpit 1.33.0 · Importing & exporting",
+      "aliases": [
+        "Importing & exporting",
+        "Mailpit Importing & exporting"
+      ]
+    },
+    {
+      "id": "usage/link-check",
+      "path": "articles/usage/link-check.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/link-check/",
+      "title": "Mailpit 1.33.0 · Link check",
+      "aliases": [
+        "Link check",
+        "Mailpit Link check"
+      ]
+    },
+    {
+      "id": "usage/notifications",
+      "path": "articles/usage/notifications.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/notifications/",
+      "title": "Mailpit 1.33.0 · Message notifications",
+      "aliases": [
+        "Message notifications",
+        "Mailpit Message notifications"
+      ]
+    },
+    {
+      "id": "usage/search-filters",
+      "path": "articles/usage/search-filters.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/search-filters/",
+      "title": "Mailpit 1.33.0 · Using search filters",
+      "aliases": [
+        "Using search filters",
+        "Mailpit Using search filters"
+      ]
+    },
+    {
+      "id": "usage/sending-messages",
+      "path": "articles/usage/sending-messages.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/sending-messages/",
+      "title": "Mailpit 1.33.0 · Sending mail",
+      "aliases": [
+        "Sending mail",
+        "Mailpit Sending mail"
+      ]
+    },
+    {
+      "id": "usage/spam-check",
+      "path": "articles/usage/spam-check.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/spam-check/",
+      "title": "Mailpit 1.33.0 · Spam check",
+      "aliases": [
+        "Spam check",
+        "Mailpit Spam check"
+      ]
+    },
+    {
+      "id": "usage/tagging",
+      "path": "articles/usage/tagging.html",
+      "source_url": "https://mailpit.axllent.org/docs/usage/tagging/",
+      "title": "Mailpit 1.33.0 · Tagging messages",
+      "aliases": [
+        "Tagging messages",
+        "Mailpit Tagging messages"
+      ]
+    }
+  ]
+}

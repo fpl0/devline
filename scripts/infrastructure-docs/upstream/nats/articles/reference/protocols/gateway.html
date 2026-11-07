@@ -1,0 +1,235 @@
+<main><header><h1>Gateway</h1></header>
+<p>Gateway connections enable NATS super-clusters by connecting multiple clusters together. The gateway protocol extends the <a href="/reference/protocols/route">route protocol</a> with account-aware routing and interest-based optimizations. In the context of a super-cluster, gateways act as intelligent bridges that route messages between clusters based on account and subject interest.</p>
+<h2 id="overview">Overview</h2>
+<p>The following table lists the gateway protocol messages. Gateway protocol operations are case insensitive, thus <code>A+ foo\r\n</code> and <code>a+ foo\r\n</code> are equivalent.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Message</th><th>Sent By</th><th>Description</th></tr></thead><tbody><tr><td><a href="#info"><code>INFO</code></a></td><td>All Gateways</td><td>Sent after initial connection with gateway-specific extensions</td></tr><tr><td><a href="#connect"><code>CONNECT</code></a></td><td>All Gateways</td><td>Sent to establish a gateway connection</td></tr><tr><td><a href="#a"><code>A+</code></a></td><td>All Gateways</td><td>Subscribes to all subjects for a given account</td></tr><tr><td><a href="#a-1"><code>A-</code></a></td><td>All Gateways</td><td>Unsubscribes from all subjects for a given account</td></tr><tr><td><a href="#rs"><code>RS+</code></a></td><td>All Gateways</td><td>Subscribes to a subject for a given account on behalf of interested clients</td></tr><tr><td><a href="#rs-1"><code>RS-</code></a></td><td>All Gateways</td><td>Unsubscribes from subject for a given account (or indicates no interest)</td></tr><tr><td><a href="#rmsg"><code>RMSG</code></a></td><td>Origin Gateway</td><td>Delivers a message for a given subject and account to another gateway</td></tr><tr><td><a href="#hmsg"><code>HMSG</code></a></td><td>Origin Gateway</td><td>Delivers a message with headers for a given subject and account</td></tr><tr><td><a href="#ping-pong"><code>PING</code></a></td><td>All Gateways</td><td>PING keep-alive message</td></tr><tr><td><a href="#ping-pong"><code>PONG</code></a></td><td>All Gateways</td><td>PONG keep-alive response</td></tr><tr><td><a href="#err"><code>-ERR</code></a></td><td>All Gateways</td><td>Indicates a protocol error. May cause the remote gateway to disconnect.</td></tr></tbody></table>
+<h2 id="info">INFO</h2>
+<p>The <code>INFO</code> message for gateways extends the standard INFO protocol with gateway-specific fields. When a gateway accepts a connection, it sends information about itself, its cluster, and gateway-specific configuration.</p>
+<h3 id="syntax">Syntax</h3>
+<div><div><pre><code class="language-text">INFO {&lt;key&gt;:&lt;value&gt;,...}</code></pre></div></div>
+<p>Gateway-specific fields include:</p>
+<ul>
+<li><code>gateway</code>: The name of the gateway</li>
+<li><code>gateway_urls</code>: URLs of other gateways in the cluster</li>
+<li><code>gateway_url</code>: The URL of this gateway</li>
+<li><code>gateway_cmd</code>: Optional command code for gateway coordination</li>
+<li><code>gateway_cmd_payload</code>: Optional payload for gateway commands</li>
+<li><code>server_id</code>: The unique identifier of the NATS server</li>
+<li><code>version</code>: The version of the NATS server</li>
+<li><code>go</code>: The version of golang the NATS server was built with</li>
+<li><code>host</code>: The host specified in the gateway parameter/options</li>
+<li><code>port</code>: The port number specified in the gateway parameter/options</li>
+<li><code>auth_required</code>: If set, the gateway should authenticate upon connect</li>
+<li><code>tls_required</code>: If set, the gateway must authenticate using TLS</li>
+<li><code>max_payload</code>: Maximum payload size that the gateway will accept</li>
+<li><code>connect_urls</code>: A list of server URLs that a client can connect to</li>
+<li><code>ip</code>: Optional gateway connection address, <code>nats-gw://&lt;hostname&gt;:&lt;port&gt;</code></li>
+</ul>
+<h3 id="gateway-commands">Gateway Commands</h3>
+<p>The <code>gateway_cmd</code> field supports the following command codes:</p>
+<ul>
+<li><code>1</code> (Gossip): Gossip gateway topology information</li>
+<li><code>2</code> (All Subs Start): Begin sending all subscriptions for an account</li>
+<li><code>3</code> (All Subs Complete): Complete sending all subscriptions for an account</li>
+</ul>
+<h3 id="example">Example</h3>
+<div><div><pre><code class="language-text">INFO {"server_id":"NCDU7ZKDF2XTYQUA","version":"2.10.0","go":"go1.21","host":"hub.nats.io","port":7222,"gateway":"hub","gateway_urls":["hub.nats.io:7222"],"gateway_url":"nats-gw://hub.nats.io:7222","auth_required":false,"tls_required":true,"max_payload":1048576}</code></pre></div></div>
+<h2 id="connect">CONNECT</h2>
+<p>The <code>CONNECT</code> message establishes a gateway connection after the <code>INFO</code> exchange. It provides authentication and connection details.</p>
+<h3 id="syntax-1">Syntax</h3>
+<div><div><pre><code class="language-text">CONNECT {&lt;key&gt;:&lt;value&gt;,...}</code></pre></div></div>
+<p>Valid options include:</p>
+<ul>
+<li><code>tls_required</code>: Indicates whether the gateway requires an SSL connection</li>
+<li><code>auth_token</code>: Authorization token</li>
+<li><code>user</code>: Connection username (if <code>auth_required</code> is set)</li>
+<li><code>pass</code>: Connection password (if <code>auth_required</code> is set)</li>
+<li><code>name</code>: Generated gateway name</li>
+<li><code>lang</code>: The implementation language of the gateway (go)</li>
+<li><code>version</code>: The version of the gateway</li>
+</ul>
+<h3 id="example-1">Example</h3>
+<div><div><pre><code class="language-text">CONNECT {"tls_required":true,"name":"hub-gateway-us-east","lang":"go","version":"2.10.0"}\r\n</code></pre></div></div>
+<h2 id="a">A+</h2>
+<p><code>A+</code> subscribes to all subjects for a specific account. This is used for account-level interest propagation between gateways.</p>
+<h3 id="syntax-2">Syntax</h3>
+<div><div><pre><code class="language-text">A+ &lt;account&gt;\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>account</code>: The account name to subscribe to</li>
+</ul>
+<h3 id="example-2">Example</h3>
+<div><div><pre><code class="language-text">A+ SYS\r\n</code></pre></div></div>
+<h2 id="a-1">A-</h2>
+<p><code>A-</code> unsubscribes from all subjects for a specific account. Sent when a gateway no longer has any interest in an account.</p>
+<h3 id="syntax-3">Syntax</h3>
+<div><div><pre><code class="language-text">A- &lt;account&gt;\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>account</code>: The account name to unsubscribe from</li>
+</ul>
+<h3 id="example-3">Example</h3>
+<div><div><pre><code class="language-text">A- SYS\r\n</code></pre></div></div>
+<h2 id="rs">RS+</h2>
+<p><code>RS+</code> initiates a subscription to a subject on a given account, optionally with a distributed queue group name and weighting factor. This is used for fine-grained subject interest propagation.</p>
+<h3 id="syntax-4">Syntax</h3>
+<p><strong>Subscription</strong></p>
+<div><div><pre><code class="language-text">RS+ &lt;account&gt; &lt;subject&gt;\r\n</code></pre></div></div>
+<p><strong>Queue Subscription</strong></p>
+<div><div><pre><code class="language-text">RS+ &lt;account&gt; &lt;subject&gt; &lt;queue&gt; &lt;weight&gt;\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>account</code>: The account associated with the subject interest</li>
+<li><code>subject</code>: The subject</li>
+<li><code>queue</code>: Optional queue group name</li>
+<li><code>weight</code>: Optional queue group weight representing subscriber count</li>
+</ul>
+<h3 id="examples">Examples</h3>
+<div><div><pre><code class="language-text">RS+ ACC1 orders.new\r\n
+RS+ ACC1 orders.&gt; fulfillment 5\r\n</code></pre></div></div>
+<h2 id="rs-1">RS-</h2>
+<p><code>RS-</code> unsubscribes from the specified subject on the given account or indicates no interest. In optimistic mode, this prevents future message delivery for this subject.</p>
+<h3 id="syntax-5">Syntax</h3>
+<p><strong>Unsubscription</strong></p>
+<div><div><pre><code class="language-text">RS- &lt;account&gt; &lt;subject&gt;\r\n</code></pre></div></div>
+<p><strong>Queue Unsubscription</strong></p>
+<div><div><pre><code class="language-text">RS- &lt;account&gt; &lt;subject&gt; &lt;queue&gt;\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>account</code>: The account associated with the subject</li>
+<li><code>subject</code>: The subject</li>
+<li><code>queue</code>: Optional queue group name</li>
+</ul>
+<h3 id="examples-1">Examples</h3>
+<div><div><pre><code class="language-text">RS- ACC1 orders.old\r\n
+RS- ACC1 orders.processed fulfillment\r\n</code></pre></div></div>
+<h2 id="rmsg">RMSG</h2>
+<p>The <code>RMSG</code> protocol message delivers a message to another gateway for a specific account and subject.</p>
+<h3 id="syntax-6">Syntax</h3>
+<div><div><pre><code class="language-text">RMSG &lt;account&gt; &lt;subject&gt; [reply-to] &lt;bytes&gt;\r\n[payload]\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>account</code>: The account associated with the message</li>
+<li><code>subject</code>: Subject name this message was received on</li>
+<li><code>reply-to</code>: The optional reply subject</li>
+<li><code>bytes</code>: Size of the payload in bytes</li>
+<li><code>payload</code>: The message payload data</li>
+</ul>
+<h3 id="example-4">Example</h3>
+<div><div><pre><code class="language-text">RMSG ACC1 orders.new 11\r\nHello World\r\n</code></pre></div></div>
+<h2 id="hmsg">HMSG</h2>
+<p>The <code>HMSG</code> protocol message delivers a message with headers to another gateway. This extends <code>RMSG</code> with header support.</p>
+<h3 id="syntax-7">Syntax</h3>
+<div><div><pre><code class="language-text">HMSG &lt;account&gt; &lt;subject&gt; [reply-to] &lt;header-bytes&gt; &lt;total-bytes&gt;\r\n[headers]\r\n[payload]\r\n</code></pre></div></div>
+<p>where:</p>
+<ul>
+<li><code>account</code>: The account associated with the message</li>
+<li><code>subject</code>: Subject name this message was received on</li>
+<li><code>reply-to</code>: The optional reply subject</li>
+<li><code>header-bytes</code>: Size of the headers in bytes</li>
+<li><code>total-bytes</code>: Total size of headers plus payload in bytes</li>
+<li><code>headers</code>: The message headers in NATS header format</li>
+<li><code>payload</code>: The message payload data</li>
+</ul>
+<h3 id="example-5">Example</h3>
+<div><div><pre><code class="language-text">HMSG ACC1 orders.new _INBOX.123 22 33\r\nNATS/1.0\r\nFoo: Bar\r\n\r\nHello World\r\n</code></pre></div></div>
+<h2 id="interest-management">Interest Management</h2>
+<p>Gateways use sophisticated interest management to minimize cross-cluster traffic:</p>
+<h3 id="optimistic-mode">Optimistic Mode</h3>
+<p>Initially, gateways operate in optimistic mode, assuming interest exists and forwarding messages. They track <code>RS-</code> responses to build a "no interest" list.</p>
+<h3 id="interest-only-mode">Interest-Only Mode</h3>
+<p>When too many <code>RS-</code> messages are received (indicating low interest overlap), the gateway switches to interest-only mode. In this mode:</p>
+<ul>
+<li>Only subjects with explicit <code>RS+</code> subscriptions receive messages</li>
+<li>Full subscription state is maintained via <code>A+</code> and <code>RS+</code> messages</li>
+<li>Reduces unnecessary cross-cluster traffic</li>
+</ul>
+<h3 id="transition-protocol">Transition Protocol</h3>
+<p>The transition uses gateway commands in the INFO message:</p>
+<ol>
+<li>Gateway sends <code>gateway_cmd: 2</code> (All Subs Start)</li>
+<li>Gateway sends all <code>RS+</code> messages for known subscriptions</li>
+<li>Gateway sends <code>gateway_cmd: 3</code> (All Subs Complete)</li>
+<li>Remote gateway switches to interest-only mode for that account</li>
+</ol>
+<h2 id="ping-pong">PING/PONG</h2>
+<p><code>PING</code> and <code>PONG</code> implement keep-alive between gateways. Gateways continuously send <code>PING</code> messages at a configurable interval. Failure to respond with <code>PONG</code> within the configured timeout results in connection termination.</p>
+<h3 id="syntax-8">Syntax</h3>
+<div><div><pre><code class="language-text">PING\r\n</code></pre></div></div>
+<div><div><pre><code class="language-text">PONG\r\n</code></pre></div></div>
+<h2 id="err">-ERR</h2>
+<p>The <code>-ERR</code> message indicates a protocol, authorization, or runtime error. Most errors result in the gateway closing the connection.</p>
+<h3 id="syntax-9">Syntax</h3>
+<div><div><pre><code class="language-text">-ERR &lt;error message&gt;</code></pre></div></div>
+<h3 id="common-gateway-errors">Common Gateway Errors</h3>
+<ul>
+<li><code>-ERR 'Invalid Account'</code>: Unknown or unauthorized account</li>
+<li><code>-ERR 'Gateway Protocol Error'</code>: Malformed gateway protocol message</li>
+<li><code>-ERR 'Authorization Violation'</code>: Gateway authorization failure</li>
+<li><code>-ERR 'Maximum Payload Exceeded'</code>: Message exceeds max_payload setting</li>
+</ul></main>

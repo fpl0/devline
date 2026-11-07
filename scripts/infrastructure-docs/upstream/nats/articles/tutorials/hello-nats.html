@@ -1,0 +1,103 @@
+<main><header><h1>1. Hello NATS</h1></header>
+<p>In this tutorial you install NATS, start a server, and send your first
+message. You'll subscribe to a <strong>subject</strong> in one terminal, publish a
+message to it from another, and watch it arrive. By the end you'll
+have a working NATS server on your machine, and you'll have moved a
+message through it from both the CLI and a client.</p>
+<h2 id="what-youll-need">What you'll need</h2>
+<ul>
+<li>a terminal you can open two or three tabs in</li>
+<li>permission to install software (Homebrew, a download, or Docker)</li>
+<li>about ten minutes</li>
+</ul>
+<h2 id="step-1-install-the-nats-server-and-cli">Step 1: Install the NATS server and CLI</h2>
+<p>Install <code>nats-server</code> (the server) and <code>nats</code> (the command-line client).</p>
+<h4>macOS (Homebrew)</h4><div><div><pre><code class="language-bash">brew install nats-server
+brew install nats-io/nats-tools/nats</code></pre></div></div><h4>Linux</h4><div><div><pre><code class="language-bash"># Server (installs nats-server into /usr/local/bin, prompting for sudo)
+curl -sf https://binaries.nats.dev/nats-io/nats-server/v2@latest | PREFIX=/usr/local/bin sh
+
+# CLI (installs nats into /usr/local/bin)
+curl -sf https://binaries.nats.dev/nats-io/natscli/v0@latest | PREFIX=/usr/local/bin sh</code></pre></div></div><h4>Docker</h4><div><div><pre><code class="language-bash"># Run the server in Docker instead of installing it. This runs in the
+# foreground and ends with "[INF] Server is ready" — leave it running.
+# You already have a server this way, so skip Step 2 below.
+docker run -p 4222:4222 nats:latest
+
+# In another terminal, install just the CLI on your host (macOS shown)
+brew install nats-io/nats-tools/nats</code></pre></div></div>
+<p>Check that the CLI is installed:</p>
+<div><div><pre><code class="language-bash">nats --version</code></pre></div></div>
+<p>You should see a version number, for example <code>nats version 0.4.0</code>. If you
+installed the server directly (Homebrew or the Linux script, not Docker),
+check it too — you should see something like <code>nats-server: v2.11.0</code>:</p>
+<div><div><pre><code class="language-bash">nats-server --version</code></pre></div></div>
+<h2 id="step-2-start-the-server">Step 2: Start the server</h2>
+<p>If you started the server with Docker in Step 1, it's already running — leave
+that terminal alone and skip to Step 3.</p>
+<p>Otherwise, in your first terminal, start the server:</p>
+<div><div><pre><code class="language-bash">nats-server</code></pre></div></div>
+<p>You should see startup lines ending with:</p>
+<div><div><pre><code class="language-text">[INF] Server is ready</code></pre></div></div>
+<p>The server now listens on <code>localhost:4222</code>. Leave this terminal
+running for the rest of the tutorial.</p>
+<h2 id="step-3-subscribe-to-a-subject">Step 3: Subscribe to a subject</h2>
+<p>Open a <strong>second terminal</strong>. A subscriber registers interest in a
+subject and receives a copy of every matching message. Subscribe to
+the <code>greet</code> subject:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Subscribe to the greet subject and wait for messages.
+# Each matching message prints as it arrives. Ctrl-C to stop.
+nats sub greet</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The callback runs once for each message published to greet.
+static void
+onMsg(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("received on \"%s\": %.*s\n",
+           natsMsg_GetSubject(msg),
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+    natsMsg_Destroy(msg);
+}
+    // Subscribe to the greet subject and wait for messages. Ctrl-C to stop.
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "greet", onMsg, NULL);</code></pre></div></div>
+<p>You should see the subscriber start and wait:</p>
+<div><div><pre><code class="language-text">17:42:01 Subscribing on greet</code></pre></div></div>
+<p>Leave this terminal running and listening.</p>
+<h2 id="step-4-publish-a-message">Step 4: Publish a message</h2>
+<p>Open a <strong>third terminal</strong>. A publisher sends a message to a subject.
+Publish <code>Hello NATS!</code> to <code>greet</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Publish one message to the greet subject. The publish is
+# fire-and-forget: it hands the message to the server and exits.
+nats pub greet "Hello NATS!"</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Publish one message to the greet subject. The publish is
+// fire-and-forget: it hands the message to the server and returns.
+if (s == NATS_OK)
+    s = natsConnection_PublishString(conn, "greet", "Hello NATS!");
+if (s == NATS_OK)
+    printf("published to \"greet\"\n");</code></pre></div></div>
+<p>In this third terminal you should see the publish confirmed:</p>
+<div><div><pre><code class="language-text">17:42:09 Published 11 bytes to "greet"</code></pre></div></div>
+<p>Now switch back to your <strong>second terminal</strong>. The subscriber received
+the message and printed it:</p>
+<div><div><pre><code class="language-text">[#1] Received on "greet"
+Hello NATS!</code></pre></div></div>
+<p>That's one message making the round trip: published to a subject,
+matched against the subscriber's interest, and delivered.</p>
+<h2 id="step-5-see-the-flow">Step 5: See the flow</h2>
+<p>Here's an animation of the publish-to-subscriber path you just ran:</p>
+<div></div>
+<p>Publish a few more times from the third terminal and watch the counter
+in the second terminal climb: <code>[#2]</code>, <code>[#3]</code>, and so on. Each publish
+delivers a fresh copy to every active subscriber on the subject.</p>
+<h2 id="what-you-built">What you built</h2>
+<p>You have a running NATS server, and you've sent your first message
+through it: one terminal subscribed to the <code>greet</code> subject, another
+published to it, and the message arrived. The same pub/sub works from
+any NATS client, which is what the code tabs above show.</p>
+<h2 id="next">Next</h2>
+<ul>
+<li>Build a responder you can call and get an answer back:
+<a href="/tutorials/request-reply">Request-Reply</a>.</li>
+<li>Understand how publish-subscribe really works (the interest graph,
+delivery guarantees, and wildcards): the
+<a href="/learn/core-nats">Core NATS deep dive</a>, or the shorter
+<a href="/concepts/pub-sub-basics">publish-subscribe primer</a>.</li>
+</ul></main>

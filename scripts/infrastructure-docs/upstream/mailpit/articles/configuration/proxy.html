@@ -1,0 +1,79 @@
+<main>
+		
+		<h1>HTTP proxy</h1>
+		<p>While the Mailpit UI can be accessed directly when exposed to the network, you may want to configure an existing web server to proxy requests to Mailpit instead.
+In the following examples, the web server is configured to listen on “http://localhost” and the Mailpit server can be accessed from the running web server via
+<code>http://172.17.0.1:8025</code>. You will likely need to adjust this to suit your requirements.</p>
+
+<div>
+	<p>For security reasons, Mailpit (<code>&gt;= v1.29.0</code>) will block requests if the <code>Origin</code> header does not match the hostname you are connecting to your proxy server with.
+Therefore, you must ensure that your proxy server is configured to <strong>preserve</strong> the original <code>Host</code> header when proxying requests to Mailpit.</p>
+<p>Alternatively you can run Mailpit using <code>--api-cors "&lt;host-address&gt;,&lt;proxy-address&gt;"</code> (e.g., <code>--api-cors "localhost,172.17.0.1"</code>), however this is not the recommended approach (<a href="../http/#cors-configuration">see docs</a>).</p>
+
+</div>
+
+<h2 id="proxy-via-nginx">Proxy via nginx</h2>
+<div><pre><code class="language-nginx"><span><span><span>server</span> <span>{</span>
+</span></span><span><span>    <span>listen</span>       <span>80</span><span>;</span>
+</span></span><span><span>    <span>server_name</span>  <span>localhost</span><span>;</span>
+</span></span><span><span>
+</span></span><span><span>    <span>location</span> <span>/</span> <span>{</span>
+</span></span><span><span>        <span>proxy_set_header</span> <span>Host</span> <span>$http_host</span><span>;</span> <span># preserve original host header
+</span></span></span><span><span>        <span>proxy_pass</span> <span>http://172.17.0.1:8025</span><span>;</span> <span># internal Mailpit address
+</span></span></span><span><span>
+</span></span><span><span>        <span># configure the websocket
+</span></span></span><span><span>        <span>proxy_http_version</span> <span>1</span><span>.1</span><span>;</span>
+</span></span><span><span>        <span>proxy_set_header</span> <span>Upgrade</span> <span>$http_upgrade</span><span>;</span>
+</span></span><span><span>        <span>proxy_set_header</span> <span>Connection</span> <span>"Upgrade"</span><span>;</span>
+</span></span><span><span>    <span>}</span>
+</span></span><span><span><span>}</span>
+</span></span></code></pre></div><p>If you are using a different location (such as <code>/mail/</code>), be sure to start Mailpit with the same path set for its webroot (e.g., <code>--webroot /mail/</code>).</p>
+<h2 id="proxy-via-apache">Proxy via Apache</h2>
+<p>For Apache, ensure you have the following modules enabled: <code>rewrite</code>, <code>proxy</code>, <code>proxy_http</code>, and <code>proxy_wstunnel</code>.</p>
+<div><pre><code class="language-apache"><span><span><span>&lt;VirtualHost</span> <span>*:80</span><span>&gt;</span>
+</span></span><span><span>    <span>ServerName</span> localhost
+</span></span><span><span>
+</span></span><span><span>    <span>ProxyPreserveHost</span> <span>On</span> # preserve original host header
+</span></span><span><span>    <span>ProxyPass</span> <span>"/"</span> <span>"http://172.17.0.1:8025/"</span> # internal Mailpit address
+</span></span><span><span>    <span>ProxyPassReverse</span> <span>"/"</span> <span>"http://172.17.0.1:8025/"</span> # internal Mailpit address
+</span></span><span><span>
+</span></span><span><span>    <span># configure the websocket</span>
+</span></span><span><span>    <span>RewriteEngine</span> <span>on</span>
+</span></span><span><span>    <span>RewriteCond</span> %{HTTP:Upgrade} websocket [NC]
+</span></span><span><span>    <span>RewriteCond</span> %{HTTP:Connection} upgrade [NC]
+</span></span><span><span>    <span>RewriteRule</span> ^/?(.*) <span>"ws://172.17.0.1:8025/$1"</span> [P,L] # internal Mailpit address
+</span></span><span><span><span>&lt;/VirtualHost&gt;</span>
+</span></span></code></pre></div><h2 id="proxy-via-caddy">Proxy via Caddy</h2>
+<p>Caddy is extremely easy to configure by simply setting <code>reverse_proxy 172.17.0.1:8025</code> in the host configuration.</p>
+<div><pre><code class="language-text"><span><span>localhost:80 {
+</span></span><span><span>    reverse_proxy 172.17.0.1:8025 {
+</span></span><span><span>        header_up Host {host}
+</span></span><span><span>    }
+</span></span><span><span>}
+</span></span></code></pre></div><p>To configure Caddy to use a subdirectory to proxy to Mailpit (e.g., <code>http://localhost/mailpit/</code>), use:</p>
+<div><pre><code class="language-text"><span><span>localhost:80 {
+</span></span><span><span>    redir /mailpit /mailpit/
+</span></span><span><span>    handle_path /mailpit/* {
+</span></span><span><span>        rewrite * /mailpit{path}
+</span></span><span><span>        reverse_proxy 172.17.0.1:8025 {
+</span></span><span><span>            header_up Host {host}
+</span></span><span><span>        }
+</span></span><span><span>    }
+</span></span><span><span>}
+</span></span></code></pre></div><p>Ensure you start Mailpit with the <code>--webroot</code> option: <code>mailpit --webroot /mailpit/</code></p>
+<h2 id="proxy-via-iis">Proxy via IIS</h2>
+<p>Please see this <a href="https://github.com/axllent/mailpit/issues/131#issuecomment-1641054844">GitHub comment</a> for configuration instructions for IIS.</p>
+<h2 id="proxy-via-træfik">Proxy via Træfik</h2>
+<p>Please see this <a href="https://github.com/axllent/mailpit/issues/286">GitHub comment</a> for configuration instructions for Træfik.</p>
+<h2 id="others">Others</h2>
+<div>
+	If you use any other popular proxy not mentioned above, please <a href="https://github.com/axllent/mailpit/issues">open an issue</a> on GitHub, providing instructions on how to set it up, and it will be added to this documentation.
+Please ensure websocket connections are also working correctly. Thank you.
+</div>
+
+
+
+		
+		
+		
+	</main>

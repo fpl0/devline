@@ -1,0 +1,76 @@
+<main><header><h1>RabbitMQ tutorial - Work Queues</h1></header>
+<h2 id="work-queues">Work Queues</h2>
+<h3 id="using-the-amqp-10-net-client">(using the AMQP 1.0 .NET client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-one-dotnet-amqp10">first tutorial</a> we
+wrote programs to send and receive messages from a named queue. In this
+one we'll create a <em>Work Queue</em> that will be used to distribute
+time-consuming tasks among multiple workers.</p>
+<p>The main idea behind Work Queues (aka: <em>Task Queues</em>) is to avoid
+doing a resource-intensive task immediately and having to wait for
+it to complete. Instead we schedule the task to be done later. We encapsulate a
+<em>task</em> as a message and send it to a queue. A worker process running
+in the background will pop the tasks and eventually execute the
+job. When you run many workers the tasks will be shared between them.</p>
+<p>This concept is especially useful in web applications where it's
+impossible to handle a complex task during a short HTTP request
+window.</p>
+<p>This tutorial uses the <a href="/client-libraries/amqp-client-libraries">RabbitMQ AMQP 1.0 .NET client</a> (<code>RabbitMQ.AMQP.Client</code>). It requires RabbitMQ <strong>4.0 or later</strong>.</p>
+<h2 id="preparation">Preparation</h2>
+<p>In the previous part of this tutorial we sent a message containing
+"Hello World!". Now we'll be sending strings that stand for complex
+tasks. We fake work by sleeping: each <code>.</code> in the string adds one second.</p>
+<p>The producer is <code>NewTask/Program.cs</code>; the consumer is <code>Worker/Program.cs</code>.</p>
+<p><code>NewTask</code> publishes to a quorum queue <code>task_queue</code> and checks <code>OutcomeState.Accepted</code>:</p>
+<div><div><pre><code class="language-csharp">IQueueSpecification queueSpec = management.Queue(taskQueueName).Type(QueueType.QUORUM);
+await queueSpec.DeclareAsync();
+
+IPublisher publisher = await connection.PublisherBuilder().Queue(taskQueueName).BuildAsync();
+// ...
+PublishResult pr = await publisher.PublishAsync(amqpMessage);
+if (pr.Outcome.State != OutcomeState.Accepted)
+{
+    Console.Error.WriteLine($"Unexpected publish outcome: {pr.Outcome.State}");
+    Environment.Exit(1);
+}</code></pre></div></div>
+<p><code>Worker</code> uses <code>InitialCredits(1)</code> for fair dispatch and calls <code>ctx.Accept()</code> after <code>DoWork</code> in a <code>finally</code> block:</p>
+<div><div><pre><code class="language-csharp">IConsumer consumer = await connection.ConsumerBuilder()
+    .Queue(taskQueueName)
+    .InitialCredits(1)
+    .MessageHandler((ctx, message) =&gt;
+    {
+        string body = Encoding.UTF8.GetString(message.Body()!);
+        Console.WriteLine($" [x] Received '{body}'");
+        try
+        {
+            DoWork(body);
+        }
+        finally
+        {
+            Console.WriteLine(" [x] Done");
+            ctx.Accept();
+        }
+
+        return Task.CompletedTask;
+    })
+    .BuildAndStartAsync();</code></pre></div></div>
+<h2 id="round-robin-dispatching">Round-robin dispatching</h2>
+<p>Run two workers and publish tasks from a third terminal (from <code>dotnet-amqp</code>):</p>
+<div><div><pre><code class="language-bash">dotnet run --project Worker/Worker.csproj
+dotnet run --project Worker/Worker.csproj
+dotnet run --project NewTask/NewTask.csproj "First message."
+dotnet run --project NewTask/NewTask.csproj "Second message.."</code></pre></div></div>
+<p>By default, RabbitMQ sends each message to the next consumer in sequence (round-robin).</p>
+<h2 id="message-acknowledgment">Message acknowledgment</h2>
+<p>With AMQP 1.0, the consumer must <strong>settle</strong> each message (<code>Accept</code>, etc.). Settle <strong>after</strong> work completes so a crash mid-task allows redelivery.</p>
+<h2 id="fair-dispatch">Fair dispatch</h2>
+<!-- -->
+<p>Use <strong><code>InitialCredits(1)</code></strong> on the consumer builder so only one un-settled message is in flight per consumer (similar to prefetch 1 / <code>basicQos</code> in AMQP 0-9-1).</p>
+<h2 id="putting-it-all-together">Putting it all together</h2>
+<p>See <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/NewTask/Program.cs"><code>NewTask/Program.cs</code></a> and <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/Worker/Program.cs"><code>Worker/Program.cs</code></a> for the full sources (once merged upstream).</p>
+<p>Now we can move on to <a href="/tutorials/tutorial-three-dotnet-amqp10">tutorial 3</a> and learn how to deliver the same message to many consumers.</p></main>

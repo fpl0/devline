@@ -1,0 +1,28 @@
+<main>
+		
+		<h1>HTML check</h1>
+		<p><img alt="Mailpit" src="/images/html-check.png"/></p>
+<p>Support for HTML/CSS messages varies greatly across email clients. HTML check attempts to calculate the overall support for your email across all selected platforms to give you some idea of the general compatibility of your HTML email.</p>
+<h2 id="how-does-it-work">How does it work?</h2>
+<p>The HTML message is tested against over 175 HTML and CSS checks. All checks (except <code>&lt;script&gt;</code>) map to a test on <a href="https://caniemail.com">caniemail.com</a>, and the final score is derived from that compatibility data.</p>
+<p><strong>Remote stylesheets</strong> are automatically downloaded and injected as inline styles (unless blocked via <code>--block-remote-css-and-fonts</code>), which gives Mailpit reasonably accurate CSS results. Note that internal IP addresses are blocked by default - to test emails that reference stylesheets on internal servers, enable <code>--allow-internal-http-requests</code> (env: <code>MP_ALLOW_INTERNAL_HTTP_REQUESTS=true</code>).</p>
+<p><strong>CSS that cannot be inlined</strong> - properties like <code>@font-face</code>, <code>:visited</code>, and <code>:hover</code> - cannot be applied to specific elements, so Mailpit searches for them within CSS blocks instead. Since it cannot determine how many elements they actually affect, these checks are weighted lightly (5%) to limit their impact on the score. This is particularly relevant for emails that include large frameworks like Bootstrap, which typically contain many unused rules.</p>
+<p>Warnings are shown with their compatibility details and any relevant notes. How much weight you give them is up to you.</p>
+<h2 id="is-the-final-score-accurate">Is the final score accurate?</h2>
+<p>There are many ways to define “accurate” and how one should calculate the compatibility score of an email. There is also no way to programmatically determine the relevance of a single test to the entire email.</p>
+<p>For each test, Mailpit calculates both the unsupported and partially-supported percentages in relation to the number of matches against the total number of nodes (elements) in the HTML. The maximum unsupported and partially-supported weighted scores are then used for the final score (i.e., worst-case scenario).</p>
+<p>To explain this logic in very simple terms: Assuming a <code>&lt;script&gt;</code> node (element) has 100% failure (not supported in any email client), and a <code>&lt;p&gt;</code> node has 100% pass (supported).</p>
+<ul>
+<li>An email containing just a single <code>&lt;script&gt;</code>: the final score is 0% supported.</li>
+<li>An email containing just a <code>&lt;script&gt;</code> and a <code>&lt;p&gt;</code>: the final score is 50% supported.</li>
+<li>An email containing just a <code>&lt;script&gt;</code> and two <code>&lt;p&gt;</code>: the final score is 66.67% supported.</li>
+</ul>
+<p>Mailpit will sort the warnings according to their weighted unsupported scores.</p>
+<h2 id="what-about-invalid-html">What about invalid HTML?</h2>
+<p>HTML check does not detect if the original HTML is valid. In order to detect applied styles to every node, the HTML email is run through a parser that is very good at turning invalid input into valid output. It is what it is…</p>
+
+
+		
+		
+		
+	</main>

@@ -1,0 +1,12 @@
+<main><header><h1>Consumer Group Pinned</h1></header>
+<p>Consumer group pinned to a client.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$JS.EVENT.ADVISORY.CONSUMER.PINNED.{stream}.{consumer}</code></p>
+<p>Where:</p>
+<ul>
+<li><code>{stream}</code> is the stream name</li>
+<li><code>{consumer}</code> is the consumer name</li>
+</ul>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>An Advisory sent when a pinned_client grouped consumer pinned a client</p><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.consumer_group_pinned"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>account</span><span>string</span></div><div>The account hosting the consumer</div></div><div><div><span>stream</span><span>string</span><span>required</span></div><div>The stream hosting the consumer</div></div><div><div><span>consumer</span><span>string</span><span>required</span></div><div>The consumer name</div></div><div><div><span>domain</span><span>string</span></div><div>The domain of the JetStreamServer</div><div><span>Min length:</span><code>1</code></div></div><div><div><span>group</span><span>string</span><span>required</span></div><div>The group that unpinned a client</div></div><div><div><span>pinned_id</span><span>string</span><span>required</span></div><div>The unique server-assigned ID for the client</div></div></div></div></main>

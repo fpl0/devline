@@ -1,0 +1,33 @@
+<main>
+		
+		<h1>Mailpit features</h1>
+		<p>Mailpit is packed full of features for developers wanting to test SMTP and emails.
+It acts as an SMTP server, provides a modern web interface to view &amp; test intercepted emails.
+It also contains an API for automated integration testing.</p>
+<p><strong>Some of the main features include:</strong></p>
+<ul>
+<li>Runs entirely from a single <a href="/docs/install/">static binary</a> or multi-architecture <a href="/docs/install/docker/">Docker images</a>.</li>
+<li>Modern web UI with advanced <a href="/docs/usage/search-filters/">mail search</a> to view emails (formatted HTML, highlighted HTML source, text, headers, raw source, and MIME attachments including image thumbnails), with optional <a href="/docs/configuration/http/">HTTPS</a> and <a href="/docs/configuration/http/">authentication</a>.</li>
+<li><a href="/docs/configuration/smtp/">SMTP server</a> with optional STARTTLS or SSL/TLS, and authentication (including an “accept any” mode).</li>
+<li>A <a href="/docs/api-v1/">REST API</a> for integration testing.</li>
+<li>Real-time web UI updates using web sockets for new mail, with optional <a href="/docs/usage/notifications/">browser notifications</a> when new mail is received.</li>
+<li>Optional <a href="/docs/configuration/pop3/">POP3 server</a> to download captured messages directly into your email client.</li>
+<li><a href="/docs/usage/html-check/">HTML check</a> to test and score mail client compatibility with HTML emails.</li>
+<li><a href="/docs/usage/link-check/">Link check</a> to test message links (HTML and text) and linked images.</li>
+<li><a href="/docs/usage/spam-check/">Spam check</a> to test message “spamminess” using a running SpamAssassin or Rspamd server.</li>
+<li><a href="/docs/usage/html-screenshots/">Create screenshots</a> of HTML messages via the web UI.</li>
+<li>Mobile and tablet HTML preview toggle in desktop mode.</li>
+<li><a href="/docs/usage/tagging/">Message tagging</a>, including manual tagging or automated tagging using filtering and “plus addressing”.</li>
+<li><a href="/docs/configuration/smtp-relay/">SMTP relaying</a> (message release) — relay messages via a different SMTP server, including an optional allowlist of accepted recipients.</li>
+<li><a href="/docs/configuration/smtp-forward/">SMTP forwarding</a> — automatically forward messages via a different SMTP server to predefined email addresses.</li>
+<li><a href="/docs/integration/chaos/">Chaos</a> feature to enable configurable SMTP errors for testing application resilience.</li>
+<li>Fast message <a href="/docs/configuration/email-storage/">storing and processing</a> — ingest 100–200 emails per second over SMTP (depending on CPU, network speed, and email size), easily handling tens of thousands of emails, with automatic email pruning (by default, keeping the most recent 500 emails).</li>
+<li><code>List-Unsubscribe</code> syntax validation.</li>
+<li>Optional <a href="/docs/integration/webhook/">webhook</a> for received messages.</li>
+</ul>
+
+
+		
+		
+		
+	</main>

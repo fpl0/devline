@@ -1,0 +1,31 @@
+<main><header><h1>Server Metrics</h1></header>
+<p>Server metric messages provide telemetry data from the NATS server for monitoring and performance analysis.</p>
+<h2 id="overview">Overview</h2>
+<p>Server metrics are published as events that can be subscribed to for real-time monitoring. These metrics help track:</p>
+<ul>
+<li>Service response times</li>
+<li>Request processing latency</li>
+<li>System performance indicators</li>
+<li>Resource utilization</li>
+</ul>
+<h2 id="available-metrics">Available Metrics</h2>
+<h3 id="service-latency"><a href="/reference/system/metric/service-latency">Service Latency</a></h3>
+<p>Measures the time taken to process service requests:</p>
+<ul>
+<li>Request/response round-trip times</li>
+<li>Processing latency distribution</li>
+<li>Performance bottleneck identification</li>
+</ul>
+<h2 id="subscribing-to-metrics">Subscribing to Metrics</h2>
+<p>Metrics are published to specific subjects that follow the pattern:</p>
+<ul>
+<li><code>$SYS.SERVER.METRIC.&gt;</code> - All server metrics</li>
+<li><code>$SYS.SERVER.METRIC.SERVICE.LATENCY</code> - Service latency metrics</li>
+</ul>
+<h2 id="best-practices">Best Practices</h2>
+<ul>
+<li>Use sampling to reduce metric overhead</li>
+<li>Store metrics in time-series databases</li>
+<li>Set up alerts for latency thresholds</li>
+<li>Correlate metrics with system events</li>
+</ul></main>

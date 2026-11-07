@@ -1,0 +1,438 @@
+# Laravel Scout guide
+
+> Learn how to use Meilisearch with Laravel Scout.
+
+In this guide, you will see how to set up [Laravel Scout](https://laravel.com/docs/13.x/scout) to add full-text search, semantic search, and hybrid search to your Laravel application using Meilisearch.
+
+## Prerequisites
+
+Before you start, make sure you have the following installed on your machine:
+
+* PHP 8.3
+* [Composer](https://getcomposer.org/)
+
+You will also need a Laravel application. If you don't have one, you can create a new one by running the following command:
+
+```sh
+composer create-project laravel/laravel my-application
+```
+
+## Installing Laravel Scout
+
+Laravel Scout is the official Laravel package for adding search to Eloquent models. It supports Meilisearch through a dedicated driver.
+
+To enable it, navigate to your Laravel application directory and install Scout via Composer:
+
+```sh
+composer require laravel/scout
+```
+
+After installing Scout, you need to publish the Scout configuration file. You can do this by running the following `artisan` command:
+
+```sh
+php artisan vendor:publish --provider="Laravel\Scout\ScoutServiceProvider"
+```
+
+This command should create a new configuration file in your application directory: `config/scout.php`.
+
+## Configuring the Laravel Scout driver
+
+Now you need to configure Laravel Scout to use the Meilisearch driver. First, install the dependencies required to use Scout with Meilisearch via Composer:
+
+```sh
+composer require meilisearch/meilisearch-php http-interop/http-factory-guzzle
+```
+
+Then, update the environment variables in your `.env` file:
+
+```sh
+SCOUT_DRIVER=meilisearch
+# Use the host below if you're running Meilisearch via Laravel Sail
+MEILISEARCH_HOST=http://meilisearch:7700
+MEILISEARCH_KEY=masterKey
+```
+
+### Local development
+
+Laravel’s official Docker development environment, Laravel Sail, comes with a Meilisearch service out-of-the-box. Please note that when running Meilisearch via Sail, Meilisearch’s host is `http://meilisearch:7700` (instead of say, `http://localhost:7700`).
+
+> [!NOTE]
+>
+> Check out Docker [Bridge network driver](https://docs.docker.com/network/drivers/bridge/#differences-between-user-defined-bridges-and-the-default-bridge) documentation for further detail.
+
+### Running in production
+
+For production use cases, we recommend using a managed Meilisearch via [Meilisearch Cloud](https://www.meilisearch.com/cloud?utm_campaign=laravel\&utm_source=docs\&utm_medium=laravel-scout-guide). On Meilisearch Cloud, you can find your host URL in your project settings.
+
+> [!TIP]
+>
+> Read the [Meilisearch Cloud quick start](https://www.meilisearch.com/docs/getting_started/first_project).
+
+## Making Eloquent models searchable
+
+With Scout installed and configured, add the `Laravel\Scout\Searchable` trait to your Eloquent models to make them searchable. This trait will use Laravel’s model observers to keep the data in your model in sync with Meilisearch.
+
+Here’s an example model:
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Laravel\Scout\Searchable;
+
+class Contact extends Model
+{
+    use Searchable;
+}
+```
+
+### Choosing which fields to index
+
+To configure which fields to store in Meilisearch, use the `toSearchableArray` method. You can use this technique to store a model and its relationships’ data in the same document.
+
+The example below shows how to store a model's relationships data in Meilisearch:
+
+```php
+<?php
+
+namespace App\Models;
+
+use App\Models\Company;
+use Laravel\Scout\Searchable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Contact extends Model
+{
+    use Searchable;
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function toSearchableArray(): array
+    {
+       // All model attributes are made searchable
+        $array = $this->toArray();
+
+      // Then we add some additional fields
+        $array['organization_id'] = $this->company->organization->id;
+        $array['company_name'] = $this->company->name;
+        $array['company_url'] = $this->company->url;
+
+        return $array;
+    }
+}
+```
+
+## Configuring index settings
+
+Meilisearch index settings control how your data is filtered, sorted, and embedded. In Laravel, you configure them in the `meilisearch.index-settings` option of `config/scout.php`, using the model class as the key.
+
+### Filterable and sortable attributes
+
+Configure which attributes are [filterable](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/getting_started) and [sortable](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/sort_results):
+
+```php
+<?php
+
+use App\Models\Contact;
+
+return [
+   // Other Scout configuration...
+
+    'meilisearch' => [
+        'host' => env('MEILISEARCH_HOST', 'https://edge.meilisearch.com'),
+        'key' => env('MEILISEARCH_KEY'),
+        'index-settings' => [
+            Contact::class => [
+                'filterableAttributes' => ['organization_id'],
+                'sortableAttributes' => ['name', 'company_name']
+            ],
+        ],
+    ],
+];
+```
+
+The example above updates Meilisearch index settings for the `Contact` model:
+
+* it makes the `organization_id` field filterable
+* it makes the `name` and `company_name` fields sortable
+
+### Embedders for semantic and hybrid search
+
+[Semantic and hybrid search](https://www.meilisearch.com/docs/capabilities/hybrid_search/overview) use an [embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/overview#how-it-works) to turn text into vectors:
+
+* **Semantic search** matches documents by meaning instead of keywords.
+* **Hybrid search** combines full-text and semantic search in a single query.
+
+> [!NOTE]
+>
+> Semantic and hybrid search require Laravel Scout 11.8 or later.
+
+With Scout, you can choose who generates embeddings:
+
+| | Meilisearch generates embeddings | Scout generates embeddings |
+| - | - | - |
+| Embedder source | Any [supported provider](https://www.meilisearch.com/docs/capabilities/hybrid_search/overview#supported-embedder-providers), such as `openAi` | `userProvided` |
+| Scout `driver` | `meilisearch` | `laravel-ai` (default) |
+| Extra requirements | None | [Laravel AI SDK](https://laravel.com/docs/13.x/ai-sdk) |
+| Model method | None | `toSearchableEmbedding` |
+
+Use Meilisearch-generated embeddings if you want the simplest setup. Use Scout-generated embeddings if you want to reuse the AI providers already configured in your Laravel application.
+
+The examples below use an `Article` model with `title` and `body` fields and the `Searchable` trait.
+
+#### Option 1: Let Meilisearch generate embeddings
+
+Define an embedder in your index settings. Then, tell Scout which embedder to use with the `model-settings` option and set `driver` to `meilisearch`:
+
+```php
+<?php
+
+use App\Models\Article;
+
+return [
+    // Other Scout configuration...
+
+    'meilisearch' => [
+        'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
+        'key' => env('MEILISEARCH_KEY'),
+        'index-settings' => [
+            Article::class => [
+                'embedders' => [
+                    'default' => [
+                        'source' => 'openAi',
+                        'apiKey' => env('OPENAI_API_KEY'),
+                        'model' => 'text-embedding-3-small',
+                        'documentTemplate' => 'An article titled {{doc.title}}: {{doc.body}}',
+                    ],
+                ],
+            ],
+        ],
+        'model-settings' => [
+            Article::class => [
+                'embedding' => [
+                    'embedder' => 'default',
+                    'driver' => 'meilisearch',
+                ],
+            ],
+        ],
+    ],
+];
+```
+
+In this mode, Meilisearch generates embeddings for your documents and for search queries. Scout does not add vectors to your documents, so you do not need a `toSearchableEmbedding` method.
+
+The [document template](https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/document_template_best_practices) controls which fields Meilisearch embeds. Make sure these fields are present in your model's `toSearchableArray` output.
+
+> [!TIP]
+>
+> Meilisearch supports many embedding providers. See [Configure an OpenAI embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/configure_openai_embedder) or [choose an embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/choose_an_embedder).
+
+#### Option 2: Let Scout generate embeddings
+
+In this mode, Scout generates embeddings with the Laravel AI SDK and sends them to Meilisearch with your documents. This option requires PHP 8.3 or later. First, install the SDK and configure at least one AI provider in your application:
+
+```sh
+composer require laravel/ai
+```
+
+Then, configure a [`userProvided` embedder](https://www.meilisearch.com/docs/capabilities/hybrid_search/how_to/search_with_user_provided_embeddings) with the dimensions of your embedding model. Set the same number of dimensions in `model-settings`:
+
+```php
+<?php
+
+use App\Models\Article;
+
+return [
+    // Other Scout configuration...
+
+    'meilisearch' => [
+        'host' => env('MEILISEARCH_HOST', 'http://localhost:7700'),
+        'key' => env('MEILISEARCH_KEY'),
+        'index-settings' => [
+            Article::class => [
+                'embedders' => [
+                    'default' => [
+                        'source' => 'userProvided',
+                        'dimensions' => 1536,
+                    ],
+                ],
+            ],
+        ],
+        'model-settings' => [
+            Article::class => [
+                'embedding' => [
+                    'embedder' => 'default',
+                    'dimensions' => 1536,
+                ],
+            ],
+        ],
+    ],
+];
+```
+
+By default, Scout uses your default Laravel AI provider and embedding model. To use a different one, add the optional `provider` and `model` keys to the `embedding` array.
+
+Finally, define a `toSearchableEmbedding` method on your model. It must return either the text Scout should embed or a precomputed embedding array:
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Laravel\Scout\Searchable;
+
+class Article extends Model
+{
+    use Searchable;
+
+    public function toSearchableEmbedding(): string|array
+    {
+        return $this->title.' '.$this->body;
+    }
+}
+```
+
+> [!NOTE]
+>
+> Scout also generates the embedding of each search query with the Laravel AI SDK. If you pass your own query vector with the `vector` option, Scout skips this step.
+
+### Applying your index settings
+
+After changing your index settings, run the following command to apply them to Meilisearch:
+
+```sh
+php artisan scout:sync-index-settings
+```
+
+> [!WARNING]
+>
+> With Option 1, changing an embedder's `source`, `model`, or `documentTemplate` may make Meilisearch regenerate the embeddings of all documents. For large indexes, this can take a long time and incur costs with your embedding provider. Read more about [automatic embedding generation](https://www.meilisearch.com/docs/capabilities/hybrid_search/overview#automatic-embedding-generation).
+>
+> With Option 2, Meilisearch never regenerates embeddings. If you change the AI provider, model, or `toSearchableEmbedding` output, [re-import your records](#importing-your-data) so Scout generates new embeddings.
+
+## Importing your data
+
+New and updated records are synced to Meilisearch automatically. To import records that already exist in your database, run the `scout:import` command for each searchable model:
+
+```sh
+php artisan scout:import "App\Models\Contact"
+php artisan scout:import "App\Models\Article"
+```
+
+If you configured embedders, importing also embeds your documents. With Option 1, Meilisearch generates the embeddings. With Option 2, Scout generates them. You must import the `Article` records before running the [semantic and hybrid search](#semantic-search) examples below.
+
+> [!TIP]
+>
+> For large datasets, [configure a queue](https://laravel.com/docs/13.x/scout#queueing) so Scout syncs records in the background. Meilisearch always indexes documents asynchronously, so new records may take a moment to appear in search results.
+
+## Searching
+
+### Full-text search
+
+To search a model, call the `search` method and retrieve the matching Eloquent models with `get`:
+
+```php
+use App\Models\Contact;
+
+$contacts = Contact::search('Marie')->get();
+```
+
+#### Filtering and sorting
+
+You can filter and sort results with Scout's `where` and `orderBy` methods. This requires [configuring filterable and sortable attributes](#filterable-and-sortable-attributes) first:
+
+```php
+$contacts = Contact::search('Marie')
+    ->where('organization_id', 1)
+    ->orderBy('name')
+    ->get();
+```
+
+### Semantic search
+
+> [!NOTE]
+>
+> Semantic search requires an [embedder](#embedders-for-semantic-and-hybrid-search).
+
+Chain the `semantic` method onto your search query to match documents by meaning only:
+
+```php
+use App\Models\Article;
+
+$articles = Article::search('staying cool in the summer')
+    ->semantic()
+    ->get();
+```
+
+### Hybrid search
+
+> [!NOTE]
+>
+> Hybrid search requires an [embedder](#embedders-for-semantic-and-hybrid-search).
+
+Chain the `hybrid` method to combine full-text and semantic results. The first two arguments set the relative weights of each strategy:
+
+```php
+$articles = Article::search('renewable energy storage')
+    ->hybrid(textWeight: 1, semanticWeight: 2)
+    ->get();
+```
+
+Scout converts these weights into Meilisearch's [`semanticRatio`](https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/custom_hybrid_ranking) as `semanticWeight / (textWeight + semanticWeight)`. The example above sends a `semanticRatio` of about `0.67`. Calling `semantic()` is the same as a `semanticRatio` of `1.0`.
+
+### Semantic and hybrid search options
+
+Both `semantic` and `hybrid` accept a `minSimilarity` argument, which Scout sends to Meilisearch as a [`rankingScoreThreshold`](https://www.meilisearch.com/docs/capabilities/hybrid_search/getting_started#perform-a-hybrid-search). Meilisearch drops results with a lower score:
+
+```php
+$articles = Article::search('renewable energy storage')
+    ->semantic(minSimilarity: 0.6)
+    ->get();
+```
+
+Semantic and hybrid queries also work with `where` clauses and pagination. As with full-text search, you must configure your [filterable attributes](#filterable-and-sortable-attributes) before filtering.
+
+Keep these limitations in mind:
+
+* The search query must not be empty.
+* Weights passed to `hybrid` must be positive numbers.
+* You cannot pass a custom `hybrid` key to the `options` method. Scout sets this parameter for you.
+
+## Example usage
+
+You built an example application to demonstrate how to use Meilisearch with Laravel Scout. It showcases an app-wide search in a CRM (Customer Relationship Management) application.
+
+[![Laravel Scout example application](https://mintcdn.com/meilisearch-6b28dec2/AA65w-9bZrf-CgFA/assets/images/demos/saas-demo-screenshot.png?fit=max\&auto=format\&n=AA65w-9bZrf-CgFA\&q=85\&s=63cf64bd4aa4ebd7facba4171e75e74d)](https://saas.meilisearch.com/?utm_campaign=laravel\&utm_source=docs\&utm_medium=laravel-scout-guide)
+
+This demo application uses the following features:
+
+* [Multi-search](https://www.meilisearch.com/docs/reference/api/multi-search/perform-a-multi-search) (search across multiple indexes)
+* [Multi-tenancy](https://www.meilisearch.com/docs/capabilities/security/overview)
+* [Filtering](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/getting_started)
+* [Sorting](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/how_to/sort_results)
+
+Of course, the code is open-sourced on [GitHub](https://github.com/meilisearch/saas-demo). 🎉
+
+## Next steps
+
+> [card] [AI-powered search](https://www.meilisearch.com/docs/capabilities/hybrid_search/overview)
+>
+> Learn how hybrid and semantic search work in Meilisearch
+
+> [card] [Custom hybrid ranking](https://www.meilisearch.com/docs/capabilities/hybrid_search/advanced/custom_hybrid_ranking)
+>
+> Tune the balance between keyword and semantic results
+
+> [card] [Filtering](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/getting_started)
+>
+> Add filters and facets to your searches
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

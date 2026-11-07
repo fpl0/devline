@@ -1,0 +1,296 @@
+<main><header><h1>Disaster recovery</h1></header>
+<p>You now have two tools. A <strong>snapshot</strong> of <code>ORDERS</code> sits off-site under
+<code>./backups/orders/</code>, and a live <strong>mirror</strong>, <code>ORDERS_DR</code>, runs at <code>site2</code>.
+Each protects against a different failure, and reaching for the
+wrong one during an outage costs you either data or hours.</p>
+<p>This page is the <strong>runbook</strong>: an ordered procedure that names the failure,
+picks the right tool, and carries out the recovery against the real <code>ORDERS</code>
+deployment. It also covers the one operation the earlier pages set up but never
+performed: <strong>promotion</strong>, turning the read-only <code>ORDERS_DR</code> into a
+writable primary.</p>
+<h2 id="match-the-failure-to-the-tool">Match the failure to the tool</h2>
+<p>A runbook starts before the outage. The decision you don't want to make
+under pressure during an outage is <em>which tool</em>. Decide it ahead of time, per failure class.</p>
+<table><thead><tr><th>What happened</th><th>Reach for</th><th>Why</th></tr></thead><tbody><tr><td>The whole <code>east</code> cluster is gone</td><td>promote <code>ORDERS_DR</code></td><td>The mirror already holds the data; promotion is minutes, a restore is hours.</td></tr><tr><td>Someone deleted or purged <code>ORDERS</code> by mistake</td><td>recover from <code>ORDERS_DR</code>, or restore the snapshot</td><td>The mirror survives an upstream delete: it keeps every message it had copied and just stops updating, so it's usually the freshest intact copy. The snapshot is the older fallback.</td></tr><tr><td>Messages on <code>ORDERS</code> are corrupt or wrong (a bad publisher)</td><td>restore a known-good snapshot, or purge the bad range</td><td>The bad data replicated to the mirror as well. The snapshot predates the corruption.</td></tr><tr><td>A consumer lost its position (<code>shipping</code> redelivering from zero)</td><td>restore a <code>--consumers</code> snapshot</td><td>Only the snapshot captured the consumer's saved delivery position.</td></tr><tr><td>Enough <code>east</code> servers are permanently gone that the meta group has no leader</td><td>rescue the meta group, then remove the dead peers</td><td>Nothing can be created, moved, or restored while the metadata layer has no quorum.</td></tr></tbody></table>
+<p>One principle runs through the whole table: a snapshot is the only copy
+that predates a mistake. A mirror follows the upstream's live writes, so
+a corrupt write replicates into it; it survives an upstream delete but
+only as a copy frozen at the break, never an earlier point you chose.
+That's why the chapter built both, and why
+<a href="/learn/clustering">R3 replication</a> is on neither row: replicating a bad
+write three times doesn't undo it.</p>
+<h2 id="failover-promote-the-mirror">Failover: promote the mirror</h2>
+<p>When the <code>east</code> cluster is gone, the goal is to make <code>ORDERS_DR</code> start accepting
+writes so <code>order-svc</code> and the consumers can carry on at <code>site2</code>. That's
+promotion, and it's a short, ordered sequence. The animation below
+shows it end to end.</p>
+<div></div>
+<h3 id="step-1--verify-the-lag-is-zero">Step 1 — verify the lag is zero</h3>
+<p>A mirror trails its upstream by some <strong>lag</strong>: the count of messages it
+hasn't copied yet. Promote it while lag is non-zero and you start publishing on
+top of a stream that's still missing its tail. So the first runbook step is
+always the same: read the lag.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Before you promote ORDERS_DR, read how far it trails the upstream.
+# A mirror is eventually consistent: it follows its upstream over the
+# network, so at any instant it can be a few messages behind. The Lag
+# field is that gap, in messages. Promote a mirror with non-zero lag
+# and you publish on top of a stream that is still missing tail
+# messages.
+
+# Point at site2, where the ORDERS_DR mirror lives.
+nats --server nats://127.0.0.1:5222 stream info ORDERS_DR
+
+# Look at the Mirror block in the output:
+#
+#   Mirror Information:
+#
+#            Stream Name: ORDERS
+#                    Lag: 0
+#              Last Seen: 1.2s
+#
+# Lag: 0 means the mirror has caught up to every message the upstream
+# had at last contact — it is safe to promote. A non-zero Lag means
+# messages are still in flight; wait and re-run until it reaches 0.
+#
+# Last Seen is how long ago the mirror last heard from the upstream. If
+# the upstream site is already gone, Last Seen climbs and Lag freezes at
+# whatever it was when contact dropped — that frozen Lag is your data
+# loss, your actual RPO for this failover.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Before you promote ORDERS_DR, read how far it trails the
+// upstream. Lag is that gap, in messages: promote a mirror with
+// non-zero lag and you publish on top of a stream that is still
+// missing tail messages.
+s = js_GetStreamInfo(&amp;si, js, "ORDERS_DR", NULL, &amp;jerr);
+if ((s == NATS_OK) &amp;&amp; (si-&gt;Mirror != NULL))
+{
+    printf("Mirror of : %s\n", si-&gt;Mirror-&gt;Name);
+    printf("Lag       : %" PRIu64 " messages\n", si-&gt;Mirror-&gt;Lag);
+    // Active is how long ago the mirror last heard from the
+    // upstream. If the upstream site is already gone, this
+    // climbs and Lag freezes at whatever it was when contact
+    // dropped — that frozen Lag is your data loss.
+    printf("Last seen : %.1fs ago\n",
+           (double) si-&gt;Mirror-&gt;Active / 1E9);
+
+    // Lag 0 means the mirror has caught up to every message the
+    // upstream had at last contact: it is safe to promote.
+    if (si-&gt;Mirror-&gt;Lag == 0)
+        printf("Safe to promote\n");
+    else
+        printf("Messages still in flight — wait and re-check\n");
+}</code></pre></div></div>
+<p>If the <code>east</code> site is fully unreachable, the mirror can't reach its upstream and the lag
+stops at whatever it was when contact dropped. That stalled number is your
+real recovery point: the messages written to <code>ORDERS</code> after the last
+successful copy are lost. Note it, then proceed. Waiting for a lag that will
+never move to zero only extends the outage.</p>
+<h3 id="step-2--drop-the-mirror-config">Step 2 — drop the mirror config</h3>
+<p>A mirror is <strong>read-only</strong> by design: it rejects direct publishes because its
+only job is to follow its upstream. To make <code>ORDERS_DR</code> writable, you remove
+the mirror relationship from its configuration.</p>
+<div><div><pre><code class="language-bash"># At site2: edit ORDERS_DR so it is no longer a mirror.
+# Removing the mirror source makes the stream a standalone primary.
+nats --server nats://site2:4222 stream edit ORDERS_DR --no-mirror</code></pre></div></div>
+<p>Once the mirror config is gone, the stream stops following <code>east</code>. It still
+holds every message it had copied. Promotion doesn't touch the data, only
+the relationship.</p>
+<h3 id="step-3--clear-the-lost-streams-assignment">Step 3 — clear the lost stream's assignment</h3>
+<p>The subject bind in the next step fails if the old <code>ORDERS</code> assignment is
+still in the JetStream metadata. The server checks the subjects you're
+adding against every stream in the account, and losing the site doesn't
+remove the dead <code>ORDERS</code> on its own, so the edit comes back with
+<code>subjects overlap with an existing stream (10065)</code>. Clear the stale entry
+first:</p>
+<div><div><pre><code class="language-bash"># Remove the assignment for the lost ORDERS so its subjects are free.
+nats --server nats://site2:4222 stream rm ORDERS --force</code></pre></div></div>
+<p>This is the official promotion order: free the mirrored stream's
+subjects, drop the mirror config (step 2), then bind those subjects to
+the promoted stream (step 4).</p>
+<h3 id="step-4--add-the-subjects-so-it-accepts-writes">Step 4 — add the subjects so it accepts writes</h3>
+<p>A mirror has no subjects of its own; it receives messages through the mirror
+mechanism, not by listening on <code>orders.&gt;</code>. A writable primary needs to <em>bind</em>
+those subjects so publishers can reach it. Add them:</p>
+<div><div><pre><code class="language-bash"># Give the promoted stream the subjects ORDERS used to own.
+nats --server nats://site2:4222 stream edit ORDERS_DR --subjects "orders.&gt;"</code></pre></div></div>
+<p><code>ORDERS_DR</code> now captures <code>orders.created</code>, <code>orders.shipped</code>,
+<code>orders.canceled</code> — the same subjects the lost primary held. It now functions
+as a full primary.</p>
+<h3 id="step-5--redirect-publishers-and-consumers">Step 5 — redirect publishers and consumers</h3>
+<p>The last step redirects traffic. Point <code>order-svc</code> and the consumers at <code>site2</code> and
+they resume against the promoted stream:</p>
+<div><div><pre><code class="language-bash"># Publishers and consumers now connect to site2.
+nats --server nats://site2:4222 pub orders.created \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'</code></pre></div></div>
+<p>The order JSON is byte-for-byte what <code>order-svc</code> always sent; only the server
+address changed. Failover is complete: the platform writes and reads at
+<code>site2</code>, and the data loss is exactly the stalled lag you noted in step 1.</p>
+<p>Two deployment preconditions sit under this whole sequence. First, every
+<code>stream rm</code> and <code>stream edit</code> here goes through the JetStream metadata
+group, so that group has to keep quorum after the site is lost — if the
+failed site held the meta majority, no edit succeeds until the cluster
+recovers. Second, the promoted stream must live where that quorum
+survives. That's why a DR mirror is normally placed in its own JetStream
+domain (a leaf node) or an independent cluster, rather than sharing one
+meta group that spans both sites.</p>
+<p>How the mirror replicated those messages in the first place (the config,
+the filters, the start position) is the JetStream chapter's job, covered in
+<a href="/learn/jetstream/mirrors-and-sources">Mirrors and sources</a>. The runbook only
+reads the lag and changes the relationship.</p>
+<h2 id="recovery-from-a-mistake-restore-the-snapshot">Recovery from a mistake: restore the snapshot</h2>
+<p>The other rows of the table roll back rather than fail over. When
+corrupt messages were written to <code>ORDERS</code>, the mirror is no help, because
+it copied the bad writes; the snapshot is the intact copy, taken before
+the bad event. An accidental delete or purge is the exception: the mirror
+keeps everything it had already replicated, so it's often the freshest
+surviving copy — recover from it when it holds more than the last
+snapshot, and fall back to the snapshot otherwise.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Recovery for a hard site loss or an accidental delete: rebuild ORDERS
+# from the last off-site snapshot. Restore recreates the stream byte
+# for byte — same messages, same sequence numbers, same config, and
+# (because this snapshot was taken with --consumers) the same shipping
+# and analytics consumers at their saved delivery position.
+#
+# Do NOT recreate an empty ORDERS first. Restore creates the stream
+# itself; an existing stream of the same name makes the restore fail.
+# After an accidental delete, restore straight from the snapshot.
+
+nats --server nats://127.0.0.1:4222 stream restore ./backups/orders/2026-06-04
+
+# Expected tail of the output:
+#
+#   Starting restore of Stream "ORDERS" from ./backups/orders/2026-06-04
+#   ...
+#   Restored stream "ORDERS" in 0.38s
+#
+#   Information for Stream ORDERS
+#   ...
+#            Messages: 1,000
+#       First Sequence: 1
+#        Last Sequence: 1,000
+#     Active Consumers: 2
+#
+# Then verify: the message count and last sequence must match what the
+# snapshot held. Everything published after the snapshot was taken is
+# gone — that gap is your recovery point. A snapshot you never test is
+# a guess, so rehearse this restore on a schedule, not during the
+# outage.</code></pre></div></div>
+<p>For an accidental delete, restore straight from the snapshot. Don't
+recreate an empty <code>ORDERS</code> first, because restore creates the stream itself
+and an existing stream of the same name makes it fail. For logical
+corruption, stop the publishers first so no new bad data races in, then
+either purge the corrupt sequence range or restore a known-good snapshot
+that predates it. For a lost consumer position, a snapshot taken with
+<code>--consumers</code> brings the durable consumer config and its delivery position
+back together.</p>
+<p>The mechanics of the snapshot itself (chunking, the <code>backup.json</code>, the
+restore name rule) live one page back on
+<a href="/learn/backup-recovery/stream-backup-restore">Stream backup and restore</a>.
+Here it's one step in a larger procedure.</p>
+<h2 id="last-resort-rescue-the-meta-group">Last resort: rescue the meta group</h2>
+<p>Every recovery above assumes the metadata layer still works. Streams are
+created, restored, and moved by the meta group, and it needs a majority of
+its peers to agree. Lose enough servers permanently — three of five gone
+with their disks — and the survivors can't form that majority. There's no
+leader, so <code>peer-remove</code> can't run, because removing a peer is itself a
+change the meta group has to agree on.</p>
+<p>From NATS 2.15 there's a supported way out. <strong>Rescue</strong> temporarily lowers
+the number of peers the meta group needs, so the survivors can agree again
+and you can remove the dead ones:</p>
+<div><div><pre><code class="language-bash">nats server cluster rescue</code></pre></div></div>
+<p>The command asks every server for its view first and prints what it found,
+so you can see how many are actually reachable before changing anything:</p>
+<div><div><pre><code class="language-text">Current Cluster State
+
+   Server   Cluster  Size  Peers               Quorum Requires  Rescuing
+   n1-east  east     5     2 online / 5 peers  3                false
+   n2-east  east     5     2 online / 5 peers  3                false</code></pre></div></div>
+<p>Two servers online where quorum needs three is the situation rescue exists
+for. It then asks how many peers to require, defaulting to the number still
+online, broadcasts the change, and reports back per server:</p>
+<div><div><pre><code class="language-text">Server "n1-east" now requires 2 quorum size (was 3)
+Server "n2-east" now requires 2 quorum size (was 3)</code></pre></div></div>
+<p>The meta group elects a leader again, and you finish the job by removing
+the servers that aren't coming back:</p>
+<div><div><pre><code class="language-bash">nats server cluster peer-remove n3-east</code></pre></div></div>
+<p>Only ever peer-remove a server that is stopped. In this example, these servers
+are already gone, which is why you're rescuing at all, but the rule holds
+everywhere: a running server that gets peer-removed disables JetStream on
+itself. If one of the "dead" servers turns out to be reachable, shut it down
+before removing its peer.</p>
+<p>Once only live servers remain in the meta group, normal operation resumes
+and the recoveries earlier on this page become possible again.</p>
+<p>Where more than one JetStream domain is present, you must specify the domain
+in the rescue command. Each domain runs its own meta group, with its own peers
+and its own quorum. A rescue lowers the quorum of exactly one of them, so on a
+topology with several domains — a hub and its leaf domains, say — the command
+has to be told which meta group it is rescuing. Left to guess, it stops with
+<code>multiple domains found, pick one from ...</code> and lists what answered. Name the domain:</p>
+<div><div><pre><code class="language-bash">nats server cluster rescue --js-domain hub</code></pre></div></div>
+<p>This command only works when the system is unable to elect a leader, printing
+<code>Cluster is healthy with a leader, no rescue needed</code>. In this case, revisit
+the earlier sections of this guide to restore stream or consumer operations.
+It also skips servers older than 2.15.0, naming each one, so a half-upgraded
+cluster tells you which nodes it ignored.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>The runbook fails most often on the order of the steps and the
+assumptions around them rather than on the commands themselves. Five common mistakes happen mid-outage.</p>
+<p><strong>Never promote a mirror before lag reaches zero.</strong> Promotion makes the
+mirror writable. If you do it while messages are still in flight from the
+upstream, those tail messages are lost and new writes land on top of the
+gap. Always run the lag check first, and only proceed at <code>Lag: 0</code> or with a
+stalled lag you've consciously accepted as your recovery point. Read the lag
+and don't skip step 1.</p>
+<p>You can make that check a gate. Run the lag check from
+<a href="#step-1--verify-the-lag-is-zero">step 1 above</a>, decide on the number, then
+promote, never the reverse.</p>
+<p><strong>R3 replication will not save you from a mistake.</strong> A three-replica stream
+survives a node loss, but an accidental delete or a bad publish replicates to
+all three copies at once. R3 is availability, not a backup. Don't put it on
+the mistake rows of the table; that's what snapshots are for.</p>
+<p><strong>Stop publishers before purging corrupted messages.</strong> Purging a bad
+sequence range while <code>order-svc</code> is still writing lets new corrupt data arrive
+behind you, so you keep purging against a tail that keeps growing. Stop the
+publishers, purge or restore, then resume.</p>
+<p><strong>Rescue is not peer management.</strong> Lowering the quorum makes a smaller set
+of servers authoritative over the cluster's metadata which, if not used carefully,
+can cause a split-brain condition. Therefore, it is important that the servers
+are genuinely never going to return. Retiring a node in the normal course is
+<code>nats server cluster evacuate</code> and <code>nats server cluster peer-remove</code> while the
+meta group still has a leader — never rescue.</p>
+<p><strong>An untested snapshot is unverified.</strong> A healthy <code>nats stream info</code> on the live
+stream tells you the live stream is healthy; it proves nothing about the
+archive in <code>./backups/orders/</code>. Rehearse the restore on a schedule
+(quarterly is a reasonable minimum) into a throwaway stream or server, so the first
+time you run it isn't during the outage.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You can now name a NATS failure and reach for the right tool quickly.
+A lost site means promote <code>ORDERS_DR</code>: verify lag, drop the mirror
+config, add the subjects, redirect traffic. A mistake (delete, corruption,
+or a lost consumer position) means restore the snapshot, the copy that
+predates the mistake — a mirror copies a corrupt write and only freezes
+at an upstream delete. R3 is on neither path; it's availability, not
+recovery.</p>
+<p>The data plane is now fully covered: a snapshot you can restore to, and a site
+where you can promote the mirror.</p>
+<h2 id="whats-next">What's next</h2>
+<p>One layer is still unprotected. If a laptop full of keys is lost, or the
+servers are rebuilt clean, the data is recoverable but no one can prove who
+they are: the operator JWT, the account JWTs, the nkeys, and the creds are
+gone. The next page backs up the <strong>identity</strong> plane.</p>
+<p>Continue to
+<a href="/learn/backup-recovery/config-and-jwt-backup">Config and JWT backup</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/jetstream/mirrors-and-sources">Mirrors and sources</a> — how a mirror
+replicates, the mechanism the runbook only reads the lag of.</li>
+<li><a href="/learn/backup-recovery/stream-backup-restore">Stream backup and restore</a>
+— the snapshot internals the restore step depends on.</li>
+<li><a href="/learn/clustering">Clustering</a> — R3 leader election, the availability
+story that is not a recovery story.</li>
+<li><a href="/learn/clustering/desired-state">Clustering → Desired state and evacuation</a>
+— the ordinary way to take a server out, and what to do instead of a
+rescue while the meta group still has a leader.</li>
+</ul></main>

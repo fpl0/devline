@@ -1,0 +1,706 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+This feature is <strong>experimental</strong> and may introduce breaking changes in future versions of Keycloak. Do not use this feature in production environments.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p><a href="https://openid.net/specs/authorization-api-1_0.html">The OpenID AuthZEN Authorization API 1.0</a> defines a standard protocol
+for communication between Policy Decision Points (PDPs) and Policy Enforcement Points (PEPs), enabling applications to
+request authorization decisions without being tightly coupled to the internal details of the authorization engine.</p>
+</div>
+<div class="paragraph">
+<p>Keycloak is an AuthZEN compatible PDP that implements the Evaluation and Evaluations APIs.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_enabling_authzen"><a class="anchor" href="#_enabling_authzen"></a>Enabling AuthZEN</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>AuthZEN is an experimental feature and must be explicitly enabled when starting Keycloak:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start <span class="nt">--features</span><span class="o">=</span>authzen</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>AuthZEN exposes Keycloak’s existing authorization services. Before using AuthZEN, you must configure the following in your realm:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p><a href="https://www.keycloak.org/docs/latest/authorization_services/#_resource_server_enable_authorization">A client with authorization enabled</a>-- The client whose access token is used to authenticate AuthZEN requests must have <strong>Authorization Enabled</strong> in its settings.</p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/docs/latest/authorization_services/#_resource_create">Resources</a> — Define resources in the client’s <strong>Authorization</strong> → <strong>Resources</strong> section. The resource name maps to the <code>resource.id</code> in AuthZEN requests, and the resource type maps to <code>resource.type</code>.</p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/docs/latest/authorization_services/#_resource_create">Scopes</a> — Define scopes in the client’s <strong>Authorization</strong> → <strong>Scopes</strong> section. Scope names map to the <code>action.name</code> in AuthZEN requests.</p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/docs/latest/authorization_services/#_policy_overview">Policies</a> and <a href="https://www.keycloak.org/docs/latest/authorization_services/#_permissions_overview">Permissions</a> — Create policies and permissions that associate resources and scopes with authorization decisions.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_pdp_discovery_metadata"><a class="anchor" href="#_pdp_discovery_metadata"></a>PDP discovery metadata</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>When AuthZEN is enabled, Keycloak exposes a <code>.well-known</code> endpoint that allows PEPs to discover the available AuthZEN endpoints:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">GET /realms/<span class="o">{</span>realm<span class="o">}</span>/.well-known/authzen-configuration</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For example, a realm called <code>myrealm</code> will return the following metadata:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"policy_decision_point"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://keycloak.example.com/realms/myrealm"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"access_evaluation_endpoint"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://keycloak.example.com/realms/myrealm/authzen/access/v1/evaluation"</span><span class="p">,</span><span class="w">
+  </span><span class="nl">"access_evaluations_endpoint"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://keycloak.example.com/realms/myrealm/authzen/access/v1/evaluations"</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_authentication"><a class="anchor" href="#_authentication"></a>Authentication</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>All AuthZEN endpoints require a valid bearer token in the <code>Authorization</code> header and the token must be issued for a
+client that has authorization services enabled.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">POST /realms/<span class="o">{</span>realm<span class="o">}</span>/authzen/access/v1/evaluation
+Authorization: Bearer &lt;access-token&gt;
+Content-Type: application/json</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If no valid token is provided, the server returns a <code>401 Unauthorized</code> response.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_evaluation_api"><a class="anchor" href="#_evaluation_api"></a>Evaluation API</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Evaluation API is the core AuthZEN endpoint. It accepts a single authorization request and returns a boolean decision.</p>
+</div>
+<div class="sect2">
+<h3 id="_endpoint"><a class="anchor" href="#_endpoint"></a>Endpoint</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>POST /realms/{realm}/authzen/access/v1/evaluation</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_request_format"><a class="anchor" href="#_request_format"></a>Request format</h3>
+<div class="paragraph">
+<p>An evaluation request has three required fields and one optional field:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;"/>
+<col style="width: 20%;"/>
+<col style="width: 60%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>subject</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The entity requesting access. Contains <code>type</code>, <code>id</code>, and optional <code>properties</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>resource</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The resource being accessed. Contains <code>type</code>, <code>id</code>, and optional <code>properties</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>action</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The action being performed. Contains <code>name</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>context</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Additional context for policy evaluation as a map of key-value pairs.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="sect3">
+<h4 id="_subject"><a class="anchor" href="#_subject"></a>Subject</h4>
+<div class="paragraph">
+<p>The <code>subject</code> object identifies who is requesting access:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;"/>
+<col style="width: 20%;"/>
+<col style="width: 60%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Either <code>user</code> or <code>client</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Identifies the subject.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>properties</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Additional attributes to include in the evaluation context.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_resource"><a class="anchor" href="#_resource"></a>Resource</h4>
+<div class="paragraph">
+<p>The <code>resource</code> object identifies what is being accessed:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;"/>
+<col style="width: 20%;"/>
+<col style="width: 60%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Must match the resource type configured in Keycloak’s authorization settings.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Must match the resource name configured in Keycloak’s authorization settings.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>properties</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Additional attributes included in the evaluation context.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_action"><a class="anchor" href="#_action"></a>Action</h4>
+<div class="paragraph">
+<p>The <code>action</code> object identifies the operation being performed:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;"/>
+<col style="width: 20%;"/>
+<col style="width: 60%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Must match a scope name configured in Keycloak’s authorization settings.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_example_request"><a class="anchor" href="#_example_request"></a>Example request</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"subject"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"resource"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"document"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"quarterly-report"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"action"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"read"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_response_format"><a class="anchor" href="#_response_format"></a>Response format</h3>
+<div class="paragraph">
+<p>The response contains a boolean <code>decision</code> field:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"decision"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>A <code>decision</code> of <code>true</code> means the subject is permitted to perform the action on the resource. A <code>decision</code> of <code>false</code> means the request is denied.</p>
+</div>
+<div class="paragraph">
+<p>The response may also include a <code>context</code> map with additional information about the decision.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_evaluations_api"><a class="anchor" href="#_evaluations_api"></a>Evaluations API</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Evaluations API allows PEPs to batch multiple authorization queries into a single request.</p>
+</div>
+<div class="sect2">
+<h3 id="_endpoint_2"><a class="anchor" href="#_endpoint_2"></a>Endpoint</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>POST /realms/{realm}/authzen/access/v1/evaluations</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_request_format_2"><a class="anchor" href="#_request_format_2"></a>Request format</h3>
+<div class="paragraph">
+<p>An Evaluations request supports top-level default values for <code>subject</code>, <code>resource</code>, <code>action</code>, and <code>context</code>.
+Individual evaluation items in the <code>evaluations</code> array will override any of the specified defaults.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;"/>
+<col style="width: 20%;"/>
+<col style="width: 60%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>subject</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Default subject applied to evaluation items that do not specify their own.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>resource</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Default resource applied to evaluation items that do not specify their own.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>action</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Default action applied to evaluation items that do not specify their own.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>context</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Default context applied to evaluation items that do not specify their own.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>options</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Controls evaluation semantics (see <a href="#evaluation-semantics">Evaluation semantics</a>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>evaluations</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Array of individual evaluation items. If absent or empty, the request behaves as a single evaluation using the top-level fields.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_example_request_2"><a class="anchor" href="#_example_request_2"></a>Example request</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"subject"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"action"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"read"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"evaluations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"resource"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"document"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"quarterly-report"</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"resource"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"document"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"annual-report"</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"resource"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"image"</span><span class="p">,</span><span class="w">
+        </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"logo"</span><span class="w">
+      </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"action"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+        </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"write"</span><span class="w">
+      </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In this example, the first two items inherit the top-level <code>subject</code> and <code>action</code>. The third item inherits the <code>subject</code> but overrides the <code>action</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_response_format_2"><a class="anchor" href="#_response_format_2"></a>Response format</h3>
+<div class="paragraph">
+<p>The response contains an <code>evaluations</code> array with one decision per item, in the same order as the request:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"evaluations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"decision"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"decision"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"decision"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="evaluation-semantics"><a class="anchor" href="#evaluation-semantics"></a>Evaluation semantics</h3>
+<div class="paragraph">
+<p>The <code>options.evaluations_semantic</code> field controls how Keycloak processes the batch. Three semantics are supported:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;"/>
+<col style="width: 75%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Semantic</th>
+<th class="tableblock halign-left valign-top">Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>execute_all</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Evaluates all items and returns all decisions. This is the default.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>deny_on_first_deny</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Stops processing on the first denied item. The response includes decisions up to and including the denial, with a
+<code>context</code> containing <code>"reason": "deny_on_first_deny"</code> on the denied item.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>permit_on_first_permit</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Stops processing on the first permitted item. The response includes decisions up to and including the permit.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The example request below shows the expected response when <code>deny_on_first_deny</code> semantics are requested.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"subject"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"options"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"evaluations_semantic"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deny_on_first_deny"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"evaluations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"resource"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"document"</span><span class="p">,</span><span class="w"> </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"public-doc"</span><span class="w"> </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"action"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"read"</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"resource"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"document"</span><span class="p">,</span><span class="w"> </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"restricted-doc"</span><span class="w"> </span><span class="p">},</span><span class="w">
+      </span><span class="nl">"action"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"read"</span><span class="w"> </span><span class="p">}</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>If the second item is denied, the response stops there:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"evaluations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"decision"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w"> </span><span class="p">},</span><span class="w">
+    </span><span class="p">{</span><span class="w"> </span><span class="nl">"decision"</span><span class="p">:</span><span class="w"> </span><span class="kc">false</span><span class="p">,</span><span class="w"> </span><span class="nl">"context"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"reason"</span><span class="p">:</span><span class="w"> </span><span class="s2">"deny_on_first_deny"</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="p">}</span><span class="w">
+  </span><span class="p">]</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="subject-lookup"><a class="anchor" href="#subject-lookup"></a>Subject lookup semantics</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The <code>subject.type</code> can be one of two types:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>user</code>: Query if the specified user is authorized to perform an action on a resource</p>
+</li>
+<li>
+<p><code>client</code>: Query if the specified client is authorized to perform an action on a resource</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>If a <code>subject.id</code> does not resolve to an existing user or client, the evaluation returns <code>{"decision": false}</code> with an
+HTTP <code>200 OK</code> status.</p>
+</div>
+<div class="sect2">
+<h3 id="_user_subject_type"><a class="anchor" href="#_user_subject_type"></a>User subject type</h3>
+<div class="paragraph">
+<p>When the <code>subject.type</code> is <code>user</code>, Keycloak supports several strategies for resolving the user identity from the
+<code>subject.id</code> field.</p>
+</div>
+<div class="paragraph">
+<p>When no namespace prefix is present, Keycloak defaults to the following lookup strategy:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>If the <code>subject.id</code> value is a valid UUID, lookup up by Keycloak internal user ID.</p>
+</li>
+<li>
+<p>Otherwise, attempt to lookup a user with the <code>subject.id</code> username.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_namespace_prefixes"><a class="anchor" href="#_namespace_prefixes"></a>Namespace prefixes</h3>
+<div class="paragraph">
+<p>Use a namespace prefix to explicitly specify the lookup strategy:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;"/>
+<col style="width: 40%;"/>
+<col style="width: 40%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Prefix</th>
+<th class="tableblock halign-left valign-top">Lookup</th>
+<th class="tableblock halign-left valign-top">Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>id:</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">By Keycloak internal user ID (UUID)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>id:f81d4fae-7dec-11d0-a765-00a0c91e6bf6</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>username:</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">By username</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>username:alice</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>email:</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">By email address</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>email:alice@example.com</code></p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The <code>email:</code> namespace cannot be used when the realm is configured to allow duplicate emails as the lookup would
+not be unique. Using the <code>email:</code> namespace with duplicate emails results in a <code>400 Bad Request</code> response.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_client_subject_type"><a class="anchor" href="#_client_subject_type"></a>Client subject type</h3>
+<div class="paragraph">
+<p>When the <code>subject.type</code> is <code>client</code>, the <code>subject.id</code> must match the <code>client_id</code> of the client that the bearer token was
+issued for. If they do not match, the evaluation returns a <code>false</code> decision.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_error_responses"><a class="anchor" href="#_error_responses"></a>Error responses</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>AuthZEN endpoints return standard HTTP error codes for invalid requests:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;"/>
+<col style="width: 75%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Status Code</th>
+<th class="tableblock halign-left valign-top">Condition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>400 Bad Request</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The request body is missing a required field (<code>subject</code>, <code>resource</code>, or <code>action</code>), contains an invalid <code>subject.type</code>
+value, uses an empty namespace prefix (e.g., <code>id:</code> with no value), or contains malformed JSON.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>401 Unauthorized</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The request does not include a valid bearer token in the <code>Authorization</code> header.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_request_tracing"><a class="anchor" href="#_request_tracing"></a>Request tracing</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>As recommended by the AuthZEN specification, Keycloak propagates the <code>X-Request-ID</code> header from requests to responses.
+If a PEP includes an <code>X-Request-ID</code> header in its request, the same header and value will appear in the response.
+This applies to all response status codes, including error responses.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">POST /realms/myrealm/authzen/access/v1/evaluation
+Authorization: Bearer &lt;access-token&gt;
+Content-Type: application/json
+X-Request-ID: req-abc-123
+
+<span class="o">{</span>
+  <span class="s2">"subject"</span>: <span class="o">{</span> <span class="s2">"type"</span>: <span class="s2">"user"</span>, <span class="s2">"id"</span>: <span class="s2">"alice"</span> <span class="o">}</span>,
+  <span class="s2">"resource"</span>: <span class="o">{</span> <span class="s2">"type"</span>: <span class="s2">"document"</span>, <span class="s2">"id"</span>: <span class="s2">"report"</span> <span class="o">}</span>,
+  <span class="s2">"action"</span>: <span class="o">{</span> <span class="s2">"name"</span>: <span class="s2">"read"</span> <span class="o">}</span>
+<span class="o">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The response includes the same header:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>HTTP/1.1 200 OK
+X-Request-ID: req-abc-123
+Content-Type: application/json
+
+{ "decision": true }</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_context_and_properties"><a class="anchor" href="#_context_and_properties"></a>Context and Properties</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Both the <code>resource.properties</code> and the top-level <code>context</code> maps are merged into the evaluation context available to
+Keycloak’s authorization policies. This allows policies to make decisions based on additional attributes beyond
+the resource, scope, and subject identity.</p>
+</div>
+<div class="paragraph">
+<p>For example, a policy could use the request context to enforce time-based or location-based access:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="json"><span class="p">{</span><span class="w">
+  </span><span class="nl">"subject"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"user"</span><span class="p">,</span><span class="w"> </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"alice"</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"resource"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"type"</span><span class="p">:</span><span class="w"> </span><span class="s2">"document"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"quarterly-report"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"properties"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+      </span><span class="nl">"classification"</span><span class="p">:</span><span class="w"> </span><span class="s2">"confidential"</span><span class="w">
+    </span><span class="p">}</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"action"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nl">"name"</span><span class="p">:</span><span class="w"> </span><span class="s2">"read"</span><span class="w"> </span><span class="p">},</span><span class="w">
+  </span><span class="nl">"context"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"ip_address"</span><span class="p">:</span><span class="w"> </span><span class="s2">"192.168.1.100"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">}</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Subject properties specified in <code>subject.properties</code> are also merged into the subject’s identity attributes for policy evaluation.</p>
+</div>
+</div>
+</div> </div>
+</main>

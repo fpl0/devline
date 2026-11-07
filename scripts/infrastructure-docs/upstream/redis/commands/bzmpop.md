@@ -1,0 +1,138 @@
+# BZMPOP
+
+Removes and returns a member by score from one or more sorted sets. Blocks until a member is available otherwise. Deletes the sorted set if the last element was popped.
+
+## Syntax
+
+```text
+BZMPOP timeout numkeys key [key ...] MIN|MAX [COUNT count]
+```
+
+
+**Available since** 7.0.0
+
+**Group** sorted_set
+
+**Time complexity** O(K) + O(M*log(N)) where K is the number of provided keys, N being the number of elements in the sorted set, and M being the number of elements popped.
+
+**Arity** -5
+
+**ACL categories** SORTEDSET
+
+**Command flags** WRITE, BLOCKING
+
+## Arguments
+
+```json
+[
+  {
+    "name": "timeout",
+    "type": "double"
+  },
+  {
+    "name": "numkeys",
+    "type": "integer"
+  },
+  {
+    "name": "key",
+    "type": "key",
+    "key_spec_index": 0,
+    "multiple": true
+  },
+  {
+    "name": "where",
+    "type": "oneof",
+    "arguments": [
+      {
+        "name": "min",
+        "type": "pure-token",
+        "token": "MIN"
+      },
+      {
+        "name": "max",
+        "type": "pure-token",
+        "token": "MAX"
+      }
+    ]
+  },
+  {
+    "token": "COUNT",
+    "name": "count",
+    "type": "integer",
+    "optional": true
+  }
+]
+```
+
+
+## Reply schema
+
+```json
+{
+  "oneOf": [
+    {
+      "description": "Timeout reached and no elements were popped.",
+      "type": "null"
+    },
+    {
+      "description": "The keyname and the popped members.",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": [
+        {
+          "description": "Keyname",
+          "type": "string"
+        },
+        {
+          "description": "Popped members and their scores.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": [
+              {
+                "description": "Member",
+                "type": "string"
+              },
+              {
+                "description": "Score",
+                "type": "number"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+
+## Key specifications
+
+```json
+[
+  {
+    "flags": [
+      "RW",
+      "ACCESS",
+      "DELETE"
+    ],
+    "begin_search": {
+      "index": {
+        "pos": 2
+      }
+    },
+    "find_keys": {
+      "keynum": {
+        "keynumidx": 0,
+        "firstkey": 1,
+        "step": 1
+      }
+    }
+  }
+]
+```

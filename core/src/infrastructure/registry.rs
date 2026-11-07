@@ -513,7 +513,7 @@ pub(super) fn status(
         let (state,detail) = if let Some(error) = observation.and_then(|entry|entry.error.as_deref()) {
             ("error",error)
         } else if newer {
-            ("available","Archive this verified publisher release alongside the current version.")
+            ("available","Archive this verified publisher release.")
         } else if republished {
             ("republished","The publisher changed an existing version tag. The installed pin was preserved.")
         } else if offer.is_some() {
@@ -533,6 +533,7 @@ pub(super) fn apply(
     store: &Store,
     services: &[Service],
     reference: &str,
+    ctx: &Context,
     job: Option<&mut Job>,
 ) -> Result<Value> {
     let (id, expected) = reference
@@ -556,7 +557,7 @@ pub(super) fn apply(
     if !crate::updates::compare_doc_releases(&offer.version, &service.version).is_gt() {
         bail!("No newer compatible publisher image is available");
     }
-    prepare(store, &with_offer(service, offer)?, job)
+    prepare(store, &with_offer(service, offer)?, ctx, job)
 }
 
 #[cfg(test)]

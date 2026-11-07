@@ -1,0 +1,35 @@
+<main><header><h1>RabbitMQ AMQP 0.9.1 Erlang Client Library</h1></header>
+<p>The RabbitMQ Erlang client library allows Erlang and Elixir applications
+to connect to and interact with RabbitMQ nodes.</p>
+<h2 id="licensing">Licensing</h2>
+<p>The library is <a href="https://github.com/rabbitmq/rabbitmq-erlang-client/">open-source</a>,
+and is dual-licensed under <a href="https://www.apache.org/licenses/LICENSE-2.0">the Apache License v2</a>
+and <a href="https://www.mozilla.org/MPL/2.0/">the Mozilla Public License v2.0</a>.</p>
+<h2 id="releases">Releases</h2>
+<p>The client library is named <code>amqp_client</code> and <a href="https://hex.pm/packages/amqp_client">distributed via Hex.pm</a>
+together with its key dependency, <a href="https://hex.pm/packages/rabbit_common"><code>rabbit-common</code></a>.</p>
+<h3 id="mix">Mix</h3>
+<div><div><pre><code class="language-elixir">{:rabbit_common, "~&gt; 3.11"}</code></pre></div></div>
+<h3 id="rebar-3">Rebar 3</h3>
+<div><div><pre><code class="language-erlang">{rabbit_common, "&amp;version-erlang-client;"}</code></pre></div></div>
+<h3 id="erlangmk">erlang.mk</h3>
+<div><div><pre><code class="language-makefile">dep_rabbit_common = hex &amp;version-erlang-client;</code></pre></div></div>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>RabbitMQ Erlang client connects to RabbitMQ server nodes.</p>
+<p>You will need a running <a href="https://www.rabbitmq.com/docs/4.3/download">RabbitMQ node</a> to use with the client
+library.</p>
+<h2 id="download-the-library-and-documentation">Download the Library and Documentation</h2>
+<h3 id="the-library">The Library</h3>
+<p>The library is distributed <a href="https://hex.pm/packages/amqp_client">via hex.pm</a>.</p>
+<h3 id="documentation">Documentation</h3>
+<p>Please refer to the <a href="/client-libraries/erlang-client-user-guide">Erlang RabbitMQ user guide</a>.</p>
+<p><a href="https://hexdocs.pm/amqp_client/">RabbitMQ Erlang client edoc</a> is available on hexdocs.pm.</p>
+<h3 id="other-versions">Other Versions</h3>
+<p>Consult <a href="https://hex.pm/packages/amqp_client/versions">the archive</a> if you want
+to download a version of the RabbitMQ Erlang Client library other than the above.</p>
+<h2 id="github-repositories">GitHub Repositories</h2>
+<p>The RabbitMQ Erlang client depends on the RabbitMQ server repository,
+a shared library and a code generation library. They all reside in the
+<a href="https://github.com/rabbitmq/rabbitmq-server/tree/v3.13.x">RabbitMQ server repository</a> under <code>deps</code>.</p>
+<p>Please see the <a href="./build-erlang-client">Erlang client build guide</a> for instructions on
+compiling from source code.</p></main>

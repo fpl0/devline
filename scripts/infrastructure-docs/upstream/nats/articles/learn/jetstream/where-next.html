@@ -1,0 +1,209 @@
+<main><header><h1>Where to go next</h1></header>
+<p>This chapter started with a publisher and no one guaranteed to be
+listening. It ends with an <code>ORDERS</code> stream, a handful of consumers
+reading it at their own pace, and a mirror keeping a permanent copy.</p>
+<p>This page gathers the model you built into one place. It then points you
+at the chapters and Reference that take it further.</p>
+<h2 id="the-core-model">The core model</h2>
+<p>Every page in this chapter built on the same three ideas.</p>
+<p>A <strong>stream</strong> is a log of messages kept on the server. You publish to a
+subject. The server adds the message to any stream that captures that
+subject. The message stays there, ready to be read again, until a limit
+removes it.</p>
+<p>A consumer is a position marker over a stream. It tracks which messages a
+reader has seen, separately from every other consumer. Two consumers on
+the same stream can read the same messages at different positions without
+affecting each other.</p>
+<p>An ack is the reader's way of saying a message is handled. Until the
+consumer acks, the message stays open, and the server sends it again
+after a timeout. A stored message has not yet been processed.</p>
+<p>Everything else in this chapter builds on stream, consumer, and ack. That
+includes filtering, worker pools, retention, and mirrors.</p>
+<h2 id="where-the-details-live">Where the details live</h2>
+<p>This chapter teaches the ideas and is not tied to a server version. The
+exact flags, defaults, and ranges live in <strong>Reference</strong>, which is tied to
+a version and covers every option. When you need the precise type of a
+config field, or the full list of consumer options, look there.</p>
+<p>The <a href="/reference/">Reference root</a> is the way in. The pointers to
+Reference throughout this chapter all lead into it.</p>
+<h2 id="sibling-deep-dives">Sibling deep dives</h2>
+<p>This was the first deep dive. The others build on the same foundation, so
+the stream, consumer, and ack model carries into them.</p>
+<p>The <a href="/learn/key-value">Key-Value deep dive</a> shows how a key-value bucket
+is a stream underneath. The keys become subjects. The history becomes
+sequence numbers. A watch is a consumer. Everything you learned about
+retention and limits applies directly.</p>
+<p>The <a href="/learn/object-store">Object Store deep dive</a> does the same for large
+files. An object is split across many messages in a stream, then put back
+together when you read it. The stream is still where the data lives.</p>
+<p>The <a href="/learn/clustering">Clustering &amp; Replication deep dive</a> goes deeper
+than this chapter's single page on surviving node loss. It covers how
+<code>R=3</code> picks a leader, how the server decides where to place the stream,
+and what happens when a node fails.</p>
+<p>The <a href="/learn/monitoring">Monitoring deep dive</a> covers how to watch a
+stream and its consumers in production. It walks through advisories,
+health endpoints, and the numbers that tell you a consumer is falling
+behind.</p>
+<p>The <a href="/learn/backup-recovery">Backup &amp; Recovery deep dive</a> covers the
+day-to-day operations: saving a stream to a snapshot, restoring it, and
+using the mirrors you met on the
+<a href="/learn/jetstream/mirrors-and-sources">Mirrors and sources</a> page to recover
+from a disaster.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>This is the end of the chapter. This page adds nothing new to the running
+example. The <code>ORDERS</code> stream, its consumers, and its mirror are still
+running in your session as you left them on the previous page. You can
+keep experimenting with them, or remove them with <code>nats stream rm ORDERS</code> when you're done.</p>
+<p>You now have the core model. A stream stores messages. A consumer reads
+them at its own pace. An ack confirms a message was handled. That model
+sits under every other JetStream feature.</p>
+<h2 id="production-checklist">Production checklist</h2>
+<p>Every page in this chapter closed with a Pitfalls section. This gathers
+the action items from all of them in one place. Each group links back to
+the page that explains it.</p>
+<h3 id="your-first-stream--see-pitfalls">Your first stream — see <a href="/learn/jetstream/your-first-stream#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Stay on plain pub-sub when the next message supersedes the last; reach for a stream only when a missed message has consequences.</li>
+<li><input/> <!-- -->Set at least one limit (<code>MaxAge</code>, <code>MaxBytes</code>, or <code>MaxMsgs</code>) so an unbounded stream never fills the disk.</li>
+<li><input/> <!-- -->Pick the stream name deliberately the first time; there's no rename, only delete-and-recreate.</li>
+<li><input/> <!-- -->Choose the retention policy before messages flow; switching to or from WorkQueue on a live stream is rejected.</li>
+</ul>
+<h3 id="publishing--see-pitfalls">Publishing — see <a href="/learn/jetstream/publishing#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Read the <code>PubAck</code> back; a plain <code>nats pub</code> line isn't proof the message was stored.</li>
+<li><input/> <!-- -->Give every retryable publish a stable <code>Nats-Msg-Id</code> so a retry doesn't double-store.</li>
+<li><input/> <!-- -->Wait for delivery and ack before acting on a business outcome; a <code>PubAck</code> means stored, not processed.</li>
+</ul>
+<h3 id="reading-back--see-pitfalls">Reading back — see <a href="/learn/jetstream/reading-back#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Reach for <code>--all</code> only when you want the whole history; sample the tail with <code>--last</code>, <code>--since</code>, or <code>--start-sequence</code>.</li>
+<li><input/> <!-- -->Use a named, durable consumer for any read you must resume after a disconnect; an ephemeral one restarts from sequence 1.</li>
+<li><input/> <!-- -->Edit a durable consumer to change it; recreating with a new config is rejected as already-exists.</li>
+<li><input/> <!-- -->Confirm <code>--all</code> versus <code>--new</code> matches the question (backlog or live traffic) before you run the command.</li>
+<li><input/> <!-- -->Pair <code>--all</code> with <code>--terminate-at-end</code> for a one-shot replay; on its own it drains the backlog then blocks waiting for more.</li>
+</ul>
+<h3 id="delivery-and-acknowledgment--see-pitfalls">Delivery and acknowledgment — see <a href="/learn/jetstream/delivery-and-acknowledgment#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Set Ack Wait longer than your slowest handler, with headroom, to avoid a redelivery storm.</li>
+<li><input/> <!-- -->Ack on every success path, and term a genuinely unprocessable message so it stops coming back.</li>
+<li><input/> <!-- -->Ack each delivery exactly once, in one place in your handler; a second ack is a no-op the server ignores.</li>
+</ul>
+<h3 id="filtering--see-pitfalls">Filtering — see <a href="/learn/jetstream/filtering#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Confirm the filter matches a subject the stream stores before assuming an empty pull means an empty stream.</li>
+<li><input/> <!-- -->Decide retention through stream limits, not filters; a filter narrows a view, it never deletes messages.</li>
+<li><input/> <!-- -->Keep multiple filter subjects on one consumer disjoint; the server rejects overlap inside a single consumer.</li>
+</ul>
+<h3 id="ack-responses-and-redelivery--see-pitfalls">Ack responses and redelivery — see <a href="/learn/jetstream/acknowledgment#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Nak a transient failure with a delay, or set a backoff, instead of a bare nak that loops at network speed.</li>
+<li><input/> <!-- -->Term a poison message the moment the code knows no attempt will succeed, rather than burning the delivery budget.</li>
+<li><input/> <!-- -->Subscribe to the max-deliveries advisory so a dropped message doesn't vanish unnoticed; JetStream has no dead-letter queue.</li>
+<li><input/> <!-- -->Raise AckWait or send in-progress for long jobs so a slow handler doesn't trigger double work.</li>
+</ul>
+<h3 id="pull-consumers--see-pitfalls">Pull consumers — see <a href="/learn/jetstream/pull-consumers#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Treat an empty fetch as "nothing right now" and loop; never as an error that crashes the worker.</li>
+<li><input/> <!-- -->Always set an <code>expires</code> on a fetch so a quiet stream returns control instead of stalling.</li>
+<li><input/> <!-- -->Keep <code>MaxAckPending</code> at or above your batch size so it doesn't throttle throughput.</li>
+<li><input/> <!-- -->Pair <code>batch</code> with <code>max_bytes</code> so a single pull is bounded by size as well as count.</li>
+</ul>
+<h3 id="scaling-a-consumer--see-pitfalls">Scaling a consumer — see <a href="/learn/jetstream/worker-pool#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Key every side effect by <code>order_id</code> so a redelivered message is a no-op, not a double shipment.</li>
+<li><input/> <!-- -->Size <code>MaxAckPending</code> to at least your worker count, with headroom; the cap is shared across the whole pool.</li>
+<li><input/> <!-- -->Tune <code>AckWait</code> to real processing time so a crashed worker's message recovers without redelivering honest work.</li>
+</ul>
+<h3 id="ordered-consumers--see-pitfalls">Ordered consumers — see <a href="/learn/jetstream/ordered-consumer#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Reach for an ordered consumer only for a read you can restart from the top; for work that must land once, use a named consumer with explicit ack.</li>
+<li><input/> <!-- -->Split work across processes with a named consumer and a worker pool; two ordered consumers each read the whole stream instead of sharing it.</li>
+<li><input/> <!-- -->Don't build a resumable job on an ordered consumer; its cursor is disposable by design and starts over after a crash.</li>
+</ul>
+<h3 id="priority-groups--see-pitfalls">Priority groups — see <a href="/learn/jetstream/priority-groups#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Run one priority group per consumer; passing more than one silently uses only the first.</li>
+<li><input/> <!-- -->Drive failover with <code>min_pending</code> or <code>min_ack_pending</code>; the ADR-42 <code>failover</code> timer isn't shipped yet.</li>
+<li><input/> <!-- -->Lean on explicit acks and idempotent handlers, not the pin, to keep work from doubling up; the pin is not a lock.</li>
+<li><input/> <!-- -->Keep each pull's <code>expires</code> comfortably under <code>--pinned-ttl</code> so a pinned client renews in time.</li>
+</ul>
+<h3 id="pausing-a-consumer--see-pitfalls">Pausing a consumer — see <a href="/learn/jetstream/pausing#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Pause with a duration like <code>1h</code> so the deadline can never land in the past and no-op.</li>
+<li><input/> <!-- -->Size the stream for the longest pause you expect; publishes keep landing and count against the limits while a consumer sleeps.</li>
+</ul>
+<h3 id="shaping-the-stream--see-pitfalls">Shaping the stream — see <a href="/learn/jetstream/shaping-the-stream#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Switch to Discard New when you need backpressure; Discard Old drops the oldest message silently.</li>
+<li><input/> <!-- -->Size <code>MaxBytes</code> for your peak, not your average, when the age window matters; either limit can fire first.</li>
+<li><input/> <!-- -->Add <code>MaxMsgsPerSubject</code> when each subject deserves its own retention; whole-stream limits let one noisy subject starve a quiet one.</li>
+</ul>
+<h3 id="retention-policies--see-pitfalls">Retention policies — see <a href="/learn/jetstream/retention-policies#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Create a new stream to move to or from WorkQueue; the server locks that change on a live stream.</li>
+<li><input/> <!-- -->Give each WorkQueue consumer a disjoint filter, or share one consumer as a pool; overlapping consumers are rejected.</li>
+<li><input/> <!-- -->Watch disk on an Interest stream with a stopped consumer; interest means messages wait for every registered consumer's ack.</li>
+<li><input/> <!-- -->Treat a live switch from Limits to Interest as destructive; it re-applies to stored messages and can drop already-acked history.</li>
+</ul>
+<h3 id="per-message-ttl--see-pitfalls">Per-message TTL — see <a href="/learn/jetstream/message-ttl#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Confirm <code>Allows Per-Message TTL</code> is on before relying on <code>Nats-TTL</code>; a header on an opted-out stream fails the publish.</li>
+<li><input/> <!-- -->Size a TTL to outlast the slowest healthy consumer's lag; the clock deletes the stored copy whether or not it was read.</li>
+<li><input/> <!-- -->Set <code>SubjectDeleteMarkerTTL</code> only when consumers must learn a value expired, and keep it at or below your shortest TTL.</li>
+</ul>
+<h3 id="altering-stream-state--see-pitfalls">Altering stream state — see <a href="/learn/jetstream/altering-stream-state#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Use <code>nats stream purge</code> to clear messages and <code>nats stream rm</code> to delete the stream; don't swap the two.</li>
+<li><input/> <!-- -->Treat a sequence as a stable address that may hold no message; never assume messages run <code>1..N</code> without gaps.</li>
+<li><input/> <!-- -->Set <code>DenyPurge</code> on a stream that matters, and keep a mirror; a purge can't be undone.</li>
+</ul>
+<h3 id="surviving-node-loss--see-pitfalls">Surviving node loss — see <a href="/learn/jetstream/surviving-node-loss#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Confirm the replica count before trusting a stream with real orders; R=1 has no copy to recover from.</li>
+<li><input/> <!-- -->Use odd replica counts: R=3 for the production floor, R=5 for state you can't re-derive.</li>
+<li><input/> <!-- -->Prove failover on a real cluster; a green single-node run can't show leader election or a node loss.</li>
+</ul>
+<h3 id="advanced-publishing--see-pitfalls">Advanced publishing — see <a href="/learn/jetstream/advanced-publishing#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Collect and check every <code>PubAck</code> on an async publish; add <code>Nats-Expected-Last-Subject-Sequence</code> when order matters so a retry fails fast.</li>
+<li><input/> <!-- -->Treat the final <code>PubAck</code> as the only proof an atomic batch committed; a sequence gap, an oversized batch, or a ten-second idle drops the whole batch.</li>
+<li><input/> <!-- -->Keep atomic publishing off a stream set to <code>PersistMode: async</code>; the server rejects it, though fast-ingest batches are fine there.</li>
+<li><input/> <!-- -->Choose <code>gap: ok</code> only when a lost message is acceptable; use <code>gap: fail</code> or an atomic batch for anything you can't lose.</li>
+</ul>
+<h3 id="mirrors-and-sources--see-pitfalls">Mirrors and sources — see <a href="/learn/jetstream/mirrors-and-sources#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Publish to the upstream stream, not the mirror; a mirror captures no subjects, so a plain publish lands in the origin, and forcing the mirror by name errors with <code>expected stream does not match</code>.</li>
+<li><input/> <!-- -->Read the <code>Lag</code> field before assuming a mirror is current; a mirror is eventually consistent, not synchronous.</li>
+<li><input/> <!-- -->Pick <code>filter_subject</code> or <code>subject_transforms</code> on one entry, never both; the server rejects a config that sets both.</li>
+<li><input/> <!-- -->Verify each export type for cross-domain sourcing; a wrong type lets the mirror silently never catch up.</li>
+</ul>
+<h3 id="reading-messages-directly--see-pitfalls">Reading messages directly — see <a href="/learn/jetstream/get-direct#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Confirm <code>Direct Get: true</code>, or set <code>--allow-direct</code>, before a direct read; without it the request just times out.</li>
+<li><input/> <!-- -->Keep direct reads off read-after-write checks; they can answer from a trailing replica, so read with <code>nats stream get</code> against the leader there.</li>
+<li><input/> <!-- -->Use a consumer, not a direct batch, when you need to follow the stream; a batch reads the backlog once and stops.</li>
+</ul>
+<h3 id="subject-mapping--see-pitfalls">Subject mapping — see <a href="/learn/jetstream/subject-mapping#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Keep every token a downstream consumer filters on in the transform's destination; dropping a <code>{{wildcard}}</code> collapses messages under one subject.</li>
+<li><input/> <!-- -->Use a consumer when a reader has to catch up on what it missed; republish is fire-and-forget core NATS with no storage or replay.</li>
+<li><input/> <!-- -->Point a republish destination at a separate subject space, not one under the stream's own subjects; an overlap is rejected as a cycle (<code>10052</code>).</li>
+<li><input/> <!-- -->Re-namespace existing data by sourcing it into a new stream with the transform; editing a transform leaves already-stored messages untouched.</li>
+<li><input/> <!-- -->Pick the partition count up front; raising it later re-hashes keys, so a consumer's filter quietly starts covering a different set.</li>
+</ul>
+<h3 id="stream-and-consumer-policies--see-pitfalls">Stream and consumer policies — see <a href="/learn/jetstream/policies#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Settle the fixed policies — storage, persist mode, deliver, ack, and replay — before creating anything durable; <code>stream edit</code> and <code>consumer edit</code> can't change them.</li>
+<li><input/> <!-- -->Plan the data move when a fixed policy must change; recreating a stream needs a mirror or a re-publish, and a recreated consumer starts fresh, not where the old one stopped.</li>
+<li><input/> <!-- -->Treat <code>--deliver new</code> as a one-time start position, not a per-restart skip; a durable resumes from its saved position on reconnect.</li>
+<li><input/> <!-- -->Check whether "last per subject" means the deliver policy or the Direct Get flag before copying a command.</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/">Reference</a> — every config field, flag, default, and
+error code, versioned and exhaustive.</li>
+<li><a href="/learn/key-value">Key-Value deep dive</a> — the next chapter built on the
+same stream foundation.</li>
+<li><a href="/learn/clustering">Clustering &amp; Replication deep dive</a> — the detail
+behind "surviving node loss."</li>
+</ul></main>

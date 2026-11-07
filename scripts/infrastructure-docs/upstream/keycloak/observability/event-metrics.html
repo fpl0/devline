@@ -1,0 +1,185 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>For now, only metrics for user events are captured.
+For example, you can monitor the number of logins, login failures, or token refreshes performed.</p>
+</div>
+<div class="paragraph">
+<p>The metrics are exposed using the standard metrics endpoint, and you can use it in your own metrics collection system to create dashboards and alerts.</p>
+</div>
+<div class="paragraph">
+<p>The metrics are reported as counters per Keycloak instance.
+The counters are reset on the restart of the instance.
+If you have multiple instances running in a cluster, you will need to collect the metrics from all instances and aggregate them to get per a cluster view.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_enable_event_metrics"><a class="anchor" href="#_enable_event_metrics"></a>Enable event metrics</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To start collecting event metrics, enable metrics and enable the metrics for user events.</p>
+</div>
+<div class="paragraph">
+<p>The following shows the required startup parameters:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start <span class="nt">--metrics-enabled</span><span class="o">=</span><span class="nb">true</span> <span class="nt">--event-metrics-user-enabled</span><span class="o">=</span><span class="nb">true</span> ...</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>By default, there is a separate metric for each realm.
+To break down the metric by client and identity provider, you can add those metrics dimension using the configuration option <code>event-metrics-user-tags</code>.
+This can be useful on installations with a small number of clients and IDPs.
+This is not recommended for installations with a large number of clients or IDPs as it will increase the memory usage of Keycloak and as it will increase the load on your monitoring system.</p>
+</div>
+<div class="paragraph">
+<p>The following shows how to configure Keycloak to break down the metrics by all three metrics dimensions:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start ... <span class="nt">--event-metrics-user-tags</span><span class="o">=</span>realm,idp,clientId ...</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>You can limit the events for which Keycloak will expose metrics.
+See the <a href="https://www.keycloak.org/docs/latest/server_admin/#event-types">Server Administration Guide on event types</a> for an overview of the available events.</p>
+</div>
+<div class="paragraph">
+<p>The following example limits the events collected to <code>LOGIN</code> and <code>LOGOUT</code> events:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start ... <span class="nt">--event-metrics-user-events</span><span class="o">=</span>login,logout ...</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>By default, the <code>clientId</code>, <code>idp</code> and <code>error</code> tags are limited to 10000 unique entries to avoid a metrics explosion which can lead to out-of-memory problems in Keycloak or resource exhaustion in downstream observability tools.
+Once that limit is reached, Keycloak logs a warning once and no metrics with additional tag values are created after that.
+Existing metrics will still count events.
+To change the limit, use the SPI options of the <code>micrometer-user-event-metrics</code> provider.</p>
+</div>
+<div class="paragraph">
+<p>See <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-keycloak">Self-provided metrics</a> for a description of the metrics collected.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_relevant_options"><a class="anchor" href="#_relevant_options"></a>Relevant options</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch options">
+<colgroup>
+<col style="width: 75%;"/>
+<col style="width: 12.5%;"/>
+<col style="width: 12.5%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"></th>
+<th class="tableblock halign-left valign-top"><em>Type</em> or Values</th>
+<th class="tableblock halign-left valign-top">Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>metrics-enabled</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">If the server should expose metrics.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If enabled, metrics are available at the <code>/metrics</code> endpoint.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--metrics-enabled</code><br/>
+<strong>Env:</strong> <code>KC_METRICS_ENABLED</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>event-metrics-user-enabled</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Create metrics based on user events.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--event-metrics-user-enabled</code><br/>
+<strong>Env:</strong> <code>KC_EVENT_METRICS_USER_ENABLED</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when metrics are enabled and feature user-event-metrics is enabled</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>event-metrics-user-events</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Comma-separated list of events to be collected for user event metrics.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">This option can be used to reduce the number of metrics created as by default all user events create a metric.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--event-metrics-user-events</code><br/>
+<strong>Env:</strong> <code>KC_EVENT_METRICS_USER_EVENTS</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when user event metrics are enabled</p>
+</div>
+<div class="paragraph">
+<p>Use <code>remove_credential</code> instead of <code>remove_totp</code>, and <code>update_credential</code> instead of <code>update_totp</code> and <code>update_password</code>.
+<strong>Deprecated values: <code>remove_totp</code>, <code>update_totp</code>, <code>update_password</code></strong></p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>authreqid_to_token</code>, <code>client_delete</code>, <code>client_info</code>, <code>client_initiated_account_linking</code>, <code>client_login</code>, <code>client_register</code>, <code>client_update</code>, <code>code_to_token</code>, <code>custom_required_action</code>, <code>delete_account</code>, <code>execute_action_token</code>, <code>execute_actions</code>, <code>federated_identity_link</code>, <code>federated_identity_override_link</code>, <code>grant_consent</code>, <code>identity_provider_first_login</code>, <code>identity_provider_link_account</code>, <code>identity_provider_login</code>, <code>identity_provider_post_login</code>, <code>identity_provider_response</code>, <code>identity_provider_retrieve_token</code>, <code>impersonate</code>, <code>introspect_token</code>, <code>invalid_signature</code>, <code>invite_org</code>, <code>jwt_authorization_grant</code>, <code>login</code>, <code>logout</code>, <code>oauth2_device_auth</code>, <code>oauth2_device_code_to_token</code>, <code>oauth2_device_verify_user_code</code>, <code>oauth2_extension_grant</code>, <code>permission_token</code>, <code>pushed_authorization_request</code>, <code>refresh_token</code>, <code>register</code>, <code>register_node</code>, <code>remove_credential</code>, <code>remove_federated_identity</code>, <code>remove_totp</code> (deprecated), <code>reset_password</code>, <code>restart_authentication</code>, <code>revoke_grant</code>, <code>send_identity_provider_link</code>, <code>send_reset_password</code>, <code>send_verify_email</code>, <code>token_exchange</code>, <code>unregister_node</code>, <code>update_consent</code>, <code>update_credential</code>, <code>update_email</code>, <code>update_password</code> (deprecated), <code>update_profile</code>, <code>update_totp</code> (deprecated), <code>user_disabled_by_permanent_lockout</code>, <code>user_disabled_by_temporary_lockout</code>, <code>user_info_request</code>, <code>user_session_deleted</code>, <code>verifiable_credential_create_offer</code>, <code>verifiable_credential_nonce_request</code>, <code>verifiable_credential_offer_request</code>, <code>verifiable_credential_pre_authorized_grant</code>, <code>verifiable_credential_request</code>, <code>verify_email</code>, <code>verify_profile</code></p></td>
+<td class="tableblock halign-left valign-top"></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>event-metrics-user-tags</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Comma-separated list of tags to be collected for user event metrics.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">By default only <code>realm</code> is enabled to avoid a high metrics cardinality.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--event-metrics-user-tags</code><br/>
+<strong>Env:</strong> <code>KC_EVENT_METRICS_USER_TAGS</code></p>
+</div>
+</div>
+</div>
+<div class="paragraph">
+<p>Available only when user event metrics are enabled</p>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>realm</code>, <code>idp</code>, <code>clientId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>realm</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div> </div>
+</main>

@@ -1,0 +1,55 @@
+<main>
+		
+		<h1>Docker images</h1>
+		<p>The official Docker images can be found at <a href="https://hub.docker.com/r/axllent/mailpit">https://hub.docker.com/r/axllent/mailpit</a>.</p>
+<p>For convenience, a <a href="https://github.com/axllent/mailpit/pkgs/container/mailpit">mirror copy</a> of Docker images can also be found on ghcr.io.</p>
+<h2 id="supported-tags">Supported tags</h2>
+<ul>
+<li>The latest release can always be found using <code>axllent/mailpit</code> or <code>axllent/mailpit:latest</code>.</li>
+<li>Stable releases are tagged with both the release tag (e.g., <code>axllent/mailpit:v1.27.4</code>) as well as the minor release (e.g., <code>axllent/mailpit:v1.27</code>).</li>
+<li>Development builds include unreleased features and are tagged using the <code>axllent/mailpit:edge</code> tag. These should not be used in production.</li>
+</ul>
+<h2 id="usage">Usage</h2>
+<p>A basic example of running Mailpit within Docker:</p>
+<div><pre><code class="language-shell"><span><span>docker run -d <span>\
+</span></span></span><span><span>--restart unless-stopped <span>\
+</span></span></span><span><span>--name<span>=</span>mailpit <span>\
+</span></span></span><span><span>-p 8025:8025 <span>\
+</span></span></span><span><span>-p 1025:1025 <span>\
+</span></span></span><span><span>axllent/mailpit
+</span></span></code></pre></div><p>You need to ensure you map the correct ports (default Web UI on 8025 and SMTP on 1025).</p>
+<h2 id="setting-mailpit-options">Setting Mailpit options</h2>
+<p>View all <a href="/docs/configuration/runtime-options/">runtime options</a> (flags &amp; environment variables). Environment variables can be set using the <code>-e</code> flag when starting your Docker container, for instance:</p>
+<div><pre><code class="language-shell"><span><span>docker run -d <span>\
+</span></span></span><span><span>--name<span>=</span>mailpit <span>\
+</span></span></span><span><span>--restart unless-stopped <span>\
+</span></span></span><span><span>-v /path/to/mailpit-data:/data <span>\
+</span></span></span><span><span>-e <span>MP_DATABASE</span><span>=</span>/data/mailpit.db <span>\
+</span></span></span><span><span>-e <span>MP_UI_AUTH_FILE</span><span>=</span>/data/authfile <span>\
+</span></span></span><span><span>-e <span>TZ</span><span>=</span>Europe/London <span>\
+</span></span></span><span><span>-p 8025:8025 <span>\
+</span></span></span><span><span>-p 1025:1025 <span>\
+</span></span></span><span><span>axllent/mailpit
+</span></span></code></pre></div><h2 id="docker-compose-example">Docker compose example</h2>
+<p>The following example exposes both the web UI port (8025) and SMTP port (1025) to the entire host network. If your Docker compose is running multi-container applications and does not require (for instance) 1025 to be open to the host, then you can omit <code>- 1025:1025</code> which will then only expose it to the other containers within the specified services.</p>
+<div><pre><code class="language-yaml"><span><span><span>services</span><span>:</span><span>
+</span></span></span><span><span><span>    </span><span>mailpit</span><span>:</span><span>
+</span></span></span><span><span><span>        </span><span>image</span><span>:</span><span> </span><span>axllent/mailpit</span><span>
+</span></span></span><span><span><span>        </span><span>container_name</span><span>:</span><span> </span><span>mailpit</span><span>
+</span></span></span><span><span><span>        </span><span>restart</span><span>:</span><span> </span><span>unless-stopped</span><span>
+</span></span></span><span><span><span>        </span><span>volumes</span><span>:</span><span>
+</span></span></span><span><span><span>            </span>- <span>./data:/data</span><span>
+</span></span></span><span><span><span>        </span><span>ports</span><span>:</span><span>
+</span></span></span><span><span><span>            </span>- <span>8025</span><span>:</span><span>8025</span><span>
+</span></span></span><span><span><span>            </span>- <span>1025</span><span>:</span><span>1025</span><span>
+</span></span></span><span><span><span>        </span><span>environment</span><span>:</span><span>
+</span></span></span><span><span><span>            </span><span>MP_MAX_MESSAGES</span><span>:</span><span> </span><span>5000</span><span>
+</span></span></span><span><span><span>            </span><span>MP_DATABASE</span><span>:</span><span> </span><span>/data/mailpit.db</span><span>
+</span></span></span><span><span><span>            </span><span>MP_SMTP_AUTH_ACCEPT_ANY</span><span>:</span><span> </span><span>1</span><span>
+</span></span></span><span><span><span>            </span><span>MP_SMTP_AUTH_ALLOW_INSECURE</span><span>:</span><span> </span><span>1</span><span>
+</span></span></span></code></pre></div>
+
+		
+		
+		
+	</main>

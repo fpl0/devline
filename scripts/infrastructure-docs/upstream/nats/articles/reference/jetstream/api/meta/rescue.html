@@ -1,0 +1,10 @@
+<main><header><h1>Meta Rescue</h1></header>
+<p>Lowers the quorum the meta group needs, so peers can be removed when too many servers are permanently gone. This is unsafe and is only for disaster recovery.</p>
+<!-- -->
+<h2 id="subject">Subject</h2>
+<p><code>$JS.API.META.RESCUE</code></p>
+<p>Only works from the system account. This is a broadcast subject: every online server evaluates the request and replies on its own, so expect one response per server rather than a single reply.</p>
+<h2 id="request">Request</h2>
+<div><p>A request to the JetStream $JS.API.META.RESCUE API</p><div><div><div><span>quorum_needed</span><span>integer</span><span>required</span></div><div>The number of servers that will now be required to form a quorum</div></div></div></div>
+<h2 id="response">Response</h2>
+<div><p>A response from the JetStream $JS.API.META.RESCUE API</p><div></div><div><div><div>One of the following:</div><div><div>Option <!-- -->1<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>error</span><span>object</span><span>required</span></div></div></div><div><div>Option <!-- -->2<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>server</span><span>string</span><span>required</span></div><div>The server name of the responding server</div></div><div><div><span>server_id</span><span>string</span><span>required</span></div><div>The server ID of the responding server</div></div><div><div><span>prev_quorum</span><span>integer</span></div><div>The effective quorum before the rescue was applied</div></div><div><div><span>new_quorum</span><span>integer</span></div><div>The effective quorum after the rescue was applied</div></div></div></div><div><div><span>type</span><span>const: "io.nats.jetstream.api.v1.meta_rescue_response"</span></div></div></div></div></main>

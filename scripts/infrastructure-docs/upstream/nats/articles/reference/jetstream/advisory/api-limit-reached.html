@@ -1,0 +1,8 @@
+<main><header><h1>API Limit Reached</h1></header>
+<p>API request queue limit reached events.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$JS.EVENT.ADVISORY.API.LIMIT_REACHED</code></p>
+<p>The subject has no account token. The server publishes this advisory in the system account, and the <code>server</code> field identifies the server that hit the limit.</p>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>An Advisory when the server takes action after very high number of pending API operations</p><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.api_limit_reached"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>server</span><span>string</span><span>required</span></div><div>The server this event originates from, either a generated ID or the configured name</div><div><span>Min length:</span><code>1</code></div></div><div><div><span>domain</span><span>string</span></div><div>The domain of the JetStreamServer</div><div><span>Minimum:</span><code>1</code></div></div><div><div><span>dropped</span><span>integer</span><span>required</span></div><div>The number of messages removed from the QPI queue</div></div></div></div></main>

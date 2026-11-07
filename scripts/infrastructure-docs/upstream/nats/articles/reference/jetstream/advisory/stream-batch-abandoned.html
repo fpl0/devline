@@ -1,0 +1,8 @@
+<main><header><h1>Stream Batch Abandoned</h1></header>
+<p>An advisory sent when a stream abandons a batch.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$JS.EVENT.ADVISORY.STREAM.BATCH_ABANDONED.{stream}</code></p>
+<p>Where <code>{stream}</code> is the stream name.</p>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>An Advisory sent when a Stream abandons a batch</p><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.stream_batch_abandoned"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>reason</span><span>string</span><span>required</span></div><div>The reason the batch was abandoned</div><div><span>Allowed values:</span><code>timeout</code><code>large</code><code>incomplete</code></div></div><div><div><span>stream</span><span>string</span><span>required</span></div><div>The name of the Stream that's acted on</div></div><div><div><span>batch</span><span>string</span><span>required</span></div><div>The ID of the batch that was abandoned</div></div><div><div><span>account</span><span>string</span></div><div>The account hosting the Stream</div></div><div><div><span>domain</span><span>string</span></div><div>The domain hosting the Stream</div></div></div></div></main>

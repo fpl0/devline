@@ -1,0 +1,57 @@
+# SeaweedFS configuration · s3_static_users_example.json
+
+````json
+{
+  "identities": [
+    {
+      "name": "admin",
+      "credentials": [
+        {
+          "accessKey": "AKIAIOSFODNN7EXAMPLE",
+          "secretKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "List",
+        "Tagging",
+        "Write"
+      ]
+    },
+    {
+      "name": "steward",
+      "credentials": [
+        {
+          "accessKey": "steward-key",
+          "secretKey": "steward-secret"
+        }
+      ],
+      "actions": [
+        "Read",
+        "List",
+        "Write"
+      ]
+    },
+    {
+      "name": "le001",
+      "credentials": [
+        {
+          "accessKey": "le001-key",
+          "secretKey": "le001-secret"
+        }
+      ],
+      "actions": [
+        "Read",
+        "List"
+      ]
+    },
+    {
+      "name": "anonymous",
+      "actions": [
+        "Read"
+      ]
+    }
+  ]
+}
+````

@@ -1,0 +1,64 @@
+# Search rules
+
+> Pin, boost, deboost, or hide specific documents in your search results.
+
+Search rules give you direct control over your search results. You decide which documents to promote or remove, for which queries, and for how long. Every result a rule does not touch stays organic.
+
+> [!NOTE]
+>
+> These search rules are different from the [search rules used in tenant tokens](https://www.meilisearch.com/docs/capabilities/security/advanced/tenant_token_payload#search-rules), which restrict what a user is allowed to see.
+
+## What a search rule can do
+
+| Action | Effect on results |
+| - | - |
+| **Pin** | Place a document at a fixed position |
+| **Boost** | Move documents up by raising their relevancy |
+| **Deboost** | Move documents down by lowering their relevancy |
+| **Hide** | Remove documents from the results |
+
+Pinning targets a single document and always places it at the position you choose, even if the document does not match the query text.
+
+Boosting, deboosting, and hiding target one document, a list of documents, or every document matching a filter. For example, you can boost all products with `stock > 0`, or hide all articles with `status = "archived"`.
+
+### When a rule applies
+
+A rule runs only when all of its conditions are true at the same time. You can combine three of them:
+
+* **Query**: run the rule on every query, only on the queries containing specific words, or only on empty queries, when the user has not typed anything yet.
+* **Time**: run the rule during a period only, such as a sale weekend, or keep it active with no time limit.
+* **Filter**: run the rule only on the searches using a given filter value, for example when users browse the "Kitchen" category.
+
+## Use cases
+
+* **E-commerce**: Pin a campaign page during a sale, boost products that are in stock, and hide products that are not.
+* **Help centers**: Pin the right article when the query contains a known keyword, so users get the answer first.
+* **Content platforms**: Curate the list users see when they open search with an empty query.
+* **Marketplaces**: Deboost listings from low-rated sellers.
+
+Search rules work with full-text search, [hybrid search](https://www.meilisearch.com/docs/capabilities/hybrid_search/overview), [federated search](https://www.meilisearch.com/docs/capabilities/multi_search/overview), and network search.
+
+## Pricing
+
+Every Meilisearch Cloud project includes 3 search rules for free. To create more, subscribe to the Search Rules add-on, then add extra rule packs if you need them. See [search rules pricing](https://www.meilisearch.com/docs/capabilities/search_rules/pricing) for the current limits and prices.
+
+## Next steps
+
+> [card] [Create your first rule](https://www.meilisearch.com/docs/capabilities/search_rules/create_your_first_rule)
+>
+> Turn on search rules and pin your first document
+
+> [card] [Boost documents](https://www.meilisearch.com/docs/capabilities/search_rules/how_to/boost_documents)
+>
+> Rank a selection of documents higher during a campaign
+
+> [card] [How search rules work](https://www.meilisearch.com/docs/capabilities/search_rules/advanced/how_search_rules_work)
+>
+> See how Meilisearch builds the final result set
+
+> [card] [API reference](https://www.meilisearch.com/docs/reference/api/search-rules/create-or-update-a-search-rule)
+>
+> Endpoints, rule fields, and update behavior
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

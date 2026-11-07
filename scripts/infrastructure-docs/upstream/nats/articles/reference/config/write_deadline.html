@@ -1,0 +1,7 @@
+<main><header><h1>write_deadline</h1></header>
+<div><span><span>Hot Reloadable</span></span><div>The reload is accepted and logged, but existing connections keep the deadline they were created with. Only connections established after the reload use the new value.</div></div>
+<p>Maximum number of seconds the server will block when writing. Once
+this threshold is exceeded the connection will be closed. See slow
+consumer on how to deal with this on the client.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>duration</code></td><td>Duration as a string with units such as 100ms, 10s, 5m, or 2h.</td><td>-</td></tr></tbody></table></main>

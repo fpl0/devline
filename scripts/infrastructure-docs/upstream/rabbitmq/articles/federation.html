@@ -1,0 +1,307 @@
+<main><header><h1>Exchange and Queue Federation</h1></header>
+<p>This guide covers various topics related to cluster federation, both
+of exchanges and queues:</p>
+<ul>
+<li><a href="#overview">Federation overview</a></li>
+<li><a href="#what-does-it-do">What does federation do?</a></li>
+<li><a href="#getting-started">Getting started</a></li>
+<li><a href="#tutorial">A basic example</a></li>
+<li><a href="#link-failures">Federation connections</a></li>
+<li><a href="#clustering">Federating clusters</a></li>
+<li>Federation <a href="#tls-connections">support for TLS</a></li>
+<li>Monitoring federation <a href="#status">link status</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+</ul>
+<h2 id="overview">Overview</h2>
+<p>The high-level goal of the Federation plugin is to replicate or move messages between brokers that have
+the plugin enabled but do not belong to the same cluster. This is useful for a number of reasons.</p>
+<h3 id="loose-coupling-of-nodes-or-clusters">Loose Coupling of Nodes or Clusters</h3>
+<p>The federation plugin can transmit messages between brokers
+(or clusters) in different administrative domains:</p>
+<ul>
+<li>they may be hosted in different data centers, potentially on different continents</li>
+<li>they may have different users, virtual hosts, permissions and purpose</li>
+<li>they may run on different versions of RabbitMQ and Erlang</li>
+<li>they may be of different sizes</li>
+</ul>
+<h3 id="wan-friendliness">WAN friendliness</h3>
+<p>The federation plugin communication is entirely asynchronous and assumes that connections between
+clusters will fail from time to time. So it tolerates intermittent connectivity
+well and does not create coupling between remote clusters (in terms of availability).</p>
+<h3 id="specificity">Specificity</h3>
+<p>A broker can contain federated <em>and</em> local-only components to best
+fit the desired architecture of the system.</p>
+<h3 id="scalability-with-growing-connected-node-count">Scalability with Growing Connected Node Count</h3>
+<p>Federation does not require O(n<sup>2</sup>) connections between
+<em>N</em> brokers (although this is the easiest way to set things up).</p>
+<h2 id="what-does-it-do">What Does It Do?</h2>
+<p>The federation plugin make it possible to <em>federate</em> exchanges and queues.
+A federated exchange or queue can receive
+messages from one or more remote clusters called <em>upstreams</em> (to be more precise: exchanges
+and queues that exist in remote clusters).</p>
+<p>A federated exchange will "replay" a stream of messages published to its upstream counterpart, and publish them to a local queue or stream.</p>
+<p>A federated queue lets a local consumer receive messages from an upstream queue when the remote queue
+itself does not have any local consumers online.</p>
+<p>Federation links connect to upstreams largely the same way an application would. Therefore
+they can connect to a specific vhost, use TLS, use multiple
+<a href="/docs/4.3/authentication">authentication mechanisms</a>.</p>
+<p>Typically, federation is used to connect remote clusters. However, it can also be used
+to move data between <a href="/docs/4.3/vhosts">virtual hosts</a> within the same cluster.</p>
+<p>Federation documentation is organized as a number of more focussed guides:</p>
+<ul>
+<li><a href="/docs/4.3/federated-exchanges">Exchange federation</a>: for replicating a flow of messages through an exchange to a remote cluster</li>
+<li><a href="/docs/4.3/federated-queues">Queue federation</a>: to create a "logical queue" across N clusters that will move messages where consumers are (if there are no local consumers)</li>
+<li><a href="/docs/4.3/federation-reference">Federation settings reference</a></li>
+</ul>
+<h2 id="how-is-it-configured">How is Federation Set Up?</h2>
+<p>Two steps are involved in setting up federation:</p>
+<ul>
+<li>First, one or more upstreams must be defined. They provide federation with information about how to connect
+to other nodes. This can be done via <a href="/docs/4.3/parameters">runtime parameters</a>
+or the <a href="https://github.com/rabbitmq/rabbitmq-federation-management">federation management plugin</a> which
+adds a federation management tab to the <a href="/docs/4.3/management">management UI</a>.</li>
+<li>To enable federation, one or more <a href="/docs/4.3/policies">policies</a> that match exchanges or queues must be declared.
+The policy will make the matched objects (e.g. exchanges) federated, and one federation link
+(connection to other nodes) will be started for every match</li>
+</ul>
+<h2 id="getting-started">Getting Started</h2>
+<p>The federation plugin is included in the RabbitMQ distribution. To
+enable it, use <a href="/docs/4.3/cli">rabbitmq-plugins</a>:</p>
+<div><div><pre><code class="language-bash">rabbitmq-plugins enable rabbitmq_federation</code></pre></div></div>
+<p>If <a href="/docs/4.3/management">management UI</a> is used, it is recommended that
+<code>rabbitmq_federation_management</code> is also enabled:</p>
+<div><div><pre><code class="language-bash">rabbitmq-plugins enable rabbitmq_federation_management</code></pre></div></div>
+<p>When using a federation in a cluster, all the nodes of the
+cluster should have the federation plugin enabled.</p>
+<p>Information about federation upstreams is stored in the RabbitMQ
+database, along with users, permissions, queues, etc. There
+are three levels of configuration involved in federation:</p>
+<ul>
+<li><strong>Upstreams</strong>: each <a href="/docs/4.3/federation-reference#upstreams">upstream</a> defines a remote connection endpoint.</li>
+<li><strong>Upstream sets</strong>: each <a href="/docs/4.3/federation-reference#upstream-sets">upstream set groups</a> together a set of upstreams to use for federation.</li>
+<li><strong>Policies</strong>: each <a href="/docs/4.3/policies">policy</a> selects a set of exchanges,
+queues or both, and applies a single upstream or an upstream
+set to those objects.</li>
+</ul>
+<p>In practice, for simple use cases you can almost ignore the
+existence of upstream sets, since there is an implicitly-defined upstream set called <code>all</code>
+to which all upstreams are added.</p>
+<p>Upstreams and upstream sets are both defined using <a href="/docs/4.3/parameters">runtime parameters</a>.
+Like exchanges and queues, each virtual host has its own distinct set of parameters and policies. For more
+generic information on parameters and policies, see the guide on
+<a href="/docs/4.3/parameters">parameters and policies</a>.
+For full details on the parameters used by federation, see the <a href="/docs/4.3/federation-reference">federation reference</a>.</p>
+<p>Parameters and policies can be set in three ways:</p>
+<ul>
+<li>Using <a href="/docs/4.3/cli">CLI tools</a></li>
+<li>In the management UI if an extension plugin (<code>rabbitmq_federation_management</code>) is enabled</li>
+<li>Using the HTTP API</li>
+</ul>
+<p>The HTTP API has a limitation: it does not support management of upstream sets.</p>
+<h2 id="tutorial">A Basic Example</h2>
+<p>Here we will federate all the built-in exchanges except for
+the default exchange, with a single upstream. The upstream
+will be defined to buffer messages when disconnected for up
+to one hour (3600000ms).</p>
+<p>To define an upstream, use one of the following examples,
+one per tab:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># target.hostname is just an example, replace it with a URI
+# of the target node (usually a member of a remote node/cluster,
+# or a URI that connects to a different virtual host within the same cluster)
+rabbitmqctl set_parameter federation-upstream my-upstream \
+    '{"uri":"amqp://target.hostname","expires":3600000}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># target.hostname is just an example, replace it with a URI
+# of the target node (usually a member of a remote node/cluster,
+# or a URI that connects to a different virtual host within the same cluster)
+rabbitmqadmin federation declare_upstream --name my-upstream \
+    --uri "amqp://target.hostname" \
+    --ttl 3600000</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell"># target.hostname is just an example, replace it with a URI
+# of the target node (usually a member of a remote node/cluster,
+# or a URI that connects to a different virtual host within the same cluster)
+rabbitmqctl.bat set_parameter federation-upstream my-upstream `
+    '"{""uri"":""amqp://target.hostname"",""expires"":3600000}"'</code></pre></div></div><h4>rabbitmqadmin.exe with PowerShell</h4><div><div><pre><code class="language-powershell"># target.hostname is just an example, replace it with a URI
+# of the target node (usually a member of a remote node/cluster,
+# or a URI that connects to a different virtual host within the same cluster)
+rabbitmqadmin.exe federation declare_upstream --name my-upstream ^
+    --uri "amqp://target.hostname" ^
+    --ttl 3600000</code></pre></div></div><h4>Management UI</h4><p>Navigate to <code>Admin</code> &gt; <code>Federation Upstreams</code> &gt;
+<code>Add a new upstream</code>. Enter "my-upstream" next to Name,
+"amqp://target.hostname" next to URI, and 36000000 next to
+Expiry. Click Add upstream.</p><h4>HTTP API</h4><div><div><pre><code class="language-bash">PUT /api/parameters/federation-upstream/%2f/my-upstream
+{"value":{"uri":"amqp://target.hostname","expires":3600000}}</code></pre></div></div>
+<p>Then define a policy that will match built-in exchanges and use this upstream:</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash">rabbitmqctl set_policy --apply-to exchanges federate-me "^amq\." \
+    '{"federation-upstream-set":"all"}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin policies declare \
+    --name "federate-me" \
+    --pattern "^amq\." \
+    --definition '{"federation-upstream-set":"all"}' \
+    --apply-to "exchanges"</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat set_policy --apply-to exchanges federate-me "^amq\." `
+    '"{""federation-upstream-set"":""all""}"'</code></pre></div></div><h4>rabbitmqadmin.exe with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe policies declare ^
+    --name "federate-me" ^
+    --pattern "^amq\." ^
+    --definition "{""federation-upstream-set"":""all""}" ^
+    --apply-to "exchanges"</code></pre></div></div><h4>Management UI</h4><p>Navigate to <code>Admin</code> &gt; <code>Policies</code> &gt; <code>Add / update a policy</code>.
+Enter "federate-me" next to "Name", "^amq." next to
+"Pattern", choose "Exchanges" from the "Apply to" drop down list
+and enter "federation-upstream-set" = "all"
+in the first line next to "Policy". Click "Add" policy.</p><h4>HTTP API</h4><div><div><pre><code class="language-ini">PUT /api/policies/%2f/federate-me
+{"pattern":"^amq\.", "definition":{"federation-upstream-set":"all"}, "apply-to":"exchanges"}</code></pre></div></div>
+<p>The defined policy will make the exchanges _whose names
+begin with "amq." (all the built-in exchanges except
+for the default one) with (implicit) low priority, and
+to federate them using the implicitly created upstream set
+"all", which includes our newly-created upstream.</p>
+<p>Any other <a href="/docs/4.3/policies">matching policy</a> with a priority greater than 0 will take
+precedence over this policy. Keep in mind that <code>federate-me</code>
+is just a name we used for this example, you can use any
+string you want there.</p>
+<p>The built in exchanges should now be federated because they are
+matched by the policy. You can
+check that the policy has applied to the exchanges by
+checking the exchanges list in management or with:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl list_exchanges name policy | grep federate-me</code></pre></div></div>
+<p>And you can check that federation links for each exchange have come up with <code>Admin</code> &gt; <code>Federation Status</code> &gt; <code>Running Links</code> or with:</p>
+<div><div><pre><code class="language-bash"># This command will be available only if federation plugin is enabled
+rabbitmqctl federation_status</code></pre></div></div>
+<p>In general there will be one federation link for each
+upstream that is applied to an exchange. So for example with
+three exchanges and two upstreams for each there will be six
+links.</p>
+<p>For simple use this should be all you need - you will probably
+want to look at the <a href="./uri-spec">AMQP URI
+reference</a>.</p>
+<p>The <a href="./federation-reference">federation reference</a> contains
+more details on upstream parameters and upstream sets.</p>
+<h2 id="link-failures">Federation Connection (Link) Failures</h2>
+<p>Inter-node connections used by Federation are based on AMQP 0-9-1
+connections. Federation links can be treated as special kind of clients
+by operators.</p>
+<p>Should a link fail, e.g. due to a network interruption, it will
+attempt to re-connect. Reconnection period is a configurable value
+that's defined in upstream definition. See
+<a href="./federation-reference">federation
+reference</a> for more details on setting up upstreams and
+upstream sets.</p>
+<p>Links generally try to recover ad infinitum but there are scenarios
+when they give up:</p>
+<ul>
+<li>Failure rate is too high (max tolerated rate depends on
+upstream's <code>reconnect-delay</code> but is generally a failure
+every few seconds by default).</li>
+<li>Link no longer can locate its "source" queue or exchange.</li>
+<li>Policy changes in such a way that a link considers itself no longer necessary.</li>
+</ul>
+<p>By increasing <code>reconnect-delay</code> for upstreams it is possible
+to tolerate higher link failure rates. This is primarily relevant
+for RabbitMQ installations where a moderate or large number of active links.</p>
+<h2 id="clustering">Federating Clusters</h2>
+<p>Clusters can be linked together with federation just as single brokers
+can. To summarise how clustering and federation interact:</p>
+<ul>
+<li>You can define policies and parameters on any node in the downstream
+cluster; once defined on one node they will apply on all nodes.</li>
+<li>Exchange federation links will start on any node in the
+downstream cluster. They will fail over to other nodes if
+the node they are running on crashes or stops.</li>
+<li>Queue federation links will start on the same node as the
+downstream queue. If the downstream queue is a <a href="/docs/4.3/quorum-queues">replicated one</a>, they
+will start on the same node as the leader, and will be
+recreated on the same node as the new leader after any future leader elections.</li>
+<li>To connect to an upstream cluster, you can specify multiple URIs in
+a single upstream. The federation link process will choose one of
+these URIs at random each time it attempts to connect.</li>
+</ul>
+<h2 id="tls-connections">Securing Federation Connections with TLS</h2>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>Starting with Erlang 26, <a href="/docs/4.3/ssl#peer-verification">TLS client peer verification</a> is enabled by default by the TLS implementation.</p><p>If client TLS certificate and key pair is not configured, TLS-enabled Federation links
+will fail to connect. A certificate (public key) and private key
+pair must be configured for TLS-enabled Federation links that need to use peer verification.</p><p>If peer verification is not necessary, it can be disabled.</p></div></div>
+<p>Federation connections (links) can be secured with TLS. Because Federation uses
+a RabbitMQ client under the hood, it is necessary to both configure
+the target broker to <a href="/docs/4.3/ssl">listen for TLS connections</a>
+and Federation to use TLS.</p>
+<p>To configure Federation to use TLS, one needs to</p>
+<ul>
+<li>In upstream URI, use the <code>amqps</code> for scheme instead of <code>amqp</code> and port <code>5671</code> instead of <code>5672</code> (assuming the default port is used but the port specified explicitly)</li>
+<li>In the same upstream URI, specify CA certificate and client certificate/key pair, as well as other parameters (namely <a href="/docs/4.3/ssl#peer-verification">enable or disable peer verification</a>, <a href="/docs/4.3/ssl#peer-verification-depth">peer verification depth</a>) via <a href="/docs/4.3/uri-query-parameters">URI query parameters</a></li>
+<li>Optionally, configure <a href="/docs/4.3/ssl">TLS-related</a> settings or defaults common for all links (plus, optionally, <a href="/docs/4.3/shovel">Shovel</a>) via the Erlang client settings</li>
+</ul>
+<p>In the following example the upstream URI is modified to use TLS with a client certificate (public key)
+and private key pair but with peer verification disabled (for simplicity, it is encouraged for production use):</p>
+<h4>rabbitmqctl with bash</h4><div><div><pre><code class="language-bash"># Note the TLS-related settings in the upstream URI field
+rabbitmqctl set_parameter federation-upstream my-upstream \
+    '{"uri":"amqps://target.hostname:5671?cacertfile=/path/to/ca_bundle.pem&amp;certfile=/path/to/client_certificate.pem&amp;keyfile=/path/to/client_key.pem&amp;verify=verify_none","expires":3600000}'</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash"># Note the TLS-related settings in the upstream URI field
+rabbitmqadmin federation declare_upstream --name my-upstream \
+    --uri "amqps://target.hostname:5671?cacertfile=/path/to/ca_bundle.pem&amp;certfile=/path/to/client_certificate.pem&amp;keyfile=/path/to/client_key.pem&amp;verify=verify_none" \
+    --ttl 3600000</code></pre></div></div><h4>rabbitmqctl with PowerShell</h4><div><div><pre><code class="language-powershell">#
+rabbitmqctl.bat set_parameter federation-upstream my-upstream `
+    '"{""uri"":""amqps://target.hostname:5671?cacertfile=drive:\path\to\ca_bundle.pem&amp;certfile=drive:\path\to\client_certificate.pem&amp;keyfile=drive:\path\to\client_key.pem&amp;verify=verify_none"",""expires"":3600000}"'</code></pre></div></div><h4>rabbitmqadmin.exe with PowerShell</h4><div><div><pre><code class="language-powershell"># Note the TLS-related settings in the upstream URI field
+rabbitmqadmin.exe federation declare_upstream --name my-upstream ^
+    --uri "amqps://target.hostname:5671?cacertfile=drive:\path\to\ca_bundle.pem&amp;certfile=drive:\path\to\client_certificate.pem&amp;keyfile=drive:\path\to\client_key.pem&amp;verify=verify_none" ^
+    --ttl 3600000</code></pre></div></div><h4>Management UI</h4><p>Navigate to <code>Admin</code> &gt; <code>Federation Upstreams</code> &gt;
+<code>Add a new upstream</code>. Enter "my-upstream" next to Name, paste
+<code>"amqps://target.hostname:5671?cacertfile=/path/to/ca_bundle.pem&amp;certfile=/path/to/client_certificate.pem&amp;keyfile=/path/to/client_key.pem&amp;verify=verify_none"</code> for URI,
+then enter 36000000 next to Expiry.</p><p>Click Add upstream.</p><h4>HTTP API</h4><div><div><pre><code class="language-bash">PUT /api/parameters/federation-upstream/%2f/my-upstream
+{"value":{"uri":"amqps://target.hostname:5671?cacertfile=/path/to/ca_bundle.pem&amp;certfile=/path/to/client_certificate.pem&amp;keyfile=/path/to/client_key.pem&amp;verify=verify_none","expires":3600000}}</code></pre></div></div>
+<p>These examples use a URI with four additional <a href="/docs/4.3/uri-query-parameters">URI query parameters</a>:</p>
+<ul>
+<li><code>cacertfile</code>: the CA certificate bundle file that includes one or more CA certificates that were used to sign the client certificate and private key pair</li>
+<li><code>certfile</code>: the client certificate (public key)</li>
+<li><code>keyfile</code>: the client private key</li>
+<li><code>verify</code>: <a href="/docs/4.3/ssl#peer-verification">controls peer verification</a> (in this specific example, disables it)</li>
+</ul>
+<p>Just like with "regular" client connections, if TLS-enabled federation links need to perform peer verification then server's CA must be
+trusted on the node where federation link(s) runs, and vice versa.</p>
+<h2 id="status">Federation Link Monitoring</h2>
+<p>Each combination of federated exchange or queue and upstream needs a
+link to run. This is the process that retrieves messages from upstream
+and republishes them downstream. You can monitor the status of
+federation links using <code>rabbitmqctl</code> and the management
+plugin.</p>
+<h3 id="using-cli-tools">Using CLI Tools</h3>
+<p>Federation link status can be inspected using <a href="/docs/4.3/cli">RabbitMQ CLI tools</a>.</p>
+<p>Invoke:</p>
+<div><div><pre><code class="language-bash"># This command will be available only if federation plugin is enabled
+rabbitmqctl federation_status</code></pre></div></div>
+<p>This will output a list of federation links running on the target node (not cluster-wide).
+It contains the following keys:</p>
+<table><thead><tr><td>Parameter Name</td><td>Description</td></tr></thead><tbody><tr><td><code>type</code></td><td><p><code>exchange</code> or <code>queue</code> depending on
+what type of federated resource this link relates to</p></td></tr><tr><td><code>name</code></td><td><p>the name of the federated exchange or queue</p></td></tr><tr><td><code>vhost</code></td><td><p>the virtual host containing the federated exchange or queue</p></td></tr><tr><td><code>upstream_name</code></td><td><p>the name of the upstream this link is connected to</p></td></tr><tr><td><code>status</code></td><td><p>status of the link:</p><ul><li><code>starting</code></li><li><code>{running, LocalConnectionName}</code></li><li><code>{shutdown, Error}</code></li></ul></td></tr><tr><td><code>connection</code></td><td><p>the name of the connection for this link (from config)</p></td></tr><tr><td><code>timestamp</code></td><td><p>time stamp of the last status update</p></td></tr></tbody></table>
+<p>Here's an example:</p>
+<div><div><pre><code class="language-bash"># This command will be available only if federation plugin is enabled
+rabbitmqctl federation_status
+# =&gt; [[{type,&lt;&lt;"exchange"&gt;&gt;},
+# =&gt;   {name,&lt;&lt;"my-exchange"&gt;&gt;},
+# =&gt;   {vhost,&lt;&lt;"/"&gt;&gt;},
+# =&gt;   {connection,&lt;&lt;"upstream-server"&gt;&gt;},
+# =&gt;   {upstream_name,&lt;&lt;"my-upstream-x"&gt;&gt;},
+# =&gt;   {status,{running,&lt;&lt;"&lt;rabbit@my-server.1.281.0&gt;"&gt;&gt;}},
+# =&gt;   {timestamp,{{2020,3,1},{12,3,28}}}]]
+# =&gt; ...done.</code></pre></div></div>
+<h3 id="using-the-management-ui">Using the Management UI</h3>
+<p>Enable the <code>rabbitmq_federation_management</code> <a href="/docs/4.3/plugins">plugin</a> that extends
+<a href="/docs/4.3/management">management UI</a> with a new page that displays federation links in the cluster.
+It can be found under <code>Admin</code> &gt; <code>Federation Status</code>, or by using the
+<code>GET /api/federation-links</code> HTTP API endpoint.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="federation-links-do-not-start">Federation Links Do Not Start</h3>
+<p>Federation links are started when</p>
+<ul>
+<li>There is a configured upstream (or a set of upstreams)</li>
+<li>There is a policy that matches some exchanges or queues</li>
+<li>Federation can connect to the target upstream</li>
+</ul>
+<p>Therefore, in order to narrow down the problem, the recommended steps are:</p>
+<ul>
+<li>Inspect federation upstreams</li>
+<li>Inspect <a href="/docs/4.3/policies">policies</a>, in particular looking for policies with conflicting <a href="/docs/4.3/policies#priorities">priorities</a></li>
+<li>Inspect <a href="/docs/4.3/logging">node logs</a></li>
+</ul>
+<h4 id="inspect-federation-upstreams">Inspect Federation Upstreams</h4>
+<h4>rabbitmq-diagnostics with bash</h4><div><div><pre><code class="language-bash">rabbitmq-diagnostics list_parameters --formatter=pretty_table</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin federation list_all_upstreams</code></pre></div></div><h4>rabbitmq-diagnostics with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmq-diagnostics.bat list_parameters --formatter=pretty_table</code></pre></div></div><h4>rabbitmqadmin.exe with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe federation list_all_upstreams</code></pre></div></div><h4>Management UI</h4><p>Make sure that the <code>rabbitmq_federation_management</code> <a href="/docs/4.3/plugins">plugin</a> is enabled.</p><p>Navigate to <code>Admin</code> &gt; <code>Federation Upstreams</code>.</p><h4>HTTP API</h4><div><div><pre><code class="language-ini">GET /api/parameters</code></pre></div></div>
+<h4 id="inspect-policies">Inspect Policies</h4>
+<p>Only one policy in RabbitMQ can be applied at a time, and that out of N policies
+with equal priorities a random one will be selected.</p>
+<p>In other words, when there are conflicting policies that match the exchanges or queues
+that are meant to be federated, the policy that enables federation is not guaranteed
+to be the effective one.</p>
+<p>Using explicit different policies and avoiding policies that <code>--apply-to all</code> will reduce
+the risk of running into this problem.</p></main>

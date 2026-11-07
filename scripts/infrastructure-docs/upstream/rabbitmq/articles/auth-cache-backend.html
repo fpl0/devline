@@ -1,0 +1,84 @@
+<main><header><h1>Authentication/Authorization Cache Backend</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This plugin provides a way to cache authentication and authorization backend
+results for a configurable amount of time. It's not an independent auth backend,
+but a caching layer for existing backends, such as the built-in, <a href="/docs/4.3/ldap">LDAP</a>,
+or <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_auth_backend_http">HTTP</a> ones.
+Although it is not very useful with the
+built-in (internal) <a href="/docs/4.3/access-control">authentication and authorization backends</a> but can be other
+backends that use network requests, such as LDAP or HTTP.</p>
+<p>Cache expiration is currently time-based.</p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li><a href="#installation">Installation</a></li>
+<li>Authorization and Authentication <a href="#configuration">Backend Configuration</a></li>
+<li><a href="#basic-configuration">Plugin configuration</a></li>
+<li><a href="#advanced-configuration">Advanced plugin configuration</a></li>
+</ul>
+<h2 id="installation">Installation</h2>
+<p>The <code>rabbitmq_auth_backend_cache</code> plugin ships with RabbitMQ.</p>
+<p>Like all plugins, it <a href="/docs/4.3/plugins">must be enabled</a> before it can be used, for example,
+use <a href="/docs/4.3/cli"><code>rabbitmqctl</code></a>:</p>
+<div><div><pre><code class="language-bash">rabbitmq-plugins enable rabbitmq_auth_backend_cache</code></pre></div></div>
+<h2 id="configuration">Authorization and Authentication Backend Configuration</h2>
+<p>To configure this plugin so that it caches all the authorization and authentication
+decisions, first set this cache backend as the <code>auth_backends</code> or one
+of them and then you configure which authentication backend is actually cached.</p>
+<p>For example, to cache requests to the <code>http</code> backend:</p>
+<div><div><pre><code class="language-ini">auth_backends.1 = cache
+auth_cache.cached_backend = http
+
+auth_http.http_method = post</code></pre></div></div>
+<p>It is possible to use different backends for authorization and authentication.</p>
+<p>The following example configures the plugin to use LDAP backend for
+authentication, but internal backend for authorization:</p>
+<div><div><pre><code class="language-ini">auth_backends.1 = cache
+
+auth_cache.cached_backend.authn = ldap
+auth_cache.cached_backend.authz = internal</code></pre></div></div>
+<h2 id="basic-configuration">Basic Cache configuration</h2>
+<p>You can configure TTL for cache items, by using <code>cache_ttl</code> configuration variable,
+specified in milliseconds. The default value is <code>15000</code> milliseconds:</p>
+<div><div><pre><code class="language-ini">auth_cache.cached_backend = ldap
+auth_cache.cache_ttl = 5000</code></pre></div></div>
+<p>By default, negative authentication and/or authorization decisions are not cached,
+only positive ones are. However, this behaviour can be changed by setting <code>cache_refusals</code> to <code>true</code>
+as shown below:</p>
+<div><div><pre><code class="language-ini">auth_cache.cache_refusals = true</code></pre></div></div>
+<h2 id="advanced-configuration">Advanced Cache configuration</h2>
+<p>You can also use a custom cache module to store cached requests. This module
+should be an Erlang module implementing the <code>rabbit_auth_cache</code> behavior and
+(optionally) define <code>start_link</code> function to start the cache process.</p>
+<p>This repository provides several implementations:</p>
+<ul>
+<li><code>rabbit_auth_cache_dict</code> stores cache entries in the internal process dictionary.
+This module is for demonstration only and should not be used in production.</li>
+<li><code>rabbit_auth_cache_ets</code> stores cache entries in an <a href="https://learnyousomeerlang.com/ets">ETS</a>
+table and uses timers for cache invalidation. <strong>This is the default implementation</strong>.</li>
+<li><code>rabbit_auth_cache_ets_segmented</code> stores cache entries in multiple ETS tables
+and does not delete individual cache items but rather uses a separate process for garbage collection.</li>
+<li><code>rabbit_auth_cache_ets_segmented_stateless</code> same as previous, but with minimal
+use of <code>gen_server</code> state, using ets tables to store information about segments.</li>
+</ul>
+<p>To specify the module for caching, use the <code>cache_module</code> configuration key.
+This example configuration configures the <code>rabbit_auth_backend_ets_segmented</code> module.</p>
+<div><div><pre><code class="language-ini">auth_cache.cache_module = rabbit_auth_backend_ets_segmented</code></pre></div></div>
+<p>When using a custom implementation of a <code>cache_module</code>, you can specify <code>start args</code>
+with <code>cache_module_args</code>. <code>Start args</code> should be list of arguments passed to
+module <code>start_link</code> function.</p>
+<p>However, additional cache module arguments can only be defined via the
+<a href="/docs/4.3/configure#advanced-config-file">advanced.config</a>.</p>
+<div><div><pre><code class="language-erlang">[
+ {rabbit, [
+   %% ...
+ ]},
+
+ {rabbitmq_auth_backend_cache, [
+    {cache_module, rabbit_auth_backend_ets_segmented},
+    {cache_module_args, [10000]}
+  ]}
+].</code></pre></div></div>
+<h2 id="how-to-clear-the-cache">How to Clear the Cache</h2>
+<p>A <a href="/docs/4.3/man/rabbitmqctl.8"><code>rabbitmqctl</code></a> command <code>clear_auth_backend_cache</code>
+can be used  to clear the cache across all cluster nodes:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl clear_auth_backend_cache</code></pre></div></div></main>

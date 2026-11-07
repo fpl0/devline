@@ -1,0 +1,78 @@
+<main><header><h1>Running RabbitMQ on Amazon EC2</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide assumes familiarity with the general <a href="/docs/4.3/clustering">clustering guide</a> as well
+the guide on <a href="/docs/4.3/cluster-formation">cluster peer discovery</a>.</p>
+<p>Using RabbitMQ on EC2 is quite similar to running it on other
+platforms. However, there are certain minor aspects to EC2 that need
+to be accounted for. They primarily have to do with hostnames and their resolution.</p>
+<p>This guide demonstrates manual (<a href="/docs/4.3/cli">CLI</a>-driven) RabbitMQ clustering.
+<a href="/docs/4.3/cluster-formation">Peer discovery plugin for AWS</a> (RabbitMQ 3.7.0 or later)
+is an option more suitable for automation.</p>
+<h2 id="amis">AMIs</h2>
+<p>RabbitMQ works well on up-to-date Ubuntu, Debian and CentOS AMIs as long as
+a <a href="/docs/4.3/which-erlang">compatible version of Erlang/OTP</a> is installed.</p>
+<h2 id="instance-types">Choosing an Instance Type</h2>
+<p>RabbitMQ will work on every instance type, but there are a few considerations
+worth bearing in mind:</p>
+<ul>
+<li>Use 64-bit instances.</li>
+<li>Depending on the workload and settings, RabbitMQ can require substantial amounts of memory.
+Make sure that your host does have an <a href="/docs/4.3/memory">appropriate amount of RAM</a> and always have
+at least a few gigabytes of swap space enabled. Workloads can be simulated using <a href="/client-libraries/java-tools">PerfTest</a>.
+A separate guide on <a href="/docs/4.3/memory-use">reasoning about node memory usage</a> is available.</li>
+<li>RabbitMQ generally will take advantage of all the CPU cores
+in the system provided the workload uses <a href="/docs/4.3/queues">multiple queues</a>.
+Other factors should be taken into account (e.g. disk and network I/O throughput).</li>
+<li><a href="/docs/4.3/monitoring">Monitoring</a> RabbitMQ nodes as well as applications that use it
+on real or simulated workloads will help assess how suitable a particular instance type is.</li>
+</ul>
+<h2 id="os">Operating Systems</h2>
+<p>Although RabbitMQ is tested with most major Linux distributions,
+Ubuntu support for Amazon EC2 seems to be strongest, so that's the distribution this guide
+will use.</p>
+<p><a href="https://cloud-images.ubuntu.com/">Ubuntu Cloud Images</a> provides access to Ubuntu
+images (builds) specifically designed to be used in public clouds.</p>
+<h2 id="installation">Installation</h2>
+<p>Please consult the installation guides for</p>
+<ul>
+<li><a href="/docs/4.3/install-debian">Debian and Ubuntu</a></li>
+<li><a href="/docs/4.3/install-rpm">RHEL, CentOS and Fedora</a></li>
+</ul>
+<p>A wide variety of deployment tools can be used to automate
+RabbitMQ deployment.</p>
+<ul>
+<li><a href="https://hub.docker.com/_/rabbitmq/">Community Docker image</a> (<a href="https://github.com/docker-library/rabbitmq">on GitHub</a>)</li>
+<li><a href="https://github.com/rabbitmq/chef-cookbook">Chef cookbook</a></li>
+<li><a href="https://github.com/puppetlabs/puppetlabs-rabbitmq">Puppet module</a></li>
+</ul>
+<p>are some popular options.</p>
+<h2 id="ebs">Durable Storage on EBS Volumes</h2>
+<p>On Linux, RabbitMQ will use the following directories for its node data directory:</p>
+<ul>
+<li><code>/var/lib/rabbitmq/</code> to store persistent data like the messages or queues</li>
+<li><code>/var/log/rabbitmq/</code> to store logs</li>
+</ul>
+<p>See the <a href="/docs/4.3/relocate">File and Directory Locations</a> for details.</p>
+<p>Those directories can be symlinks to a dedicated storage volume. The node must be stopped
+before symlinking is performed:</p>
+<div><div><pre><code class="language-bash">sudo service rabbitmq-server stop</code></pre></div></div>
+<p>We recommend performing symlinking and other storage preparation steps before installing
+RabbitMQ when possible.</p>
+<p>Note that EBS volumes have an <a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html">IOPS
+limits</a>, which can impact throughput and RabbitMQ operations.
+If an EBS volume hits the limit, disk writes will worsen. It is also possible that the RabbitMQ message store
+compaction (garbage collection of on-disk data) can fall behind
+disk writes, which means the disk will be filled up quicker than
+disk space can be reclaimed after messages were consumed and
+acknowledged. This will eventually lead to <a href="/docs/4.3/alarms">resource alarms</a> and publisher throttling. Please make sure the limit
+is high and set up I/O operation rate monitoring.</p>
+<h2 id="related">Further Reading</h2>
+<p>Several other guides cover topics highly relevant for running RabbitMQ clusters in public clouds:</p>
+<ul>
+<li><a href="/docs/4.3/clustering">Clustering Fundamentals</a></li>
+<li><a href="/docs/4.3/cluster-formation">Peer Discovery</a></li>
+<li><a href="/docs/4.3/configure">Configuration</a></li>
+<li><a href="/docs/4.3/monitoring">Monitoring</a></li>
+<li><a href="/docs/4.3/production-checklist">Deployment Guidelines</a></li>
+<li><a href="/docs/4.3/relocate">File and Directory Locations</a></li>
+</ul></main>

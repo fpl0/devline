@@ -1,0 +1,14 @@
+<main><header><h1>routes</h1></header>
+<div><span><span>Hot Reloadable</span></span><div>Routes are diffed on reload: added ones are solicited and removed ones torn down. The cluster listener is not restarted.</div></div>
+<p>A list of server URLs to cluster with. Self-routes are ignored. Should authentication via token or username/password
+be required, specify them as part of the URL.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>[ string ]</code></td><td>-</td><td>-</td></tr></tbody></table>
+<h2 id="examples">Examples</h2>
+<h3 id="simple-route-urls">Simple Route URLs</h3>
+<div><div><pre><code class="language-text">routes: [
+  nats-route://localhost:6222,
+  nats-route://localhost:6223,
+  nats-route://localhost:6224,
+]
+</code></pre></div></div></main>

@@ -1,0 +1,169 @@
+<main><header><h1>TLS and proxies</h1></header>
+<p>The dashboard has run on <code>no_tls: true</code> so far. Acme now serves it from
+<code>https://ops.acme.example</code>, behind the ingress that already fronts the
+rest of its web estate, and the cookie carrying each user's JWT must not
+cross the network in the clear.</p>
+<p>There are two ways to get there. Put the certificate on the NATS
+listener, or terminate TLS in front of it. Both are normal; which one
+you want depends on whether NATS sits behind the same edge as your web
+traffic.</p>
+<h2 id="tls-on-the-listener">TLS on the listener</h2>
+<p>The listener requires TLS by default. Give it a certificate and the
+<code>no_tls</code> flag goes away.</p>
+<p>The certificate is an ordinary server certificate — the <code>websocket {}</code>
+block takes the same <code>tls {}</code> fields as every other listener. If you
+need to create one, <a href="/learn/security/encryption#server-side-tls">Security →
+Encryption</a> walks through
+generating a CA and a server certificate with <code>openssl</code> and covers what
+each field does. This page assumes you have <code>cert_file</code> and <code>key_file</code>
+already.</p>
+<div><div><pre><code class="language-conf">websocket {
+  listen: 0.0.0.0:443
+
+  tls {
+    cert_file: "/etc/nats/certs/nats.acme.example.pem"
+    key_file:  "/etc/nats/certs/nats.acme.example-key.pem"
+  }
+
+  allowed_origins [
+    "https://ops.acme.example"
+  ]
+}</code></pre></div></div>
+<p>Clients now use <code>wss://</code>:</p>
+<div><div><pre><code class="language-bash">nats -s wss://nats.acme.example:443 sub "orders.&gt;"</code></pre></div></div>
+<p>The startup warning about running without TLS is gone, and the log line
+names the scheme it's actually serving:</p>
+<div><div><pre><code class="language-text">[INF] Listening for websocket clients on wss://0.0.0.0:443</code></pre></div></div>
+<p>Certificate material is the only part of the <code>websocket {}</code> block that
+reloads. Changing <code>cert_file</code> or <code>key_file</code> and sending the server a
+reload picks up the new certificate for connections made afterwards;
+existing connections keep the one they negotiated. Any other change in
+the block — <code>verify_and_map</code>, <code>pinned_certs</code>, <code>allowed_origins</code>, the
+timeouts — is rejected, and a rejected field aborts the entire reload,
+including changes in the same edit that would have been accepted.</p>
+<h2 id="tls-terminated-in-front">TLS terminated in front</h2>
+<p>The more common shape when NATS lives behind an existing edge is to let
+the ingress or load balancer hold the certificate and run the NATS
+listener plaintext on an internal network.</p>
+<div><div><pre><code class="language-conf">websocket {
+  listen: 0.0.0.0:8080
+  no_tls: true
+  advertise: "nats.acme.example:443"
+
+  jwt_cookie: "acme_nats_jwt"
+
+  allowed_origins [
+    "https://ops.acme.example"
+  ]
+}</code></pre></div></div>
+<p>Two things matter here.</p>
+<p><code>no_tls: true</code> is correct only in this shape. The hop between the proxy
+and the server carries unencrypted traffic, so that hop has to be a
+network you trust — a private subnet, a service mesh, or the same host.</p>
+<p><code>advertise</code> is what the server tells clients about itself. Without it a
+server behind NAT or a proxy hands out the address it sees locally,
+which clients can't reach. Set it to the address the outside world uses.</p>
+<p><code>no_tls</code> and the client's URL scheme are separate questions. The client
+connects with <code>wss://</code> because the <em>proxy</em> is presenting a certificate.
+Whether the NATS listener itself uses TLS is decided by its own
+configuration, not by what the client typed.</p>
+<p>The <code>jwt_cookie</code> and <code>allowed_origins</code> settings carry over unchanged from
+<a href="/learn/websocket/browsers-and-origins">Browsers and origins</a> — moving
+TLS to the edge doesn't change how the browser authenticates.</p>
+<h2 id="what-the-proxy-has-to-do">What the proxy has to do</h2>
+<p>A WebSocket connection starts as an HTTP request that asks to change
+protocols, and then stays open. Proxies configured for ordinary
+request/response traffic break both halves of that.</p>
+<p>The upgrade needs the <code>Upgrade</code> and <code>Connection</code> headers passed through:</p>
+<div><div><pre><code class="language-conf">location / {
+    proxy_pass http://nats-backend:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade    $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host       $host;
+
+    # A NATS connection is idle whenever there is no traffic.
+    # Outlive the ping interval or the proxy will cut it.
+    proxy_read_timeout  1h;
+    proxy_send_timeout  1h;
+}</code></pre></div></div>
+<p>A proxy that strips those headers doesn't fail loudly. The client sends
+a handshake and gets an ordinary HTTP response back, so the error
+surfaces as a connection that never establishes rather than anything
+naming the proxy.</p>
+<p>The timeout is the second half. A NATS connection is idle between
+messages, and a proxy that closes idle connections after 60 seconds will
+close a working subscription that has nothing to deliver. Set the
+proxy's idle timeout longer than the interval at which the server pings
+its WebSocket clients — <code>ping_interval</code> in the <code>websocket {}</code> block from
+2.12, and the server-wide ping interval before that.</p>
+<p>The rule above matches <code>/</code>, which keeps every client URL in this chapter
+path-less. If you publish NATS under a prefix instead, the prefix has to
+appear in the client URL too — <code>wss://nats.acme.example:443/nats</code> against
+a <code>location /nats</code> rule. Leaf nodes need care here: the server appends
+<code>/leafnode</code> to whatever path the remote URL carries, so a <code>location /nats</code>
+rule has to match <code>/nats/leafnode</code> as well. <a href="/learn/websocket/leaf-nodes-over-websocket">Leaf nodes over
+WebSocket</a> covers that.</p>
+<p>On Kubernetes the same two timeouts are ingress annotations rather than
+config-file directives:</p>
+<div><div><pre><code class="language-yaml">metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"</code></pre></div></div>
+<p><a href="/learn/deployment/kubernetes">Deployment → Kubernetes</a> covers the Helm
+chart and the StatefulSet it renders.</p>
+<h2 id="timeouts-on-the-server-side">Timeouts on the server side</h2>
+<p><code>handshake_timeout</code> bounds the whole setup: reading the client's
+request, running the TLS handshake, and writing the response. It's a
+guard against a client that opens a connection and stalls.</p>
+<p>Behind a slow or overloaded proxy the handshake takes longer than it
+does on a direct connection, and a value tuned on a laptop can start
+rejecting real clients under load. If connections fail during the
+handshake only when the system is busy, this is the setting to look at.</p>
+<h2 id="extra-headers-on-the-upgrade-response">Extra headers on the upgrade response</h2>
+<p><code>headers</code> adds fixed HTTP headers to the upgrade response, which is how
+you attach something like <code>Strict-Transport-Security</code> at the NATS
+listener when there's no proxy in front to add it.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>A proxy that drops <code>Upgrade</code> and <code>Connection</code>.</strong> The handshake fails
+and the client reports a connection error, not a protocol error. If
+<code>ws://</code> works against the server directly and fails through the proxy,
+this is the first thing to check.</p>
+<p><strong>A proxy idle timeout shorter than the ping interval.</strong> Connections
+drop on a timer with no error on either side. The pattern to look for is
+disconnects at a suspiciously round interval.</p>
+<p><strong><code>no_tls: true</code> on a hop that isn't private.</strong> It's correct behind a
+terminating proxy on a trusted network and wrong the moment that traffic
+crosses anything else. There's no warning distinguishing the two.</p>
+<p><strong>Forgetting <code>advertise</code> behind NAT.</strong> The server hands clients an
+address it can see and they can't. Connections succeed and then fail on
+a later reconnect to an advertised URL.</p>
+<p><strong>Expecting <code>wss://</code> to configure the server.</strong> The scheme in the client
+URL says what the client will do. The <code>tls {}</code> block says what the
+server will do. They're set independently, and a mismatch fails at the
+handshake.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The dashboard now runs over TLS:</p>
+<ul>
+<li>either a certificate on the <code>websocket {}</code> listener, serving <code>wss://</code>
+directly</li>
+<li>or plaintext behind an ingress that terminates TLS, with <code>advertise</code>
+giving clients the external address</li>
+<li>a proxy that forwards the upgrade headers and doesn't time out an idle
+connection</li>
+<li><code>handshake_timeout</code> set with the proxy's latency in mind</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>Everything so far has been a client reaching NATS. The same transport
+carries a server-to-server link: <a href="/learn/websocket/leaf-nodes-over-websocket">Leaf nodes over
+WebSocket</a> attaches Acme's
+retail branch to the <code>east</code> cluster through the same endpoint.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/websocket/">Reference → websocket</a> — <code>tls</code>,
+<code>no_tls</code>, <code>advertise</code>, <code>handshake_timeout</code>, <code>headers</code></li>
+<li><a href="/learn/security/encryption">Security → Encryption</a> — TLS across every
+listener the server has</li>
+<li><a href="/learn/deployment/kubernetes">Deployment → Kubernetes</a> — ingress in
+front of a NATS deployment</li>
+</ul></main>

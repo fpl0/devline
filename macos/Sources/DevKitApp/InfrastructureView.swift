@@ -142,7 +142,17 @@ struct InfrastructureView: View {
                             Button("Read Offline Reference") { openDocs(reference) }
                         }
                     }
-                    if service.docsRef == nil {
+                    if service.docsRef != nil, let coverage = service.docsCoverage {
+                        DisclosureGroup("Offline Reference Coverage") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(coverage)
+                                if let omissions = service.docsOmissions {
+                                    Text(omissions)
+                                }
+                            }
+                            .font(.callout).foregroundStyle(.secondary)
+                        }
+                    } else if service.docsRef == nil {
                         Text("Official offline reference unavailable for this release.")
                             .font(.caption).foregroundStyle(.secondary)
                     }

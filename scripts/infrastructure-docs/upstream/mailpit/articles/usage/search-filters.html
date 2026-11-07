@@ -1,0 +1,53 @@
+<main>
+		
+		<h1>Using search filters</h1>
+		<p>The Mailpit search has a number of features, including filtering by <code>To</code>, <code>From</code>, <code>Subject</code>, read/unread status, attachment status, as well as excluding terms by prefixing the term with either a <code>!</code> or <code>-</code>. Searches are <strong>not</strong> case sensitive (<a href="#search-casing">see note</a>).</p>
+<h2 id="examples">Examples</h2>
+<ul>
+<li><code>john doe</code> - contains the words “john” and “doe” (any order)</li>
+<li><code>"john doe"</code> - contains the phrase “john doe” (exact match)</li>
+<li><code>to:"john doe"</code> - has “john doe” in the “To” field</li>
+<li><code>from:"john doe"</code> - has “john doe” in the “From” field</li>
+<li><code>cc:"john doe"</code> - has “john doe” in the “Cc” field</li>
+<li><code>bcc:"john doe"</code> - has “john doe” in the “Bcc” field</li>
+<li><code>reply-to:"john doe"</code> - has “john doe” in the “Reply-To” field</li>
+<li><code>addressed:"john doe"</code> - has “john doe” in any of the “From”, “To”, “Cc”, “Bcc” or “Reply-To” fields</li>
+<li><code>subject:"john doe"</code> - has “john doe” in the subject line</li>
+<li><code>message-id:12345.678910.JavaMail.j2ee@localhost</code> - search by Message-Id</li>
+<li><code>tag:host-1</code> - messages tagged with <code>host-1</code></li>
+</ul>
+<h2 id="combining-filters">Combining filters</h2>
+<p>Search filters can be combined:</p>
+<ul>
+<li><code>john !doe</code> - contains “john” but not “doe”</li>
+<li><code>subject:invoice !from:admin@example.com is:tagged</code> - contains “invoice” in the subject, has at least one tag, but excludes any from “<a href="mailto:admin@example.com">admin@example.com</a>”</li>
+</ul>
+<h2 id="special-filters">Special filters</h2>
+<ul>
+<li><code>is:read</code> - with read status</li>
+<li><code>is:unread</code> - with unread status (same as <code>!is:read</code>)</li>
+<li><code>has:attachment</code> - contains an attachment</li>
+<li><code>!has:attachment</code> - does not contain an attachment</li>
+<li><code>has:inline</code> - contains an inline image</li>
+<li><code>!has:inline</code> - does not contain an inline image</li>
+<li><code>is:tagged</code> - messages having at least one tag</li>
+<li><code>!is:tagged</code> - messages having no tags</li>
+<li><code>larger:2M</code> - messages of at least 2MB (valid units are <code>K</code>, <code>KB</code>, <code>M</code> &amp; <code>MB</code>)</li>
+<li><code>smaller:1.5MB</code> - messages smaller than 1.5MB (valid units are <code>K</code>, <code>KB</code>, <code>M</code> &amp; <code>MB</code>)</li>
+<li><code>before:2024/04/01</code> - messages before 1 April 2024 (<a href="#searching-by-date">see notes</a>)</li>
+<li><code>after:2024/04/01</code> - messages on or after 1 April 2024 (<a href="#searching-by-date">see notes</a>)</li>
+</ul>
+<h2 id="searching-by-date">Searching by date</h2>
+<p>Mailpit can filter for messages older (<code>before:&lt;date&gt;</code>) or newer (<code>after:&lt;date&gt;</code>) than dates, however there are a few important things to note. Whilst date (and optional time) formatting is fairly flexible (<a href="https://github.com/araddon/dateparse?tab=readme-ov-file#extended-example">see examples</a>), a date like <code>01/04/2024</code> is interpreted in the US format (ie: <code>mm/dd/yyyy</code>). To prevent confusion it is advised to use the <code>yyyy/mm/dd</code> format.</p>
+<p>The web UI will also pass on your local <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones">timezone identifier</a> set by your PC as there is no guarantee that the Mailpit server is running in the same timezone as you (eg: Docker runs by default in UTC unless manually set).
+The timezone identifier can be changed in the Mailpit web UI settings.</p>
+<p>The <code>after:</code> date is inclusive and the <code>before:</code> date is exclusive, so a message dated exactly at the given date and time matches <code>after:</code> but not <code>before:</code>. A date without a time is treated as midnight at the start of that day, so <code>before:2024/04/01</code> matches messages up to the end of 31 March 2024, and <code>after:2024/04/01</code> matches messages from the start of 1 April 2024. The negated forms are the exact opposite: <code>!before:&lt;date&gt;</code> is equivalent to <code>after:&lt;date&gt;</code>, and <code>!after:&lt;date&gt;</code> is equivalent to <code>before:&lt;date&gt;</code>.</p>
+<p>Invalid date formats are ignored and logged in the Mailpit log.</p>
+<h2 id="search-casing">Search casing</h2>
+<p>Searches are not case sensitive, however there is one limitation: SQLite only understands upper/lower case for ASCII characters. <strong>This does not impact general searches</strong> (ie: <code>"Diese Äpfel"</code> will find <code>"diese äpfel"</code>), however when searching specific headers (eg <code>subject:"Diese Äpfel"</code>) the unicode character searched must match the searched header for that character. This is a limitation of the embedded SQLite engine which does not contain full unicode support. This impacts only unicode characters for example <code>Ä</code> <code>ä</code> <code>Æ</code> <code>æ</code> <code>Ö</code> <code>ö</code> <code>Ü</code> <code>ü</code> etc.</p>
+
+
+		
+		
+		
+	</main>

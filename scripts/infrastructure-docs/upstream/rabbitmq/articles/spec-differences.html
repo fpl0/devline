@@ -1,0 +1,18 @@
+<main><header><h1>Spec Differences</h1></header><h2 id="undeprecated-features">Undeprecated Features</h2>
+<p>In addition to extensions beyond the specification, RabbitMQ also undeprecates some features that were removed from AMQP 0-9-1:</p>
+<ul>
+<li><a href="https://www.rabbitmq.com/docs/4.3/exchanges#auto-deletion">Auto-delete exchanges</a></li>
+<li>Internal exchanges</li>
+</ul>
+<p>The access class was deprecated from AMQP 0-9-1. RabbitMQ implements the
+<code>access.request</code> method from this class as a no-op in order to maintain compatibility with older clients.</p>
+<p>This method will be removed in the future and should not be relied upon.</p>
+<h2 id="amq-exchange-immutability">amq.* Exchange Immutability</h2>
+<p>AMQP 0-9-1 spec dictates that it must not be possible to declare an exchange with the <span>amq.</span> prefix. RabbitMQ also prohibits deletion of such exchanges.</p>
+<h2 id="getting-help-and-providing-feedback">Getting Help and Providing Feedback</h2>
+<p>If you have questions about the contents of this guide or any other topic related to RabbitMQ, don't hesitate to ask them using
+<a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or our
+<a href="https://www.rabbitmq.com/discord">Discord server</a>.</p>
+<h2 id="help-us-improve-the-docs-3">Help Us Improve the Docs &lt;3</h2>
+<p>If you'd like to contribute an improvement to the site, its source is <a href="https://github.com/rabbitmq/rabbitmq-website">available on GitHub</a>.</p>
+<p><a href="https://github.com/rabbitmq/cla">Sign contributor CLA</a>, then simply fork the repository and submit a pull request. Thank you!</p></main>

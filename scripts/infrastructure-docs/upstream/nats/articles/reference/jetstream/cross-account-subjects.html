@@ -1,0 +1,494 @@
+<main><header><h1>Cross-account subjects</h1></header>
+<p>A stream that sources or mirrors from another account or JetStream domain
+drives a consumer on the origin stream from the other side of the boundary.
+Every subject that consumer uses has to cross that boundary: through an export
+and import between accounts, or through the subject permissions of a leafnode
+connection. A missing subject rarely produces an error. Most of the time
+replication stops or never starts.</p>
+<p>This page lists those subjects for each kind of sourcing consumer, shows what
+happens when each one is missing, and gives a tested config for accounts and
+for leafnodes. It also covers a client that reads a consumer in another
+account, and the v1 and v2 formats of the subjects involved.</p>
+<h2 id="sourcing-consumers">Sourcing consumers</h2>
+<p>A source or mirror reads the origin stream through a push consumer. Which
+consumer it gets depends on the source config and on the origin stream's
+retention policy:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Consumer</th><th>When</th><th>Lifetime</th></tr></thead><tbody><tr><td>Ephemeral</td><td>No <code>consumer</code> block, and origin stream uses <code>limits</code> retention.</td><td>The server names it <code>JS_SRC_&lt;hash&gt;-&lt;suffix&gt;</code> (<code>JS_MIRROR_…</code> for a mirror) and removes it 10 seconds after it goes idle.</td></tr><tr><td>Server-managed durable (2.14+)</td><td>No <code>consumer</code> block, and origin stream uses <code>workqueue</code> or <code>interest</code> retention.</td><td>The origin server turns the create request into a durable named <code>JS_SRC_&lt;hash&gt;</code> (<code>JS_MIRROR_&lt;hash&gt;</code> for a mirror) with ack policy <code>flow_control</code>. It stays until you delete it, or until the source is removed from the sourcing stream, which sends a best-effort delete request.</td></tr><tr><td>User-provided durable (2.14+)</td><td>The source or mirror has a <code>consumer</code> block.</td><td>You create it on the origin stream and delete it yourself. The sourcing stream only resets it.</td></tr></tbody></table>
+<p>A durable consumer with ack policy <code>flow_control</code> treats each flow control
+response as an acknowledgement. That is how a <code>workqueue</code> or <code>interest</code> origin
+stream learns that a message has been stored and can be safely removed.</p>
+<h2 id="subjects">Subjects</h2>
+<p>The <code>api</code> prefix in the <code>external</code> block replaces <code>$JS.API</code> in every request
+subject. With <code>"api": "ACC.ORIGIN.API"</code>, the sourcing stream sends
+<code>ACC.ORIGIN.API.CONSUMER.CREATE.EVENTS</code>, and the import maps it back to
+<code>$JS.API.CONSUMER.CREATE.EVENTS</code> in the origin account. The examples on this
+page use <code>ACC.&lt;account&gt;.API</code>, which has the same shape as the domain prefix
+<code>$JS.&lt;domain&gt;.API</code>. Don't start a subject with <code>$</code>, those are reserved for
+the server.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Subject</th><th>Direction</th><th>Export type</th><th>Used by</th></tr></thead><tbody><tr><td><code>$JS.API.CONSUMER.CREATE.&lt;stream&gt;</code></td><td>sourcing → origin</td><td>service</td><td>Ephemeral and server-managed. Sent when the source has no filter, or more than one.</td></tr><tr><td><code>$JS.API.CONSUMER.CREATE.&lt;stream&gt;.&lt;consumer&gt;.&lt;filter&gt;</code></td><td>sourcing → origin</td><td>service</td><td>Ephemeral and server-managed. Sent when the source has one filter or one subject transform.</td></tr><tr><td><code>$JS.API.CONSUMER.DELETE.&lt;stream&gt;.&lt;consumer&gt;</code></td><td>sourcing → origin</td><td>service</td><td>Server-managed (2.14+). Sent when the source or mirror is removed, the mirror is promoted, or the sourcing stream is deleted.</td></tr><tr><td><code>$JS.API.CONSUMER.RESET.&lt;stream&gt;.&lt;consumer&gt;</code></td><td>sourcing → origin</td><td>service</td><td>User-provided durable (2.14+). Sent in place of a create, every time the source (re)connects.</td></tr><tr><td><code>$JSC.R.…</code>, the reply to each request above</td><td>origin → sourcing</td><td>none</td><td>All. A service import rewrites the reply subject, so it only needs a permission across a leafnode.</td></tr><tr><td>The delivery subject</td><td>origin → sourcing</td><td>stream</td><td>All. Carries messages, heartbeats, and flow control requests.</td></tr><tr><td><code>$JS.FC.…</code></td><td>sourcing → origin</td><td>service</td><td>All. The flow control response, which is also the acknowledgement for the two durable kinds.</td></tr></tbody></table>
+<p><code>$JS.ACK</code>, which client-driven consumers use for acknowledgements, isn't in
+this list. An ephemeral sourcing consumer uses ack policy <code>none</code>, and a
+consumer with ack policy <code>flow_control</code> doesn't listen on <code>$JS.ACK</code> at all.</p>
+<p>The delivery subject depends on the consumer:</p>
+<ul>
+<li>Ephemeral and server-managed consumers get a new delivery subject each time
+they're created: <code>&lt;deliver&gt;.S.&lt;uid&gt;</code> for a source and <code>&lt;deliver&gt;.M.&lt;uid&gt;</code> for
+a mirror, where <code>&lt;deliver&gt;</code> is the <code>deliver</code> prefix in the <code>external</code> block.
+Without a prefix the subject is <code>$JS.S.&lt;uid&gt;</code> or <code>$JS.M.&lt;uid&gt;</code>. Export it
+with a wildcard, such as <code>DELIVER.TARGET.COPY.&gt;</code>.</li>
+<li>A user-provided durable uses the literal <code>deliver_subject</code> from the
+<code>consumer</code> block, which has to match the consumer's own <code>deliver_subject</code>.
+The <code>deliver</code> prefix is ignored.</li>
+</ul>
+<p>Set a <code>deliver</code> prefix for ephemeral and server-managed consumers, and make it
+unique to one sharing relationship. The examples use
+<code>DELIVER.&lt;sourcing account&gt;.&lt;sourcing stream&gt;</code>. Every account that imports a
+delivery subject receives all messages published on it, so an export of
+<code>$JS.S.&gt;</code>, <code>$JS.M.&gt;</code>, or a prefix shared by several sourcing accounts lets each
+of them read the others' copies. Restricting each export to the account that
+needs it, with <code>accounts: [ … ]</code>, makes the server reject any other account's
+import.</p>
+<h2 id="when-a-subject-is-missing">When a subject is missing</h2>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Missing</th><th>Ephemeral</th><th>Server-managed durable</th><th>User-provided durable</th></tr></thead><tbody><tr><td>Create</td><td>No messages flow.</td><td>Same as ephemeral.</td><td>Not used.</td></tr><tr><td>Delete</td><td>Not used. The consumer goes idle and is removed after 10 seconds.</td><td>The consumer stays on the origin stream after the source is gone. On an <code>interest</code> stream it keeps holding messages.</td><td>Not used.</td></tr><tr><td>Reset</td><td>Not used.</td><td>Not used.</td><td>No messages flow.</td></tr><tr><td>Delivery subject</td><td>The consumer is created, receives no interest, and is removed after 10 seconds. The source recreates it, and no messages flow.</td><td>No messages flow, and the consumer stays.</td><td>No messages flow.</td></tr><tr><td><code>$JS.FC</code></td><td>Messages arrive until about 2 MB is waiting on a flow control response, then stop with <code>stream source consumer stalled on flow control</code> (error <code>10228</code>).</td><td>Same, and the origin stream keeps every message because nothing is acknowledged.</td><td>Delivery stops at the consumer's <code>max_ack_pending</code> with error <code>10228</code>, and nothing is acknowledged.</td></tr></tbody></table>
+<h2 id="accounts-ephemeral-and-server-managed-consumers">Accounts: ephemeral and server-managed consumers</h2>
+<p>This config lets a source or mirror in an account named <code>TARGET</code> read the <code>EVENTS</code>
+stream in an account named <code>ORIGIN</code>. It works for both consumer kinds, and it only
+allows consumers on the <code>EVENTS</code> stream:</p>
+<div><div><pre><code class="language-conf">accounts {
+  ORIGIN {
+    jetstream: enabled
+    exports [
+      { service: "$JS.API.CONSUMER.CREATE.EVENTS", accounts: [TARGET] }
+      { service: "$JS.API.CONSUMER.CREATE.EVENTS.&gt;", accounts: [TARGET] }
+      { service: "$JS.API.CONSUMER.DELETE.EVENTS.*", accounts: [TARGET] }
+      { stream:  "DELIVER.TARGET.COPY.&gt;", accounts: [TARGET] }
+      { service: "$JS.FC.EVENTS.&gt;", accounts: [TARGET] }
+      { service: "$JS.FC.*.*.EVENTS.&gt;", accounts: [TARGET] }
+    ]
+  }
+  TARGET {
+    jetstream: enabled
+    imports [
+      { service: { account: ORIGIN, subject: "$JS.API.CONSUMER.CREATE.EVENTS" }, to: "ACC.ORIGIN.API.CONSUMER.CREATE.EVENTS" }
+      { service: { account: ORIGIN, subject: "$JS.API.CONSUMER.CREATE.EVENTS.&gt;" }, to: "ACC.ORIGIN.API.CONSUMER.CREATE.EVENTS.&gt;" }
+      { service: { account: ORIGIN, subject: "$JS.API.CONSUMER.DELETE.EVENTS.*" }, to: "ACC.ORIGIN.API.CONSUMER.DELETE.EVENTS.*" }
+      { stream:  { account: ORIGIN, subject: "DELIVER.TARGET.COPY.&gt;" } }
+      { service: { account: ORIGIN, subject: "$JS.FC.EVENTS.&gt;" } }
+      { service: { account: ORIGIN, subject: "$JS.FC.*.*.EVENTS.&gt;" } }
+    ]
+  }
+}</code></pre></div></div>
+<p><code>$JS.API.CONSUMER.CREATE.EVENTS.&gt;</code> doesn't match the bare
+<code>$JS.API.CONSUMER.CREATE.EVENTS</code>, so both entries are needed. Servers before
+2.14 never send the delete request or use the v2 <code>$JS.FC</code> format; the extra
+entries are harmless there and keep the config working after an upgrade. The
+two <code>$JS.FC</code> entries cover the v1 and v2 <a href="#subject-formats">subject formats</a>.
+To allow consumers on every stream in the <code>ORIGIN</code> account, use
+<code>$JS.API.CONSUMER.&gt;</code> and <code>$JS.FC.&gt;</code> instead. <code>accounts: [TARGET]</code> limits each
+export to the <code>TARGET</code> account.</p>
+<p>The source, for a stream named <code>COPY</code>, references a similar configuration:</p>
+<div><div><pre><code class="language-json">{
+  "name": "COPY",
+  "sources": [
+    {
+      "name": "EVENTS",
+      "external": { "api": "ACC.ORIGIN.API", "deliver": "DELIVER.TARGET.COPY" }
+    }
+  ]
+}</code></pre></div></div>
+<h2 id="accounts-user-provided-durable-consumer">Accounts: user-provided durable consumer</h2>
+<p>With a user-provided durable, the origin account creates the consumer, and the
+sourcing account only needs to reset it and receive from it. That allows an
+export scoped to one consumer.</p>
+<p>Create the consumer on the origin stream with ack policy <code>flow_control</code> and a
+push <code>deliver_subject</code>:</p>
+<div><div><pre><code class="language-json">{
+  "durable_name": "COPY_SRC",
+  "deliver_subject": "DELIVER.TARGET.COPY_SRC",
+  "ack_policy": "flow_control"
+}</code></pre></div></div>
+<p>The server sets <code>flow_control: true</code> and a 1 second <code>idle_heartbeat</code>, and
+defaults <code>max_ack_pending</code> to 1000. It rejects <code>ack_wait</code>, <code>backoff</code>, and
+<code>max_deliver</code>.</p>
+<p>Export exactly that consumer:</p>
+<div><div><pre><code class="language-conf">accounts {
+  ORIGIN {
+    jetstream: enabled
+    exports [
+      { service: "$JS.API.CONSUMER.RESET.EVENTS.COPY_SRC", accounts: [TARGET] }
+      { stream:  "DELIVER.TARGET.COPY_SRC", accounts: [TARGET] }
+      { service: "$JS.FC.EVENTS.COPY_SRC.*", accounts: [TARGET] }
+      { service: "$JS.FC.*.*.EVENTS.COPY_SRC.*", accounts: [TARGET] }
+    ]
+  }
+  TARGET {
+    jetstream: enabled
+    imports [
+      { service: { account: ORIGIN, subject: "$JS.API.CONSUMER.RESET.EVENTS.COPY_SRC" }, to: "ACC.ORIGIN.API.CONSUMER.RESET.EVENTS.COPY_SRC" }
+      { stream:  { account: ORIGIN, subject: "DELIVER.TARGET.COPY_SRC" } }
+      { service: { account: ORIGIN, subject: "$JS.FC.EVENTS.COPY_SRC.*" } }
+      { service: { account: ORIGIN, subject: "$JS.FC.*.*.EVENTS.COPY_SRC.*" } }
+    ]
+  }
+}</code></pre></div></div>
+<p>The source names the consumer and its delivery subject. It still needs the
+<code>api</code> prefix, but not a <code>deliver</code> prefix:</p>
+<div><div><pre><code class="language-json">{
+  "name": "COPY",
+  "sources": [
+    {
+      "name": "EVENTS",
+      "external": { "api": "ACC.ORIGIN.API" },
+      "consumer": { "name": "COPY_SRC", "deliver_subject": "DELIVER.TARGET.COPY_SRC" }
+    }
+  ]
+}</code></pre></div></div>
+<p>A source with a <code>consumer</code> block can't also set <code>opt_start_seq</code>,
+<code>opt_start_time</code>, or <code>filter_subject</code>; set those on the consumer instead. Two
+sources in the same stream can't share one consumer.</p>
+<h2 id="consumers-driven-from-another-account">Consumers driven from another account</h2>
+<p>A client that creates and reads a consumer on a stream in another account uses
+the JetStream API and <code>$JS.ACK</code>, which sourcing doesn't:</p>
+<div><div><pre><code class="language-conf">accounts {
+  ORIGIN {
+    jetstream: enabled
+    exports [
+      { service: "$JS.API.&gt;", response: stream }
+      { service: "$JS.ACK.&gt;" }
+      { stream:  "DELIVER.READER.&gt;" }
+    ]
+  }
+  TARGET {
+    imports [
+      { service: { account: ORIGIN, subject: "$JS.API.&gt;" }, to: "ACC.ORIGIN.API.&gt;" }
+      { service: { account: ORIGIN, subject: "$JS.ACK.&gt;" } }
+      { stream:  { account: ORIGIN, subject: "DELIVER.READER.&gt;" } }
+    ]
+  }
+}</code></pre></div></div>
+<p>The client sets its JetStream API prefix to <code>ACC.ORIGIN.API</code>.</p>
+<ul>
+<li><code>$JS.API.&gt;</code> needs <code>response: stream</code>, because a pull request gets one reply
+per message.</li>
+<li><code>$JS.ACK.&gt;</code> carries acknowledgements. An acknowledgement is published on the
+<code>$JS.ACK</code> subject the message carried, and no service import rewrites it.
+Without this import, a synchronous acknowledgement fails with
+<code>no responders available for request</code>, and the message is redelivered when
+the ack wait expires.</li>
+<li>The stream export of <code>DELIVER.READER.&gt;</code> is only needed for a push consumer,
+whose messages go to its <code>deliver_subject</code>. Without it the push consumer
+receives nothing. Pull consumers reply through the API import and don't need
+it.</li>
+</ul>
+<h2 id="leafnodes">Leafnodes</h2>
+<p>A stream in one JetStream domain can source from a stream in another domain
+over a leafnode connection. The subjects are the same, with two differences:</p>
+<ul>
+<li>Nothing rewrites <code>$JSC.R</code> replies, so they cross the connection and need a
+permission.</li>
+<li>The permissions on the leafnode connection replace the exports and imports.</li>
+</ul>
+<p>When the two sides use different domains, the leafnode connection denies
+<code>$JS.API.&gt;</code>, <code>$KV.&gt;</code>, and <code>$OBJ.&gt;</code> in both directions. Requests have to use
+the domain prefix <code>$JS.&lt;domain&gt;.API</code>, which the receiving server maps to its
+own <code>$JS.API</code>. Permissions are checked against the subject as it crosses the
+connection, before that mapping, so they have to name <code>$JS.&lt;domain&gt;.API</code>, not
+<code>$JS.API</code>.</p>
+<p>Permissions for leafnodes go on the user the leaf connects as, on the hub:
+<code>publish</code> limits what the leaf sends to the hub, and <code>subscribe</code> limits what
+the hub sends to the leaf. <code>$JS.ACK</code> subjects are exempt from the check on
+messages the leaf sends; <code>$JS.FC</code> and <code>$JSC.R</code> aren't.</p>
+<h3 id="a-leaf-stream-sources-from-the-hub">A leaf stream sources from the hub</h3>
+<p>The hub runs domain <code>HUB</code> and holds <code>EVENTS</code>. The leaf's source uses
+<code>"api": "$JS.HUB.API"</code>. For an ephemeral or server-managed consumer, with
+<code>"deliver": "DELIVER.LEAF.COPY"</code>:</p>
+<div><div><pre><code class="language-conf">permissions: {
+  publish: { allow: [
+    "$JS.HUB.API.CONSUMER.CREATE.EVENTS",
+    "$JS.HUB.API.CONSUMER.CREATE.EVENTS.&gt;",
+    "$JS.HUB.API.CONSUMER.DELETE.EVENTS.*",
+    "$JS.FC.EVENTS.&gt;",
+    "$JS.FC.*.*.EVENTS.&gt;"
+  ] }
+  subscribe: { allow: [ "DELIVER.LEAF.COPY.&gt;", "$JSC.R.&gt;" ] }
+}</code></pre></div></div>
+<p>For a user-provided durable consumer named <code>COPY_SRC</code> with <code>deliver_subject</code>
+<code>DELIVER.LEAF.COPY_SRC</code>:</p>
+<div><div><pre><code class="language-conf">permissions: {
+  publish: { allow: [
+    "$JS.HUB.API.CONSUMER.RESET.EVENTS.COPY_SRC",
+    "$JS.FC.EVENTS.COPY_SRC.*",
+    "$JS.FC.*.*.EVENTS.COPY_SRC.*"
+  ] }
+  subscribe: { allow: [ "DELIVER.LEAF.COPY_SRC", "$JSC.R.&gt;" ] }
+}</code></pre></div></div>
+<p>Without <code>$JSC.R.&gt;</code>, nothing flows and the source shows no error. See
+<a href="#jscr-formats"><code>$JSC.R</code> formats</a> to narrow it to one stream.</p>
+<h3 id="the-hub-sources-from-a-leaf-stream">The hub sources from a leaf stream</h3>
+<p>When a hub stream sources from a stream in the leaf's domain <code>LEAF</code>, the
+directions swap. The hub's source uses <code>"api": "$JS.LEAF.API"</code> and
+<code>"deliver": "DELIVER.HUB.COPY"</code>, and the permissions on the same leaf user become:</p>
+<div><div><pre><code class="language-conf">permissions: {
+  publish: { allow: [ "DELIVER.HUB.COPY.&gt;", "$JSC.R.&gt;" ] }
+  subscribe: { allow: [
+    "$JS.LEAF.API.CONSUMER.CREATE.EVENTS",
+    "$JS.LEAF.API.CONSUMER.CREATE.EVENTS.&gt;",
+    "$JS.LEAF.API.CONSUMER.DELETE.EVENTS.*",
+    "$JS.FC.EVENTS.&gt;",
+    "$JS.FC.*.*.EVENTS.&gt;"
+  ] }
+}</code></pre></div></div>
+<p>A leaf that also limits traffic from its own side, with <code>deny_imports</code> or
+<code>deny_exports</code> on the remote, must not deny any of these subjects either.</p>
+<h2 id="subject-formats">Subject formats</h2>
+<p><code>$JS.ACK</code>, <code>$JS.FC</code>, and <code>$JSC.R</code> each have a v2 format that adds a domain and
+an account hash. With it, the same stream and consumer names in different
+domains or accounts no longer collide, and a permission can name one stream.</p>
+<h3 id="jsack-and-jsfc-formats"><code>$JS.ACK</code> and <code>$JS.FC</code> formats</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Subject</th><th>Format</th><th>Servers</th></tr></thead><tbody><tr><td><code>$JS.ACK</code> v1</td><td><code>$JS.ACK.&lt;stream&gt;.&lt;consumer&gt;.&lt;num delivered&gt;.&lt;stream seq&gt;.&lt;consumer seq&gt;.&lt;timestamp&gt;.&lt;num pending&gt;</code></td><td>all</td></tr><tr><td><code>$JS.ACK</code> v2</td><td><code>$JS.ACK.&lt;domain&gt;.&lt;account hash&gt;.&lt;stream&gt;.&lt;consumer&gt;.&lt;num delivered&gt;.&lt;stream seq&gt;.&lt;consumer seq&gt;.&lt;timestamp&gt;.&lt;num pending&gt;</code></td><td>2.14+</td></tr><tr><td><code>$JS.FC</code> v1</td><td><code>$JS.FC.&lt;stream&gt;.&lt;consumer&gt;.&lt;uid&gt;</code></td><td>all</td></tr><tr><td><code>$JS.FC</code> v2</td><td><code>$JS.FC.&lt;domain&gt;.&lt;account hash&gt;.&lt;stream&gt;.&lt;consumer&gt;.&lt;uid&gt;</code></td><td>2.14+</td></tr></tbody></table>
+<p><code>&lt;domain&gt;</code> is the JetStream domain of the server holding the consumer, or <code>_</code>
+when it has none. <code>&lt;account hash&gt;</code> is a hash of the account holding the
+consumer.</p>
+<p>The <code>js_ack_fc_v2</code> feature flag on the server holding the consumer selects the
+format for both subjects. It's off by default on 2.14 and 2.15, and on by
+default from 2.16:</p>
+<div><div><pre><code class="language-conf">feature_flags {
+  js_ack_fc_v2: true
+}</code></pre></div></div>
+<p>A server on 2.14 or later accepts both formats, whatever the flag says. Before
+2.14, only v1 exists, and a server refuses to load a config that has a
+<code>feature_flags</code> block.</p>
+<h3 id="jscr-formats"><code>$JSC.R</code> formats</h3>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Format</th><th>Servers</th></tr></thead><tbody><tr><td>v1 <code>$JSC.R.&lt;uid&gt;</code></td><td>all</td></tr><tr><td>v2 <code>$JSC.R.&lt;domain&gt;.&lt;account hash&gt;.&lt;stream&gt;.&lt;consumer&gt;.&lt;uid&gt;</code></td><td>2.15+</td></tr></tbody></table>
+<p>In v2, <code>&lt;stream&gt;</code> and <code>&lt;consumer&gt;</code> name the origin stream and its consumer.
+<code>&lt;account hash&gt;</code> is a hash of the account holding the sourcing stream.
+<code>&lt;domain&gt;</code> is the second token of the <code>api</code> prefix: the domain for
+<code>$JS.&lt;domain&gt;.API</code>, or the account for <code>ACC.&lt;account&gt;.API</code>. It's <code>_</code> when the
+source has no <code>external</code> block.</p>
+<p>The <code>js_api_reply_v2</code> feature flag selects the format, and it's off by
+default. The server answering the request doesn't read the reply subject, so
+the flag only has to be on for the server that holds the sourcing stream:</p>
+<div><div><pre><code class="language-conf">feature_flags {
+  js_api_reply_v2: true
+}</code></pre></div></div>
+<p>With v2 on the leaf, the leafnode permission can name one remote stream
+instead of <code>$JSC.R.&gt;</code>:</p>
+<div><div><pre><code class="language-conf">subscribe: { allow: [ "DELIVER.LEAF.COPY.&gt;", "$JSC.R.HUB.*.EVENTS.&gt;" ] }</code></pre></div></div>
+<p>Without the flag, that permission matches no reply, and the source doesn't
+start.</p>
+<h3 id="scoped-exports-and-permissions">Scoped exports and permissions</h3>
+<p>An export, import, or permission that names only the subject prefix matches
+both formats. One that names a stream or consumer has to list both forms to
+keep working when the default changes:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Scope</th><th>v1 entry</th><th>v2 entry</th></tr></thead><tbody><tr><td>Acks for one stream</td><td><code>$JS.ACK.&lt;stream&gt;.&gt;</code></td><td><code>$JS.ACK.*.*.&lt;stream&gt;.&gt;</code></td></tr><tr><td>Flow control for one stream</td><td><code>$JS.FC.&lt;stream&gt;.&gt;</code></td><td><code>$JS.FC.*.*.&lt;stream&gt;.&gt;</code></td></tr><tr><td>Flow control for one consumer</td><td><code>$JS.FC.&lt;stream&gt;.&lt;consumer&gt;.*</code></td><td><code>$JS.FC.*.*.&lt;stream&gt;.&lt;consumer&gt;.*</code></td></tr><tr><td>Replies for one origin stream</td><td>none, use <code>$JSC.R.&gt;</code></td><td><code>$JSC.R.&lt;domain&gt;.*.&lt;stream&gt;.&gt;</code></td></tr></tbody></table>
+<p>An entry that names only the v1 form stops matching once the server holding
+the consumer switches to v2. Acknowledgements then stop reaching the origin
+account, and sourcing stalls on flow control.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/release-notes/upgrade-to-2.14">Upgrade to 2.14</a>: durable sourcing, the
+<code>flow_control</code> ack policy, the consumer reset API, and the change of subject
+format.</li>
+<li><a href="/learn/jetstream/mirrors-and-sources">Learn → Mirrors and sources</a>: building
+a mirror or source, including across an account or domain.</li>
+<li><a href="/reference/jetstream/api/stream/create">Stream configuration</a>: every field of the <code>external</code>
+and <code>consumer</code> blocks on a source or mirror.</li>
+<li><a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-60.md">ADR-60</a>:
+durable sourcing and the consumer reset API.</li>
+</ul></main>

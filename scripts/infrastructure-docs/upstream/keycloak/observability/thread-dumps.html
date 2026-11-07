@@ -1,0 +1,147 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div class="sect1">
+<h2 id="_what_is_a_thread_dump"><a class="anchor" href="#_what_is_a_thread_dump"></a>What is a thread dump?</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A JVM thread dump is a snapshot of all active threads in the JVM at a specific point in time.</p>
+</div>
+<div class="paragraph">
+<p>Thread dumps are useful for diagnosing issues such as thread contention, deadlocks, CPU spikes, or stuck I/O operations.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_how_to_capture_a_jvm_thread_dump"><a class="anchor" href="#_how_to_capture_a_jvm_thread_dump"></a>How to capture a JVM thread dump</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>There are several ways to capture a thread dump. This guide uses <code>jcmd</code> as it provides the most straightforward command-line experience.</p>
+</div>
+<div class="paragraph">
+<p>The <code>jcmd</code> tool sends diagnostic commands to a running JVM. There are two commands relevant to capturing thread dumps: <code>Thread.print</code> and <code>Thread.dump_to_file</code>.</p>
+</div>
+<div class="paragraph">
+<p>The <code>Thread.print</code> command lacks detailed information about virtual threads.
+The <code>Thread.dump_to_file</code> command lacks information about locks and object monitors on JDK versions prior to JDK 25.
+It also omits some JVM-internal and OS-level information that <code>Thread.print</code> includes.</p>
+</div>
+<div class="paragraph">
+<p>To form a comprehensive picture of the JVM state, create thread dumps using both the <code>Thread.print</code> and the <code>Thread.dump_to_file</code> commands, and provide them to an engineer for analysis.</p>
+</div>
+<div class="sect2">
+<h3 id="_using_the_thread_print_command"><a class="anchor" href="#_using_the_thread_print_command"></a>Using the <code>Thread.print</code> command</h3>
+<div class="paragraph">
+<p>The following command prints a thread dump to the standard output.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>jcmd &lt;PID&gt; Thread.print -l <i class="conum" data-value="1"></i><b>(1)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The <code>-l</code> option enables printing of additional information about locks.</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_using_the_thread_dump_to_file_command"><a class="anchor" href="#_using_the_thread_dump_to_file_command"></a>Using the <code>Thread.dump_to_file</code> command</h3>
+<div class="paragraph">
+<p>The following command writes a thread dump to a file in plain-text format.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>jcmd &lt;PID&gt; Thread.dump_to_file thread_dump.txt</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The following command writes a thread dump to a file in JSON format.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>jcmd &lt;PID&gt; Thread.dump_to_file -format=json thread_dump.json</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Compared with the plain-text format, the JSON output contains additional information about the thread container hierarchy.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+If the filename argument is not an absolute path, the thread dump will be created in the current working directory of the target process.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Running the <code>jcmd</code> command without arguments lists the Java processes running on the system and their PIDs.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>jcmd</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Example output:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>242551 io.quarkus.bootstrap.runner.QuarkusEntryPoint start ... <i class="conum" data-value="1"></i><b>(1)</b>
+268778 jdk.jcmd/sun.tools.jcmd.JCmd</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Assuming Keycloak is the only Quarkus-based application running on the system, its PID in this example would be <code>242551</code>.</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The following script demonstrates simple PID auto-detection:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>#!/bin/bash -e
+PID=$(jcmd | grep -m1 QuarkusEntryPoint | awk '{print $1}')
+if [ -z "$PID" ]; then
+  echo "Process not found."
+  exit 1
+fi
+jcmd "$PID" Thread.print -l &gt; thread_dump_print.txt
+jcmd "$PID" Thread.dump_to_file "$PWD/thread_dump_to_file.txt"</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_collecting_multiple_samples"><a class="anchor" href="#_collecting_multiple_samples"></a>Collecting multiple samples</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Because a single thread dump captures only one moment in time, it is recommended to capture multiple thread dumps over a short period — for example, three to four samples spaced one to two seconds apart.
+This allows you to see which threads are blocked and which are making progress.</p>
+</div>
+<div class="paragraph">
+<p>For example, assuming the <code>PID</code> variable is set, the following script captures four thread dumps two seconds apart:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="k">for </span>i <span class="k">in</span> <span class="o">{</span>1..4<span class="o">}</span><span class="p">;</span> <span class="k">do
+  </span>jcmd <span class="s2">"</span><span class="nv">$PID</span><span class="s2">"</span> Thread.print <span class="nt">-l</span> <span class="o">&gt;</span> <span class="s2">"thread_dump_print_</span><span class="k">${</span><span class="nv">i</span><span class="k">}</span><span class="s2">.txt"</span>
+  jcmd <span class="s2">"</span><span class="nv">$PID</span><span class="s2">"</span> Thread.dump_to_file <span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/thread_dump_to_file_</span><span class="k">${</span><span class="nv">i</span><span class="k">}</span><span class="s2">.txt"</span>
+  <span class="nb">sleep </span>2
+<span class="k">done</span></code></pre>
+</div>
+</div>
+</div>
+</div> </div>
+</main>

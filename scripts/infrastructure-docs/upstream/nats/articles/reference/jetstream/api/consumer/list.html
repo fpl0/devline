@@ -1,0 +1,10 @@
+<main><header><h1>List Consumers</h1></header>
+<p>Lists consumers for a stream.</p>
+<!-- -->
+<h2 id="subject">Subject</h2>
+<p><code>$JS.API.CONSUMER.LIST.{stream}</code></p>
+<p>Where <code>{stream}</code> is the stream name.</p>
+<h2 id="request">Request</h2>
+<div><p>A request to the JetStream $JS.API.CONSUMER.LIST API</p><div><div><div>All of the following:</div><div><div><div><span>offset</span><span>integer</span><span>required</span></div><div><span>Minimum:</span><code>0</code></div></div></div></div></div></div>
+<h2 id="response">Response</h2>
+<div><p>A response from the JetStream $JS.API.CONSUMER.LIST API</p><div></div><div><div><div>One of the following:</div><div><div>Option <!-- -->1<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>error</span><span>object</span><span>required</span></div></div></div><div><div>Option <!-- -->2<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>consumers</span><span>object[]</span><span>required</span></div><div>Full Consumer information for each known Consumer</div></div></div></div><div><div>All of the following:</div><div><div><div><span>total</span><span>integer</span><span>required</span></div><div><span>Minimum:</span><code>0</code></div></div><div><div><span>offset</span><span>integer</span><span>required</span></div><div><span>Minimum:</span><code>0</code></div></div><div><div><span>limit</span><span>integer</span><span>required</span></div><div><span>Minimum:</span><code>0</code></div></div></div></div><div><div><span>type</span><span>const: "io.nats.jetstream.api.v1.consumer_list_response"</span><span>required</span></div></div></div></div></main>

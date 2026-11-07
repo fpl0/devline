@@ -1,0 +1,140 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>For a running Keycloak deployment it is important to understand how the system performs and whether it meets your service level objectives (SLOs).
+For more details on SLOs, proceed to the <a href="https://www.keycloak.org/observability/keycloak-service-level-indicators">Monitoring performance with Service Level Indicators</a> guide.</p>
+</div>
+<div class="paragraph">
+<p>This guide will provide directions to answer the question: “What can I do when my SLOs are not met?”</p>
+</div>
+<div class="paragraph">
+<p>Keycloak consists of several components where an issue or misconfiguration of one of them can move your service level indicators to undesirable numbers.</p>
+</div>
+<div class="paragraph">
+<p>A guidance provided by this guide is illustrated in the following example:</p>
+</div>
+<div class="exampleblock">
+<div class="content">
+<div class="paragraph">
+<p><strong>Observation:</strong> Latency service level objective is not met.</p>
+</div>
+<div class="paragraph">
+<p><strong>Metrics that indicate a problem</strong>:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Keycloak’s database connection pool is often exhausted, and there are threads queuing for a connection to be retrieved from the pool.</p>
+</li>
+<li>
+<p>Keycloak’s <code>users</code> cache hit ratio is at a low percentage, around 5%. This means only 1 out of 20 user searches is able to obtain user data from the cache and the rest needs to load it from the database.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p><strong>Possible mitigations suggested:</strong></p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Increasing the <code>users</code> cache size to a higher number which would decrease the number of reads from the database.</p>
+</li>
+<li>
+<p>Increasing the number of connections in the connection pool. This would need to be checked with metrics for your database and tuning it for a higher load, for example, by increasing the number of available processors.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>This guide focuses on Keycloak metrics.
+Troubleshooting the database itself is out of scope.</p>
+</li>
+<li>
+<p>This guide provides general guidance.
+You should always confirm the configuration change by conducting a performance test comparing the metrics in question for the old and the new configuration.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Grafana dashboards for the metrics below can be found in <a href="https://www.keycloak.org/observability/grafana-dashboards">Visualizing activities in dashboards</a> guide.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_list_of_keycloak_key_metrics"><a class="anchor" href="#_list_of_keycloak_key_metrics"></a>List of Keycloak key metrics</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-keycloak">Self-provided metrics</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-jvm">JVM metrics</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-database">Database Metrics</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-http">HTTP metrics</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-cache">Local caching metrics</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/single-cluster/introduction">Single-cluster deployments</a> metrics</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-clustering-and-network">Clustering metrics</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-embedded-caches">Embedded Infinispan metrics for single-cluster deployments</a></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/multi-cluster/introduction">Multi-cluster deployments (v1)</a> metrics</p>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-embedded-caches-multi-cluster">Embedded Infinispan metrics for multi-cluster deployments</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-external-infinispan-multi-cluster">External Infinispan metrics</a></p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div> </div>
+</main>

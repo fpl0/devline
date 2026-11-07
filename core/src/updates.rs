@@ -16,6 +16,8 @@ const DEFAULT_APP_FEED: &str =
 
 #[derive(Deserialize, Serialize)]
 struct Settings {
+    #[serde(default)]
+    keep_latest: bool,
     app_feed: Option<String>,
     checked_at: Option<u64>,
     check_started_at: Option<u64>,
@@ -29,6 +31,7 @@ struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            keep_latest: false,
             app_feed: Some(DEFAULT_APP_FEED.to_owned()),
             checked_at: None,
             check_started_at: None,
@@ -90,6 +93,24 @@ fn settings(ctx: &Context) -> Result<Settings> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
         Err(error) => Err(error).context("Read update settings"),
     }
+}
+
+pub(crate) fn keep_latest(ctx: &Context) -> Result<bool> {
+    Ok(settings(ctx)?.keep_latest)
+}
+
+pub(crate) fn retention(ctx: &Context, request: &Value) -> Result<Value> {
+    if let Some(value) = request.get("keep_latest") {
+        let enabled = value.as_bool().context("keep_latest must be a boolean")?;
+        let _lock = lock_library(ctx)?;
+        let mut prefs = settings(ctx)?;
+        if prefs.keep_latest != enabled {
+            prefs.keep_latest = enabled;
+            save(ctx, &prefs)?;
+        }
+        return Ok(json!({"keep_latest":enabled}));
+    }
+    Ok(json!({"keep_latest":keep_latest(ctx)?}))
 }
 
 // Callers hold the library lock while writing so configuration and check results
@@ -389,6 +410,10 @@ pub(super) fn doc_release(version: &str) -> (&str, u64) {
 pub(super) fn compare_doc_releases(a: &str, b: &str) -> std::cmp::Ordering {
     let (a_base, a_revision) = doc_release(a);
     let (b_base, b_revision) = doc_release(b);
+    let sdk_base = |version: &str| stable_version(version.split_once("+sdk.")?.0);
+    if let (Some(a_sdk), Some(b_sdk)) = (sdk_base(a_base), sdk_base(b_base)) {
+        return a_sdk.cmp(&b_sdk).then(a.cmp(b));
+    }
     match (stable_version(a_base), stable_version(b_base)) {
         (Some(a), Some(b)) => a.cmp(&b).then(a_revision.cmp(&b_revision)),
         _ => a_base.cmp(b_base).then(a_revision.cmp(&b_revision)),

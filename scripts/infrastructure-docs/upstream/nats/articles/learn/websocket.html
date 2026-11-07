@@ -1,0 +1,80 @@
+<main><header><h1>Connect over WebSocket</h1></header>
+<p><code>nats-server</code> speaks the NATS protocol over WebSocket. Add a
+<code>websocket {}</code> block with a <code>listen</code> address and the same binary that
+serves clients on port 4222 also accepts WebSocket connections on a
+listener of its own.</p>
+<p>Nothing above the transport changes. The same client libraries connect,
+publish to the same subjects, and use the same JetStream API. What
+changes is the URL scheme: <code>ws://</code> or <code>wss://</code> instead of <code>nats://</code>.</p>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You're running a NATS system and something needs to reach it that a
+plain client connection can't.</p>
+<p>Most often that's <strong>a browser</strong>. A page running in a browser can't open
+a TCP socket, so WebSocket is the only way it reaches NATS at all. A
+dashboard, an admin console, or any front end subscribing to live
+subjects connects this way.</p>
+<p>The other case is <strong>infrastructure that only speaks HTTP</strong>. A cloud
+HTTP load balancer or a CDN in front of your domain routes HTTP and
+nothing else, so a <code>nats://</code> connection has no path through them.
+Exposing NATS behind one means exposing the WebSocket listener. The
+same applies to a leaf node reaching a hub that sits behind that kind
+of edge.</p>
+<p>If neither applies, keep using <code>nats://</code>. It's one less moving part, and
+a plain TCP connection avoids the WebSocket framing overhead.</p>
+<h2 id="which-clients-can-connect">Which clients can connect</h2>
+<p>Six of the seven <a href="/concepts/ecosystem#tier-1-clients">Tier 1 clients</a>
+implement the WebSocket transport: Go, JavaScript/TypeScript, Python,
+Java, Rust, and C#/.NET. The C client has no WebSocket transport. For the
+six that do, the change is the URL scheme and nothing else.</p>
+<p>The <code>nats</code> CLI is built on the Go client, so it takes a <code>ws://</code> URL too.
+That makes it the quickest way to prove a listener works, and this
+chapter uses it for exactly that.</p>
+<h2 id="a-dashboard-and-a-branch-office">A dashboard and a branch office</h2>
+<p>Acme runs its ORDERS platform on NATS. Two things need in, and neither
+can open a plain connection to port 4222.</p>
+<p>The <strong>warehouse dashboard</strong> is a page that staff keep open on a screen
+by the packing benches. It subscribes to <code>orders.&gt;</code> and shows each order
+as it arrives. It runs in a browser, so WebSocket is the only option.</p>
+<p>An Acme <strong>retail branch</strong> runs a leaf node so its tills keep working
+when the link to head office drops. The <code>east</code> cluster is reached
+through the same HTTPS ingress that fronts the rest of Acme's estate,
+and that ingress publishes HTTP routes only, so the branch can't dial
+the leafnode port directly.</p>
+<p>Neither adds a subsystem. Both are new ways into the system the
+earlier chapters set up.</p>
+<h2 id="by-the-end-youll-have">By the end you'll have</h2>
+<ul>
+<li>a <code>websocket {}</code> listener running, and <code>nats -s ws://…</code> subscribing
+through it</li>
+<li>a browser page receiving <code>orders.&gt;</code> live</li>
+<li>origin checking configured, and a clear view of what it does and
+doesn't protect</li>
+<li>TLS terminated at an ingress, with <code>advertise</code> telling clients the
+right address</li>
+<li>a leaf node joining the <code>east</code> cluster over <code>wss://</code></li>
+</ul>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/websocket/your-first-websocket-connection">Your first WebSocket connection</a></td><td>Enable the listener, connect the CLI, then a browser</td></tr><tr><td><a href="/learn/websocket/browsers-and-origins">Browsers and origins</a></td><td>Origin checking, and how a browser presents credentials</td></tr><tr><td><a href="/learn/websocket/tls-and-proxies">TLS and proxies</a></td><td>TLS on the listener or at an ingress, and what a proxy must pass through</td></tr><tr><td><a href="/learn/websocket/leaf-nodes-over-websocket">Leaf nodes over WebSocket</a></td><td>Attaching an edge site through HTTP-only infrastructure</td></tr><tr><td><a href="/learn/websocket/where-next">Where to go next</a></td><td>A map of what's beyond this chapter</td></tr></tbody></table>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need:</p>
+<ul>
+<li><strong>A <code>nats-server</code>.</strong> The examples use a single local server until
+<a href="/learn/websocket/leaf-nodes-over-websocket">Leaf nodes over
+WebSocket</a>, which uses the
+<code>east</code> cluster.</li>
+<li><strong>The <code>nats</code> CLI</strong>, which connects over both <code>nats://</code> and <code>ws://</code>.</li>
+<li><strong>A browser</strong>, for the dashboard pages.</li>
+</ul>
+<p>No client libraries need installing. The browser example is a single
+HTML file that loads nats.js from a module import.</p>
+<p>Open a terminal and turn to <a href="/learn/websocket/your-first-websocket-connection">Your first WebSocket
+connection</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/websocket/">Reference → websocket</a> — every field of
+the <code>websocket {}</code> block, versioned and exhaustive</li>
+<li><a href="/learn/core-nats/connecting">Core NATS → Connecting</a> — the connection
+this chapter changes the transport of</li>
+<li><a href="/learn/topologies/leaf-nodes">Topologies → Leaf nodes</a> — the leaf-node
+model the final page of this chapter carries over WebSocket</li>
+</ul></main>

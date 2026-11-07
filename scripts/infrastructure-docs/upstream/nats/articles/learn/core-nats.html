@@ -1,0 +1,96 @@
+<main><header><h1>Core NATS Deep Dive</h1></header>
+<p>Core NATS is the foundation everything else is built on. It's a
+publish-subscribe system: a publisher publishes a message to a
+subject, and every subscriber interested in that subject receives a
+copy. There's no broker queue, no storage, and no acknowledgment. The
+message goes to whoever is listening right now, and it goes to nobody
+else.</p>
+<p>That single idea, subjects plus interest, is enough to build four
+communication patterns and the addressing they share. This chapter
+walks through them the way you'd discover them while writing real
+code: start with one publisher and one subscriber, then add
+addressing, replies, load balancing, and reply gathering, one page
+at a time. The chapter starts a step before that, with the
+connection every client opens first, and continues past the
+patterns into message headers, server-side subject mapping,
+connection lifecycle, and debugging delivery.</p>
+<div></div>
+<h2 id="core-nats-is-ephemeral">Core NATS is ephemeral</h2>
+<p>The one property to hold in your head for the whole chapter:
+<strong>core NATS is at-most-once</strong>. A message reaches every interested
+subscriber that's connected at the moment of publish, at most
+once. If a subscriber is offline, restarting, or not
+subscribed yet, it never sees that message. The server does not store
+it for later.</p>
+<p>That behavior is intentional. It keeps core NATS small and fast, and
+it's exactly right when each message is superseded by the next one,
+such as a live price, a current temperature, or a cache invalidation.</p>
+<p>When you need messages to wait for a subscriber, survive a restart,
+or be replayed later, you add a stream. That's
+<a href="/learn/jetstream">JetStream</a>, the persistence layer that sits on top
+of core NATS. This chapter is everything that happens <em>before</em> you
+reach for it.</p>
+<h2 id="the-running-scenario">The running scenario</h2>
+<p>Every page builds the same example: the Acme ORDERS platform, shown at
+its foundation, before it adds any persistence. The order services
+talk over core NATS only.</p>
+<p>Three things happen to an order: it's created, shipped, or
+canceled. Each one shows up as a message on a subject:</p>
+<div><div><pre><code class="language-text">orders.created
+orders.shipped
+orders.canceled</code></pre></div></div>
+<p>The payload is a small JSON object, the same shape across every
+example in this chapter:</p>
+<div><div><pre><code class="language-json">{
+  "order_id": "ord_8w2k",
+  "customer": "acme-co",
+  "total_cents": 4200,
+  "ts": "2026-05-22T10:14:22Z"
+}</code></pre></div></div>
+<p>Several services care about these messages. A <code>warehouse</code> process
+packs the box on <code>orders.created</code>. A <code>notifications</code> service emails
+the customer when an order ships. An <code>analytics</code> pipeline counts
+everything. Later pages add regional analytics and audit views on
+wildcard subjects, an <code>inventory</code> service that answers requests, a pool
+of <code>packers</code> that share the load, and three shipping-quote providers
+that each reply to the same question.</p>
+<p>You keep a single local <code>nats-server</code> through the whole chapter —
+two later pages restart it with a flag or a config file — and add
+subscribers and services as you go.</p>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You've read the <a href="/concepts/pub-sub-basics">Core Concepts → Publish &amp; Subscribe</a>
+primer, or you're otherwise comfortable with the idea of subjects and
+subscribers. Rather than re-teaching the <em>what</em>, this chapter shows
+the <em>how</em>: the mechanism on the wire, the trade-off behind each
+pattern, and a runnable session you build up command by command. Each
+page introduces one or two new ideas and builds on the one before it.</p>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/core-nats/connecting">Connecting</a></td><td>One long-lived connection per client, the connect URL and handshake, connection names, and PING/PONG heartbeats</td></tr><tr><td><a href="/learn/core-nats/publish-subscribe">Publish-subscribe</a></td><td>Fire-and-forget publish, subscribing and unsubscribing, the interest graph, at-most-once delivery, and the 1 MB max payload</td></tr><tr><td><a href="/learn/core-nats/subjects-and-wildcards">Subjects &amp; wildcards</a></td><td>Dot-delimited subject hierarchies and the <code>*</code> and <code>&gt;</code> subscriber wildcards</td></tr><tr><td><a href="/learn/core-nats/request-reply">Request-reply</a></td><td>The <code>_INBOX</code> reply subject, timeouts, and the no-responders signal</td></tr><tr><td><a href="/learn/core-nats/queue-groups">Queue groups</a></td><td>Load balancing where each message goes to exactly one group member</td></tr><tr><td><a href="/learn/core-nats/scatter-gather">Scatter-gather</a></td><td>Fan one request to many responders and gather the replies</td></tr><tr><td><a href="/learn/core-nats/headers">Message headers</a></td><td>Key/value metadata in the <code>NATS/1.0</code> format, setting and reading it, and the status codes the server sends in-band</td></tr><tr><td><a href="/learn/core-nats/subject-mapping">Subject mapping</a></td><td>Server-side rewriting of a subject before routing, to rename it, split its traffic by weight, or shard it by a hashed token</td></tr><tr><td><a href="/learn/core-nats/connection-lifecycle">Connection lifecycle</a></td><td>What a dropped connection does to your client and in-flight messages, the client-owned reconnect, and the lifecycle callbacks that watch it</td></tr><tr><td><a href="/learn/core-nats/debugging-delivery">Debugging delivery</a></td><td>Why a published message never arrived, found with a wire tap, the server's subscription list, and message tracing</td></tr><tr><td><a href="/learn/core-nats/where-next">Where to go next</a></td><td>The four-idea recap and a map of what's beyond the foundation</td></tr></tbody></table>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need:</p>
+<ul>
+<li>A single local <code>nats-server</code>. The default build is all you need;
+core NATS requires no flags. Start it with <code>nats-server</code>.</li>
+<li>The <code>nats</code> CLI installed and pointed at your server. Every example
+leads with the CLI; most pages show the same operation in
+JavaScript, Go, Python, Java, Rust, and C# as well. The two
+server-side pages (Subject mapping, Debugging delivery) are
+CLI-only.</li>
+<li>One later page, <a href="/learn/core-nats/subject-mapping">Subject mapping</a>,
+starts the server from a config file with <code>nats-server -c server.conf</code>; that page gives you the file.</li>
+<li><a href="/learn/core-nats/debugging-delivery">Debugging delivery</a> reads the
+server's monitoring port, which you turn on with <code>nats-server -m 8222</code>.</li>
+</ul>
+<p>Open a terminal, run <code>nats-server</code>, and continue to the next page.</p>
+<h2 id="whats-next">What's next</h2>
+<p>Start with <a href="/learn/core-nats/connecting">Connecting</a>: the one
+long-lived connection every client opens before it can publish or
+subscribe, and the handshake that opens it and the heartbeats that
+keep it alive.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/concepts/pub-sub-basics">Core Concepts → Publish &amp; Subscribe</a> —
+the five-minute overview of the same material.</li>
+<li><a href="/learn/jetstream">JetStream Deep Dive</a> — the persistence layer this
+chapter stops short of.</li>
+</ul></main>

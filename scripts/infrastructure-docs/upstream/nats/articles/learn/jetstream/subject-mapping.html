@@ -1,0 +1,379 @@
+<main><header><h1>Subject mapping and transforms</h1></header>
+<p>A <a href="/learn/jetstream/filtering">filter</a> picks which stored messages a consumer
+sees without ever changing a subject. <strong>Subject mapping</strong> rewrites the subject
+itself, in three places:</p>
+<ul>
+<li><strong>On the way in</strong> — a stream's <em>subject transform</em> rewrites a message's
+subject as it's stored.</li>
+<li><strong>On the way out</strong> — <em>republish</em> re-emits each stored message onto a new
+subject, so plain core subscribers can watch a stream without a consumer.</li>
+<li><strong>While copying</strong> — a source or a mirror can transform subjects as it pulls
+from another stream (see <a href="/learn/jetstream/mirrors-and-sources">Mirrors and sources</a>).</li>
+</ul>
+<p>All three use the same small transform language.</p>
+<h2 id="the-transform-language">The transform language</h2>
+<p>A transform is a <code>source → destination</code> pair. The source is a subject filter
+with the usual <code>*</code> and <code>&gt;</code> wildcards; the destination is a subject template that
+pulls matched tokens back in by position:</p>
+<ul>
+<li><code>{{wildcard(1)}}</code> — the token the first <code>*</code> matched (<code>{{wildcard(2)}}</code> the
+second, and so on). The older <code>$1</code> form means the same thing.</li>
+<li><code>{{partition(n, 1)}}</code> — hash the token the first <code>*</code> matched into one of <code>n</code>
+buckets, <code>0</code>…<code>n-1</code>. The same value always lands in the same bucket, so it's a
+stable way to shard.</li>
+<li>A trailing <code>&gt;</code> in the source carries across to a <code>&gt;</code> in the destination
+unchanged — that's how <code>orders.&gt;</code> maps to <code>dash.orders.&gt;</code>, with every token
+after <code>orders</code> riding along.</li>
+<li><code>{{split(1, -)}}</code>, <code>{{splitfromleft(1, 3)}}</code> — reshape a single matched token:
+split it wherever a bare delimiter appears (written without quotes, and it
+can't be <code>.</code>, which already separates tokens), or cut it at a character
+position.</li>
+</ul>
+<p>ADR-30 (linked below) has the complete list. You'll mostly reach for <code>wildcard</code> and
+<code>partition</code>; <code>split</code>, <code>splitfromleft</code>/<code>splitfromright</code>, and
+<code>slicefromleft</code>/<code>slicefromright</code> chop a single token when you need it.</p>
+<p>You can try a transform without a stream. <code>nats server mappings</code> takes the
+source, the destination, and a subject, and prints what it maps to:</p>
+<div><div><pre><code class="language-bash">nats server mappings "orders.*" "orders.{{wildcard(1)}}.archived" orders.created</code></pre></div></div>
+<div><div><pre><code class="language-text">orders.created.archived</code></pre></div></div>
+<h2 id="rewrite-subjects-on-the-way-in">Rewrite subjects on the way in</h2>
+<p>A stream's <strong>subject transform</strong> rewrites the subject a message is stored under.
+The stream keeps listening on all its configured subjects: a message whose subject
+matches the transform's source is stored under the rewritten subject, and any
+other message is stored under its original subject. A transform rewrites subjects;
+it never drops a message.</p>
+<div></div>
+<p>A common use is deterministic partitioning: hash a token into a fixed set of
+buckets so consumers can split the load by bucket. Leave <code>ORDERS</code> alone — this is
+a throwaway stream that ingests on <code>ingest.*</code> and shards each message into one of
+three buckets by hashing the customer token:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# A subject transform rewrites the subject a message is STORED under, which
+# is separate from the subjects the stream listens on. Leave ORDERS alone:
+# this is a throwaway stream that ingests on ingest.* and shards each
+# message into one of three buckets by hashing the customer token.
+#   --transform-source        which incoming subjects to match (wildcards ok)
+#   --transform-destination    the stored subject, pulling matched tokens in
+#     {{partition(3,1)}}   hash the 1st token into bucket 0, 1, or 2
+#     {{wildcard(1)}}      the 1st * token from the source
+nats stream add ORDERS-SHARDED \
+  --subjects "ingest.*" \
+  --transform-source "ingest.*" \
+  --transform-destination "orders.{{partition(3,1)}}.{{wildcard(1)}}" \
+  --defaults</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Create ORDERS-SHARDED with a subject transform. Every message on `ingest.*`
+// is rewritten before it is stored: `partition(3,1)` shards each customer
+// (the first wildcard token) into one of three buckets, and `wildcard(1)`
+// keeps the customer id, so `ingest.acme` becomes `orders.&lt;0-2&gt;.acme`.
+const info = await jsm.streams.add({
+  name: "ORDERS-SHARDED",
+  subjects: ["ingest.*"],
+  subject_transform: {
+    src: "ingest.*",
+    dest: "orders.{{partition(3,1)}}.{{wildcard(1)}}",
+  },
+});
+console.log(`Created stream: ${info.config.name}`);</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Create a stream that rewrites subjects as it stores them. The transform
+// shards each customer into one of three buckets: partition(3,1) hashes the
+// first wildcard token into 0, 1, or 2, and wildcard(1) keeps that token.
+// So "ingest.alice" might land on "orders.2.alice".
+stream, err := js.CreateStream(ctx, jetstream.StreamConfig{
+	Name:     "ORDERS-SHARDED",
+	Subjects: []string{"ingest.*"},
+	SubjectTransform: &amp;jetstream.SubjectTransformConfig{
+		Source:      "ingest.*",
+		Destination: "orders.{{partition(3,1)}}.{{wildcard(1)}}",
+	},
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Printf("Created stream: %s\n", stream.CachedInfo().Config.Name)</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Create a stream that rewrites subjects as it stores them. Incoming
+# ingest.&lt;customer&gt; messages become orders.&lt;bucket&gt;.&lt;customer&gt;, where
+# partition(3,1) hashes the first wildcard token into one of three
+# buckets — sharding each customer into a fixed partition.
+info = await js.add_stream(
+    StreamConfig(
+        name="ORDERS-SHARDED",
+        subjects=["ingest.*"],
+        subject_transform=SubjectTransform(
+            src="ingest.*",
+            dest="orders.{{partition(3,1)}}.{{wildcard(1)}}",
+        ),
+    )
+)
+
+print(f"created stream {info.config.name}")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Rewrite each ingested subject as it lands in the stream. The template
+// shards each customer into one of three buckets: partition(3,1) hashes
+// the first wildcard token into 0, 1 or 2, and wildcard(1) keeps that
+// same token as the trailing part of the stored subject.
+SubjectTransform st = new SubjectTransform(
+        "ingest.*",
+        "orders.{{partition(3,1)}}.{{wildcard(1)}}");
+
+StreamConfiguration sc = StreamConfiguration.builder()
+        .name("ORDERS-SHARDED")
+        .subjects("ingest.*")
+        .subjectTransform(st)
+        .build();
+StreamInfo info = jsm.addStream(sc);
+
+System.out.println("Created stream: " + info.getConfiguration().getName());</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Create a stream that rewrites each incoming subject as it is stored. Every
+// message published to `ingest.*` is transformed into
+// `orders.&lt;bucket&gt;.&lt;original-token&gt;`, where `partition(3, 1)` hashes the first
+// wildcard token into one of three buckets (0, 1, or 2). This spreads orders
+// across three shard subjects so consumers can filter by bucket.
+let stream = js
+    .create_stream(stream::Config {
+        name: "ORDERS-SHARDED".to_string(),
+        subjects: vec!["ingest.*".to_string()],
+        subject_transform: Some(stream::SubjectTransform {
+            source: "ingest.*".to_string(),
+            destination: "orders.{{partition(3,1)}}.{{wildcard(1)}}".to_string(),
+        }),
+        ..Default::default()
+    })
+    .await?;
+
+println!("Created stream: {}", stream.cached_info().config.name);</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Ingest orders on `ingest.&lt;customer&gt;` and rewrite the subject on the way
+// in. `partition(3, 1)` hashes the first wildcard token into one of three
+// buckets, so each customer always shards to the same bucket.
+var stream = await js.CreateStreamAsync(new StreamConfig(name: "ORDERS-SHARDED", subjects: ["ingest.*"])
+{
+    SubjectTransform = new SubjectTransform
+    {
+        Src = "ingest.*",
+        Dest = "orders.{{partition(3,1)}}.{{wildcard(1)}}",
+    },
+});
+
+output.WriteLine($"Created {stream.Info.Config.Name}");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Create a stream that rewrites subjects as it stores them. The
+// transform shards each customer into one of three buckets:
+// partition(3,1) hashes the first wildcard token into 0, 1, or 2,
+// and wildcard(1) keeps that token. So "ingest.alice" might land on
+// "orders.2.alice".
+jsStreamConfig  sc;
+const char      *subjects[] = {"ingest.*"};
+
+jsStreamConfig_Init(&amp;sc);
+sc.Name        = "ORDERS-SHARDED";
+sc.Subjects    = subjects;
+sc.SubjectsLen = 1;
+sc.SubjectTransform.Source      = "ingest.*";
+sc.SubjectTransform.Destination = "orders.{{partition(3,1)}}.{{wildcard(1)}}";
+s = js_AddStream(&amp;si, js, &amp;sc, NULL, &amp;jerr);
+if (s == NATS_OK)
+    printf("Created stream: %s\n", si-&gt;Config-&gt;Name);</code></pre></div></div>
+<p>Publish a few customers' orders, and each lands under
+<code>orders.&lt;bucket&gt;.&lt;customer&gt;</code>:</p>
+<div><div><pre><code class="language-bash">nats pub ingest.acme   "an order"
+nats pub ingest.globex "an order"
+nats pub ingest.wayne  "an order"
+nats stream subjects ORDERS-SHARDED</code></pre></div></div>
+<div><div><pre><code class="language-text">Subject         │ Count
+orders.1.acme   │ 1
+orders.1.globex │ 1
+orders.2.wayne  │ 1</code></pre></div></div>
+<p>Each customer hashes to the same bucket every time, so a consumer filtered to one
+bucket — <code>orders.1.&gt;</code> here — always reads the same share of customers. Add or
+remove the transform on an existing stream with <code>nats stream edit --transform-source/--transform-destination</code>, or <code>--no-transform</code> to clear it.</p>
+<p>The transform rewrites only what gets stored from the moment it's set. It doesn't
+touch messages already in the stream; the Pitfalls cover what that means.</p>
+<h2 id="republish-to-live-subjects">Republish to live subjects</h2>
+<p><strong>Republish</strong> re-emits every message a stream stores onto a second subject, in
+real time. Core subscribers listen on that subject and see the data flow by
+without creating a consumer or replaying anything — a low-cost way to feed a
+dashboard or a monitor from a stored stream.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Republish re-emits every message the stream stores onto a second subject,
+# in real time. A plain core subscriber on that subject sees the data flow
+# by without creating a consumer. This adds republish to ORDERS; clear it
+# later with: nats stream edit ORDERS --no-republish
+nats stream edit ORDERS \
+  --republish-source "orders.&gt;" \
+  --republish-destination "dash.orders.&gt;"</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Add a republish rule so every message stored under `orders.&gt;` is also
+// published live to a matching `dash.orders.&gt;` subject that dashboards can
+// subscribe to, then apply the update.
+const config = info.config;
+config.republish = {
+  src: "orders.&gt;",
+  dest: "dash.orders.&gt;",
+  // headers_only: true, // republish only the headers, not the message body
+};
+const updated = await jsm.streams.update("ORDERS", config);
+console.log(`republish dest: ${updated.config.republish?.dest}`);</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Read the current config, add a republish rule, and push the update.
+// Every message stored on "orders.&gt;" is also echoed live to "dash.orders.&gt;"
+// so a dashboard can subscribe without touching the stream.
+cfg := stream.CachedInfo().Config
+cfg.RePublish = &amp;jetstream.RePublish{
+	Source:      "orders.&gt;",
+	Destination: "dash.orders.&gt;",
+	// HeadersOnly: true, // republish only the headers, not the body
+}
+
+updated, err := js.UpdateStream(ctx, cfg)
+if err != nil {
+	panic(err)
+}
+
+fmt.Printf("Republish destination: %s\n", updated.CachedInfo().Config.RePublish.Destination)</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Republish every stored orders.&gt; message onto a dash.orders.&gt; subject, so
+# core subscribers can watch the stream live without a consumer.
+# Set headers_only=True to republish just the headers, not the body.
+config.republish = RePublish(
+    src="orders.&gt;",
+    dest="dash.orders.&gt;",
+    # headers_only=True,
+)
+updated = await js.update_stream(config)
+
+print(f"republishing to {updated.config.republish.dest}")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Republish every message ORDERS stores onto a parallel subject that
+// ordinary core subscribers can watch, without them touching the stream.
+Republish rp = Republish.builder()
+        .source("orders.&gt;")
+        .destination("dash.orders.&gt;")
+        // .headersOnly(true) // republish only the headers, not the body
+        .build();
+
+StreamConfiguration updated = StreamConfiguration.builder(current)
+        .republish(rp)
+        .build();
+StreamInfo info = jsm.updateStream(updated);
+
+System.out.println("Republish destination: " + info.getConfiguration().getRepublish().getDestination());</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Republish a copy of every stored message onto a second subject so a
+// dashboard can subscribe live without touching the stream. Set
+// `headers_only: true` to republish just the headers (subject, sequence,
+// size) and skip the payload.
+config.republish = Some(async_nats::jetstream::stream::Republish {
+    source: "orders.&gt;".to_string(),
+    destination: "dash.orders.&gt;".to_string(),
+    headers_only: false,
+});
+let info = js.update_stream(&amp;config).await?;
+
+println!(
+    "Republishing to: {}",
+    info.config
+        .republish
+        .as_ref()
+        .map_or("", |r| r.destination.as_str())
+);</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Mirror every stored order onto a `dash.orders.&gt;` subject as it lands.
+// Read the current config, add the republish rule, and send it back.
+var config = stream.Info.Config;
+config.Republish = new Republish
+{
+    Src = "orders.&gt;",
+    Dest = "dash.orders.&gt;",
+
+    // HeadersOnly = true,
+};
+
+var updated = await js.UpdateStreamAsync(config);
+
+output.WriteLine($"Republishing to {updated.Info.Config.Republish!.Dest}");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the current config, add a republish rule, and push the
+// update. Every message stored on "orders.&gt;" is also echoed live to
+// "dash.orders.&gt;" so a dashboard can subscribe without touching the
+// stream.
+jsRePublish rp;
+
+s = js_GetStreamInfo(&amp;si, js, "ORDERS", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    jsRePublish_Init(&amp;rp);
+    rp.Source      = "orders.&gt;";
+    rp.Destination = "dash.orders.&gt;";
+    // rp.HeadersOnly = true; // republish only the headers, not the body
+    si-&gt;Config-&gt;RePublish = &amp;rp;
+    s = js_UpdateStream(&amp;updated, js, si-&gt;Config, NULL, &amp;jerr);
+}
+if (s == NATS_OK)
+    printf("Republish destination: %s\n", updated-&gt;Config-&gt;RePublish-&gt;Destination);</code></pre></div></div>
+<p>Now a plain core subscription sees each order as it lands:</p>
+<div><div><pre><code class="language-bash">nats sub "dash.orders.&gt;"</code></pre></div></div>
+<div><div><pre><code class="language-text">[#1] Received on "dash.orders.created"
+Nats-Stream: ORDERS
+Nats-Subject: orders.created
+Nats-Sequence: 5
+Nats-Time-Stamp: 2026-05-22T11:02:00Z
+Nats-Last-Sequence: 4
+
+{"order_id":"ord_5xk1","customer":"initech","total_cents":1500,"ts":"2026-05-22T11:02:00Z"}</code></pre></div></div>
+<p>Each republished message carries five headers describing where it came from:
+<code>Nats-Stream</code>, <code>Nats-Subject</code> (the original stored subject), <code>Nats-Sequence</code>,
+<code>Nats-Time-Stamp</code>, and <code>Nats-Last-Sequence</code> — the stream sequence of the previous
+message <em>on the same subject</em>, or <code>0</code> if there wasn't one, so a subscriber
+following one subject can tell it missed something. Any headers the publisher set
+are carried through too.</p>
+<p><code>--republish-headers</code> sends the headers without the bodies, for subscribers that
+only need to know something changed; each message then also carries a
+<code>Nats-Msg-Size</code> header with the omitted body's byte count. Clear republish with
+<code>nats stream edit ORDERS --no-republish</code>.</p>
+<h2 id="transform-while-copying">Transform while copying</h2>
+<p>When a stream <strong>sources</strong> from or <strong>mirrors</strong> another stream, each source can
+carry its own subject transform, so you can re-namespace messages as you
+aggregate them — for example prefixing every region's orders as they merge into
+one stream. That belongs with the copying mechanics, so it's covered on
+<a href="/learn/jetstream/mirrors-and-sources">Mirrors and sources</a>.</p>
+<h2 id="not-the-same-as-account-subject-mapping">Not the same as account subject mapping</h2>
+<p>NATS also has <a href="/learn/core-nats/subject-mapping">account-level subject mapping</a>, configured on the server, not on a
+stream. It reroutes <em>core</em> subjects before they're ever published into a stream.
+That's a server-configuration topic, separate from the stream transforms on this
+page.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A few ways subject mapping trips people up.</p>
+<p><strong>A transform that drops a token a consumer filters on.</strong> A destination template
+keeps only the tokens you name. Rewrite <code>orders.*</code> to <code>orders.archived</code> and drop
+the <code>{{wildcard(1)}}</code>, and every order is stored under the one subject
+<code>orders.archived</code>, where a consumer can no longer filter by type. Keep every
+token a downstream filter needs in the destination.</p>
+<p><strong>Republish is not a consumer.</strong> A republished subject is plain core NATS:
+fire-and-forget, no storage, no acks, no replay. A subscriber that's down misses
+whatever was republished while it was away, and nothing redelivers it. Use
+republish to watch a stream live; use a consumer when a reader has to catch up on
+what it missed.</p>
+<p><strong>A republish destination that loops back into the stream.</strong> The destination
+can't overlap the stream's own subjects. Point a stream that ingests <code>orders.&gt;</code>
+at destination <code>orders.dash.&gt;</code> and the server rejects it as a cycle (error
+<code>10052</code>). Send republished messages to a separate subject space — <code>dash.orders.&gt;</code>,
+not something under <code>orders.&gt;</code> — and watch for loops that span two streams in one
+account, which the server can't always catch.</p>
+<p><strong>Editing a transform doesn't rewrite what's already stored.</strong> Adding or changing
+a subject transform only affects messages stored after the change. Messages
+already in the stream keep the subjects they were stored under. To re-namespace
+existing data, copy it into a new stream that sources from the old one with the
+transform applied.</p>
+<p><strong>A partition count is fixed once consumers depend on it.</strong> Consumers filter on
+bucket numbers (<code>orders.0.&gt;</code>, <code>orders.1.&gt;</code>, …). Change <code>partition(3, …)</code> to
+<code>partition(4, …)</code> later and the same customer can hash to a different bucket, so a
+consumer's filter quietly starts covering a different set. Pick the bucket count
+up front, the way you would for any partitioned system.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p><code>ORDERS</code> is unchanged by the transform work — that ran on a throwaway
+<code>ORDERS-SHARDED</code> stream. If you added republish to <code>ORDERS</code> above, that's the one
+change; it's additive, and <code>nats stream edit ORDERS --no-republish</code> clears it. You
+saw the three places JetStream rewrites a subject:</p>
+<ul>
+<li>a <strong>subject transform</strong> that changes the stored subject on the way in</li>
+<li><strong>republish</strong> that re-emits stored messages onto a live subject on the way out</li>
+<li>the per-source transforms that rewrite subjects while copying, over on
+<a href="/learn/jetstream/mirrors-and-sources">Mirrors and sources</a></li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>The next page covers <a href="/learn/jetstream/message-ttl">per-message TTL</a>:
+giving a single message a shorter lifespan than the rest of the stream.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/api/stream/create">Reference → Create Stream</a> — the
+<code>subject_transform</code>, <code>republish</code>, and per-source <code>subject_transforms</code> fields.</li>
+<li><a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-36.md">ADR-36: Subject Mapping Transforms in Streams</a>
+— where a transform attaches to a stream, a source, or a mirror.</li>
+<li><a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-30.md">ADR-30: Subject Transform</a>
+— the transform template functions and their exact behavior.</li>
+<li><a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-28.md">ADR-28: RePublish</a>
+— the republish headers and the loop-prevention rules.</li>
+<li><a href="/learn/jetstream/filtering">Filtering what you consume</a> — narrowing a
+consumer's view without changing subjects.</li>
+<li><a href="/learn/jetstream/mirrors-and-sources">Mirrors and sources</a> — transforms
+applied while aggregating streams.</li>
+</ul></main>

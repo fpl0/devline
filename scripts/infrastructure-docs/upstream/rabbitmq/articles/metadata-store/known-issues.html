@@ -1,0 +1,9 @@
+<main><header><h1>Known Issues with Khepri</h1></header>
+<h2 id="metadata-operation-timeouts">Metadata Operation Timeouts</h2>
+<p>Metadata operations can time out when a majority of cluster nodes is unavailable.
+Clients can retry failed operations after connectivity or cluster availability is restored.
+See <a href="/docs/4.3/metadata-store/failure-recovery">failure recovery</a>.</p>
+<h2 id="recovery-after-permanent-loss-of-node-data">Recovery After Permanent Loss of Node Data</h2>
+<p>A node that loses its data also loses its cluster membership state. Remove its old
+membership before adding a replacement node. See <a href="/docs/4.3/clustering#removing-nodes">removing cluster nodes</a>
+and <a href="/docs/4.3/backup">backup and restore</a>.</p></main>

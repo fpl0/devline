@@ -1,0 +1,428 @@
+<main><header><h1>Connection Events</h1></header>
+<p>The last page already used three connection callbacks without naming
+them as a group: the disconnect callback logged the moment the link
+dropped, the reconnect callback logged the rejoin, and the
+reconnect-error callback recorded every failed attempt in between. Each
+one reports a transition of the same state machine.</p>
+<p>This page collects that reporting into one surface. You'll see every
+event the connection can deliver, wire the one no earlier page covered —
+the closed event, the signal that the connection won't come back — and
+read the connection's state directly for a health check. Two new ideas
+carry the page: the connection event surface, and status polling.</p>
+<h2 id="the-events-a-connection-reports">The events a connection reports</h2>
+<p>A <strong>connection event</strong> is a notification the client delivers when the
+connection changes state or learns something about the cluster. Six
+events cover the lifecycle:</p>
+<ul>
+<li><strong>Disconnect</strong> — the link is gone and the client has entered
+RECONNECTING. You watched this fire on
+<a href="/learn/resilient-clients/reconnection">Reconnection</a>.</li>
+<li><strong>Reconnect</strong> — the client is back on a server and the connection is
+CONNECTED again. Also from Reconnection.</li>
+<li><strong>Reconnect error</strong> — one reconnect attempt failed; the client keeps
+trying. Reconnection wired this to make a long outage visible.</li>
+<li><strong>Closed</strong> — the connection reached CLOSED and will not come back. No
+earlier page covers this event; this page does, below.</li>
+<li><strong>Discovered servers</strong> — the client's server pool grew from cluster
+gossip, described in <a href="/learn/resilient-clients/connecting#discovered-servers">Connecting → Discovered
+servers</a>.</li>
+<li><strong>Lame duck</strong> — the server announced it's shutting down soon, so the
+client can move before the link is cut. It belongs to the next page,
+<a href="/learn/resilient-clients/drain-and-shutdown">Drain &amp; Shutdown</a>.</li>
+</ul>
+<p>Three of the first four mark edges of the state diagram from
+Reconnection; the reconnect error repeats on RECONNECTING, once per
+failed attempt, so the diagram shows it as an annotation on that state
+rather than an arrow:</p>
+<div><div><pre><code class="language-text">CONNECTED ──disconnect──▶ RECONNECTING ──reconnect──▶ CONNECTED
+    │                          │ reconnect error, per failed attempt
+    │ Close() by the app       └──retries spent──▶ CLOSED
+    └─────────────────────────────────────────────▶ CLOSED</code></pre></div></div>
+<p>The closed event fires on the two edges into CLOSED, and it fires once:
+it's the last event the connection delivers. The other two events —
+discovered servers and lame duck — aren't part of the state machine at
+all. They arrive over a healthy connection, carrying information about
+the cluster.</p>
+<h2 id="how-each-client-delivers-the-events">How each client delivers the events</h2>
+<p>Every client reports this surface, but the delivery mechanism differs,
+so the same design reads differently in each language.</p>
+<table><thead><tr><th>Client</th><th>Mechanism</th><th>Where it's set</th></tr></thead><tbody><tr><td>Go</td><td>one callback option per event</td><td><code>DisconnectErrHandler</code>, <code>ReconnectHandler</code>, <code>ReconnectErrHandler</code>, <code>ClosedHandler</code>, <code>DiscoveredServersHandler</code>, <code>LameDuckModeHandler</code></td></tr><tr><td>Python</td><td>one coroutine callback per event</td><td>connect arguments <code>disconnected_cb</code>, <code>reconnected_cb</code>, <code>closed_cb</code>, <code>discovered_server_cb</code>, <code>lame_duck_mode_cb</code></td></tr><tr><td>Java</td><td>one listener, receiving an enum</td><td><code>connectionListener(...)</code> on the options builder; the listener gets an <code>Events</code> value: <code>DISCONNECTED</code>, <code>RECONNECTED</code>, <code>RESUBSCRIBED</code>, <code>DISCOVERED_SERVERS</code>, <code>LAME_DUCK</code>, <code>CONNECTED</code>, <code>CLOSED</code></td></tr><tr><td>JavaScript</td><td>one async iterator of status objects</td><td><code>nc.status()</code>; each status has a <code>type</code>: <code>disconnect</code>, <code>reconnect</code>, <code>reconnecting</code>, <code>update</code>, <code>ldm</code>, <code>close</code>, and more</td></tr><tr><td>Rust</td><td>one async callback, receiving an enum</td><td><code>event_callback(...)</code> on the connect options; the callback gets an <code>Event</code> value: <code>Connected</code>, <code>Disconnected</code>, <code>LameDuckMode</code>, <code>Draining</code>, <code>Closed</code>, and more</td></tr><tr><td>C#</td><td>one .NET event per kind</td><td><code>ConnectionDisconnected</code>, <code>ConnectionOpened</code>, <code>ReconnectFailed</code>, <code>LameDuckModeActivated</code>, and more on the connection</td></tr></tbody></table>
+<p>Three details are worth knowing before you rely on the table. Rust and
+C# don't report a discovered-servers event; their pools still pick up
+gossiped servers, they just don't announce it. C# has no closed event
+at all — its terminal signal is the <code>ConnectionState</code> property, covered
+below. And
+JavaScript's <code>update</code> status carries the change itself: which servers
+were added and which were deleted.</p>
+<p>Wire the full surface on <code>order-svc</code> and log each event as it arrives.
+The CLI wires all of these handlers internally, so its example watches
+the events rather than wiring them:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Watch the full connection event surface from the CLI.
+#
+# The CLI wires every connection event handler itself, so there are no
+# flags for wiring your own — that wiring is a client-library call. What the CLI
+# does offer is the output of those handlers: with --trace it prints a
+# "&gt;&gt;&gt;" line per event. Restart a server in the pool and you see:
+#
+#   &gt;&gt;&gt; Connected to &lt;url&gt;            on the first successful connect
+#   &gt;&gt;&gt; Disconnected due to: &lt;err&gt;, will attempt reconnect
+#   &gt;&gt;&gt; Reconnected to &lt;url&gt;          after the client rejoins
+#   &gt;&gt;&gt; Discovered new servers, known servers are now &lt;urls&gt;
+#   &gt;&gt;&gt; Reconnect error: &lt;err&gt;        per failed reconnect attempt
+#   &gt;&gt;&gt; Connection is closed: &lt;err&gt;   the closed event; the CLI exits
+#
+# The disconnect and closed lines print even without --trace; the rest
+# are trace-only.
+
+nats sub "orders.&gt;" \
+  --server "nats://n1:4222,nats://n2:4222,nats://n3:4222" \
+  --connection-name order-svc \
+  --trace</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// One callback per event. Disconnect, reconnect, discovered servers,
+// and lame duck are logging; closed is the one that demands an action.
+static void
+onDisconnected(natsConnection *nc, void *closure)
+{
+    printf("disconnected, reconnect loop running\n");
+}
+
+static void
+onReconnected(natsConnection *nc, void *closure)
+{
+    char url[256];
+
+    if (natsConnection_GetConnectedUrl(nc, url, sizeof(url)) == NATS_OK)
+        printf("reconnected to %s\n", url);
+}
+
+static void
+onDiscoveredServers(natsConnection *nc, void *closure)
+{
+    printf("server pool grew from cluster gossip\n");
+}
+
+static void
+onLameDuck(natsConnection *nc, void *closure)
+{
+    printf("server is shutting down soon (lame duck)\n");
+}
+
+static void
+onClosed(natsConnection *nc, void *closure)
+{
+    printf("connection closed, no more events after this\n");
+}
+    const char *servers[] = {"nats://n1:4222", "nats://n2:4222",
+                             "nats://n3:4222"};
+
+    if (s == NATS_OK)
+        s = natsOptions_SetServers(opts, servers, 3);
+    if (s == NATS_OK)
+        s = natsOptions_SetName(opts, "order-svc");
+
+    // Wire the full event surface before connecting. The C client has
+    // no per-attempt reconnect-error callback; a long outage shows as
+    // the gap between the disconnect and reconnect events.
+    if (s == NATS_OK)
+        s = natsOptions_SetDisconnectedCB(opts, onDisconnected, NULL);
+    if (s == NATS_OK)
+        s = natsOptions_SetReconnectedCB(opts, onReconnected, NULL);
+    if (s == NATS_OK)
+        s = natsOptions_SetDiscoveredServersCB(opts, onDiscoveredServers, NULL);
+    if (s == NATS_OK)
+        s = natsOptions_SetLameDuckModeCB(opts, onLameDuck, NULL);
+    if (s == NATS_OK)
+        s = natsOptions_SetClosedCB(opts, onClosed, NULL);
+
+    if (s == NATS_OK)
+        s = natsConnection_Connect(&amp;conn, opts);
+
+    // Restart a server in the pool and watch the events print.
+    if (s == NATS_OK)
+    {
+        printf("connected, restart a server to see the events\n");
+        while (!natsConnection_IsClosed(conn))
+            nats_Sleep(100);
+    }</code></pre></div></div>
+<h2 id="disconnected-versus-closed">Disconnected versus closed</h2>
+<p>One branch in that event stream changes what your application does; the
+rest is logging. The branch is disconnected versus closed.</p>
+<p>A disconnect is recoverable. The client is in RECONNECTING, cycling the
+pool with backoff, and everything on the last page exists to get it back
+to CONNECTED without your help. The right reaction is to log the event,
+count it in a metric, and let the reconnect loop work.</p>
+<p>Closed is final. The client has stopped trying: no further events
+arrive, no publish succeeds, and nothing inside the client will change
+that. A service holding a CLOSED connection is broken until something
+outside the client acts — usually the process exits and a supervisor
+restarts it, or an alert reaches an operator.</p>
+<p>The <strong>closed observer</strong> is whatever your client gives you to catch that
+final transition: the <code>ClosedHandler</code> option in Go, <code>closed_cb</code> in
+Python, the <code>CLOSED</code> event on Java's listener — its documentation calls
+the state "permanently closed, either by manual action or failed
+reconnects" — and <code>Event::Closed</code> in Rust. JavaScript adds a second
+form: <code>nc.closed()</code> returns a promise that resolves when the client
+closes, and resolves <em>to</em> the error if one caused the close (it never
+rejects), so a <code>main</code> function can end by awaiting it. In C# you watch
+the <code>ConnectionState</code> property instead.</p>
+<p>Reconnection set <code>MaxReconnect</code> to <code>-1</code>, so for <code>order-svc</code> the
+retries-spent edge never fires. CLOSED still happens: when the
+application calls <code>Close()</code> or finishes a drain (next page), and on
+errors where the client decides retrying can't help — in Go, for
+example, receiving the same authentication error twice aborts
+reconnecting regardless of the reconnect policy, unless you opt out with
+<code>IgnoreAuthErrorAbort</code>. Credentials themselves are
+<a href="/learn/resilient-clients/tls-and-auth">TLS &amp; Auth</a>'s topic; here it's
+enough that CLOSED can arrive even when retries are unlimited.</p>
+<p>So the routing for <code>order-svc</code> is: disconnect, reconnect, reconnect
+error, discovered servers, lame duck — log them. Closed — exit or alert.</p>
+<h2 id="polling-the-connection-state">Polling the connection state</h2>
+<p>Events push transitions to you. <strong>Status polling</strong> is the pull side:
+asking the connection where it is right now. Every client exposes it,
+under different names:</p>
+<ul>
+<li>Go: <code>Status()</code> returns one of <code>DISCONNECTED</code>, <code>CONNECTED</code>, <code>CLOSED</code>,
+<code>RECONNECTING</code>, <code>CONNECTING</code>, <code>DRAINING_SUBS</code>, <code>DRAINING_PUBS</code> (the
+two draining states belong to the next page); <code>IsConnected()</code>,
+<code>IsReconnecting()</code>, and <code>IsClosed()</code> answer the common questions
+directly.</li>
+<li>Python: the <code>is_connected</code>, <code>is_reconnecting</code>, <code>is_closed</code>, and
+<code>is_draining</code> properties.</li>
+<li>Java: <code>getStatus()</code> returns <code>DISCONNECTED</code>, <code>CONNECTED</code>, <code>CLOSED</code>,
+<code>RECONNECTING</code>, or <code>CONNECTING</code>.</li>
+<li>Rust: <code>connection_state()</code> returns <code>State::Pending</code>, <code>Connected</code>, or
+<code>Disconnected</code>.</li>
+<li>C#: the <code>ConnectionState</code> property returns <code>Closed</code>, <code>Open</code>,
+<code>Connecting</code>, <code>Reconnecting</code>, or <code>Failed</code>.</li>
+<li>JavaScript: there's no state getter beyond <code>isClosed()</code> and
+<code>isDraining()</code>; you track state from <code>status()</code> events, and
+<code>closed()</code> covers the terminal case.</li>
+</ul>
+<p>A poll is a snapshot, and a snapshot races the state machine: the answer
+can be stale by the time you branch on it. A check that reads
+<code>CONNECTED</code> and then publishes may publish into a connection that
+dropped in between — which is fine, because the reconnect buffer from
+the last page holds that publish. The mistake is using polls to <em>react</em>:
+code that polls for RECONNECTING to trigger recovery logic duplicates
+what the events already deliver, minus the ordering. Poll to report
+state; react through events.</p>
+<p>Go also offers the transitions as a channel: <code>StatusChanged()</code> returns
+one that receives status changes (by default <code>CONNECTED</code>,
+<code>RECONNECTING</code>, <code>DISCONNECTED</code>, <code>CLOSED</code>), for programs that prefer
+<code>select</code> loops over callbacks.</p>
+<h2 id="a-readiness-check-for-order-svc">A readiness check for order-svc</h2>
+<p>The two mechanisms combine into a health check. <code>order-svc</code> runs under a
+platform that probes it — a container orchestrator, a load balancer, a
+supervisor — and the connection state is exactly what the probe should
+reflect:</p>
+<ul>
+<li><strong>Ready</strong> while the connection is CONNECTED: the poll answers the
+probe.</li>
+<li><strong>Not ready</strong> while it's RECONNECTING: the platform routes new work
+elsewhere, the process stays up, and the reconnect loop keeps working.
+RECONNECTING heals on its own; killing the process over it throws away
+the reconnect buffer.</li>
+<li><strong>Dead</strong> on CLOSED: the closed observer exits the process, and the
+supervisor replaces it.</li>
+</ul>
+<p>The CLI's version of a health check probes from the outside. <code>nats server check connection</code> opens its own connection and measures the
+connect time, the server round-trip time, and a full publish/subscribe
+round trip, each against a warning and a critical threshold, then exits
+with the Nagios convention's code: 0 OK, 1 warning, 2 critical, 3
+unknown. <code>--format</code> switches the output between <code>nagios</code>, <code>json</code>,
+<code>prometheus</code>, and <code>text</code>. An external probe tells you the pool is
+reachable and fast — it can't read <em>your</em> process's connection state; the
+in-process check is a client-library call:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Probe the pool the way a monitoring system would.
+#
+# `nats server check connection` opens a fresh connection and measures
+# three things against warn/critical thresholds: how long the connect
+# took, the server round-trip time, and a full publish/subscribe round
+# trip. The exit code follows the Nagios convention — 0 OK, 1 warning,
+# 2 critical, 3 unknown — so the command slots into monitoring systems
+# and container health probes directly.
+#
+# The thresholds below are the defaults, written out to show the knobs.
+
+nats server check connection \
+  --server "nats://n1:4222,nats://n2:4222,nats://n3:4222" \
+  --connect-warn 500ms --connect-critical 1s \
+  --rtt-warn 500ms --rtt-critical 1s
+
+# For scripting, `--format=json` renders the same result as JSON with a
+# "status" field; `--format=prometheus` emits metrics and always exits 0.
+
+# A quick latency read without thresholds: `nats rtt` computes the
+# round-trip time to your servers, five round trips each by default.
+nats rtt</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The readiness probe answers from a status poll: ready on
+// CONNECTED, not ready while the reconnect loop works, dead on
+// CLOSED. Poll to report state; react through the events.
+switch (natsConnection_Status(conn))
+{
+    case NATS_CONN_STATUS_CONNECTED:
+    {
+        // Connected: add the round-trip time as a latency read,
+        // one PING/PONG to the server, timed.
+        int64_t rtt = 0;
+
+        if (natsConnection_GetRTT(conn, &amp;rtt) == NATS_OK)
+            printf("ready, rtt %dus\n", (int) (rtt / 1000));
+        break;
+    }
+    case NATS_CONN_STATUS_RECONNECTING:
+        // Heals on its own; report not ready so the platform
+        // routes new work elsewhere, and keep the process up.
+        printf("not ready: reconnecting\n");
+        break;
+    case NATS_CONN_STATUS_CLOSED:
+        // Terminal: the closed observer exits the process and
+        // the supervisor replaces it.
+        printf("dead: connection is closed\n");
+        break;
+    default:
+        printf("not ready\n");
+        break;
+}</code></pre></div></div>
+<h2 id="force-reconnect">Force reconnect</h2>
+<p>One control on this surface points the other way: instead of observing a
+transition, you cause one. A <strong>force reconnect</strong> drops the current
+connection on purpose and runs the normal reconnect path — same pool,
+same backoff, same events.</p>
+<p>The use case is rebalancing. A long-lived connection stays wherever it
+landed. After a rolling restart of <code>n1</code>/<code>n2</code>/<code>n3</code>, every client that
+failed over during the restart can end up on the one server that stayed
+up the longest, and nothing ever moves them back. A forced reconnect
+from some of the instances re-spreads the load.</p>
+<p>Support and semantics vary by client, so check yours:</p>
+<ul>
+<li>Go: <code>ForceReconnect()</code> starts the reconnect without waiting for it; if
+the client is already reconnecting, it forces an immediate attempt,
+skipping the current backoff delay.</li>
+<li>Java: <code>forceReconnect()</code> (plus an overload taking
+<code>ForceReconnectOptions</code>) closes the connection immediately and runs
+the reconnect logic.</li>
+<li>Python: <code>force_reconnect()</code> moves a currently connected client to
+RECONNECTING and dials another server in the pool; it does nothing if
+the client is closed, already reconnecting, or not connected.</li>
+<li>Rust: <code>force_reconnect()</code> on the client.</li>
+<li>C#: <code>ReconnectAsync()</code> forces the reconnection and returns without
+waiting for the new connection.</li>
+<li>JavaScript: <code>reconnect()</code>, documented as experimental; it rejects if
+the client is closed or draining, and has no effect if the client is
+already disconnected. Its companion <code>setServers()</code> replaces the server
+pool, and calling <code>reconnect()</code> afterwards moves the client onto the
+new pool immediately.</li>
+</ul>
+<p>Treat it as a real disconnect, because it is one: the same risks apply
+as for any disconnect — JavaScript's documentation, for one, warns that
+in-flight requests are rejected — and the gap is covered by the same
+reconnect buffer with the same limits. And don't fire it across a whole
+fleet at once: a synchronized mass reconnect is the load spike that
+reconnect jitter exists to prevent. Stagger it.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Three mistakes undo the observability this page adds. Each comes back to
+the two ideas: the event surface and status polling.</p>
+<p><strong>A status poll used as a trigger races the state machine.</strong> The poll
+answers "where is the connection now", and the answer expires
+immediately. Recovery logic gated on polling — a loop that checks for
+RECONNECTING, a publish guarded by <code>IsConnected()</code> — acts on stale state
+sooner or later, and re-implements what the event surface already
+delivers in order. Poll for dashboards, metrics, and readiness probes;
+react through the events.</p>
+<p><strong>No closed observer means permanent failure goes unnoticed.</strong> A
+service that wires only the disconnect and reconnect callbacks logs a
+disconnect, then nothing, forever: after CLOSED there are no more events
+to log, and the service sits with a dead connection while its process
+reports healthy. The closed event is the one that demands an action, and
+it's the one most often left unwired. Wire it everywhere, even with
+unlimited retries — a <code>Close()</code> on an error path or an authentication
+failure can still get you to CLOSED:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# React to CLOSED: exit so the supervisor restarts the process.
+#
+# The CLI already does what this page teaches. Its closed handler logs
+# "&gt;&gt;&gt; Connection is closed: &lt;last error&gt;" and terminates the process,
+# while its disconnect handler only logs and leaves the recovery to the
+# reconnect loop (the CLI sets its own MaxReconnects to -1, unlimited).
+# You can't wire your own handler via flags; in a client library you wire the
+# real pattern — a closed observer that exits or alerts.
+#
+# Run the subscriber, then close its connection from the server side to
+# see the closed line and the exit.
+
+nats sub "orders.&gt;" \
+  --server "nats://n1:4222,nats://n2:4222,nats://n3:4222" \
+  --connection-name warehouse</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The closed observer: the last event the connection delivers. After
+// this fires nothing inside the client recovers, so the reaction is to
+// exit and let the supervisor restart the process, or raise an alert.
+static void
+onClosed(natsConnection *nc, void *closure)
+{
+    const char *err = NULL;
+
+    natsConnection_GetLastError(nc, &amp;err);
+    printf("connection closed: %s -- exiting for the supervisor\n",
+           (err == NULL) ? "no error" : err);
+}
+    // Wire it even with unlimited reconnects: a Close() on an error
+    // path or a repeated authentication failure still reaches CLOSED.
+    if (s == NATS_OK)
+        s = natsOptions_SetClosedCB(opts, onClosed, NULL);
+
+    if (s == NATS_OK)
+        s = natsConnection_Connect(&amp;conn, opts);
+
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "orders.&gt;", onMsg, NULL);
+
+    // Block until the terminal transition, then exit non-zero.
+    if (s == NATS_OK)
+    {
+        while (!natsConnection_IsClosed(conn))
+            nats_Sleep(100);
+    }</code></pre></div></div>
+<p><strong>Connection events and async errors are different signals.</strong> The events
+on this page report state transitions of the connection. The async error
+callback — Go's <code>ErrorHandler</code>, Python's <code>error_cb</code>, Java's
+<code>ErrorListener</code> — reports problems that happen <em>while the connection
+stays CONNECTED</em>, such as a subscription falling behind (that signal is
+<a href="/learn/resilient-clients/slow-consumers">Slow Consumers</a>' topic). In
+JavaScript and Rust one stream carries both kinds, distinguished by
+type. Folding them into one "connection problems" metric muddles
+diagnosis: rising disconnects point at the network or the servers,
+rising async errors point at your application. Count them separately.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The connection state machine that Reconnection built is now observable
+from the outside. You have:</p>
+<ul>
+<li>the full event surface named and routed: disconnect, reconnect,
+reconnect error, discovered servers, and lame duck are logged; closed
+triggers an exit or an alert</li>
+<li>a closed observer on every long-lived service, so a permanent failure
+is acted on instead of silently absorbed</li>
+<li>status polling wired to the readiness probe — ready on CONNECTED, not
+ready on RECONNECTING, dead on CLOSED — and events, not polls, driving
+reactions</li>
+<li>force reconnect, where your client offers it, for deliberately
+rebalancing long-lived connections after cluster changes</li>
+</ul>
+<p>Every transition so far happened <em>to</em> the connection; this page made
+them visible. The one transition you haven't driven deliberately is the
+exit: shutting the connection down cleanly.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The next mechanism is <strong>drain and shutdown</strong>: telling the connection to
+finish its in-flight work — deliver buffered messages, flush pending
+publishes — and only then close, so a deploy or a SIGTERM never loses
+work. That page also covers the lame-duck event from this page's list in
+working context.</p>
+<p>Continue to <a href="/learn/resilient-clients/drain-and-shutdown">Drain &amp; Shutdown</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/resilient-clients/reconnection">Reconnection</a> — the
+disconnect/reconnect loop these events report on.</li>
+<li><a href="/learn/monitoring">Monitoring</a> — the server's view of your
+connections, from the outside.</li>
+<li><a href="/reference/">Reference</a> — the wire protocol and server configuration; the
+event and status APIs for each client live in its API reference.</li>
+</ul></main>

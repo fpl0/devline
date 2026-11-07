@@ -1,0 +1,35 @@
+<main>
+		
+		<h1>Installation</h1>
+		<div>
+	Mailpit listens by default on port <code>8025</code> for the web UI, and port <code>1025</code> for SMTP.
+</div>
+
+<p>Mailpit runs as a single binary and can be installed in different ways:</p>
+<h2 id="install-via-package-managers">Install via package managers</h2>
+<ul>
+<li><strong>Mac</strong>: <code>brew install mailpit</code> (to run automatically in the background: <code>brew services start mailpit</code>)</li>
+<li><strong>Arch Linux</strong>: available in the AUR as <code>mailpit</code></li>
+<li><strong>FreeBSD</strong>: <code>pkg install mailpit</code></li>
+</ul>
+<h2 id="install-via-script-linux--mac">Install via script (Linux &amp; Mac)</h2>
+<p>Linux &amp; Mac users can install it directly to <code>/usr/local/bin/mailpit</code> with:</p>
+<div><pre><code class="language-shell"><span><span>sudo sh &lt; &lt;<span>(</span>curl -sL https://raw.githubusercontent.com/axllent/mailpit/develop/install.sh<span>)</span>
+</span></span></code></pre></div><p>If you wish to change the install path to something else, you can set the <code>INSTALL_PATH</code> environment variable, for example:</p>
+<div><pre><code class="language-shell"><span><span>sudo <span>INSTALL_PATH</span><span>=</span>/usr/bin sh &lt; &lt;<span>(</span>curl -sL https://raw.githubusercontent.com/axllent/mailpit/develop/install.sh<span>)</span>
+</span></span></code></pre></div><p>If you need to use a Github token you can set the <code>GITHUB_TOKEN</code> environment variable:</p>
+<div><pre><code class="language-shell"><span><span>sudo <span>GITHUB_TOKEN</span><span>=</span><span>"your_token_here"</span> sh &lt; &lt;<span>(</span>curl -sL https://raw.githubusercontent.com/axllent/mailpit/develop/install.sh<span>)</span>
+</span></span></code></pre></div><h2 id="download-static-binary-windows-linux-and-mac">Download static binary (Windows, Linux, and Mac)</h2>
+<p>Static binaries can always be found on the <a href="https://github.com/axllent/mailpit/releases/latest">releases</a> page. The <code>mailpit</code> binary can be extracted and copied to your <code>$PATH</code>, or simply run as <code>./mailpit</code>.</p>
+<h2 id="docker">Docker</h2>
+<p>See <a href="./docker/">Docker instructions</a> for 386, amd64, and arm64 images.</p>
+<h2 id="compile-from-source">Compile from source</h2>
+<p>To build Mailpit from source, see <a href="./source/">building from source</a>.</p>
+<h2 id="running-mailpit-automatically-on-your-system">Running Mailpit automatically on your system</h2>
+<p>Please refer to the <a href="./systemd/">systemd integration</a> page for more information.</p>
+
+
+		
+		
+		
+	</main>

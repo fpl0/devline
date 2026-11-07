@@ -1,0 +1,323 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak can be deployed in a number of high-availability architectures, allowing system administrators to pick the deployment type most suitable
+for their needs. Ease of deployment, cost and fault-tolerance guarantees are important considerations when determining the correct architecture
+for your deployments.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_architectures"><a class="anchor" href="#_architectures"></a>Architectures</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak provides capabilities that can be used as building blocks for highly available deployments. This guide describes those capabilities, their configuration requirements, expected product behavior, and important trade-offs.</p>
+</div>
+<div class="paragraph">
+<p>High availability depends on components outside Keycloak, including the database, networking, load balancing, compute/platform infrastructure, and operational failover procedures.
+Keycloak itself must be deployed on a platform, JVM and database covered by the <a href="https://www.keycloak.org/server/supported-configurations">Supported Configurations</a>.</p>
+</div>
+<div class="paragraph">
+<p>Deployers are responsible for designing, validating, and operating their end-to-end HA architecture and for verifying that it meets their required availability, RTO, and RPO objectives.</p>
+</div>
+<div class="sect2">
+<h3 id="_single_cluster_deployments"><a class="anchor" href="#_single_cluster_deployments"></a>Single-cluster deployments</h3>
+<div class="paragraph">
+<p>Deploy Keycloak in a single cluster, optionally across multiple availability-zones or data centers with the required
+network latency and database configuration, using <a href="https://www.keycloak.org/high-availability/single-cluster/introduction">Single-cluster deployments</a>.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Advantages</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>No external dependencies</p>
+</li>
+<li>
+<p>Deployment in a single Kubernetes cluster or a set of virtual machines with transparent networking</p>
+</li>
+<li>
+<p>Tolerate availability-zone failure or data center failure, if deployed to multiple availability zones or data centers</p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Disadvantages</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Kubernetes cluster is a single point of failure:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Control-plane failures could impact all Keycloak pods</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_multi_cluster_deployments_v2"><a class="anchor" href="#_multi_cluster_deployments_v2"></a>Multi-cluster deployments (v2)</h3>
+<div class="paragraph">
+<p>Connect two or more Keycloak clusters without an external Infinispan cluster using <a href="https://www.keycloak.org/high-availability/multi-cluster-v2/introduction">Multi-cluster deployments (v2)</a>.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Advantages</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Tolerate availability-zone failure</p>
+</li>
+<li>
+<p>Tolerate cluster failure</p>
+</li>
+<li>
+<p>Simpler architecture: no external Infinispan cluster required</p>
+</li>
+<li>
+<p>No requirement for a specific environment such as Kubernetes or AWS</p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Disadvantages</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Complexity:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>External load-balancer required</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Cost:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Additional load-balancer required</p>
+</li>
+<li>
+<p>Two or more independent deployment environments must be operated. On Kubernetes, this normally means multiple Kubernetes clusters/control planes.</p>
+</li>
+<li>
+<p>Higher database load as session data is stored in the database and less data is cached. You might see approximately twice the CPU usage and write IOPS on your database, though your results might vary based on your use case.</p>
+</li>
+</ul>
+</div>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_multi_cluster_deployments_v1_deprecated"><a class="anchor" href="#_multi_cluster_deployments_v1_deprecated"></a>Multi-cluster deployments (v1) — deprecated</h3>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+Multi-cluster v1 (the <code>multi-site</code> feature) is deprecated and will be removed in a future release. Use <a href="https://www.keycloak.org/high-availability/multi-cluster-v2/introduction">Multi-cluster deployments (v2)</a> instead. See <a href="https://www.keycloak.org/high-availability/multi-cluster-v2/migrate-from-v1-to-v2">Migrating from multi-cluster v1 to v2</a> for migration instructions.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Connect two Keycloak clusters deployed for example in different Kubernetes clusters in two availability zones
+or data centers with the required network latency and database configuration using <a href="https://www.keycloak.org/high-availability/multi-cluster/introduction">Multi-cluster deployments (v1)</a>.</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1">Advantages</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Tolerate availability-zone failure</p>
+</li>
+<li>
+<p>Tolerate Kubernetes cluster failure</p>
+</li>
+<li>
+<p>Bridge two networks that do not offer transparent networking</p>
+</li>
+<li>
+<p>Regulatory compliance when distinct deployments are required</p>
+</li>
+</ul>
+</div>
+</dd>
+<dt class="hdlist1">Disadvantages</dt>
+<dd>
+<div class="ulist">
+<ul>
+<li>
+<p>Complexity:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>External load-balancer required</p>
+</li>
+<li>
+<p>Separate Infinispan cluster required on each site</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Cost:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Additional load-balancer required</p>
+</li>
+<li>
+<p>Additional compute is required for external Infinispan clusters</p>
+</li>
+<li>
+<p>Two Kubernetes control-planes must be provisioned</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Not supported with three or more availability zones</p>
+</li>
+</ul>
+</div>
+</dd>
+</dl>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_choose_your_topology"><a class="anchor" href="#_choose_your_topology"></a>Choose your topology</h3>
+<div class="paragraph">
+<p>Use the following comparison to decide between a single-cluster and a multi-cluster (v2) setup.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+Multi-cluster (v1) is deprecated and will be removed in a future major release stream of Keycloak.
+</td>
+</tr>
+</table>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;"/>
+<col style="width: 33.3333%;"/>
+<col style="width: 33.3334%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"></th>
+<th class="tableblock halign-left valign-top">Single cluster</th>
+<th class="tableblock halign-left valign-top">Multi-cluster (v2) / Stateless</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Keycloak topology</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">One Keycloak cluster</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2+ independent Keycloak clusters</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Typical use</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">One platform/network, optionally stretched across availability zones or data centers.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Independent sites/clusters requiring site-level isolation</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>User session state</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Database</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Database</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Authentication sessions and tokens</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">In-Memory</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Database</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Networking</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Transparent between Keycloak members</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No transparent network required between sites</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>Database</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Synchronously replicated DB</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Synchronously replicated DB</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><strong>External LB</strong></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Depends on deployment; usually included in an Kubernetes platform.</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Required</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>A site is a failure domain such as an availability zone or data center.</p>
+</li>
+<li>
+<p>A Keycloak cluster is a set of instances that communicate with each other locally in the same site. An Kubernetes cluster is the underlying platform cluster. These terms are not interchangeable.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_next_steps"><a class="anchor" href="#_next_steps"></a>Next Steps</h3>
+<div class="paragraph">
+<p>To learn more about the different high-availability architectures and their supported configurations, please consult the individual guides.</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/single-cluster/introduction">Single-cluster deployments</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/multi-cluster/introduction">Multi-cluster deployments (v1)</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/multi-cluster-v2/introduction">Multi-cluster deployments (v2)</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div> </div>
+</main>

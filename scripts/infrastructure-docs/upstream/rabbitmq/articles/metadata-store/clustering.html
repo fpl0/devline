@@ -1,0 +1,61 @@
+<main><header><h1>Clustering and Khepri</h1></header>
+<p>When RabbitMQ nodes are <a href="/docs/4.3/clustering">clustered</a>, Khepri replicates
+their metadata and tracks cluster membership.</p>
+<figure><figcaption>Clustering RabbitMQ happens at the metadata store
+level</figcaption></figure>
+<h2 id="ways-of-forming-a-cluster">Ways of Forming a Cluster</h2>
+<p>With Khepri, a cluster can be formed using the regular methods:</p>
+<ul>
+<li>using a <a href="/docs/4.3/cluster-formation">peer discovery mechanism</a> (highly recommended for deployment automation)</li>
+<li>manually using <a href="/docs/4.3/cli">CLI tools</a> (most suitable for development and test environments)</li>
+</ul>
+<p>See the <a href="/docs/4.3/clustering">clustering guide</a> for a complete description.</p>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>When forming a cluster using CLI tools, note that
+starting with RabbitMQ 4.1.0, nodes no longer need to be stopped and reset
+before joining another node.</p><p><code>rabbitmqctl join_cluster</code> performs the necessary preparations.</p></div></div>
+<p>Here is an example using the CLI:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl join_cluster rabbit@remote-host</code></pre></div></div>
+<h2 id="removing-a-node-from-a-cluster">Removing a Node from a Cluster</h2>
+<p>Just like with cluster formation, the regular methods can be used to remove a
+node from a cluster.</p>
+<p>Here is an example that use CLI tools:</p>
+<div><div><pre><code class="language-bash"># Stop RabbitMQ without stopping the runtime (its OS process).
+rabbitmqctl stop_app
+
+# Reset it.
+rabbitmqctl reset
+
+# Restart the node as a blank one.
+rabbitmqctl start_app</code></pre></div></div>
+<h2 id="caveats">Caveats</h2>
+<p>Because of the use of the Raft consensus algorithm, all operations that
+involve an update to the metadata store — and sometimes even queries — require
+that a quorum number of nodes are available.</p>
+<figure><figcaption>A quorum is required for store updates and cluster
+changes</figcaption></figure>
+<p>This is true for Khepri as much as other Raft-based features, namely <a href="/docs/4.3/quorum-queues">quorum
+queues</a> and <a href="/docs/4.3/streams">streams</a>.</p>
+<h3 id="restarting-a-cluster-member">Restarting a Cluster Member</h3>
+<p>When a cluster member is restarted or stopped, the remaining nodes may lose
+their quorum. This may affect the ability to start a node.</p>
+<p>For example, in a cluster of 5 nodes where all nodes are stopped, the first
+two starting nodes will wait for the third node to start before completing
+their boot and start to serve messages. That’s because the metadata store
+needs at least 3 nodes in this example to elect a leader and complete the
+initialization process. In the meantime the first two nodes wait and may time
+out if the third one does not appear.</p>
+<h3 id="adding-or-removing-a-cluster-member">Adding or Removing a Cluster Member</h3>
+<p>Likewise, there must be a Raft leader and thus a quorum number of nodes to
+validate and commit any change to the cluster membership, whether a member is
+added or removed. Again, the operation will time out if that condition is not
+met.</p>
+<p>Here is an example of a node joining a 4-node cluster with 3 stopped nodes:</p>
+<h4>bash</h4><div><div><pre><code class="language-bash">rabbitmqctl -n rabbit@host-5 join_cluster rabbit@host-4
+
+# =&gt; Error:
+# =&gt; Khepri has timed out on node rabbit@host-5.
+# =&gt; Khepri cluster could be in minority.</code></pre></div></div><h4>PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqctl.bat -n rabbit@host-5 join_cluster rabbit@host-4
+
+# =&gt; Error:
+# =&gt; Khepri has timed out on node rabbit@host-5.
+# =&gt; Khepri cluster could be in minority.</code></pre></div></div></main>

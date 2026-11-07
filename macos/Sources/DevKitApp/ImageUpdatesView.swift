@@ -64,6 +64,7 @@ struct ImageUpdatesView: View {
             }.font(.caption).foregroundStyle(.secondary).padding(16)
         }.task { await load(online: false) }
             .onChange(of: model.jobs.filter { !$0.isActive }.map(\.id)) { _, _ in Task { await load(online: false) } }
+            .onChange(of: model.libraryRevision) { _, _ in Task { await load(online: false) } }
     }
     private func load(online: Bool) async {
         guard !checking else { return }

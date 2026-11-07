@@ -1,0 +1,396 @@
+<main><header><h1>Rolling upgrades</h1></header>
+<p>The previous page changed the cluster's config without dropping a
+connection. A new server <em>version</em> is a harder problem, because the
+binary itself has to change, which means the process has to restart. If
+a restart is done carelessly, it drops every client on that node and can
+leave the <code>ORDERS</code> stream a node short of quorum.</p>
+<p>This page rolls a new version through <code>nats-0</code>, <code>nats-1</code>, and <code>nats-2</code>
+one node at a time, with the cluster staying up the whole way. It needs
+two ideas: <strong>lame-duck mode</strong>, the graceful way a single node steps out,
+and <strong>upgrade order</strong>, the sequence across the three nodes that protects
+the stream.</p>
+<h2 id="lame-duck-mode">Lame-duck mode</h2>
+<p>A node restart is abrupt. The process stops, and every client connected
+to it discovers the loss only when its next write fails. Any stream
+replica that node was leading goes leaderless until the cluster elects a
+replacement.</p>
+<p>Lame-duck mode makes that stop orderly instead of abrupt. A node in
+lame-duck mode broadcasts that it is going away, hands off its work,
+and lets clients move <em>before</em> the process exits. The mechanism is
+specified in the server's ADR-5; here you only need what the operator
+triggers and what it does.</p>
+<p>You enter lame-duck mode by sending the running process the <code>SIGUSR2</code>
+signal:</p>
+<div><div><pre><code class="language-bash"># Signal nats-0 to enter lame-duck mode (run on the node, or via the pod)
+kill -SIGUSR2 $(cat /var/run/nats/nats.pid)</code></pre></div></div>
+<p>That one signal kicks off a sequence inside the node:</p>
+<ol>
+<li>It closes its client listener, so no <em>new</em> connection lands on a node
+that's on its way out.</li>
+<li>It transfers any Raft leadership it holds to another replica, so no
+stream is left leaderless.</li>
+<li>It shuts down its JetStream assets cleanly, flushing to disk.</li>
+<li>It broadcasts <code>INFO ldm:true</code> to its routes and its connected clients.
+The update drops this node from each client's server pool, so the next
+reconnect lands elsewhere; the client takes no other action on the INFO
+itself.</li>
+<li>After a short grace period it closes the remaining client connections,
+spread over the lame-duck duration rather than all at once. Each client
+sees its connection close and reconnects to another node through its
+normal reconnect logic.</li>
+</ol>
+<p>Only after that does the process exit. By then leadership has transferred
+and the clients have moved off as their connections closed, so the stream
+never lost a quorum.</p>
+<p>Two settings control the timing. <code>lame_duck_grace_period</code> (default
+<code>10s</code>) is how long the node waits before it starts kicking clients.
+<code>lame_duck_duration</code> (default <code>2m</code>, minimum <code>30s</code>) is the total window
+over which it spreads those kicks. The grace period must be shorter than
+the duration.</p>
+<div><div><pre><code class="language-conf"># nats-server.conf — lame-duck timing
+lame_duck_grace_period: "10s"
+lame_duck_duration: "2m"</code></pre></div></div>
+<p>Set the duration to comfortably cover how long your clients take to
+reconnect <em>and</em> how long JetStream needs to move leadership off this
+node. A duration shorter than the rebalance drops clients before the
+stream has caught up. We'll come back to that trap in
+<a href="#pitfalls">Pitfalls</a>.</p>
+<p>On Kubernetes you don't send the signal by hand. The NATS Helm chart
+wires lame-duck mode into the pod's <code>preStop</code> hook, so a normal
+<code>kubectl rollout restart</code> triggers it for you:</p>
+<div><div><pre><code class="language-yaml"># Pod preStop hook (set by the NATS Helm chart) — enter lame-duck before exit
+lifecycle:
+  preStop:
+    exec:
+      command:
+        - "nats-server"
+        - "-sl=ldm=/var/run/nats/nats.pid"</code></pre></div></div>
+<p>The <code>-sl=ldm=...</code> form reads the pid file, signals the running server to
+enter lame-duck mode, and returns — identical to the <code>SIGUSR2</code> you sent
+above. Kubernetes then sends SIGTERM, which the server ignores while it's
+draining, so the drain is protected only by
+<code>terminationGracePeriodSeconds</code>: when that expires the kubelet sends
+SIGKILL. The chart defaults <code>lame_duck_duration</code> to <code>30s</code> and
+<code>terminationGracePeriodSeconds</code> to <code>60s</code>. If you raise the duration, raise
+the grace period above <code>lame_duck_duration</code> plus shutdown overhead too, or
+the kubelet SIGKILLs the node mid-drain.</p>
+<h2 id="upgrade-order">Upgrade order</h2>
+<p>Lame-duck mode makes <em>one</em> node leave gracefully. Rolling a new version
+across all three depends on the <em>order</em> you take them in, and that order
+follows a specific rule.</p>
+<p>One node in the cluster is the <strong>meta-leader</strong>: the Raft leader for the
+cluster's own metadata, the node that coordinates where streams and
+consumers live. The other two are non-leaders. Stepping the meta-leader
+down forces a metadata election, and while that election runs, stream and
+consumer <em>operations</em> (create, update, leadership moves) pause until a new
+leader wins — typically about 5 to 10 seconds with default timeouts if the
+node was killed outright, or roughly a second if it handed leadership off
+first.</p>
+<p>So the rule is: <strong>upgrade the non-leaders first, and the meta-leader
+last.</strong> By the time you reach the meta-leader, the other two nodes are
+already on the new version and ready to take over, so the one unavoidable
+metadata election is short and happens once.</p>
+<p>Before you start, read the cluster's current shape and confirm the stream
+is at full R3:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Read the R3 ORDERS stream's replicas and current leader.
+# Run this BEFORE you start the upgrade, and again AFTER each node rejoins,
+# to confirm the stream stayed at 3 replicas and the leader moved as expected.
+nats stream info ORDERS \
+  --server tls://nats.acme.internal:4222 \
+  --creds /etc/nats/creds/order-svc.creds
+
+# Look for the Cluster section in the output:
+#   Replicas: 3                        the R3 ORDERS stream has 3 copies
+#   Leader:   nats-1                    the node currently coordinating writes
+#   Replica:  nats-0, current, ...      a healthy follower, caught up
+#   Replica:  nats-2, current, ...      a healthy follower, caught up
+#
+# Upgrade rule: every replica must read "current" before you take the next
+# node down. A replica that lags ("outdated") is still catching up, so
+# pausing on it keeps the stream at full R3 the whole way through.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the R3 ORDERS stream's replicas and current leader. Run
+// this BEFORE you start the upgrade, and again AFTER each node
+// rejoins, to confirm the stream stayed at 3 replicas and the
+// leader moved as expected.
+if (s == NATS_OK)
+    s = js_GetStreamInfo(&amp;si, js, "ORDERS", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    printf("replicas: %" PRId64 "\n", si-&gt;Config-&gt;Replicas);
+    if (si-&gt;Cluster != NULL)
+    {
+        printf("leader:   %s\n", si-&gt;Cluster-&gt;Leader);
+        for (i = 0; i &lt; si-&gt;Cluster-&gt;ReplicasLen; i++)
+        {
+            jsPeerInfo *peer = si-&gt;Cluster-&gt;Replicas[i];
+
+            // Upgrade rule: every replica must read "current"
+            // before you take the next node down. A lagging
+            // replica is still catching up, so pausing on it
+            // keeps the stream at full R3 the whole way through.
+            printf("replica:  %s, %s, lag %" PRIu64 "\n",
+                   peer-&gt;Name,
+                   peer-&gt;Current ? "current" : "outdated",
+                   peer-&gt;Lag);
+        }
+    }
+}</code></pre></div></div>
+<p>That output shows the <code>ORDERS</code> stream's own Raft leader and each replica's
+status — the per-node "current" gate you'll use between steps. The
+<strong>meta-leader</strong> is a separate Raft group and may sit on a different node;
+find it with <code>nats server report jetstream</code>, which marks the node leading
+the cluster's metadata:</p>
+<div><div><pre><code class="language-bash">nats server report jetstream</code></pre></div></div>
+<p>The walkthrough below assumes <code>nats-1</code> is the meta-leader. The procedure
+for each node is the same three steps:</p>
+<div><div><pre><code class="language-bash"># For each NON-leader node (nats-0, then nats-2):
+# 1. Enter lame-duck mode and let it drain.
+kill -SIGUSR2 $(cat /var/run/nats/nats.pid)   # on nats-0
+
+# 2. Restart the process on the new server version.
+systemctl restart nats-server                  # picks up the new binary
+
+# 3. Wait until the stream reports this node as a "current" replica again
+#    before moving to the next node — re-run nats stream info ORDERS.</code></pre></div></div>
+<p>Step 3 is the gate that controls when you proceed. A restarted node isn't
+done until its <code>ORDERS</code> replica has caught up, because taking the next node
+down while this one is still syncing leaves the stream one healthy replica
+short.</p>
+<p>Take the meta-leader (<code>nats-1</code>) <strong>last</strong>, with the same three steps. When
+it enters lame-duck mode it transfers metadata leadership to one of the
+two already-upgraded nodes, the brief election runs once, and the whole
+cluster is on the new version.</p>
+<p>There's one more guardrail on Kubernetes. A <code>PodDisruptionBudget</code> (PDB)
+caps how many pods may be down at once. With <code>minAvailable: 2</code>, Kubernetes
+won't voluntarily evict two of the three pods together, so a node drain
+can never cost the R3 stream its quorum:</p>
+<div><div><pre><code class="language-yaml"># pod-disruption-budget.yaml — never let the cluster drop below 2 nodes
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: nats
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nats</code></pre></div></div>
+<p>The flow below shows the whole sequence for one node: the signal, the
+<code>INFO ldm:true</code> broadcast, the leadership transfer, the client reconnect,
+and the rejoin on the new version.</p>
+<div></div>
+<p>The two keys this page touches, <code>lame_duck_duration</code> and
+<code>lame_duck_grace_period</code>, are the only ones you must set for a safe roll.
+The full set of server configuration options is documented in
+<a href="/reference/config">Reference → Configuration</a>. We only cover the keys
+this deployment needs here.</p>
+<h2 id="permanently-replacing-a-node">Permanently replacing a node</h2>
+<p>A rolling upgrade takes each node down and brings the same node back, so
+its stream replicas are still assigned to it and catch up when it returns.
+That's why the three steps above never move any data.</p>
+<p>Retiring a node is a different job. If <code>nats-2</code> is leaving the cluster for
+good — smaller cluster, a replacement instance, hardware going away — its
+replicas have to live somewhere else before you stop it. From NATS 2.15 one
+command moves them all:</p>
+<div><div><pre><code class="language-bash">nats server cluster evacuate nats-2</code></pre></div></div>
+<p>Every stream and consumer assigned to <code>nats-2</code> keeps its replica count and
+gets a replacement peer that qualifies under its placement — where one
+exists. Replacement is best effort: the command's job is to clear the node,
+so an asset with nowhere to go moves off <code>nats-2</code> anyway and runs
+under-replicated until a qualifying server appears. On a three-node cluster
+an <code>R=3</code> stream has nowhere to put its third replica once <code>nats-2</code> leaves,
+so expect exactly that unless you add the replacement node first.</p>
+<p>Wait for the assets to report the new peers as <code>current</code>, and check the
+streams you care about are back at their replica count. Then stop the
+node, and only once it's down remove it from the meta group:</p>
+<div><div><pre><code class="language-bash"># On nats-2: shut the server down first.
+systemctl stop nats-server
+
+# Then, from anywhere with the system account:
+nats server cluster peer-remove nats-2</code></pre></div></div>
+<p>The order matters. A running server that gets peer-removed sees the
+removal, logs <code>JetStream being DISABLED, our server was removed from the cluster</code>, emits a <code>server_removed</code> advisory, and turns JetStream off on
+itself. You end up having taken JetStream down on a live node instead of
+retiring a stopped one, and you still have to stop it. Stop first, and the
+removal is just bookkeeping on a node that has already gone.</p>
+<p>Both are system-account commands. Don't reach for either during an ordinary
+version roll: evacuating a node you're about to restart copies every replica
+it holds to another server for nothing, and the PDB and lame-duck sequence
+above already keep the stream safe across a restart.
+<a href="/learn/clustering/desired-state">Desired state and evacuation</a> covers what
+the server records while those assets move, and how to roll it back.</p>
+<h2 id="client-reconnection-during-the-upgrade">Client reconnection during the upgrade</h2>
+<p>A node leaving in lame-duck mode requires no action from a correctly
+configured client. The <code>INFO ldm:true</code> broadcast tells the client the
+node is going away (and fires an optional lame-duck callback if the app
+registered one); the client keeps running on its existing connection, and
+because the node stops accepting new connections, no client dials it
+again.
+When the server later closes that connection during the staggered kick,
+the client's normal reconnect logic dials another node in the cluster,
+resubscribes, and resumes.</p>
+<p>You can watch this happen. Subscribe <code>warehouse</code> to <code>orders.created</code> in
+one terminal, publish an order from <code>order-svc</code> in another, and roll a
+node mid-stream. The subscriber logs a reconnect and keeps printing
+messages; the published order still lands in the <code>ORDERS</code> stream, because
+the two nodes still up hold a quorum:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Prove a client keeps working THROUGH a rolling upgrade.
+# Run these two commands in two terminals and leave them running while you
+# roll the nodes. The subscriber reconnects when its node enters lame-duck
+# mode, and the publisher's order still lands in the ORDERS stream.
+
+# Terminal 1 — warehouse subscribes to new orders and stays connected.
+nats sub "orders.created" \
+  --server tls://nats.acme.internal:4222 \
+  --creds /etc/nats/creds/order-svc.creds
+
+# Terminal 2 — order-svc publishes one order. It is captured by ORDERS and
+# delivered to the warehouse subscriber even if a node is mid-upgrade.
+nats pub orders.created \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' \
+  --server tls://nats.acme.internal:4222 \
+  --creds /etc/nats/creds/order-svc.creds
+
+# What you should see: when a node enters lame-duck mode the subscriber logs
+# a reconnect to another node, then keeps printing messages. No order is lost,
+# because the R3 ORDERS stream still has a quorum on the two nodes that are up.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Prove a client keeps working THROUGH a rolling upgrade. The
+// reconnect callback logs the moment the client's node enters
+// lame-duck mode and the connection moves to another node.
+if (s == NATS_OK)
+    s = natsOptions_SetReconnectedCB(opts, onReconnected, NULL);
+if (s == NATS_OK)
+    s = natsConnection_Connect(&amp;conn, opts);
+
+// warehouse subscribes to new orders and stays connected.
+if (s == NATS_OK)
+    s = natsConnection_Subscribe(&amp;sub, conn, "orders.created",
+                                 onMsg, NULL);
+
+// order-svc publishes one order. It is captured by ORDERS and
+// delivered to the warehouse subscriber even if a node is
+// mid-upgrade, because the R3 stream still has a quorum on the
+// two nodes that are up.
+if (s == NATS_OK)
+    s = natsConnection_PublishString(conn, "orders.created",
+            "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+            "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}");
+
+// Leave the subscriber running and roll a node: it logs a
+// reconnect and keeps printing messages. No order is lost.
+if (s == NATS_OK)
+{
+    printf("subscribed to orders.created, roll a node while I run\n");
+    while (natsConnection_Status(conn) != NATS_CONN_STATUS_CLOSED)
+        nats_Sleep(100);
+}</code></pre></div></div>
+<p>This is why the order and the timing matter: get them right and a
+version upgrade has no observable effect on <code>warehouse</code>, <code>notifications</code>,
+and <code>analytics</code>.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A few traps turn a clean rolling upgrade into an outage. All of them
+come back to this page's two ideas: lame-duck timing and upgrade order.</p>
+<p><strong>A <code>lame_duck_duration</code> shorter than the rebalance drops clients early.</strong>
+If you set the duration to <code>30s</code> but JetStream needs <code>45s</code> to move the
+<code>ORDERS</code> leadership and resync replicas off the node, the node kicks its
+clients and exits while the stream is still catching up. Measure how long
+a real drain takes on your cluster first, then set the duration above it
+with margin, rather than defaulting to the minimum value.</p>
+<p><strong>Upgrading the meta-leader without draining it stalls stream ops until a
+new leader is elected.</strong> Restart the meta-leader directly and the cluster
+has no metadata leader until the election timeout fires and a follower
+wins — about 5 to 10 seconds with default timeouts — and during that
+window every stream and consumer operation stalls. Draining it first
+transfers leadership in roughly a second instead. Always enter lame-duck
+mode so leadership transfers <em>before</em> the process stops, and always do the
+non-leaders first so the meta-leader's one election is short. Check which
+node leads before you touch anything, and re-check after each node, so
+you never take down two replicas at once:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Read the R3 ORDERS stream's replicas and current leader.
+# Run this BEFORE you start the upgrade, and again AFTER each node rejoins,
+# to confirm the stream stayed at 3 replicas and the leader moved as expected.
+nats stream info ORDERS \
+  --server tls://nats.acme.internal:4222 \
+  --creds /etc/nats/creds/order-svc.creds
+
+# Look for the Cluster section in the output:
+#   Replicas: 3                        the R3 ORDERS stream has 3 copies
+#   Leader:   nats-1                    the node currently coordinating writes
+#   Replica:  nats-0, current, ...      a healthy follower, caught up
+#   Replica:  nats-2, current, ...      a healthy follower, caught up
+#
+# Upgrade rule: every replica must read "current" before you take the next
+# node down. A replica that lags ("outdated") is still catching up, so
+# pausing on it keeps the stream at full R3 the whole way through.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the R3 ORDERS stream's replicas and current leader. Run
+// this BEFORE you start the upgrade, and again AFTER each node
+// rejoins, to confirm the stream stayed at 3 replicas and the
+// leader moved as expected.
+if (s == NATS_OK)
+    s = js_GetStreamInfo(&amp;si, js, "ORDERS", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    printf("replicas: %" PRId64 "\n", si-&gt;Config-&gt;Replicas);
+    if (si-&gt;Cluster != NULL)
+    {
+        printf("leader:   %s\n", si-&gt;Cluster-&gt;Leader);
+        for (i = 0; i &lt; si-&gt;Cluster-&gt;ReplicasLen; i++)
+        {
+            jsPeerInfo *peer = si-&gt;Cluster-&gt;Replicas[i];
+
+            // Upgrade rule: every replica must read "current"
+            // before you take the next node down. A lagging
+            // replica is still catching up, so pausing on it
+            // keeps the stream at full R3 the whole way through.
+            printf("replica:  %s, %s, lag %" PRIu64 "\n",
+                   peer-&gt;Name,
+                   peer-&gt;Current ? "current" : "outdated",
+                   peer-&gt;Lag);
+        }
+    }
+}</code></pre></div></div>
+<p><strong>Evicting pods without a PDB can drain all three at once.</strong> A node
+drain, a cluster autoscaler, or a careless <code>kubectl delete</code> can take two
+or three pods together if nothing stops it, and two nodes down costs the
+R3 stream its quorum. Set a <code>PodDisruptionBudget</code> with <code>minAvailable: 2</code>
+so Kubernetes refuses to voluntarily evict past one pod. Don't rely on
+doing the steps slowly by hand — make the budget enforce it.</p>
+<p><strong>A reconnect storm comes from abrupt kills, not from lame-duck.</strong> Clients
+take no action on the <code>INFO ldm:true</code> broadcast itself — lame-duck mode
+staggers the connection closes over the duration precisely so their
+reconnects spread out instead of arriving as one burst that could
+overwhelm the two nodes still up. The storm risk is what you get <em>without</em>
+that: killing a node outright, or setting a duration so short the spread
+collapses. Keep the duration comfortable, and roll one node at a time,
+finishing one and letting it rejoin before starting the next.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The <code>ORDERS</code> cluster can now take a new server version without losing the
+stream or dropping a client:</p>
+<ul>
+<li>Each node leaves through lame-duck mode: <code>SIGUSR2</code> (or the K8s
+<code>preStop</code> hook) makes it broadcast <code>INFO ldm:true</code>, transfer leadership,
+flush JetStream, and move clients before exiting.</li>
+<li>You roll the non-leaders first and the meta-leader last, gating on
+each node returning as a <code>current</code> replica.</li>
+<li>A <code>PodDisruptionBudget</code> of <code>minAvailable: 2</code> keeps the R3 stream's
+quorum safe even under involuntary eviction.</li>
+</ul>
+<p>Clients reconnect on their own, so <code>warehouse</code>, <code>notifications</code>, and
+<code>analytics</code> continue through the upgrade without code changes.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The cluster is sized, deployed, configurable, and upgradable. The last
+operational step is <strong>hardening</strong> it: TLS on every link, the <code>ACME</code>
+credentials mounted, a locked-down systemd unit, and the monitor port
+closed to the internet.</p>
+<p>Continue to <a href="/learn/deployment/hardening">Hardening</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/clustering/raft-and-leaders">Clustering → Raft and leaders</a> —
+how leadership transfer and re-election actually work underneath.</li>
+<li><a href="/learn/jetstream/surviving-node-loss">Surviving node loss</a> — why an R3
+stream survives one node leaving, and what a quorum buys you.</li>
+<li><a href="/learn/core-nats/connection-lifecycle">Core NATS → Connection lifecycle</a> —
+the client's side of lame-duck mode: what the notice means and how the
+client ends up on another node.</li>
+<li><a href="/learn/clustering/desired-state">Clustering → Desired state and evacuation</a> —
+moving a node's assets off it for good, and reading the move in flight.</li>
+</ul></main>

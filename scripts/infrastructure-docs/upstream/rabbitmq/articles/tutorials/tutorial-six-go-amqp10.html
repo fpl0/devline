@@ -1,0 +1,67 @@
+<main><header><h1>RabbitMQ tutorial - RPC</h1></header>
+<h2 id="rpc">RPC</h2>
+<h3 id="using-the-amqp-10-go-client">(using the AMQP 1.0 Go client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-five-go-amqp10">previous tutorial</a> we learned how to use
+topic exchanges to broadcast messages across a distributed system.</p>
+<p>In this tutorial we're going to do something completely different - we're going
+to implement a request/response pattern using RabbitMQ. This is useful when you
+need a remote procedure call between processes. We'll show how to make an RPC
+call using RabbitMQ.</p>
+<p>Our RPC system will consist of a client and a scalable RPC server. We won't be
+using JSON - instead we'll encode a function number and use that to decide what
+function to invoke on the RPC server.</p>
+<h2 id="remote-procedure-call-implementation">Remote procedure call implementation</h2>
+<p>If you look at the previous tutorials, each tutorial program was pretty
+self-contained and didn't depend on anything else. In this one we'll write two
+programs; a client that calls a remote function and a server that implements
+the remote functions.</p>
+<p><strong>RPC Server</strong></p>
+<p>The server exposes a function we can call - it computes Fibonacci numbers.</p>
+<div><div><pre><code class="language-bash">go run rpc_server.go
+# =&gt; [x] Awaiting RPC requests</code></pre></div></div>
+<p>The server handles requests from a queue named <code>rpc_queue</code>. See
+<a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/rpc_server.go">the full <code>rpc_server.go</code></a> for the implementation.</p>
+<p><strong>RPC Client</strong></p>
+<p>The client sends a request and waits for the response:</p>
+<div><div><pre><code class="language-bash">go run rpc_client.go 30
+# =&gt; [x] Requesting fib(30)
+# =&gt; [.] Got 832040</code></pre></div></div>
+<p>The client sends the request to the <code>rpc_queue</code>, and the server responds on a
+reply queue. See <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/rpc_client.go">the full <code>rpc_client.go</code></a>
+for the implementation.</p>
+<h2 id="design-pattern">Design pattern</h2>
+<p>The RPC pattern works like this:</p>
+<ol>
+<li>The client sends a request message with a <code>reply_to</code> address where it expects the response.</li>
+<li>The RPC worker (server) performs the work and sends the response to the <code>reply_to</code> queue.</li>
+<li>The client receives the response and processes it.</li>
+</ol>
+<p>The <code>rabbitmq-amqp-go-client</code> handles the message flow using the management
+API to declare queues and the consumer/publisher APIs to send/receive messages.</p>
+<h2 id="correlation-ids">Correlation IDs</h2>
+<p>In the implementation, each RPC request includes a correlation ID. This ID is
+echoed back in the response so the client can match requests with responses in
+case multiple RPC calls are in flight.</p>
+<h2 id="putting-it-all-together">Putting it all together</h2>
+<p>The full code examples are available at:</p>
+<ul>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/rpc_server.go"><code>rpc_server.go</code></a></li>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/rpc_client.go"><code>rpc_client.go</code></a></li>
+</ul>
+<p>To try this, start the RPC server:</p>
+<div><div><pre><code class="language-bash">go run rpc_server.go
+# =&gt; [x] Awaiting RPC requests</code></pre></div></div>
+<p>And in another terminal, call the RPC function:</p>
+<div><div><pre><code class="language-bash">go run rpc_client.go 10
+# =&gt; [x] Requesting fib(10)
+# =&gt; [.] Got 55</code></pre></div></div>
+<p>The RPC pattern demonstrates how RabbitMQ can be used for synchronous
+request/response communication in a distributed system, complementing the
+asynchronous patterns shown in earlier tutorials.</p>
+<p>Congratulations! We've covered the basics of RabbitMQ messaging patterns with AMQP 1.0. For more advanced topics, see the <a href="https://www.rabbitmq.com/docs/4.3/amqp">RabbitMQ documentation</a> and <a href="/client-libraries/amqp-client-libraries">AMQP 1.0 client libraries</a>.</p></main>

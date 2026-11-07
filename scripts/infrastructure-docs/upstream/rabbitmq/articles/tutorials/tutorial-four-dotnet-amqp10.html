@@ -1,0 +1,34 @@
+<main><header><h1>RabbitMQ tutorial - Routing</h1></header>
+<h2 id="routing">Routing</h2>
+<h3 id="using-the-amqp-10-net-client">(using the AMQP 1.0 .NET client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-three-dotnet-amqp10">previous tutorial</a> we used a <code>fanout</code> exchange. Here we use a <strong><code>direct</code></strong> exchange so consumers can subscribe to a subset of messages (for example by severity).</p>
+<h2 id="bindings">Bindings</h2>
+<!-- -->
+<!-- -->
+<p>The sample uses exchange <code>logs_direct</code>. The publisher sets the routing key when building the publisher:</p>
+<div><div><pre><code class="language-csharp">IPublisher publisher = await connection.PublisherBuilder().Exchange(exchangeName).Key(severity).BuildAsync();</code></pre></div></div>
+<p>The consumer declares an exclusive temporary queue and binds it once per severity from the command line:</p>
+<div><div><pre><code class="language-csharp">foreach (string severity in args)
+{
+    IBindingSpecification binding = management.Binding()
+        .SourceExchange(exchangeSpec)
+        .DestinationQueue(queueName)
+        .Key(severity);
+    await binding.BindAsync();
+}</code></pre></div></div>
+<p>The handler can read the effective routing key from message annotations (see <code>ReceiveLogsDirect/Program.cs</code>).</p>
+<h3 id="running">Running</h3>
+<div><div><pre><code class="language-bash">dotnet run --project ReceiveLogsDirect/ReceiveLogsDirect.csproj warning error
+dotnet run --project EmitLogDirect/EmitLogDirect.csproj warning "Run. Run. Or it will explode."</code></pre></div></div>
+<h3 id="source">Source</h3>
+<ul>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/EmitLogDirect/Program.cs"><code>EmitLogDirect/Program.cs</code></a></li>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/ReceiveLogsDirect/Program.cs"><code>ReceiveLogsDirect/Program.cs</code></a></li>
+</ul>
+<p>Now we can move on to <a href="/tutorials/tutorial-five-dotnet-amqp10">tutorial 5</a> to learn about pattern-based routing with topic exchanges.</p></main>

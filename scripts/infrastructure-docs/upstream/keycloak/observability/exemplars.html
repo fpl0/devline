@@ -1,0 +1,166 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>Metrics are aggregations over several events, and show you if your system is operating within defined bounds.
+They are great to monitor error rates or tail latencies and to set up alerting or drive performance optimizations.
+Still, the aggregation makes it difficult to find root causes for latencies or errors reported in metrics.</p>
+</div>
+<div class="paragraph">
+<p>Root causes for errors and latencies can be found by enabling tracing.
+To connect a metric to a recorded trace, there is the concept of <a href="https://grafana.com/docs/grafana/latest/fundamentals/exemplars/">exemplars</a>.</p>
+</div>
+<div class="paragraph">
+<p>Once exemplars are set up, Keycloak reports metrics with their last recorded trace as an exemplar.
+A dashboard tool like Grafana can link the exemplar from a metrics dashboard to a trace view.</p>
+</div>
+<div class="paragraph">
+<p>Metrics that support exemplars are:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>http_server_requests_seconds_count</code> (including histograms)<br/>
+See the guide <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-http">HTTP metrics</a> for details on this metric.</p>
+</li>
+<li>
+<p><code>keycloak_credentials_password_hashing_validations_total</code><br/>
+See the guide <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-keycloak">Self-provided metrics</a>  for details on this metric.</p>
+</li>
+<li>
+<p><code>keycloak_user_events_total</code><br/>
+See the guide <a href="https://www.keycloak.org/observability/metrics-for-troubleshooting-keycloak">Self-provided metrics</a>  for details on this metric.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>See below for a screenshot of a heatmap visualization for latencies that is showing an exemplar when hovering over one of the pink indicators.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img alt="exemplar" src="https://www.keycloak.org/resources/images/guides/observability/exemplar.png"/>
+</div>
+<div class="title">Figure 1. Heatmap diagram with exemplar</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_setting_up_exemplars"><a class="anchor" href="#_setting_up_exemplars"></a>Setting up exemplars</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To benefit from exemplars, perform the following steps:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Enable metrics for Keycloak as described in guide <a href="https://www.keycloak.org/observability/configuration-metrics">Gaining insights with metrics</a>.</p>
+</li>
+<li>
+<p>Enable tracing for Keycloak as described in guide <a href="https://www.keycloak.org/observability/tracing">Root cause analysis with tracing</a>.</p>
+</li>
+<li>
+<p>Enable exemplar storage in your monitoring system.</p>
+<div class="paragraph">
+<p>For Prometheus, this is a <a href="https://prometheus.io/docs/prometheus/latest/feature_flags/#exemplars-storage">preview feature that you need to enable</a>.</p>
+</div>
+</li>
+<li>
+<p>Scrape the metrics using the <code>OpenMetricsText1.0.0</code> protocol, which is not enabled by default in Prometheus.</p>
+<div class="paragraph">
+<p>If you are using a <code>ServiceMonitor</code> or similar in a Kubernetes environment, this can be achieved by adding it to the spec of the custom resource:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  ...
+spec:
+  scrapeProtocols:
+    - OpenMetricsText1.0.0</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Configure your metrics datasource where to link to for traces.</p>
+<div class="paragraph">
+<p>When using Grafana and Prometheus, this would be setting up a <code>exemplarTraceIdDestinations</code> for the Prometheus datasource, which then points to your tracing datasource that is provided by tools like Jaeger or Tempo.</p>
+</div>
+</li>
+<li>
+<p>Enable exemplars in your dashboards.</p>
+<div class="paragraph">
+<p>Enable the <strong>Exemplars</strong> toggle in each query on each dashboard where you want to show exemplars.
+When set up correctly, you will notice little dots or stars in your dashboards that you can click on to view the traces.</p>
+</div>
+</li>
+</ol>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>If you do not specify the scrape protocol, Prometheus will by default not send it in the content negotiation, and Keycloak will then fall back to the PrometheusText protocol which will not contain the exemplars.</p>
+</li>
+<li>
+<p>If you enabled tracing and metrics, but the request sampling did not record a trace, the exposed metric will not contain any exemplars.</p>
+</li>
+<li>
+<p>If you access the metrics endpoint with your browser, the content negotiation will lead to the format PrometheusText being returned, and you will not see any exemplars.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_verifying_that_exemplars_work_as_expected"><a class="anchor" href="#_verifying_that_exemplars_work_as_expected"></a>Verifying that exemplars work as expected</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Perform the following steps to verify that Keycloak is set up correctly for exemplars:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Follow the instructions to set up metrics and tracing for Keycloak.</p>
+</li>
+<li>
+<p>For test purposes, record all traces by setting the tracing ration to <code>1.0</code>.
+See <a href="https://www.keycloak.org/observability/tracing#sampling">Root cause analysis with tracing</a> for recommended sampling settings in production systems.</p>
+</li>
+<li>
+<p>Log in to the Keycloak instance to create some traces.</p>
+</li>
+<li>
+<p>Scrape the metrics with a command similar to the following and search for those metrics that have an exemplar set:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>$ curl -s http://localhost:9000/metrics \
+-H 'Accept: application/openmetrics-text; version=1.0.0; charset=utf-8' \
+| grep "#.*trace_id"</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This should result in an output similar to the following. Note the additional <code>#</code> after which the span and trace IDs are added:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>http_server_requests_seconds_count {...} ... # {span_id="...",trace_id="..."} ...</code></pre>
+</div>
+</div>
+</li>
+</ol>
+</div>
+</div>
+</div> </div>
+</main>

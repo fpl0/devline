@@ -1,0 +1,382 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This guide describes how to configure <a href="https://traefik.io/">Traefik</a> as a TLS passthrough load balancer in front of Keycloak.</p>
+</div>
+<div class="paragraph">
+<p>In TLS passthrough mode, Traefik forwards the raw TLS connection directly to Keycloak without terminating it.
+Traefik operates at the TCP layer (Layer 4) and has no visibility into the HTTP content.
+The TLS handshake occurs between the client and Keycloak, preserving end-to-end encryption.</p>
+</div>
+<div class="paragraph">
+<p>For a general overview of TLS passthrough and how it compares to re-encrypt, see the <a href="https://www.keycloak.org/server/reverseproxy">Configuring a reverse proxy</a> guide.</p>
+</div>
+<div class="paragraph">
+<p>A ready-to-run example with a Compose file is available in the <a href="https://github.com/keycloak/keycloak-quickstarts/tree/main/proxy/traefik/passthrough">quickstart repository</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="traefik-configuration-passthrough"><a class="anchor" href="#traefik-configuration-passthrough"></a>Traefik configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Traefik separates its configuration into two files:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>traefik.yaml</code> — static configuration loaded at startup (entry points, dashboard, and providers).</p>
+</li>
+<li>
+<p><code>keycloak.yaml</code> — dynamic configuration for runtime routing rules, services, and health checks.</p>
+</li>
+</ul>
+</div>
+<div class="sect2">
+<h3 id="_static_configuration_traefik_yaml"><a class="anchor" href="#_static_configuration_traefik_yaml"></a>Static configuration (<code>traefik.yaml</code>)</h3>
+<div class="paragraph">
+<p>The following <code>traefik.yaml</code> configures the entry point for TLS traffic and enables the dashboard.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">entryPoints</span><span class="pi">:</span>
+  <span class="na">websecure</span><span class="pi">:</span>
+    <span class="na">address</span><span class="pi">:</span> <span class="s2">"</span><span class="s">:8443"</span> <i class="conum" data-value="1"></i><b>(1)</b>
+
+<span class="na">api</span><span class="pi">:</span>
+  <span class="na">insecure</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="2"></i><b>(2)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Defines the entry point on port <code>8443</code> where Traefik accepts incoming TCP/TLS connections.
+Clients connect to this port, and Traefik forwards the raw TCP stream to the backend.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Enables the Traefik dashboard on port <code>8080</code> without authentication.
+This is intended for local development and debugging only and must never be used in production.</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_dynamic_configuration_keycloak_yaml"><a class="anchor" href="#_dynamic_configuration_keycloak_yaml"></a>Dynamic configuration (<code>keycloak.yaml</code>)</h3>
+<div class="paragraph">
+<p>The following <code>keycloak.yaml</code> configures the TCP router, load balancer, and health checks.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">tcp</span><span class="pi">:</span>
+  <span class="na">routers</span><span class="pi">:</span>
+    <span class="na">keycloak-router</span><span class="pi">:</span>
+      <span class="na">rule</span><span class="pi">:</span> <span class="s2">"</span><span class="s">HostSNI(`*`)"</span> <i class="conum" data-value="1"></i><b>(1)</b>
+      <span class="na">service</span><span class="pi">:</span> <span class="s2">"</span><span class="s">keycloak-service"</span>
+      <span class="na">priority</span><span class="pi">:</span> <span class="s">100</span> <i class="conum" data-value="2"></i><b>(2)</b>
+      <span class="na">entryPoints</span><span class="pi">:</span>
+        <span class="pi">-</span> <span class="s2">"</span><span class="s">websecure"</span>
+      <span class="na">tls</span><span class="pi">:</span>
+        <span class="na">passthrough</span><span class="pi">:</span> <span class="no">true</span> <i class="conum" data-value="3"></i><b>(3)</b>
+
+  <span class="na">serversTransports</span><span class="pi">:</span>
+    <span class="na">kc-passthrough</span><span class="pi">:</span>
+      <span class="na">proxyProtocol</span><span class="pi">:</span>
+        <span class="na">version</span><span class="pi">:</span> <span class="s">2</span> <i class="conum" data-value="4"></i><b>(4)</b>
+
+  <span class="na">services</span><span class="pi">:</span>
+    <span class="na">keycloak-service</span><span class="pi">:</span>
+      <span class="na">loadBalancer</span><span class="pi">:</span>
+        <span class="na">serversTransport</span><span class="pi">:</span> <span class="s">kc-passthrough</span> <i class="conum" data-value="5"></i><b>(5)</b>
+        <span class="c1"># The inline YAML syntax is required so that \r\n is interpreted literally.</span>
+        <span class="na">healthCheck</span><span class="pi">:</span> <span class="pi">{</span> <i class="conum" data-value="6"></i><b>(6)</b>
+          <span class="nv">interval</span><span class="pi">:</span> <span class="s2">"</span><span class="s">5s"</span><span class="pi">,</span>
+          <span class="nv">timeout</span><span class="pi">:</span> <span class="s2">"</span><span class="s">3s"</span><span class="pi">,</span>
+          <span class="nv">port</span><span class="pi">:</span> <span class="nv">9000</span><span class="pi">,</span>
+          <span class="nv">send</span><span class="pi">:</span> <span class="s2">"</span><span class="s">HEAD</span><span class="nv"> </span><span class="s">/health/ready</span><span class="nv"> </span><span class="s">HTTP/1.0</span><span class="se">\r\n\r\n</span><span class="s">"</span><span class="pi">,</span>
+          <span class="nv">expect</span><span class="pi">:</span> <span class="s2">"</span><span class="s">HTTP/1.0</span><span class="nv"> </span><span class="s">200</span><span class="nv"> </span><span class="s">OK</span><span class="se">\r\n</span><span class="s">content-type:</span><span class="nv"> </span><span class="s">application/json;</span><span class="nv"> </span><span class="s">charset=UTF-8</span><span class="se">\r\n</span><span class="s">cache-control:</span><span class="nv"> </span><span class="s">no-store</span><span class="se">\r\n\r\n</span><span class="s">"</span>
+        <span class="pi">}</span>
+        <span class="na">servers</span><span class="pi">:</span>
+          <span class="pi">-</span> <span class="na">address</span><span class="pi">:</span> <span class="s2">"</span><span class="s">keycloak1:8443"</span> <i class="conum" data-value="7"></i><b>(7)</b>
+          <span class="pi">-</span> <span class="na">address</span><span class="pi">:</span> <span class="s2">"</span><span class="s">keycloak2:8443"</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Matches all TLS connections regardless of the SNI hostname.
+This is suitable when Traefik is dedicated to Keycloak only.
+If Traefik handles multiple backend services, use a specific hostname instead of a wildcard (for example, <code>HostSNI(<code>keycloak.example.com</code>)</code>) to avoid routing unintended traffic to Keycloak.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Ensures this router takes precedence over any other TCP routers that may be defined.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Instructs Traefik to forward the raw TLS stream without terminating it.
+Keycloak handles TLS termination directly.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Enables <a href="https://doc.traefik.io/traefik/reference/routing-configuration/tcp/serverstransport/#proxyprotocolversion">PROXY protocol v2</a> on all backend connections.
+This allows Keycloak to read the real client IP address from the PROXY protocol header added by Traefik.
+This requires Keycloak to be configured with <code>--proxy-protocol-enabled=true</code> (see <a href="#keycloak-configuration-traefik-passthrough">Keycloak configuration</a>).</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="5"></i><b>5</b></td>
+<td>Links the load balancer to the named transport above, activating PROXY protocol v2 for all connections to the backend servers.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="6"></i><b>6</b></td>
+<td>Configures a <a href="https://doc.traefik.io/traefik/reference/routing-configuration/tcp/service/#health-check">TCP-level health check</a> against Keycloak’s management port (<code>9000</code>).
+<div class="paragraph">
+<p>The health check parameters are explained below:</p>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>interval</code> / <code>timeout</code></dt>
+<dd>
+<p>Traefik checks each backend every <code>5s</code>, marking a server as unhealthy if it does not respond within <code>3s</code>.
+Unhealthy backends are automatically removed from the load balancer rotation and re-added once they recover.
+These values affect how quickly Traefik detects that a Keycloak instance is shutting down (see <a href="#keycloak-configuration-traefik-passthrough">Keycloak configuration</a>).</p>
+</dd>
+<dt class="hdlist1"><code>port: 9000</code></dt>
+<dd>
+<p>Directs health checks to the management port (<code>9000</code>), which is separate from the main application port (<code>8443</code>).
+The management port is configured to use plain HTTP via <code>--http-management-scheme=http</code> (see <a href="#keycloak-configuration-traefik-passthrough">Keycloak configuration</a>), which is required because Traefik cannot perform an HTTPS health check on a TCP passthrough service.
+This is safe because the management port is only reachable on the internal backend network and is not exposed to clients.
+For details on the management port, see the <a href="https://www.keycloak.org/server/management-interface">Configuring the Management Interface</a> guide.</p>
+</dd>
+<dt class="hdlist1"><code>send</code> / <code>expect</code></dt>
+<dd>
+<p>Since Traefik operates at the TCP layer, health checks work by sending raw bytes and matching the response.
+The JSON syntax is required so that <code>\r\n</code> is encoded as a literal carriage-return and line-feed rather than a backslash-n string.</p>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The <code>expect</code> string must match the full HTTP response headers exactly, including the <code>content-type</code> charset.
+Any change to the Keycloak response format may break this check.
+A simple TCP connect check (omitting <code>send</code> and <code>expect</code>) is less fragile but only detects a dead process.
+It would not detect split-brain, database connectivity failures, or an overloaded node.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Native HTTP health checks for TCP services are not yet supported in Traefik.
+Until then, the send/expect workaround described above is required.
+Track upstream progress at <a href="https://github.com/traefik/traefik/pull/12606">traefik/traefik#12606</a>.
+</td>
+</tr>
+</table>
+</div>
+</dd>
+</dl>
+</div></td>
+</tr>
+<tr>
+<td><i class="conum" data-value="7"></i><b>7</b></td>
+<td>Defines the two Keycloak backend servers.
+Traffic is distributed across both instances using round-robin load balancing.</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="keycloak-configuration-traefik-passthrough"><a class="anchor" href="#keycloak-configuration-traefik-passthrough"></a>Keycloak configuration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With TLS passthrough, Keycloak requires the following configuration:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start <span class="nt">--proxy-protocol-enabled</span> <span class="nb">true</span> <span class="nt">--health-enabled</span> <span class="nb">true</span> <span class="nt">--metrics-enabled</span> <span class="nb">true</span> <span class="nt">--http-management-scheme</span><span class="o">=</span>http</code></pre>
+</div>
+</div>
+<div class="dlist">
+<dl>
+<dt class="hdlist1"><code>--proxy-protocol-enabled true</code></dt>
+<dd>
+<p>Enables the PROXY protocol so that Keycloak can read the real client IP address from the PROXY protocol header added by Traefik.
+Do not set <code>--proxy-headers</code> when using TLS passthrough because Traefik cannot inject HTTP headers into the encrypted traffic.
+The <code>--proxy-protocol-enabled</code> option and the <code>--proxy-headers</code> option are mutually exclusive.</p>
+</dd>
+<dt class="hdlist1"><code>--health-enabled true</code></dt>
+<dd>
+<p>Enables the health check endpoints on the management port (<code>9000</code>).
+Without this, the health endpoint that Traefik polls will not be available, and Traefik will mark all Keycloak instances as down.</p>
+</dd>
+<dt class="hdlist1"><code>--metrics-enabled true</code></dt>
+<dd>
+<p>Enables the metrics endpoints on the management port.
+Enabling metrics also enables an additional status check for the database, so it is recommended to enable metrics.</p>
+</dd>
+<dt class="hdlist1"><code>--http-management-scheme http</code></dt>
+<dd>
+<p>Configures the management port (<code>9000</code>) to use plain HTTP instead of HTTPS.
+Traefik does not support native HTTP health checks for TCP services; it can only send and match raw bytes over a plain TCP connection.
+Disabling TLS on the management port allows the raw <code>send</code>/<code>expect</code> health check (see the health check configuration above) to communicate with Keycloak in plain HTTP.
+This is safe because the management port is only reachable on the internal backend network and is not exposed to clients.</p>
+</dd>
+</dl>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="graceful-shutdown-considerations-traefik-passthrough"><a class="anchor" href="#graceful-shutdown-considerations-traefik-passthrough"></a>Graceful shutdown considerations</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>With TLS passthrough, Traefik cannot signal a connection close at the HTTP level.
+The Traefik health check settings determine how long it takes for the proxy to detect that a Keycloak instance is shutting down and that connections should no longer be routed to it.</p>
+</div>
+<div class="paragraph">
+<p>With the health check settings from the configuration above (<code>interval: 5s</code>, <code>timeout: 3s</code>), it takes up to 8 seconds (<code>interval + timeout</code>) for Traefik to mark a Keycloak instance as down.
+During this period, Keycloak must remain running to serve in-flight requests.
+Therefore, you need to configure the <code>--shutdown-delay</code> to be at least as long as the detection time:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start <span class="nt">--proxy-protocol-enabled</span> <span class="nb">true</span> <span class="nt">--health-enabled</span> <span class="nb">true</span> <span class="nt">--metrics-enabled</span> <span class="nb">true</span> <span class="nt">--http-management-scheme</span><span class="o">=</span>http <span class="nt">--shutdown-delay</span><span class="o">=</span>30s</code></pre>
+</div>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The 30-second delay accounts for both the detection time (~8 seconds) and draining existing open TCP connections, which Traefik cannot close at the HTTP level in passthrough mode.
+A <code>--shutdown-delay=16s</code> (2x the maximum detection time) is sufficient if TCP connection draining is not a concern.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>For a detailed explanation of shutdown phases and how to tune the delay and timeout values, see the Graceful HTTP shutdown section in the <a href="https://www.keycloak.org/server/reverseproxy">Configuring a reverse proxy</a> guide.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_relevant_options"><a class="anchor" href="#_relevant_options"></a>Relevant options</h2>
+<div class="sectionbody">
+<table class="tableblock frame-all grid-all stretch options">
+<colgroup>
+<col style="width: 75%;"/>
+<col style="width: 12.5%;"/>
+<col style="width: 12.5%;"/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"></th>
+<th class="tableblock halign-left valign-top"><em>Type</em> or Values</th>
+<th class="tableblock halign-left valign-top">Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>health-enabled</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">If the server should expose health check endpoints.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If enabled, health checks are available at the <code>/health</code>, <code>/health/ready</code> and <code>/health/live</code> endpoints.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--health-enabled</code><br/>
+<strong>Env:</strong> <code>KC_HEALTH_ENABLED</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>http-management-scheme</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Configures the management interface scheme.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If <code>inherited</code>, the management interface will inherit the HTTPS settings of the main interface. If <code>http</code>, the management interface will be accessible via HTTP - it will not inherit HTTPS settings and cannot be configured for HTTPS.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--http-management-scheme</code><br/>
+<strong>Env:</strong> <code>KC_HTTP_MANAGEMENT_SCHEME</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>http</code>, <code>inherited</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>inherited</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>metrics-enabled</code></span> <span class="none"><span class="icon options-build"><i class="fa fa-tools"></i></span></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">If the server should expose metrics.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">If enabled, metrics are available at the <code>/metrics</code> endpoint.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--metrics-enabled</code><br/>
+<strong>Env:</strong> <code>KC_METRICS_ENABLED</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><div class="content"><div class="paragraph">
+<p><span class="options-key"><code>proxy-protocol-enabled</code></span></p>
+</div>
+<div class="paragraph">
+<p><span class="options-description">Whether the server should use the HA PROXY protocol when serving requests from behind a proxy.</span></p>
+</div>
+<div class="openblock options-extended">
+<div class="content">
+<div class="paragraph">
+<p><span class="options-description-extended">When set to true, the remote address returned will be the one from the actual connecting client. Cannot be enabled when the <code>proxy-headers</code> is used.</span></p>
+</div>
+<div class="paragraph">
+<p><strong>CLI:</strong> <code>--proxy-protocol-enabled</code><br/>
+<strong>Env:</strong> <code>KC_PROXY_PROTOCOL_ENABLED</code></p>
+</div>
+</div>
+</div></div></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code>, <code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div> </div>
+</main>

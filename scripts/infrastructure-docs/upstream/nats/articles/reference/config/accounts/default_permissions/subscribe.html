@@ -1,0 +1,23 @@
+<main><header><h1>subscribe</h1></header>
+<div>Aliases:<!-- --> <code>sub</code></div>
+<div><span><span>Hot Reloadable</span></span><div>Folded into each user's permissions while the config is parsed, so it only affects users with no explicit <code>permissions</code>; from there it follows the users path and is re-applied to live client connections. Not re-applied to existing leafnode connections.</div></div>
+<p>A single subject, list of subjects, or a allow-deny map of
+subjects for subscribing. Note, that the subject permission can
+have an optional second value declaring a queue name.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>string</code></td><td></td><td>-</td></tr><tr><td><code>[ string ]</code></td><td></td><td>-</td></tr><tr><td><code>object</code></td><td>An object with a set of explicit properties that can be set.</td><td>-</td></tr></tbody></table>
+<h2 id="properties">Properties</h2>
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Default</th><th>Reloadable</th></tr></thead><tbody><tr><td><a href="/reference/config/accounts/default_permissions/subscribe/allow"><code>allow</code></a></td><td>List of subjects that are allowed to the client.</td><td><code>string</code></td><td>-</td><td>Yes*</td></tr><tr><td><a href="/reference/config/accounts/default_permissions/subscribe/deny"><code>deny</code></a></td><td>List of subjects that are denied to the client.</td><td><code>string</code></td><td>-</td><td>Yes*</td></tr></tbody></table>
+<p>* See the property page for reload caveats.</p>
+<h2 id="examples">Examples</h2>
+<h3 id="allow-subscribe-on-foo">Allow subscribe on <code>foo</code></h3>
+<div><div><pre><code class="language-text">foo</code></pre></div></div>
+<h3 id="allow-subscribe-on-foo-in-group-matching-dev">Allow subscribe on <code>foo</code> in group matching <code>*.dev</code></h3>
+<div><div><pre><code class="language-text">foo *.dev</code></pre></div></div>
+<h3 id="allow-subscribe-on-foo-and-bar-in-group-v1">Allow subscribe on <code>foo.&gt;</code> and <code>bar</code> in group <code>v1</code></h3>
+<div><div><pre><code class="language-text">[foo.&gt;, "bar v1"]</code></pre></div></div>
+<h3 id="allow-subscribe-to-foo-except-foobar">Allow subscribe to <code>foo.*</code> except <code>foo.bar</code></h3>
+<div><div><pre><code class="language-text">{
+  allow: "foo.*"
+  deny: "foo.bar"
+}</code></pre></div></div></main>

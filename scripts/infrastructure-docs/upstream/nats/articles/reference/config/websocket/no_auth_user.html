@@ -1,0 +1,12 @@
+<main><header><h1>no_auth_user</h1></header>
+<div><span><span>Requires Restart</span></span></div>
+<p>If no user name is provided when a WebSocket client connects, will
+default this user name in the authentication phase. If specified, this
+will override, for WebSocket clients, any <code>no_auth_user</code> value defined
+in the main configuration file.</p>
+<p>A leaf node connecting over WebSocket also picks this value up in
+preference to the top-level <code>no_auth_user</code>.</p>
+<p><em>Note: that this is not compatible with running the server in
+operator mode.</em></p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>string</code></td><td>-</td><td>-</td></tr></tbody></table></main>

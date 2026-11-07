@@ -1,0 +1,25 @@
+<main>
+		
+		<h1>Troubleshooting</h1>
+		<div>
+	Feel free to <a href="https://github.com/axllent/mailpit/issues/new" title="Open a Github Issue">raise an issue</a> if you are having problems, but please check existing issues first.
+</div>
+
+<h2 id="unable-to-receive-live-web-ui-message-updates">Unable to receive live web UI message updates</h2>
+<p>If you are using a proxy server (for example, Nginx or Apache) to access your Mailpit instance, your proxy configuration must include the protocol <code>Upgrade</code> headers. Please refer to the <a href="../proxy/">proxy documentation</a> or the following specific documentation about proxying websockets: <a href="https://www.nginx.com/blog/websocket-nginx/">Nginx</a>, <a href="https://httpd.apache.org/docs/2.4/mod/mod_proxy_wstunnel.html">Apache</a>, and <a href="https://github.com/axllent/mailpit/issues/131#issuecomment-1641054844">IIS</a>.</p>
+<h2 id="no-browser-notifications-for-new-messages">No browser notifications for new messages</h2>
+<p>This feature is only possible when accessing your Mailpit web UI via HTTPS, or when accessing Mailpit via <code>http://localhost:8025</code>. This is not a restriction of Mailpit; it is a browser security feature. Please refer to the <a href="../http/">HTTPS documentation</a>.</p>
+<h2 id="452-453-too-many-recipients">452 4.5.3 Too many recipients</h2>
+<p>Mailpit has a default limit of 100 recipients per email. Many mail servers, including Gmail, impose a maximum of 100 recipients, so this is a safe limit for testing purposes. This can be adjusted by setting the <code>--smtp-max-recipients &lt;x&gt;</code> flag in Mailpit.</p>
+<h2 id="xmlhttprequest-blocked-by-cors-policy">XMLHttpRequest blocked by CORS policy</h2>
+<blockquote>
+<p>Access to XMLHttpRequest at ‘<a href="http://example.com/api/v1/messages'">http://example.com/api/v1/messages'</a> from origin ‘<a href="http://anotherexample.com/'">http://anotherexample.com/'</a> has been blocked by CORS policy: No ‘Access-Control-Allow-Origin’ header is present on the requested resource.</p>
+</blockquote>
+<p>If you are trying to access your Mailpit API via browser JavaScript from another domain, you will need to specifically allow CORS (cross-origin resource sharing) from that domain.</p>
+<p>Please refer to the <a href="../http/#cors-configuration">CORS configuration documentation</a> for more information.</p>
+
+
+		
+		
+		
+	</main>

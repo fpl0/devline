@@ -1,0 +1,85 @@
+<main>
+		
+		<h1>Web UI &amp; API server</h1>
+		<p>The web UI and <a href="../../api-v1/">API</a> share the same configuration options, as both are part of the HTTP server. For example, enabling basic authentication or HTTPS applies to both.</p>
+<p>By default, the Mailpit web UI and API listen on port <code>8025</code> (e.g., <code>http://localhost:8025</code>, depending on your environment).</p>
+<p>When Mailpit is running, you should be able to open <code>http://localhost:8025</code> in your browser to access the web UI.</p>
+<h2 id="adding-https">Adding HTTPS</h2>
+<p>HTTPS can be enabled for the web UI and API by providing Mailpit with an SSL certificate and private key, depending on your requirements. Alternatively, you can use an <a href="../proxy/">HTTP proxy</a> if you are technically inclined.</p>
+<p>You must provide <strong>both</strong> the SSL certificate and private key using Mailpit flags or environment variables. For example:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --ui-tls-cert /path/to/cert.pem --ui-tls-key /path/to/key.pem
+</span></span></code></pre></div><p>Certificates can be <a href="../certificates/">self-signed/generated</a> or signed by a certificate authority (if you have a valid domain name), such as those obtained from <a href="https://letsencrypt.org/">Let’s Encrypt</a>.</p>
+<div>
+	You can also use a web server to proxy requests to Mailpit. <a href="../proxy/">See here</a> for more details.
+</div>
+
+<h2 id="adding-basic-authentication">Adding basic authentication</h2>
+<p>To add basic authentication, provide Mailpit with a valid <a href="../passwords/">password file</a> using the <code>--ui-auth-file &lt;password-file&gt;</code> flag (or environment variable <code>MP_UI_AUTH_FILE=&lt;password-file&gt;</code>). For example:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --ui-auth-file /path/to/password-file
+</span></span></code></pre></div><h3 id="passwords-via-environment">Passwords via environment</h3>
+<p>You can optionally export the <code>MP_UI_AUTH</code> environment variable with a space-separated list of credentials, e.g., <code>MP_UI_AUTH="user1:password1 user2:password2"</code>. For security reasons, this option is not available as a CLI flag.</p>
+<h2 id="send-api-endpoint-dedicated-authentication">Send API endpoint dedicated authentication</h2>
+<p>Starting in <strong>v1.26.0</strong>, Mailpit supports dedicated authentication for the send message endpoint (<code>/api/v1/send</code>), allowing you to configure different authentication requirements for sending messages versus accessing other API endpoints or the web UI.</p>
+<p>This feature provides three configuration options:</p>
+<h3 id="dedicated-send-api-endpoint-credentials">Dedicated send API endpoint credentials</h3>
+<p>You can configure separate credentials specifically for the send API endpoint using a <a href="../passwords/">password file</a>:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --send-api-auth-file /path/to/send-api-password-file
+</span></span></code></pre></div><p>When configured this way:</p>
+<ul>
+<li>The send API endpoint (<code>/api/v1/send</code>) requires the credentials from the send API endpoint password file.</li>
+<li>All other API endpoints and the web UI follow the standard UI authentication rules.</li>
+<li>Send API endpoint credentials cannot be used to access other API endpoints or the web UI.</li>
+</ul>
+<h3 id="accept-any-credentials-for-send-api">Accept any credentials for send API</h3>
+<p>For testing environments, you can configure the send API endpoint to accept any credentials (or no credentials at all):</p>
+<div><pre><code class="language-shell"><span><span>mailpit --send-api-auth-accept-any
+</span></span></code></pre></div><p>This option bypasses all authentication requirements for the send API endpoint only, while other API endpoints and the web UI continue to require proper authentication if configured.</p>
+<h3 id="fallback-to-ui-authentication">Fallback to UI authentication</h3>
+<p>If no send endpoint authentication is specifically configured, the endpoint will fall back to using the same authentication requirements as the web UI and other API endpoints.</p>
+<h3 id="environment-variables">Environment variables</h3>
+<p>You can also configure the send API endpoint authentication via environment variables:</p>
+<div><pre><code class="language-shell"><span><span><span># Set dedicated send API endpoint credentials</span>
+</span></span><span><span><span>MP_SEND_API_AUTH_FILE</span><span>=</span>/path/to/send-api-password-file
+</span></span><span><span>
+</span></span><span><span><span># Or provide credentials directly (space-separated list)</span>
+</span></span><span><span><span>MP_SEND_API_AUTH</span><span>=</span><span>"senduser1:password1 senduser2:password2"</span>
+</span></span><span><span>
+</span></span><span><span><span># Or accept any credentials for Send API</span>
+</span></span><span><span><span>MP_SEND_API_AUTH_ACCEPT_ANY</span><span>=</span><span>true</span>
+</span></span></code></pre></div>
+<div>
+	The <code>--send-api-auth-file</code> and <code>--send-api-auth-accept-any</code> options cannot be used together. Mailpit will refuse to start if both are configured.
+</div>
+
+<h2 id="cors-configuration">CORS configuration</h2>
+<p>Cross-Origin Resource Sharing (CORS) for the Mailpit API and websocket can be configured using the <code>--api-cors "&lt;hostname&gt;"</code> flag (or environment variable <code>MP_API_CORS="&lt;hostname&gt;"</code>).
+Mailpit will always allow requests from the same origin (domain) as the web UI, so this option is only necessary if you are accessing the API or websocket from a different origin.</p>
+<p>Allowed hostnames must be provided as a comma-separated list. For example, to allow requests from <code>http://example.com</code> and <code>http://anotherdomain.com</code>, you would start Mailpit with:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --api-cors <span>"example.com,anotherdomain.com"</span>
+</span></span></code></pre></div><p>Please note that if your hostnames include port numbers, you should include the port number when configuring CORS. For example, to allow requests from <code>http://example.com:8080</code>, you would use:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --api-cors <span>"example.com:8080"</span>
+</span></span></code></pre></div><p>If you set your CORS to a <code>*</code> then Mailpit will allow requests from <strong>any</strong> origin and port. Use this option with caution, as it may expose your Mailpit instance to potential security risks. You cannot use origins containing wildcards for subdomains (e.g., <code>*.example.com</code>).</p>
+<h2 id="dns-rebinding-mitigation">DNS rebinding mitigation</h2>
+<p>Because Mailpit is normally accessed under whichever hostname the operator chooses (CI service names, container hostnames, reverse proxies, intranet DNS), the built-in same-origin check accepts any request whose <code>Origin</code> header matches its <code>Host</code> header. Both of those headers are supplied by the browser, so a page under an attacker-controlled DNS name can be tricked (via DNS rebinding) into sending matching <code>Host</code> and <code>Origin</code> values pointing at a reachable Mailpit instance, which would otherwise satisfy the same-origin branch of the CORS check.</p>
+<p>Starting in <strong>v1.31.1</strong>, Mailpit supports an optional <code>Host</code> header allowlist that is evaluated <strong>before</strong> the CORS check. When configured, any request whose <code>Host</code> header falls outside the allowlist is rejected with <code>403 Forbidden</code>, regardless of the <code>Origin</code> header. This anchors the trust decision on a value the operator has independently declared trustworthy, which a rebinding attacker cannot forge.</p>
+<p>To enable it, pass <code>--allowed-hosts</code> (or set <code>MP_ALLOWED_HOSTS</code>) as a comma-separated list of the hostnames you expect to see in the <code>Host</code> header:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --allowed-hosts <span>"mailpit.example.com,mailpit.internal:8025"</span>
+</span></span></code></pre></div><p>Matching rules:</p>
+<ul>
+<li>Entries that include a port match <code>host:port</code> <strong>exactly</strong>. <code>mailpit.internal:8025</code> will not match a request to <code>mailpit.internal:9000</code>.</li>
+<li>Entries <strong>without</strong> a port match any port. <code>mailpit.example.com</code> matches both <code>mailpit.example.com</code> and <code>mailpit.example.com:8025</code>.</li>
+<li>Matching is case-insensitive.</li>
+<li>Loopback names and addresses (<code>localhost</code>, <code>127.0.0.1</code>, <code>::1</code>) are <strong>always</strong> allowed regardless of what you configure, so local development flows continue to work. DNS rebinding cannot target these, as no attacker controls DNS for loopback.</li>
+<li>Requests whose <code>Host</code> header is a raw IP address (e.g., <code>192.168.1.5:8025</code> or <code>[2001:db8::1]:8025</code>) are also <strong>always</strong> allowed. DNS rebinding produces a <code>Host</code> header containing the attacker’s DNS name, never a raw IP, and a cross-origin fetch that targets an IP directly is already stopped by the CORS same-origin check on the <code>Origin</code> header. Direct-IP access to Mailpit from your LAN or Docker network therefore continues to work without listing the IP explicitly.</li>
+</ul>
+<p>When <code>--allowed-hosts</code> is unset (the default), the previous behaviour is preserved and any <code>Host</code> header is accepted, so existing CI, docker, proxy and intranet deployments continue to work without changes.</p>
+<div>
+	Mailpit will log a warning at startup when it is bound to a non-loopback interface without either <code>--allowed-hosts</code> or <code>--ui-auth-file</code> set. For any deployment reachable from an untrusted network, we recommend enabling one of the two, or both.
+</div>
+
+
+
+		
+		
+		
+	</main>

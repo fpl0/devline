@@ -1,0 +1,152 @@
+<main><header><h1>RabbitMQ Stream tutorial - "Hello World!"</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a>, running on
+<code>localhost</code> and the <a href="https://www.rabbitmq.com/docs/4.3/stream#enabling-plugin">stream plugin</a>  enabled.
+The <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard stream port</a> is 5552. In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="using-docker">Using docker</h3><p>If you don't have RabbitMQ installed, you can run it in a Docker container:</p><div><div><pre><code class="language-bash">docker run -it --rm --name rabbitmq -p 5552:5552 -p 15672:15672 -p 5672:5672  \
+    -e RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS='-rabbitmq_stream advertised_host localhost' \
+    rabbitmq:4-management</code></pre></div></div><p>wait for the server to start and then enable the stream and stream management plugins:</p><div><div><pre><code class="language-bash">docker exec rabbitmq rabbitmq-plugins enable rabbitmq_stream rabbitmq_stream_management </code></pre></div></div><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through the <a href="https://groups.google.com/forum/#!forum/rabbitmq-users">mailing
+list</a> or <a href="https://www.rabbitmq.com/discord">discord community server</a>.</p></div></div>
+<p>RabbitMQ Streams was introduced in RabbitMQ 3.9.
+More information is available <a href="https://www.rabbitmq.com/docs/4.3/streams">here</a>.</p>
+<h2 id="hello-world">"Hello World"</h2>
+<h3 id="using-the-netc-stream-client">(using the .NET/C# Stream Client)</h3>
+<p>In this part of the tutorial we'll write two programs in C#; a
+producer that sends a single message, and a consumer that receives
+messages and prints them out.  We'll gloss over some of the detail in
+the .NET client API, concentrating on this very simple thing just to get
+started.  It's the "Hello World" of RabbitMQ Streams.</p>
+<blockquote>
+<h4 id="the-net-stream-client-library">The .NET stream client library</h4>
+<p>RabbitMQ speaks multiple protocols. This tutorial uses RabbitMQ stream protocol which is a dedicated
+protocol for <a href="https://www.rabbitmq.com/docs/4.3/streams">RabbitMQ streams</a>. There are a number of clients
+for RabbitMQ in <a href="/client-libraries/devtools">many different
+languages</a>, see the stream client libraries for each language.
+We'll use the <a href="https://github.com/rabbitmq/rabbitmq-stream-dotnet-client">.NET stream client</a> provided by RabbitMQ.</p>
+<p>The client supports <a href="https://dotnet.microsoft.com">.NET</a>.
+This tutorial will use RabbitMQ .NET stream client 1.8.0 and .NET, so you make sure
+you have it <a href="https://dotnet.microsoft.com">installed</a> and in your PATH.</p>
+<p>RabbitMQ .NET stream client 1.8 and later versions are distributed via <a href="https://www.nuget.org/packages/RabbitMQ.Stream.Client/">nuget</a>.</p>
+<p>This tutorial assumes you are using PowerShell on Windows. On MacOS and Linux nearly
+any shell will work.</p>
+</blockquote>
+<h3 id="setup">Setup</h3>
+<p>First let's verify that you have the .NET toolchain in <code>PATH</code>:</p>
+<div><div><pre><code class="language-powershell">dotnet --help</code></pre></div></div>
+<p>Running that command should produce a help message.</p>
+<p>An executable version of this tutorial can be found in the <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-stream/">RabbitMQ tutorials repository</a>.</p>
+<p>Now let's generate two projects, one for the publisher and one for the consumer:</p>
+<div><div><pre><code class="language-powershell">dotnet new console --name Send
+mv Send/Program.cs Send/Send.cs
+dotnet new console --name Receive
+mv Receive/Program.cs Receive/Receive.cs</code></pre></div></div>
+<p>This will create two new directories named <code>Send</code> and <code>Receive</code>.</p>
+<p>Then we add the client dependency.</p>
+<div><div><pre><code class="language-powershell">cd Send
+dotnet add package RabbitMQ.Stream.Client 
+cd ../Receive
+dotnet add package RabbitMQ.Stream.Client 
+cd ..</code></pre></div></div>
+<p>Now we have the .NET project set up we can write some code.</p>
+<h3 id="sending">Sending</h3>
+<p>We'll call our message producer (sender) <code>Send.cs</code> and our message consumer (receiver)
+<code>Receive.cs</code>.  The producer will connect to RabbitMQ, send a single message,
+then exit.</p>
+<p>In
+<a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-stream/Send/Send.cs"><code>Send.cs</code></a>,
+we need to use some namespaces:</p>
+<div><div><pre><code class="language-csharp">using System.Text;
+using RabbitMQ.Stream.Client;
+using RabbitMQ.Stream.Client.Reliable;</code></pre></div></div>
+<p>then we can create a connection to the server:</p>
+<div><div><pre><code class="language-csharp">var streamSystem = await StreamSystem.Create(new StreamSystemConfig());</code></pre></div></div>
+<p>The entry point of the stream .NET client is the <code>StreamSystem</code>.
+It is used for configuration of RabbitMQ stream publishers, stream consumers, and streams themselves.</p>
+<p>It abstracts the socket connection, and takes care of protocol version negotiation and authentication and so on for us.</p>
+<p>This tutorial assumes that stream publisher and consumer connect to a RabbitMQ node running locally, that is, on <em>localhost</em>.
+To connect to a node on a different machine, simply specify target hostname or IP address on the <code>StreamSystemConfig</code>.</p>
+<p>Next let's create a producer.</p>
+<p>The producer will also declare a stream it will publish messages to and then publish a message:</p>
+<div><div><pre><code class="language-csharp">await streamSystem.CreateStream(new StreamSpec("hello-stream")
+{
+    MaxLengthBytes = 5_000_000_000
+});
+
+var producer = await Producer.Create(new ProducerConfig(streamSystem, "hello-stream"));
+
+await producer.Send(new Message(Encoding.UTF8.GetBytes($"Hello, World")));</code></pre></div></div>
+<p>The stream declaration operation is idempotent: the stream will only be created if it doesn't exist already.</p>
+<p>A stream is an append-only log abstraction that allows for repeated consumption of messages until they expire.
+It is a good practice to always define the retention policy.
+In the example above, the stream is limited to be 5 GiB in size.</p>
+<p>The message content is a byte array.
+Applications can encode the data they need to transfer using any appropriate format such as JSON, MessagePack, and so on.</p>
+<p>When the code above finishes running, the producer connection and stream-system
+connection will be closed. That's it for our producer.</p>
+<p>Each time the producer is run, it will send a single message to the server and the message will be appended to the stream.</p>
+<p>The complete <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-stream/Send/Send.cs"><code>Send.cs</code> file</a> can be found on GitHub.</p>
+<blockquote>
+<h4 id="sending-doesnt-work">Sending doesn't work!</h4>
+<p>If this is your first time using RabbitMQ and you don't see the "Sent"
+message then you may be left scratching your head wondering what could
+be wrong. Maybe the broker was started without enough free disk space
+(by default it needs at least 50 MB free) and is therefore refusing to
+accept messages. Check the broker <a href="https://www.rabbitmq.com/docs/4.3/logging">log file</a> to see if there
+is a <a href="https://www.rabbitmq.com/docs/4.3/alarms">resource alarm</a> logged and reduce the
+free disk space threshold if necessary.
+The <a href="https://www.rabbitmq.com/docs/4.3/configure#config-items">Configuration guide</a>
+will show you how to set <code>disk_free_limit</code>.</p>
+<p>Another reason may be that the program exits <em>before</em> the message makes it to the broker.
+Sending is asynchronous in some client libraries: the function returns immediately but the message is enqueued in the IO layer before going over the wire.
+The sending program asks the user to press a key to finish the process: the message has plenty of time to reach the broker.
+The stream protocol provides a confirm mechanism to make sure the broker receives outbound messages, but this tutorial does not use this mechanism for simplicity's sake.</p>
+</blockquote>
+<h3 id="receiving">Receiving</h3>
+<p>The other part of this tutorial, the consumer, will connect to a RabbitMQ node and wait for messages to be pushed to it.
+Unlike the producer, which in this tutorial publishes a single message and stops, the consumer will be running continuously, consume the messages RabbitMQ will push to it, and print the received payloads out.</p>
+<p>Similarly to <code>Send.cs</code>, <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-stream/Receive/Receive.cs"><code>Receive.cs</code></a> will need to use some namespaces:</p>
+<div><div><pre><code class="language-csharp">using System.Text;
+using RabbitMQ.Stream.Client;
+using RabbitMQ.Stream.Client.Reliable;</code></pre></div></div>
+<p>When it comes to the initial setup, the consumer part is very similar the producer one; we use the default connection settings and declare the stream from which the consumer will consume.</p>
+<p>Note that the stream name must match that used by the producer.</p>
+<div><div><pre><code class="language-csharp">var streamSystem = await StreamSystem.Create(new StreamSystemConfig());
+
+await streamSystem.CreateStream(new StreamSpec("hello-stream")
+{
+    MaxLengthBytes = 5_000_000_000
+});</code></pre></div></div>
+<p>Note that the consumer part also declares the stream.
+This is to allow either part to be started first, be it the producer or the consumer.</p>
+<p>The <code>Consumer</code> class is used to instantiate a stream consumer and the <code>ConsumerConfig</code> record to configure it.
+We provide a <code>MessageHandler</code> callback to process delivered messages.</p>
+<p>The <code>OffsetSpec</code> property defines the starting point of the consumer.
+In this case, the consumer starts from the very first message available in the stream.</p>
+<div><div><pre><code class="language-csharp">var consumer = await Consumer.Create(new ConsumerConfig(streamSystem, "hello-stream")
+{
+    OffsetSpec = new OffsetTypeFirst(),
+    MessageHandler = async (stream, _, _, message) =&gt;
+    {
+        Console.WriteLine($"Stream: {stream} - " +
+                          $"Received message: {Encoding.UTF8.GetString(message.Data.Contents)}");
+        await Task.CompletedTask;
+    }
+});</code></pre></div></div>
+<p>The complete <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-stream/Receive/Receive.cs"><code>Receive.cs</code> file</a> can be found on GitHub.</p>
+<h3 id="putting-it-all-together">Putting It All Together</h3>
+<p>In order to run both examples, open two terminal (shell) tabs.</p>
+<p>Both parts of this tutorial can be run in any order, as they both declare the stream.
+Let's run the consumer first so that when the first publisher is started, the consumer will print it:</p>
+<div><div><pre><code class="language-powershell">cd Receive
+dotnet run</code></pre></div></div>
+<p>Then run the producer:</p>
+<div><div><pre><code class="language-powershell">cd Send
+dotnet run</code></pre></div></div>
+<p>The consumer will print the message it gets from the publisher via
+RabbitMQ. The consumer will keep running, waiting for new deliveries. Try re-running
+the publisher several times to observe that.</p>
+<p>Streams are different from queues in that they are append-only logs of messages
+that can be consumed repeatedly.
+When multiple consumers consume from a stream, they will start from the first available message.</p></main>

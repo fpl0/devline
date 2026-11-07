@@ -1,0 +1,197 @@
+<main><header><h1>Prometheus &amp; dashboards</h1></header>
+<p>Every number so far is a snapshot. When you <code>curl</code> the monitoring port you
+see "now," and when you read the <code>shipping</code> consumer's state you learn it's
+20 orders behind <em>at this instant</em>. None of it is stored. If you refresh the
+query a minute later the old value is gone, with no record of whether
+the lag is climbing or shrinking.</p>
+<p>This page closes that gap. It takes the same numbers you already know how
+to read (the lag, the in-flight count, the redeliveries) and
+turns them into a production loop: an exporter that scrapes the
+monitoring port, Prometheus that stores the result as time series, Grafana
+that charts it, and a check that alerts before a person has to look.</p>
+<p>We add no new entities. The <code>east</code> cluster, the <code>ORDERS</code> stream, and the
+<code>shipping</code> consumer are all from the earlier chapters. We attach one new
+piece of plumbing, the exporter, outside NATS, and watch the orders
+deployment from one more angle.</p>
+<h2 id="the-exporter-converts-json-to-time-series">The exporter converts JSON to time series</h2>
+<p>The monitoring port serves JSON when you ask for it. Prometheus doesn't
+read NATS JSON; it reads its own metrics format, and it pulls that
+format on a schedule. <strong>prometheus-nats-exporter</strong> is the program that
+connects the two: it scrapes the
+monitoring port and re-exposes the numbers as Prometheus metrics.</p>
+<p>A <strong>time series</strong> is a single named number recorded repeatedly over
+time, and it's what Prometheus stores. Where <code>/jsz</code> gave you <code>num_pending</code> once,
+the time series <code>nats_consumer_num_pending</code> is that same lag value
+sampled every scrape, so you can see it rise.</p>
+<p>The exporter runs <em>outside</em> NATS. You point it at a node's monitoring
+port <code>:8222</code>, tell it which collectors to enable, and it serves its own
+<code>/metrics</code> endpoint on <code>:7777</code>:</p>
+<div><div><pre><code class="language-bash"># The exporter runs outside NATS. -jsz turns on the JetStream collector
+# (streams and consumers); it scrapes :8222 and serves /metrics on :7777.
+# -prefix nats renames the metrics from the exporter's default jetstream_
+# prefix to nats_ (the same rename the NATS Helm chart applies).
+prometheus-nats-exporter -jsz=all -prefix nats -port 7777 http://localhost:8222</code></pre></div></div>
+<p>A <strong>scrape</strong> is one request to an endpoint that fetches its current
+numbers. When Prometheus scrapes the
+exporter's <code>:7777</code>, the exporter scrapes the NATS node's <code>:8222</code>,
+transforms the JSON into metrics, and hands them back. The exporter holds
+no history of its own; it answers each scrape from a fresh read of the
+monitoring port.</p>
+<p>The JetStream collector turns the consumer state you already know into
+named time series. The lag field <code>num_pending</code> becomes
+<code>nats_consumer_num_pending</code>; redeliveries become
+<code>nats_consumer_num_redelivered</code>; the stream message count becomes
+<code>nats_stream_total_messages</code>. The names follow the wire fields you read on the
+last page. By default the exporter prefixes JetStream metrics with
+<code>jetstream_</code>; the <code>-prefix nats</code> flag renames them to the <code>nats_</code> prefix
+used here, matching what NATS Helm deployments set.</p>
+<div><div><pre><code class="language-text"># /metrics on :7777 — the shipping consumer's lag as a Prometheus series
+nats_consumer_num_pending{account="ORDERS",stream_name="ORDERS",consumer_name="shipping"} 20
+nats_consumer_num_ack_pending{account="ORDERS",stream_name="ORDERS",consumer_name="shipping"} 5
+nats_consumer_num_redelivered{account="ORDERS",stream_name="ORDERS",consumer_name="shipping"} 3
+nats_stream_total_messages{account="ORDERS",stream_name="ORDERS"} 1000</code></pre></div></div>
+<p>The pairs in braces are <strong>labels</strong>, the dimensions that tell one
+series from another. Each metric is tagged with <code>account</code>, <code>stream_name</code>,
+and <code>consumer_name</code>, so Prometheus can keep the <code>ORDERS</code> account's
+<code>shipping</code> lag separate from the <code>analytics</code> lag, and from any other
+account's. The pinned snapshot's 20 waiting, 5 in-flight, and 3
+redelivered survive the round trip exactly, now as labeled series.</p>
+<p>The full set of exporter metrics and labels is documented in
+<a href="/reference/">Reference</a>. We only need the consumer-lag series here.</p>
+<h2 id="prometheus-grafana-and-the-check">Prometheus, Grafana, and the check</h2>
+<p>The exporter exposes "now." Prometheus, Grafana, and the check sit behind
+it and turn "now" into something you can act on.</p>
+<p><strong>Prometheus</strong> scrapes the exporter's <code>:7777</code> on its own interval and
+appends each value to its time series store. This is where the time
+series live: once Prometheus has been scraping for an hour, the
+<code>shipping</code> consumer's
+<code>num_pending</code> is no longer a single number but a line you can plot. You
+point Prometheus at the exporter with a scrape target in its config:</p>
+<div><div><pre><code class="language-yaml"># prometheus.yml — scrape the exporter every 15 seconds
+scrape_configs:
+  - job_name: nats
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["localhost:7777"]</code></pre></div></div>
+<p><strong>Grafana</strong> reads Prometheus and draws it. A <strong>dashboard</strong> is a Grafana
+view; one chart on it is a panel. A dashboard for the orders deployment
+puts the <code>shipping</code> consumer's <code>nats_consumer_num_pending</code> on a panel,
+so when the consumer falls behind, the line climbs on screen.
+Grafana publishes community dashboards for NATS that read a Prometheus
+data source out of the box; you import one and point it at your
+Prometheus.</p>
+<p>Watch the whole loop run: the exporter scrapes the node, Prometheus
+stores the rising lag, Grafana charts it, and the check fires when the
+series crosses its threshold.</p>
+<div></div>
+<p><strong><code>nats server check</code></strong> is the alerting side. Where a dashboard needs a person
+watching it, a check fires on its own. The CLI runs a check against a
+consumer, compares a metric to a threshold you set, and returns an
+OK / WARNING / CRITICAL verdict in a format Prometheus, Nagios, or a
+plain script can read. Pointed at the <code>shipping</code> consumer with a lag
+threshold, it turns the 20-pending number into an alert when it crosses
+the line:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Check the shipping consumer against an explicit lag threshold.
+# This is the alerting side of monitoring: turn the num_pending number
+# into a CRITICAL when more than 100 orders are waiting for delivery.
+nats server check consumer --stream ORDERS --consumer shipping --unprocessed-critical 100
+
+# Add a redelivery threshold so a poison order also trips the check.
+# With the pinned snapshot (20 pending, 3 redelivered) both stay OK;
+# raise the load until pending crosses 100 and the check returns CRITICAL.
+nats server check consumer --stream ORDERS --consumer shipping \
+  --unprocessed-critical 100 --redelivery-critical 10</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Check the shipping consumer against explicit thresholds, the
+// same verdict `nats server check consumer` computes: turn the
+// pending number into a CRITICAL when more than 100 orders are
+// waiting, or a poison order has been redelivered more than 10
+// times.
+s = js_GetConsumerInfo(&amp;ci, js, "ORDERS", "shipping", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    bool critical = (ci-&gt;NumPending &gt; 100) || (ci-&gt;NumRedelivered &gt; 10);
+
+    // With the pinned snapshot (20 pending, 3 redelivered) the
+    // check stays OK; raise the load until pending crosses 100
+    // and it returns CRITICAL.
+    printf("%s: unprocessed=%" PRIu64 " redelivered=%" PRId64 "\n",
+           (critical ? "CRITICAL" : "OK"),
+           ci-&gt;NumPending, ci-&gt;NumRedelivered);
+}</code></pre></div></div>
+<p><strong>nats-surveyor</strong> is a separate service that covers the whole deployment
+at once. It connects to the system account, polls every server for its
+<code>Statz</code> (the same summary data <code>nats server report</code> reads), and exposes
+the combined metrics on one <code>/metrics</code> endpoint for Prometheus to scrape.
+It needs a system-account credential, and it's an alternative to running
+the exporter against one node at a time.</p>
+<p>The full set of metric names, check flags, and surveyor options is
+documented in <a href="/reference/">Reference</a>. The service-latency metrics that
+let you chart request/reply timing belong with services, in
+<a href="/learn/services/observability">Services → observability</a>.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Teams hit three common problems the first time they wire NATS into Prometheus and
+Grafana. Each stays within this page's two concepts: the exporter, and
+the alert-and-chart layer behind it.</p>
+<p><strong>A node-local health check passes even with no quorum.</strong> A
+<code>/healthz?js-enabled-only=true</code> query asks only whether <em>this</em> node's
+JetStream subsystem is running. It returns <code>200</code> even when the cluster has
+lost the quorum that keeps the <code>ORDERS</code> stream writable, because it never
+looks past the local server. Do not wire a node-local check as your only
+JetStream alert. Add a meta-cluster check with <code>?js-meta-only=true</code>,
+which reports whether the JetStream meta layer across the <code>east</code> cluster
+is healthy:</p>
+<div><div><pre><code class="language-bash"># Node-local: is THIS node's JetStream subsystem running? 200 even with no quorum.
+curl -s -o /dev/null -w "%{http_code}\n" \
+  "http://localhost:8222/healthz?js-enabled-only=true"
+
+# Meta-cluster: is the JetStream meta layer across the cluster healthy?
+# This is the one that turns 503 when the cluster loses quorum.
+curl -s -o /dev/null -w "%{http_code}\n" \
+  "http://localhost:8222/healthz?js-meta-only=true"</code></pre></div></div>
+<p><em>Why</em> the cluster lost quorum isn't a monitoring question; the health
+check only reports the symptom. The mechanics live in
+<a href="/learn/clustering/raft-and-leaders">Clustering → raft and leaders</a>.</p>
+<p><strong>A check with no threshold never fires.</strong> <code>nats server check consumer</code>
+has defaults, but the defaults don't know your SLA. A check run without
+<code>--unprocessed-critical</code> will sit at OK while the <code>shipping</code> consumer's lag
+climbs past anything you'd care about, because nothing told it where
+the line is. Always set explicit thresholds that match what the orders
+deployment can tolerate; the <code>checkConsumer</code> example above pins
+<code>--unprocessed-critical 100</code> for this reason. A silent check looks like
+coverage while providing none, which makes it worse than having no check.</p>
+<p><strong>The exporter keeps no time series.</strong> The exporter is stateless: every
+scrape is a fresh read of <code>:8222</code>, and the moment you stop scraping, the
+past is gone. Without Prometheus behind it, <code>nats_consumer_num_pending</code>
+is the same one-shot "now" you started this page trying to escape: you
+gain a metrics format, not a record. Do not treat the exporter alone as
+monitoring. The exporter only converts the format, and Prometheus is what
+stores the history, so run both. Without Prometheus you're back to refreshing
+a query by hand.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have the full production loop around the orders deployment. The
+exporter scrapes the monitoring port <code>:8222</code> and re-exposes the
+<code>shipping</code> consumer's lag as the time series <code>nats_consumer_num_pending</code>,
+labeled by <code>account</code>, <code>stream_name</code>, and <code>consumer_name</code>. Prometheus
+scrapes the exporter on its own interval and stores that time series.
+Grafana charts it, so a climbing lag shows as a rising line. And
+<code>nats server check</code> raises a CRITICAL on its own when the lag crosses a
+threshold you set.</p>
+<p>You've watched the <code>shipping</code> consumer fall behind four ways now: as
+<code>num_pending</code> on <code>/jsz</code>, as lag computed from the consumer's state, as a
+<code>max_deliver</code> advisory, and as a rising time series on a Grafana panel.
+That's the focus of this chapter: the same symptom, observed from every
+angle a running deployment offers.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The four lenses tell you a node is unhealthy. The next page covers what
+to do when they don't tell you why: taking a CPU or memory profile from
+a running server.</p>
+<p>Continue to <a href="/learn/monitoring/profiling">Profiling the server</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/monitoring/jetstream-health">JetStream health</a> — the raw
+consumer state these time series are built from</li>
+<li><a href="/learn/services/observability">Services → observability</a> — the
+service-latency metrics for request/reply timing</li>
+<li><a href="/reference/">Reference</a> — the exhaustive list of exporter metric
+names, labels, and check flags</li>
+</ul></main>

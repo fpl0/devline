@@ -1,0 +1,9 @@
+<main><header><h1>Server Remove</h1></header>
+<p>Removes a server from the JetStream cluster.</p>
+<!-- -->
+<h2 id="subject">Subject</h2>
+<p><code>$JS.API.SERVER.REMOVE</code></p>
+<h2 id="request">Request</h2>
+<div><p>A request to the JetStream $JS.API.SERVER.REMOVE API</p><div><div><div><span>peer</span><span>string</span></div><div>The Name of the server to remove from the meta group</div></div><div><div><span>peer_id</span><span>string</span></div><div>Peer ID of the peer to be removed. If specified this is used instead of the server name</div></div></div></div>
+<h2 id="response">Response</h2>
+<div><p>A response from the JetStream $JS.API.SERVER.REMOVE API</p><div></div><div><div><div>One of the following:</div><div><div>Option <!-- -->1<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>error</span><span>object</span><span>required</span></div></div></div><div><div>Option <!-- -->2<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>success</span><span>boolean</span><span>required</span></div><div>If the peer was successfully removed</div><div><span>Default:</span><code>false</code></div></div></div></div><div><div><span>type</span><span>const: "io.nats.jetstream.api.v1.meta_server_remove_response"</span></div></div></div></div></main>

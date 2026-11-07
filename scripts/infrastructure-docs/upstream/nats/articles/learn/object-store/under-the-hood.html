@@ -1,0 +1,200 @@
+<main><header><h1>Under the hood</h1></header>
+<p>Four pages in, the <code>INVOICES</code> bucket has invoices, a 3 MB multi-chunk
+invoice, metadata, a label link, and an <code>analytics</code> service watching it.
+You've driven all of that through the friendly object API (<code>put</code>, <code>get</code>,
+<code>list</code>, <code>watch</code>, <code>link</code>) without ever seeing a stream.</p>
+<p>There's been a stream the whole time. This page explains the one stream your
+bucket really is, the two subject spaces objects map onto, and the single
+header that keeps the bucket from accumulating a history.</p>
+<h2 id="the-bucket-is-a-stream-named-obj_invoices">The bucket is a stream named OBJ_INVOICES</h2>
+<p>A bucket isn't a new kind of storage. When you ran <code>nats object add INVOICES</code>, the server created a JetStream stream and named it by convention:
+<code>OBJ_&lt;bucket&gt;</code>. Your <code>INVOICES</code> bucket is the stream <code>OBJ_INVOICES</code>. Every
+<code>put</code> was a publish to that stream; every <code>get</code> was a read from it.</p>
+<p>Ask the server about that stream directly and you can see its configuration:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# The INVOICES bucket is not a special kind of store — it is one JetStream
+# stream named OBJ_INVOICES. Ask the server about that stream directly and
+# you see the machinery the object API has been driving all along.
+#
+# `nats object` never showed you this name. The convention is OBJ_&lt;bucket&gt;,
+# so the bucket you created as INVOICES is backed by the stream OBJ_INVOICES.
+nats stream info OBJ_INVOICES
+
+# Two things in the output explain how objects map onto messages.
+#
+# Subjects: the stream captures two subject spaces.
+#   $O.INVOICES.C.&gt;   the chunk messages — the bytes of every object
+#   $O.INVOICES.M.&gt;   the metadata messages — one ObjectInfo per object
+#
+# Configuration: AllowRollup is true and Discard is New. Rollup is what
+# keeps only the latest metadata message per object name; you will see it
+# carried as a header on each metadata publish below.
+
+# Look at the raw chunk and metadata subjects for the small invoice you
+# stored on page 1. The metadata subject base64url-encodes the object name
+# so that any object name is a safe NATS subject.
+nats stream subjects OBJ_INVOICES</code></pre></div></div>
+<p>You're reading an ordinary stream, the same construct from the
+<a href="/learn/jetstream">JetStream Deep Dive</a>. What a stream <em>is</em>, how a consumer
+tracks its position, and how direct get works are all taught there; this page
+only points at the stream, it doesn't re-explain it.</p>
+<p>What's new is the shape of this particular stream. It captures two subject
+spaces, and an object is split across both of them:</p>
+<ul>
+<li><code>$O.INVOICES.C.&gt;</code> holds the <strong>chunk</strong> messages: the bytes of every
+object, one message per chunk.</li>
+<li><code>$O.INVOICES.M.&gt;</code> holds the <strong>metadata</strong> messages: one <code>ObjectInfo</code> per
+object, describing its name, size, chunk count, and digest. That digest is the
+SHA-256 from the put, stored as <code>SHA-256=&lt;base64url(hash)&gt;</code>, the exact string
+a get re-computes the reassembled bytes against.</li>
+</ul>
+<p>So a single object is several chunk messages on the <code>.C.</code> subjects plus one
+metadata message on the <code>.M.</code> subjects. The chunk subject ends in a
+per-put identity, <code>$O.INVOICES.C.&lt;object-nuid&gt;</code>, which is why a re-put never
+collides with old chunks. The metadata subject ends in the object name,
+base64url-encoded as <code>$O.INVOICES.M.&lt;base64url(name)&gt;</code>, so any object name,
+spaces and slashes included, becomes a safe NATS subject.</p>
+<p>That base64url metadata subject matters for the next section: each object
+name maps to exactly one metadata subject.</p>
+<h2 id="rollup-keeps-the-latest-metadata-not-a-history">Rollup keeps the latest metadata, not a history</h2>
+<p>Put an object twice under the same name and you might expect two metadata
+messages to pile up: a history of the object, like the revisions a
+<a href="/learn/key-value">Key-Value Store</a> keeps per key. The object store doesn't
+work that way. It keeps exactly one current <code>ObjectInfo</code> per name. The
+mechanism is <strong>rollup</strong>.</p>
+<p>Every metadata publish carries one header, <code>Nats-Rollup: sub</code>. That header
+tells the stream: when this message lands, purge every earlier message on the
+same subject and keep only this one. Because each object name maps to one
+metadata subject, a rollup on a re-put deletes the prior <code>ObjectInfo</code> for that
+name and leaves the new one as the single current <code>ObjectInfo</code>.</p>
+<div></div>
+<p>This is why the store is rollup-latest, not multi-revision. A re-put gives you
+a new current object; it doesn't give you the object's past. When you do want
+the past (many small values with a full revision history per key), that's
+the <a href="/learn/key-value">Key-Value Store</a>, not this one. The contrast the index
+described applies down to the header level.</p>
+<p>The backing stream is configured to make rollup possible. <code>AllowRollup</code> is
+true so the header is honored; the discard policy is set to <code>new</code> so the stream
+rejects writes when full rather than dropping old chunks; <code>AllowDirect</code> is true
+so a get can read the latest metadata without a consumer. Here's the shape of
+that configuration:</p>
+<div><div><pre><code class="language-json">{
+  "name": "OBJ_INVOICES",
+  "subjects": ["$O.INVOICES.C.&gt;", "$O.INVOICES.M.&gt;"],
+  "max_age": 0,
+  "max_bytes": -1,
+  "storage": "file",
+  "num_replicas": 1,
+  "discard": "new",
+  "allow_rollup_hdrs": true,
+  "allow_direct": true
+}</code></pre></div></div>
+<p>You never write this config by hand; <code>nats object add</code> writes it for you.
+The full set of stream configuration equivalents, including how to raise
+<code>num_replicas</code> for durability, is documented in
+<a href="/learn/jetstream">JetStream</a>. All you need here is to recognize the shape.</p>
+<h2 id="soft-delete-is-a-rollup-that-marks-the-object-gone">Soft delete is a rollup that marks the object gone</h2>
+<p>Deleting an object uses the same rollup mechanism for a different purpose. The
+store doesn't drop the name. It writes one more metadata message,
+a <strong>soft delete</strong>, that marks the object <code>Deleted=true</code>, sets <code>Size</code> and
+<code>Chunks</code> to zero, and clears the digest. Because that message carries the
+rollup header, it replaces the object's current <code>ObjectInfo</code>, and the object's
+chunk messages are then purged from the stream.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# `nats object info INVOICES` (with no object name) reports the bucket's
+# status: it reads the backing OBJ_INVOICES stream and translates the stream
+# facts back into bucket terms — storage, replicas, total size, and the
+# backing store, which is always "JetStream".
+#
+# This is the same information a client's Status() call returns.
+nats object info INVOICES
+
+# Now watch a soft delete in action. Soft delete does not erase a name
+# quietly; it writes one more metadata message that marks the object
+# Deleted=true, sets Size and Chunks to zero, and then purges the object's
+# chunk messages from the stream.
+nats object rm INVOICES invoice-ord_8w2k.pdf
+
+# After the delete, getting the name fails with a not-found error: the
+# latest metadata says the object is gone, and its chunks have been purged.
+#
+#   nats: error: nats: object not found
+nats object get INVOICES invoice-ord_8w2k.pdf</code></pre></div></div>
+<p>After a soft delete the name resolves to an <code>ObjectInfo</code> that says "gone,"
+so a get fails with a not-found error and the bytes are reclaimed. The name
+itself still has one metadata message (the soft-delete marker saying it's
+gone), which is what lets <code>watch</code> tell a subscriber that an object disappeared.</p>
+<p>Securing these subjects (limiting who can publish to <code>$O.INVOICES.C.&gt;</code> or
+read <code>$O.INVOICES.M.&gt;</code>, or exporting the bucket to another account) is a
+security concern, not an object-store one. It's covered in
+<a href="/learn/security">Security</a>.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two mistakes are common the first time you examine the backing stream. Both
+come from expecting the backing stream to behave differently than it does.</p>
+<p><strong>A soft delete does not reclaim disk the instant you call it.</strong> A delete
+writes the soft-delete metadata message and then purges the object's chunks.
+The purge is what frees the bytes, and on a busy file-backed stream the
+on-disk space is reclaimed as the stream cleans up, not synchronously at the
+call. Don't delete a large object and immediately assert the disk is smaller.
+Do confirm the object is gone the right way — a plain get or <code>info</code> returns
+the not-found error, and a <code>watch</code> reports the delete event. The tombstone
+that records <code>Deleted=true</code> and <code>Size=0</code> is hidden by default; to read it you
+pass the client's show-deleted option (<code>GetObjectInfoShowDeleted</code> or
+<code>ListObjectsShowDeleted</code> in Go), which the <code>nats</code> CLI doesn't expose:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# `nats object info INVOICES` (with no object name) reports the bucket's
+# status: it reads the backing OBJ_INVOICES stream and translates the stream
+# facts back into bucket terms — storage, replicas, total size, and the
+# backing store, which is always "JetStream".
+#
+# This is the same information a client's Status() call returns.
+nats object info INVOICES
+
+# Now watch a soft delete in action. Soft delete does not erase a name
+# quietly; it writes one more metadata message that marks the object
+# Deleted=true, sets Size and Chunks to zero, and then purges the object's
+# chunk messages from the stream.
+nats object rm INVOICES invoice-ord_8w2k.pdf
+
+# After the delete, getting the name fails with a not-found error: the
+# latest metadata says the object is gone, and its chunks have been purged.
+#
+#   nats: error: nats: object not found
+nats object get INVOICES invoice-ord_8w2k.pdf</code></pre></div></div>
+<p><strong>A re-put after a delete is a new object identity, not a restored history.</strong>
+Because each put gets a fresh per-put identity and rollup keeps only the
+latest metadata, putting <code>invoice-ord_8w2k.pdf</code> again after deleting it
+doesn't bring back the old chunks or the old <code>ObjectInfo</code>. It creates a
+brand-new object that happens to share the name. Don't reach for the object
+store when you need the <em>previous</em> version after an overwrite; that history
+lives in the <a href="/learn/key-value">Key-Value Store</a>. Do treat every put as
+authoritative for the current object and nothing more.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have:</p>
+<ul>
+<li>The bucket revealed as the stream <code>OBJ_INVOICES</code>, captured with
+<code>nats stream info</code>.</li>
+<li>The two subject spaces named: <code>$O.INVOICES.C.&gt;</code> for chunks and
+<code>$O.INVOICES.M.&gt;</code> for metadata, with the metadata subject base64url-encoding
+the object name.</li>
+<li>The rollup header explained: why a re-put leaves one current <code>ObjectInfo</code>
+and not a history.</li>
+<li>Soft delete explained: a rollup metadata write that marks the object gone
+and purges its chunks.</li>
+</ul>
+<p>The friendly API and the stream underneath now fit together. The object store
+is chunks plus rollup metadata on a JetStream stream.</p>
+<h2 id="whats-next">What's next</h2>
+<p>That's the whole mechanism. The last page is navigation: a recap of the
+chapter, a checklist that collects every pitfall in this chapter, and pointers
+to where the deeper details (replicas, security, backup, monitoring) actually
+live.</p>
+<p>Continue to <a href="/learn/object-store/where-next">Where to go next</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/jetstream">JetStream Deep Dive</a> — what the backing stream is, and
+the stream config equivalents for replicas and retention.</li>
+<li><a href="/learn/key-value/under-the-hood">Key-Value Store</a> — the multi-revision
+store, for when you need the history rollup doesn't keep.</li>
+<li><a href="/learn/security">Security</a> — securing or exporting the bucket's subjects.</li>
+</ul></main>

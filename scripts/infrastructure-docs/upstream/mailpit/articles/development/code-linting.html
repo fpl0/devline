@@ -1,0 +1,40 @@
+<main>
+		
+		<h1>Code quality &amp; linting</h1>
+		<p>Mailpit is primarily developed in Go for the backend (main application) and utilizes Vue and Sass (Bootstrap) for the frontend web UI.</p>
+<p>To maintain consistency and minimize common errors in the code, it is essential that all Go and Vue/JavaScript code adhere to specific linting standards. At a minimum, the code must pass the following linting tests:</p>
+<ul>
+<li><a href="https://pkg.go.dev/cmd/gofmt">gofmt</a> for Go</li>
+<li><a href="https://eslint.org/">ESLint</a> for Vue/JavaScript</li>
+<li><a href="https://prettier.io/">Prettier</a> for Vue/JavaScript</li>
+</ul>
+
+<div>
+	When reviewing pull requests on GitHub, please ensure that your code changes comply with the linting requirements outlined below.
+</div>
+
+<h3 id="linting-in-vs-code">Linting in VS Code</h3>
+<p>Enabling automatic linting in your editor can be extremely beneficial, as it typically identifies and highlights errors in real-time and applies formatting upon saving your work.</p>
+<p>If you are using <a href="https://code.visualstudio.com/">VS Code</a>, it is highly recommended to install the following extensions for seamless integration:</p>
+<ul>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=golang.Go">Go extension</a></li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint">ESLint</a></li>
+<li><a href="https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode">Prettier - Code formatter</a></li>
+</ul>
+<h3 id="linting-via-the-command-line">Linting via the Command Line</h3>
+<p>Linting can also be performed directly from the command line, which executes the same checks required in continuous integration (CI) before code can be merged.</p>
+<ul>
+<li>For Go linting: <code>gofmt -s -l -d .</code></li>
+<li>For Vue/JavaScript linting:
+<ul>
+<li>To check for warnings and errors: <code>npm run lint</code></li>
+<li>To automatically fix some warnings: <code>npm run lint-fix</code></li>
+</ul>
+</li>
+</ul>
+
+
+		
+		
+		
+	</main>

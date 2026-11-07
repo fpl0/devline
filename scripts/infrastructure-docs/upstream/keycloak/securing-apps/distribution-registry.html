@@ -1,0 +1,155 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Docker Registry has been renamed to Distribution Registry, however feature, endpoint and protocol are still called Docker.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Docker authentication is disabled by default. To enable see the <a href="https://www.keycloak.org/server/features">Enabling and disabling features</a> guide.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>This section describes how you can configure a Distribution registry to use Keycloak as its authentication server.</p>
+</div>
+<div class="paragraph">
+<p>For more information on how to set up and configure a Distribution registry, see the <a href="https://distribution.github.io/distribution/about/configuration/">Configuring a registry</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_distribution_registry_configuration_file_installation"><a class="anchor" href="#_distribution_registry_configuration_file_installation"></a>Distribution registry configuration file installation</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For users with more advanced Distribution registry configurations, it is generally recommended to provide your own registry configuration file.  The Keycloak Docker provider supports this mechanism via the <em>Registry Config File</em> Format Option.  Choosing this option will generate output similar to the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>auth:
+  token:
+    realm: http://localhost:8080/realms/master/protocol/docker-v2/auth
+    service: docker-test
+    issuer: http://localhost:8080/realms/master</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This output can then be copied into any existing registry config file.  See the <a href="https://distribution.github.io/distribution/about/configuration/">registry config file specification</a> for more information on how the file should be set up, or start with <a href="https://github.com/distribution/distribution/blob/main/cmd/registry/config-example.yml">a basic example</a>.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+Don’t forget to configure the <code>rootcertbundle</code> field with the location of the Keycloak realm’s public key.  The auth configuration will not work without this argument.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_distribution_registry_environment_variable_override_installation"><a class="anchor" href="#_distribution_registry_environment_variable_override_installation"></a>Distribution registry environment variable override installation</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Often times it is appropriate to use a simple environment variable override for develop or POC Docker registries. While this approach is usually not recommended for production use, it can be helpful when one requires quick-and-dirty way to stand up a registry. Simply use the <em>Variable Override</em> Format Option from the client details, and an output should appear like the one below:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>REGISTRY_AUTH_TOKEN_REALM: http://localhost:8080/realms/master/protocol/docker-v2/auth
+REGISTRY_AUTH_TOKEN_SERVICE: docker-test
+REGISTRY_AUTH_TOKEN_ISSUER: http://localhost:8080/realms/master</code></pre>
+</div>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+Don’t forget to configure the <code>REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE</code> override with the location of the Keycloak realm’s public key.  The auth configuration will not work without this argument.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_docker_compose_yaml_file"><a class="anchor" href="#_docker_compose_yaml_file"></a>Docker Compose YAML File</h2>
+<div class="sectionbody">
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+This installation method is meant to be an easy way to get a distribution registry authenticating against a Keycloak server.  It is intended for development purposes only and should never be used in a production or production-like environment.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>The zip file installation mechanism provides a quickstart for developers who want to understand how the Keycloak server can interact with the Distribution registry.  In order to configure:</p>
+</div>
+<div class="olist arabic">
+<div class="title">Procedure</div>
+<ol class="arabic">
+<li>
+<p>From the desired realm, create a client configuration. At this point you will not have a Distribution registry - the quickstart will take care of that part.</p>
+</li>
+<li>
+<p>Choose the <strong>Docker Compose YAML</strong> option from the from <em>Action</em> menu and select the <strong>Download adapter config</strong> option to download the ZIP file.</p>
+</li>
+<li>
+<p>Unzip the archive to the desired location, and open the directory.</p>
+</li>
+<li>
+<p>Start the Distribution registry with <code>docker-compose up</code></p>
+</li>
+</ol>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+it is recommended that you configure the Distribution registry client in a realm other than 'master', since the HTTP Basic auth flow will not present forms.
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Once the above configuration has taken place, and the keycloak server and Distribution registry are running, docker authentication should be successful:</p>
+</div>
+<div class="literalblock">
+<div class="content">
+<pre>[user ~]# docker login localhost:5000 -u $username
+Password: *******
+Login Succeeded</pre>
+</div>
+</div>
+</div>
+</div> </div>
+</main>

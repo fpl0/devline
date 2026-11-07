@@ -1,0 +1,187 @@
+<main><header><h1>Topics and subjects</h1></header>
+<p>On the last page <code>sensors/warehouse/cold-1/temp</code> arrived as
+<code>sensors.warehouse.cold-1.temp</code>. That conversion was easy to guess: each
+<code>/</code> became a <code>.</code>.</p>
+<p>Real device fleets aren't that tidy. Topics start with a slash, end with
+one, contain empty levels, or hold a <code>.</code> that means nothing special in
+MQTT but separates levels in NATS. This page covers the whole rule set,
+so you can predict the subject for any topic your devices publish and
+write permissions and subscriptions against it.</p>
+<p>Both systems are hierarchical, and that's why the conversion works at
+all. MQTT separates levels with <code>/</code>; NATS separates them with <code>.</code>. The
+server rewrites the separator and escapes anything that would produce an
+invalid subject.</p>
+<h2 id="the-conversion-rules">The conversion rules</h2>
+<p>A plain topic converts one separator at a time. The awkward cases are
+the ones where a <code>/</code> sits at the start, at the end, or next to another
+<code>/</code> — a bare translation would produce <code>.foo.bar.</code>, which isn't a valid
+NATS subject. The server escapes those positions instead.</p>
+<table><thead><tr><th>MQTT topic</th><th>NATS subject</th><th>Rule</th></tr></thead><tbody><tr><td><code>sensors/cold-1/temp</code></td><td><code>sensors.cold-1.temp</code></td><td><code>/</code> between two levels becomes <code>.</code></td></tr><tr><td><code>/sensors/temp</code></td><td><code>/.sensors.temp</code></td><td>a leading <code>/</code> becomes <code>/.</code></td></tr><tr><td><code>sensors/temp/</code></td><td><code>sensors.temp./</code></td><td>a trailing <code>/</code> becomes <code>./</code></td></tr><tr><td><code>sensors//temp</code></td><td><code>sensors./.temp</code></td><td>a <code>/</code> next to another becomes <code>./</code></td></tr><tr><td><code>//sensors/temp</code></td><td><code>/./.sensors.temp</code></td><td>both rules apply in turn</td></tr><tr><td><code>cold-1.temp</code></td><td><code>cold-1//temp</code></td><td>a <code>.</code> in the topic becomes <code>//</code></td></tr></tbody></table>
+<p>The last row is the one to watch. A <code>.</code> is an ordinary
+character in an MQTT topic and the level separator in NATS, so it can't
+pass through unchanged. The server encodes it as <code>//</code>, which is why the
+first five rows escape <code>/</code> the way they do: the two characters swap
+roles, and the escaping keeps the mapping reversible.</p>
+<p>Converting <code>.</code> was added in NATS Server 2.10. Before that a <code>.</code> in a
+topic was rejected the way whitespace still is.</p>
+<h2 id="characters-with-no-conversion">Characters with no conversion</h2>
+<p>Some characters have no valid encoding, and the server refuses the topic
+rather than converting it.</p>
+<p>The space is the one to design around, and it has never been accepted
+on any version. A subject containing a space would break the NATS wire
+protocol when forwarded to other connection types, because the control
+line could be split. The full set the server refuses is the space, tab,
+newline, carriage return, form feed, and the DEL character.</p>
+<p>Other control characters pass through unchanged, but there's no good
+reason to use them. Treat anything that isn't printable as unusable in
+topics and keep it out at the source.</p>
+<p>The refusal shows up differently depending on what the client was doing:</p>
+<ul>
+<li><strong>Publishing</strong> to a topic with one of these characters closes the
+connection.</li>
+<li><strong>Subscribing</strong> to a filter with one of them returns a failure code in
+the SUBACK packet, so the subscription isn't created and the
+connection survives.</li>
+</ul>
+<p>This most often comes up in device firmware that builds topics from
+free-text fields, such as a location name. Strip whitespace before it
+reaches the topic.</p>
+<h2 id="wildcards">Wildcards</h2>
+<p>MQTT and NATS both have single-level and multi-level wildcards, and they
+map onto each other directly. As in NATS, MQTT allows them only in
+subscriptions, never in a published topic — publish to a topic
+containing <code>+</code> or <code>#</code> and the server rejects it.</p>
+<table><thead><tr><th>MQTT wildcard</th><th>NATS wildcard</th><th>Matches</th></tr></thead><tbody><tr><td><code>+</code></td><td><code>*</code></td><td>exactly one level</td></tr><tr><td><code>#</code></td><td><code>&gt;</code></td><td>one or more levels</td></tr></tbody></table>
+<p>So a device subscribing to <code>sensors/+/temp</code> gets the NATS subscription
+<code>sensors.*.temp</code>, and it receives <code>sensors/cold-1/temp</code> and
+<code>sensors/cold-2/temp</code> but not <code>sensors/warehouse/cold-1/temp</code>.</p>
+<h3 id="why--sometimes-creates-two-subscriptions">Why <code>#</code> sometimes creates two subscriptions</h3>
+<p><code>#</code> and <code>&gt;</code> are almost the same, and the difference costs an extra
+subscription.</p>
+<p>In MQTT, <code>sensors/#</code> matches <code>sensors/cold-1</code>, <code>sensors/cold-1/temp</code>,
+and also the parent level <code>sensors</code> on its own. In NATS, <code>sensors.&gt;</code>
+requires at least one token after <code>sensors</code>, so it never matches
+<code>sensors</code> by itself.</p>
+<p>To make MQTT behave as specified, the server creates two NATS
+subscriptions for that filter: one on <code>sensors.&gt;</code> and one on <code>sensors</code>.
+Together they cover exactly what MQTT's <code>#</code> covers.</p>
+<p>A filter of just <code>#</code> needs no such help. It converts to <code>&gt;</code>, which
+already matches everything, so one subscription is enough.</p>
+<p>This is worth remembering because the pair counts twice against limits.
+A subscription ending in <code>#</code> consumes twice the <code>max_ack_pending</code>
+budget, which the <a href="/learn/mqtt/qos-sessions-and-retained">next page</a> covers.</p>
+<h2 id="nats-wildcards-inside-mqtt-topics">NATS wildcards inside MQTT topics</h2>
+<p>MQTT has no special meaning for <code>*</code> or <code>&gt;</code>. They're ordinary characters
+in a topic, and the server doesn't escape them during conversion. If one
+ends up as a complete token in the resulting subject, NATS reads it as a
+wildcard.</p>
+<table><thead><tr><th>MQTT topic</th><th>NATS subject</th><th>How NATS reads it</th></tr></thead><tbody><tr><td><code>fleet*/telemetry</code></td><td><code>fleet*.telemetry</code></td><td>literal — <code>*</code> is only part of the token</td></tr><tr><td><code>fleet&gt;/telemetry</code></td><td><code>fleet&gt;.telemetry</code></td><td>literal — same reason</td></tr><tr><td><code>fleet/*/telemetry</code></td><td><code>fleet.*.telemetry</code></td><td>wildcard — <code>*</code> is the whole token</td></tr><tr><td><code>fleet/&gt;</code></td><td><code>fleet.&gt;</code></td><td>wildcard — <code>&gt;</code> is the whole token</td></tr></tbody></table>
+<p>The server doesn't reject these. The publish-time wildcard check covers
+only MQTT's own wildcards, <code>+</code> and <code>#</code>; <code>*</code> and <code>&gt;</code> are ordinary
+characters as far as MQTT is concerned, so they pass straight through.</p>
+<p>That leaves two different problems depending on direction:</p>
+<ul>
+<li><strong>Subscribing</strong> to <code>fleet/*/telemetry</code> creates a real NATS wildcard
+subscription on <code>fleet.*.telemetry</code>. The device asked for one literal
+topic and receives every <code>fleet/&lt;anything&gt;/telemetry</code> instead.</li>
+<li><strong>Publishing</strong> to <code>fleet/*/telemetry</code> succeeds and lands on the subject
+<code>fleet.*.telemetry</code>, which is not a subject any device is reading
+literally.</li>
+</ul>
+<p>Keep <code>*</code> and <code>&gt;</code> out of topic names unless you mean the NATS behavior.</p>
+<h2 id="permissions-apply-to-the-subject">Permissions apply to the subject</h2>
+<p>Authorization runs on the converted subject, not the MQTT topic. The
+server converts first, then checks permissions.</p>
+<p>Write permissions for MQTT users as NATS subjects, with NATS wildcards.
+A device publishing <code>sensors/warehouse/cold-1/temp</code> needs publish
+permission on <code>sensors.warehouse.cold-1.temp</code>, and <code>sensors.&gt;</code> covers
+the whole fleet. A rule written <code>sensors/#</code> never matches anything.</p>
+<p>Subscribe permissions need one more step, because of the two-subscription
+rule above. A device subscribing to <code>sensors/#</code> makes the server create
+subscriptions on both <code>sensors.&gt;</code> and <code>sensors</code>, and permissions are
+checked for each. Allow only <code>sensors.&gt;</code> and the second one is denied —
+which fails the <em>whole</em> filter, not just the parent level. Grant both:</p>
+<div><div><pre><code class="language-conf">subscribe: ["sensors.&gt;", "sensors"]</code></pre></div></div>
+<p>The full permission setup for MQTT users is on
+<a href="/learn/mqtt/auth-and-clustering">Auth and clustering</a>.</p>
+<h2 id="see-a-conversion-for-yourself">See a conversion for yourself</h2>
+<p>The quickest way to check any topic is to subscribe to everything on the
+NATS side and watch what arrives. In one terminal:</p>
+<div><div><pre><code class="language-bash">nats sub "&gt;"</code></pre></div></div>
+<p>Publish a few awkward topics from another:</p>
+<div><div><pre><code class="language-bash">mosquitto_pub -h 127.0.0.1 -p 1883 -t "/sensors/temp" -m "4.2"
+mosquitto_pub -h 127.0.0.1 -p 1883 -t "sensors//temp" -m "4.3"
+mosquitto_pub -h 127.0.0.1 -p 1883 -t "cold-1.temp" -m "4.4"</code></pre></div></div>
+<p>The subjects show the escaping:</p>
+<div><div><pre><code class="language-text">[#28] Received on "/.sensors.temp"
+Nmqtt-Pub: 0
+
+4.2
+
+[#36] Received on "sensors./.temp"
+Nmqtt-Pub: 0
+
+4.3
+
+[#44] Received on "cold-1//temp"
+Nmqtt-Pub: 0
+
+4.4</code></pre></div></div>
+<p>The full wildcard also catches the server's own traffic — the JetStream
+API calls it makes to manage MQTT state, on <code>$JS.&gt;</code> and <code>$MQTT.&gt;</code>
+subjects — which is why the message numbers jump. The device messages
+are the ones carrying an <code>Nmqtt-Pub</code> header.</p>
+<p>Keep this handy when you're writing permissions for a fleet whose topics
+you don't control. Publish one message and read the subject off the
+subscriber rather than working it out by hand.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>Writing permissions as MQTT topics.</strong> Permissions are checked against
+the converted subject, so a rule written with <code>/</code> separators or MQTT
+wildcards never matches. <code>sensors/#</code> is not a NATS subject; for
+publishing, the rule you want is <code>sensors.&gt;</code>. This fails late: the
+device connects fine, then its publishes are rejected.</p>
+<p><strong>Granting only <code>sensors.&gt;</code> for a <code>#</code> subscription.</strong> A device
+subscribing to <code>sensors/#</code> needs both <code>sensors.&gt;</code> and <code>sensors</code>, because
+the server creates a subscription for each. Grant only the first and the
+second is denied, at which point the server refuses the entire filter:
+it returns <code>0x80</code> in the SUBACK and tears down the <code>sensors.&gt;</code>
+subscription it had already created. The device receives nothing on
+<code>sensors/#</code> at all, not merely nothing from the parent level.</p>
+<p><strong>Assuming a leading or trailing slash is cosmetic.</strong> <code>sensors/temp</code> and
+<code>/sensors/temp</code> convert to different subjects (<code>sensors.temp</code> and
+<code>/.sensors.temp</code>), and neither matches a subscription written for the
+other. If some devices in a fleet emit a leading slash and others don't,
+you have two subject trees, not one. Normalize the topics on the device
+or account for both in your subscriptions.</p>
+<p><strong>Letting free text into a topic.</strong> A topic built from a device name or
+location that contains a space is rejected: the publish closes the
+connection, and a subscription gets a failure code in its SUBACK.
+Sanitize anything interpolated into a topic.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>Nothing changed in your running setup. What you have now is the full
+mapping:</p>
+<ul>
+<li><code>/</code> becomes <code>.</code>, with escaping at the start, at the end, and between
+adjacent slashes</li>
+<li><code>.</code> becomes <code>//</code></li>
+<li>the space, tab, newline, carriage return, form feed, and DEL are
+refused; the space on every version</li>
+<li><code>+</code> becomes <code>*</code>, <code>#</code> becomes <code>&gt;</code>, and <code>#</code> below the top level costs two
+subscriptions</li>
+<li>permissions, subscriptions, and stream subjects are all written against
+the converted subject</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>You can now predict which subject any topic lands on. The next question
+is what the server promises about delivering it.
+<a href="/learn/mqtt/qos-sessions-and-retained">QoS, sessions, and retained messages</a>
+covers the delivery guarantees, what the server stores between
+connections, and why messages from the NATS side always arrive as QoS 0.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/core-nats/subjects-and-wildcards">Core NATS → Subjects and wildcards</a>
+— the NATS subject rules these conversions target</li>
+<li><a href="/learn/security/authorization">Security → Authorization</a> — how
+publish and subscribe permissions are evaluated</li>
+<li><a href="/reference/config/mqtt/">Reference → mqtt</a> — the <code>mqtt {}</code> block</li>
+</ul></main>

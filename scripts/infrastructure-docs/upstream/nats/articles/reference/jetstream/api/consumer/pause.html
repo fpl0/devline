@@ -1,0 +1,10 @@
+<main><header><h1>Pause Consumer</h1></header>
+<p>Pauses or resumes a consumer.</p>
+<!-- -->
+<h2 id="subject">Subject</h2>
+<p><code>$JS.API.CONSUMER.PAUSE.{stream}.{consumer}</code></p>
+<p>Where <code>{stream}</code> is the stream name and <code>{consumer}</code> is the consumer name.</p>
+<h2 id="request">Request</h2>
+<div><p>A request to the JetStream $JS.API.CONSUMER.PAUSE API</p><div><div><div><span>pause_until</span><span>string&lt;date-time&gt;</span></div><div>Time to pause until, when empty or a time in the past will unpause the consumer</div><div>A point in time in RFC3339 format including timezone, though typically in UTC</div></div></div></div>
+<h2 id="response">Response</h2>
+<div><p>A response from the JetStream $JS.API.CONSUMER.PAUSE API</p><div></div><div><div><div>One of the following:</div><div><div>Option <!-- -->1<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>error</span><span>object</span><span>required</span></div></div></div><div><div>Option <!-- -->2<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>paused</span><span>boolean</span></div><div>Indicates if after parsing the pause_until property if the consumer was paused</div></div><div><div><span>pause_until</span><span>string&lt;date-time&gt;</span></div><div>The deadline till the consumer will be unpaused, only usable if 'paused' is true</div><div>A point in time in RFC3339 format including timezone, though typically in UTC</div></div><div><div><span>pause_remaining</span><span>integer</span></div><div>When paused the time remaining until unpause</div><div>nanoseconds depicting a duration in time, signed 64 bit integer</div><div><span>Minimum:</span><code>0</code></div><div><span>Maximum:</span><code>9223372036854776000</code></div></div></div></div><div><div><span>type</span><span>const: "io.nats.jetstream.api.v1.consumer_pause_response"</span></div></div></div></div></main>

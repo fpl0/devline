@@ -1,0 +1,114 @@
+<main><header><h1>Backup &amp; Recovery Deep Dive</h1></header>
+<p>The earlier chapters built things. JetStream gave you an <code>ORDERS</code> stream
+full of order events. Security gave you the <code>ACME</code> operator and the
+<code>ORDERS</code> and <code>ANALYTICS</code> accounts that decide who may touch it.
+Topologies spread it across the <code>east</code> cluster. This chapter doesn't
+build anything new. It keeps all of that alive when something goes
+wrong.</p>
+<p>Something will go wrong. A disk fills, a region drops off the network, a
+script deletes the wrong stream, a laptop holding the operator key is
+left in a taxi. Each of those is a different kind of loss, and each one
+needs a different kind of copy made ahead of time. This chapter is about
+making those copies and putting them back.</p>
+<h2 id="the-three-things-to-protect">The three things to protect</h2>
+<p>Protecting a NATS platform means protecting three things, and none of
+them protects the others. Keep this in mind for the whole chapter:</p>
+<ul>
+<li><strong>A snapshot</strong> is a point-in-time copy of a stream (its messages, its
+config, and optionally its consumer state) written off-site. It's
+the point you can return to after a delete or a corruption. It answers
+"how much data can I afford to lose," your <strong>recovery point</strong>.</li>
+<li><strong>A mirror</strong> is a live, read-only copy of a stream running at a second
+site, kept current by replication. It's the failover destination when
+the first one dies. It answers "how long can recovery take," your
+<strong>recovery time</strong>.</li>
+<li><strong>Identity</strong> is the set of files that <em>are</em> your security layer: the
+operator and account JWTs, the nkeys that sign them, the user creds,
+and the server config. Without these, a restored stream is data nobody
+is allowed to read. They're the keys that prove who you are.</li>
+</ul>
+<p>A snapshot won't bring a dead site back quickly, a mirror won't save you
+from bad data (a corrupt write replicates to the mirror, and a mirror
+keeps no earlier state to rewind to), and neither one matters if you've
+lost the keys. You need all three, and this chapter takes them one at a
+time.</p>
+<h3 id="why-r3-is-not-on-the-list">Why R3 is not on the list</h3>
+<p>You might expect replication to be the fourth item. A stream with three
+replicas (R3) survives a node dying without losing a message, so it's
+tempting to call it a backup, but it isn't. R3 is high availability:
+several copies of the same live stream, kept identical at all times.
+Being kept identical is the problem. When a bad write lands (an
+accidental delete, a logic error that corrupts a message), every replica
+applies it. The mistake is replicated the same way the good data is.</p>
+<p>R3 keeps the stream <em>available</em>; only a snapshot lets you go <em>back</em> to
+before the mistake. We treat R3 as availability throughout this chapter
+and never as a backup. The replication and leader-election mechanics
+live in the <a href="/learn/clustering">Clustering &amp; Replication</a> deep dive.</p>
+<h2 id="by-the-end-youll-have">By the end you'll have</h2>
+<ul>
+<li>A dated, off-site snapshot of the <code>ORDERS</code> stream under
+<code>./backups/orders/</code>, plus a verified restore procedure that rebuilds
+it with matching message counts.</li>
+<li>An <code>ORDERS_DR</code> mirror of <code>ORDERS</code> running at a second site, whose
+lag you can read before trusting it.</li>
+<li>A runbook that picks the right recovery for each class of failure
+(restore the snapshot or promote the mirror), walked against the
+real objects.</li>
+<li>An off-site, encrypted copy of the platform's identity (the
+<code>ACME</code> operator and the <code>ORDERS</code> and <code>ANALYTICS</code> accounts with every
+JWT and private seed, plus the server config), and a procedure that
+puts it all back in a clean-room rebuild and re-mints any lost creds
+files.</li>
+</ul>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You've worked through the <a href="/learn/jetstream">JetStream deep dive</a>, so
+you know what a stream and a consumer are. You've worked through the
+<a href="/learn/security">Security deep dive</a>, so you know what an operator, an
+account, and a user are. Ideally you have the
+<a href="/learn/topologies">Topologies deep dive</a> behind you too, so the <code>east</code>
+cluster and a second site are familiar shapes.</p>
+<p>This chapter assumes you now run NATS for someone else. You're past
+whether it works and into what happens when it stops in production. It
+doesn't re-teach how a stream stores messages, how a mirror replicates
+them, or how an account trust chain validates. Instead, it links to the
+chapter that owns each of those and builds the operational layer on top.</p>
+<h2 id="how-to-read-it">How to read it</h2>
+<p>Each page introduces at most two new concepts and carries the same Acme
+ORDERS world forward. You keep the <code>east</code> cluster and the <code>ORDERS</code>
+stream running, take a snapshot of them, stand up <code>ORDERS_DR</code> beside
+them, and then walk the runbook against those exact objects, with no
+fresh example per page.</p>
+<p>Where a feature has a long list of knobs, error codes, or advisory
+subjects, the page covers only what you need to run the procedure and
+links to <a href="/reference/">Reference</a> for the exhaustive detail.</p>
+<p>Two boundaries are deliberate, because another chapter already owns
+them. <em>How</em> a mirror replicates lives in
+<a href="/learn/jetstream/mirrors-and-sources">JetStream → Mirrors and sources</a>;
+here we only apply a mirror to disaster recovery and read its lag.
+<em>What</em> an operator or account is lives in
+<a href="/learn/security/operator-mode">Security → Operator mode</a>; here we only
+copy those files off-site and put them back.</p>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/backup-recovery/stream-backup-restore">Stream backup and restore</a></td><td>Take a point-in-time snapshot of <code>ORDERS</code>, restore it, and verify the counts match</td></tr><tr><td><a href="/learn/backup-recovery/mirrors-and-sources">Mirrors as a DR tool</a></td><td>Stand up <code>ORDERS_DR</code> at a second site, read its lag, and see why a mirror is not a backup</td></tr><tr><td><a href="/learn/backup-recovery/disaster-recovery">Disaster recovery</a></td><td>A runbook that picks restore or promotion per failure class, and how to promote a mirror</td></tr><tr><td><a href="/learn/backup-recovery/config-and-jwt-backup">Config and JWT backup</a></td><td>Back up and restore the operator, accounts, keys, and server config off-site</td></tr><tr><td><a href="/learn/backup-recovery/where-next">Where to go next</a></td><td>The whole game recapped, plus a single production checklist</td></tr></tbody></table>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need the world the earlier chapters built, running locally:</p>
+<ul>
+<li>A <code>nats-server</code> with <strong>file</strong> storage and JetStream enabled, holding
+the <code>ORDERS</code> stream. Memory streams can't be snapshotted, so file
+storage isn't optional here.</li>
+<li>The <code>nats</code> CLI installed and pointed at that server.</li>
+<li>The <code>nats auth</code> store from the Security chapter (the tree under
+<code>$XDG_DATA_HOME/nats</code>), holding the <code>ACME</code> operator and the <code>ORDERS</code>
+and <code>ANALYTICS</code> accounts.</li>
+<li>A second place to put copies: a second site for the mirror, and any
+off-site location (another disk, a bucket) for snapshots and identity.</li>
+</ul>
+<p>Open a terminal, confirm <code>nats stream info ORDERS</code> returns your stream,
+and turn to
+<a href="/learn/backup-recovery/stream-backup-restore">Stream backup and restore</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/jetstream/mirrors-and-sources">JetStream → Mirrors and sources</a> — how a mirror actually replicates, which this chapter applies but doesn't re-teach.</li>
+<li><a href="/learn/security/operator-mode">Security → Operator mode</a> — what the operator, accounts, and users are, the identity this chapter backs up.</li>
+<li><a href="/learn/clustering">Clustering &amp; Replication</a> — the R3 mechanics this chapter deliberately leaves out.</li>
+</ul></main>

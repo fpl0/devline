@@ -1,0 +1,43 @@
+<main>
+		
+		<h1>Link check</h1>
+		<p>Link check scans your message (HTML and text) for up to 100 unique links, images, and linked stylesheets. It then makes an HTTP <code>HEAD</code> request to each link to test whether the link, image, or stylesheet exists.</p>
+
+<div>
+	For security reasons, link check will (by default) <strong>block</strong> all HTTP requests to internal (non-public) networks, including loopback, private, unicast &amp; multicast addresses. This is to prevent SSRF (Server-Side Request Forgery) attacks, which can be used to access internal services or resources that are not intended to be exposed. If you trust all traffic to your Mailpit instance, or use authentication to restrict access to your Mailpit instance, you can disable this using <code>--allow-internal-http-requests</code> (or the <code>MP_ALLOW_INTERNAL_HTTP_REQUESTS=true</code> environment setting).
+</div>
+
+
+<div>
+	Link check will, by default, require valid HTTPS certificates for any HTTPS links. You can disable this using <code>--allow-untrusted-tls</code> (or the <code>MP_ALLOW_UNTRUSTED_TLS=true</code> environment setting).
+</div>
+
+
+<div>
+	Link check will only scan up to 100 unique links per email, and rate limits requests to prevent abuse. <a href="#rate-limiting">See docs</a> for more information.
+</div>
+
+<h2 id="what-are-301-and-302-links">What are “301” and “302” links?</h2>
+<p>These are links that redirect you to another URL. For example, newsletters often use redirect links to track user clicks.</p>
+<p>By default, Link check will not follow these links; however, you can turn this on via the settings, and Link check will “follow” those redirects.</p>
+<h2 id="rate-limiting">Rate limiting</h2>
+<p>The link checker uses a <strong>per-domain rate limiter</strong> to prevent hammering external servers during a check.</p>
+<p><strong>Domain grouping</strong> - Links are grouped by registered domain (eTLD+1), so <code>images.example.com</code> and <code>click.example.com</code> share the same limiter as <code>example.com</code>. This closes the loophole of bypassing limits via subdomains.</p>
+<p><strong>Token bucket</strong> - Each domain gets a token bucket that starts full at 100 tokens and refills at 1 token per second. Checking a link consumes one token. A fresh check of an email with up to 100 links to the same domain completes immediately; beyond that, requests are paced to one per second.</p>
+<p><strong>Concurrency cap</strong> - Independently of the token bucket, at most 2 requests to the same domain run at the same time. This limits connection load even when tokens are plentiful.</p>
+<p><strong>Result cache</strong> - Each checked URL is cached for 60 seconds. Re-checking the same email within that window skips the network request entirely and returns the cached status, so the rate limiter is not drained twice.</p>
+<p><strong>Disabling</strong> - Passing <code>--disable-link-check-rate-limit</code> (or setting <code>MP_DISABLE_LINK_CHECK_RATE_LIMIT=true</code>) skips the token bucket, the concurrency cap, and the result cache entirely. Use with caution.</p>
+<h2 id="some-links-return-an-error-but-work-in-my-browser">Some links return an error but work in my browser?</h2>
+<p>This may be due to various reasons, for instance:</p>
+<ul>
+<li>The Mailpit server cannot resolve (DNS) the hostname of the URL.</li>
+<li>Mailpit is not allowed to access the URL.</li>
+<li>The webserver is blocking requests that don’t come from authenticated web browsers.</li>
+<li>The webserver does not allow HTTP HEAD requests.</li>
+</ul>
+
+
+		
+		
+		
+	</main>

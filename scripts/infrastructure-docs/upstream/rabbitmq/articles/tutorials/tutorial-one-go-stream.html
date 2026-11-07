@@ -1,0 +1,165 @@
+<main><header><h1>RabbitMQ Stream tutorial - "Hello World!"</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a>, running on
+<code>localhost</code> and the <a href="https://www.rabbitmq.com/docs/4.3/stream#enabling-plugin">stream plugin</a>  enabled.
+The <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard stream port</a> is 5552. In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="using-docker">Using docker</h3><p>If you don't have RabbitMQ installed, you can run it in a Docker container:</p><div><div><pre><code class="language-bash">docker run -it --rm --name rabbitmq -p 5552:5552 -p 15672:15672 -p 5672:5672  \
+    -e RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS='-rabbitmq_stream advertised_host localhost' \
+    rabbitmq:4-management</code></pre></div></div><p>wait for the server to start and then enable the stream and stream management plugins:</p><div><div><pre><code class="language-bash">docker exec rabbitmq rabbitmq-plugins enable rabbitmq_stream rabbitmq_stream_management </code></pre></div></div><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through the <a href="https://groups.google.com/forum/#!forum/rabbitmq-users">mailing
+list</a> or <a href="https://www.rabbitmq.com/discord">discord community server</a>.</p></div></div>
+<p>RabbitMQ Streams was introduced in RabbitMQ 3.9.
+More information is available <a href="https://www.rabbitmq.com/docs/4.3/streams">here</a>.</p>
+<h2 id="hello-world">"Hello World"</h2>
+<h3 id="using-the-go-stream-client">(using the Go Stream Client)</h3>
+<p>In this part of the tutorial we'll write two programs in Go; a
+producer that sends a single message, and a consumer that receives
+messages and prints them out. We'll gloss over some of the detail in
+the Go client API, concentrating on this very simple thing just to get
+started. It's the "Hello World" of RabbitMQ Streams.</p>
+<blockquote>
+<h4 id="the-go-stream-client-library">The Go stream client library</h4>
+<p>RabbitMQ speaks multiple protocols. This tutorial uses RabbitMQ stream protocol which is a dedicated
+protocol for <a href="https://www.rabbitmq.com/docs/4.3/streams">RabbitMQ streams</a>. There are a number of clients
+for RabbitMQ in <a href="/client-libraries/devtools">many different
+languages</a>, see the stream client libraries for each language.
+We'll use the <a href="https://github.com/rabbitmq/rabbitmq-stream-go-client">Go stream client</a> provided by RabbitMQ.</p>
+<p>RabbitMQ Go client 1.4 and later versions are distributed
+via <a href="https://github.com/rabbitmq/rabbitmq-stream-go-client?tab=readme-ov-file#installing">go get</a>.</p>
+<p>This tutorial assumes you are using powershell on Windows. On MacOS and Linux nearly
+any shell will work.</p>
+</blockquote>
+<h3 id="setup">Setup</h3>
+<p>First let's verify that you have the Go toolchain in <code>PATH</code>:</p>
+<div><div><pre><code class="language-shell">go help</code></pre></div></div>
+<p>Running that command should produce a help message.</p>
+<p>An executable version of this tutorial can be found in the <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-stream/">RabbitMQ tutorials repository</a>.</p>
+<p>Now let's create the project:</p>
+<div><div><pre><code class="language-shell">mkdir go-stream
+cd go-stream
+go mod init github.com/rabbitmq/rabbitmq-tutorials
+go get -u github.com/rabbitmq/rabbitmq-stream-go-client</code></pre></div></div>
+<p>Now we have the Go project set up we can write some code.</p>
+<h3 id="sending">Sending</h3>
+<p>We'll call our message producer (sender) <code>send.go</code> and our message consumer (receiver)
+<code>receive.go</code>. The producer will connect to RabbitMQ, send a single message,
+then exit.</p>
+<p>In
+<a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-stream/send.go"><code>send.go</code></a>,
+we need to import some packages:</p>
+<div><div><pre><code class="language-go">import (
+    "bufio"
+    "fmt"
+    "github.com/rabbitmq/rabbitmq-stream-go-client/pkg/amqp"
+    "github.com/rabbitmq/rabbitmq-stream-go-client/pkg/stream"
+    "log"
+    "os"
+)</code></pre></div></div>
+<p>then we can create a connection to the server:</p>
+<div><div><pre><code class="language-go">env, err := stream.NewEnvironment(
+		stream.NewEnvironmentOptions())</code></pre></div></div>
+<p>The entry point of the stream Go client is the <code>Environment</code>.
+It is used for configuration of RabbitMQ stream publishers, stream consumers, and streams themselves.</p>
+<p>It abstracts the socket connection, and takes care of protocol version negotiation and authentication and so on for us.</p>
+<p>This tutorial assumes that stream publisher and consumer connect to a RabbitMQ node running locally, that is, on <em>localhost</em>.
+To connect to a node on a different machine, simply specify target hostname or IP address on the <code>EnvironmentOptions</code>.</p>
+<p>Next let's create a producer.</p>
+<p>The producer will also declare a stream it will publish messages to and then publish a message:</p>
+<div><div><pre><code class="language-go">streamName := "hello-go-stream"
+env.DeclareStream(streamName,
+    &amp;stream.StreamOptions{
+        MaxLengthBytes: stream.ByteCapacity{}.GB(2),
+    },
+)
+
+producer, err := env.NewProducer(streamName, stream.NewProducerOptions())
+if err != nil {
+    log.Fatalf("Failed to create producer: %v", err)
+}
+
+err = producer.Send(amqp.NewMessage([]byte("Hello world")))
+if err != nil {
+    log.Fatalf("Failed to send message: %v", err)
+}</code></pre></div></div>
+<p>The stream declaration operation is idempotent: the stream will only be created if it doesn't exist already.</p>
+<p>A stream is an append-only log abstraction that allows for repeated consumption of messages until they expire.
+It is a good practice to always define the retention policy.
+In the example above, the stream is limited to be 2 GiB in size.</p>
+<p>The message content is a byte array.
+Applications can encode the data they need to transfer using any appropriate format such as JSON, MessagePack, and so on.</p>
+<p>When the code above finishes running, the producer connection and stream-system
+connection will be closed. That's it for our producer.</p>
+<p>Each time the producer is run, it will send a single message to the server and the message will be appended to the stream.</p>
+<p>The complete <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-stream/send.go">send.go file</a> can be found on GitHub.</p>
+<blockquote>
+<h4 id="sending-doesnt-work">Sending doesn't work!</h4>
+<p>If this is your first time using RabbitMQ and you don't see the "Sent"
+message then you may be left scratching your head wondering what could
+be wrong. Maybe the broker was started without enough free disk space
+(by default it needs at least 50 MB free) and is therefore refusing to
+accept messages. Check the broker <a href="https://www.rabbitmq.com/docs/4.3/logging">log file</a> to see if there
+is a <a href="https://www.rabbitmq.com/docs/4.3/alarms">resource alarm</a> logged and reduce the
+free disk space threshold if necessary.
+The <a href="https://www.rabbitmq.com/docs/4.3/configure#config-items">Configuration guide</a>
+will show you how to set <code>disk_free_limit</code>.</p>
+<p>Another reason may be that the program exits <em>before</em> the message makes it to the broker.
+Sending is asynchronous in some client libraries: the function returns immediately but the message is enqueued in the IO layer before going over the wire.
+The sending program asks the user to press a key to finish the process: the message has plenty of time to reach the broker.
+The stream protocol provides a confirm mechanism to make sure the broker receives outbound messages, but this tutorial does not use this mechanism for simplicity's sake.</p>
+</blockquote>
+<h3 id="receiving">Receiving</h3>
+<p>The other part of this tutorial, the consumer, will connect to a RabbitMQ node and wait for messages to be pushed to it.
+Unlike the producer, which in this tutorial publishes a single message and stops, the consumer will be running continuously, consume the messages RabbitMQ will push to it, and print the received payloads out.</p>
+<p>Similarly to <code>send.go</code>, <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-stream/receive.go"><code>receive.go</code></a> will need to import some packages:</p>
+<div><div><pre><code class="language-go">import (
+    "bufio"
+    "fmt"
+    "github.com/rabbitmq/rabbitmq-stream-go-client/pkg/amqp"
+    "github.com/rabbitmq/rabbitmq-stream-go-client/pkg/stream"
+    "log"
+    "os"
+)</code></pre></div></div>
+<p>When it comes to the initial setup, the consumer part is very similar the producer one; we use the default connection settings and declare the stream from which the consumer will consume.</p>
+<div><div><pre><code class="language-go">env, err := stream.NewEnvironment(stream.NewEnvironmentOptions())
+if err != nil {
+    log.Fatalf("Failed to create environment: %v", err)
+}
+
+streamName := "hello-go-stream"
+env.DeclareStream(streamName,
+    &amp;stream.StreamOptions{
+        MaxLengthBytes: stream.ByteCapacity{}.GB(2),
+    },
+)</code></pre></div></div>
+<p>Note that the consumer part also declares the stream.
+This is to allow either part to be started first, be it the producer or the consumer.</p>
+<p>We use the <code>Consumer</code> struct to instantiate the consumer and <code>ConsumerOptions</code> struct to configure it.
+We provide a <code>messageHandler</code> callback to process delivered messages.</p>
+<p><code>SetOffset</code> defines the starting point of the consumer.
+In this case, the consumer starts from the very first message available in the stream.</p>
+<div><div><pre><code class="language-go">messagesHandler := func(consumerContext stream.ConsumerContext, message *amqp.Message) {
+	fmt.Printf("Stream: %s - Received message: %s\n", consumerContext.Consumer.GetStreamName(),
+			message.Data)}
+
+consumer, err := env.NewConsumer(streamName, messagesHandler, 
+        stream.NewConsumerOptions().SetOffset(stream.OffsetSpecification{}.First()))
+if err != nil {
+    log.Fatalf("Failed to create consumer: %v", err)
+}</code></pre></div></div>
+<p>The complete <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-stream/receive.go">receive.go file</a> can be found on GitHub.</p>
+<h3 id="putting-it-all-together">Putting It All Together</h3>
+<p>In order to run both examples, open two terminal (shell) tabs.</p>
+<p>We need to pull dependencies first:</p>
+<div><div><pre><code class="language-shell">go get -u</code></pre></div></div>
+<p>Both parts of this tutorial can be run in any order, as they both declare the stream.
+Let's run the consumer first so that when the first publisher is started, the consumer will print it:</p>
+<div><div><pre><code class="language-shell"> go run receive.go</code></pre></div></div>
+<p>Then run the producer:</p>
+<div><div><pre><code class="language-shell">go run send.go</code></pre></div></div>
+<p>The consumer will print the message it gets from the publisher via
+RabbitMQ. The consumer will keep running, waiting for new deliveries. Try re-running
+the publisher several times to observe that.</p>
+<p>Streams are different from queues in that they are append-only logs of messages
+that can be consumed repeatedly.
+When multiple consumers consume from a stream, they will start from the first available message.</p></main>

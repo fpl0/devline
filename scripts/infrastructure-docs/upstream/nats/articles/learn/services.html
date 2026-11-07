@@ -1,0 +1,92 @@
+<main><header><h1>Services</h1></header>
+<p>In the Core NATS chapter you wrote a responder by hand. It subscribed to
+a subject, read each request, and replied. That works, but the responder
+is only a function on a wire. It has no name you can look up and no
+version. There's no way to tell how many copies are running, and no
+built-in count of how many requests it has served.</p>
+<p>The <strong>Services framework</strong> closes that gap. Its module is called <code>micro</code>
+in some client libraries (Go, Python) and <code>service</code>/<code>services</code> in others
+(JavaScript, Java, Rust, C#); the concept is the same everywhere. It takes
+the same request-reply responder you
+already know and formalizes it into a <strong>service</strong>: a named, versioned
+handler that the server can discover, that reports its own stats, and
+that load-balances across as many copies as you start. You add no new
+infrastructure. A service is still request-reply underneath; the
+framework connects those pieces for you.</p>
+<p>This chapter promotes the Core NATS <code>inventory</code> responder into a real
+<code>OrderInventory</code> service and grows it page by page. The order payload,
+the subjects, and the single local server stay the same, only now with
+a framework around the responder.</p>
+<h2 id="by-the-end-youll-have">By the end you'll have</h2>
+<ul>
+<li>an <code>OrderInventory</code> service, version <code>1.0.0</code>, answering on
+<code>orders.inventory.check</code> with a named endpoint and the default queue
+group <code>"q"</code></li>
+<li>a second <code>ShippingQuote</code> service, to show how one process can host
+multiple endpoints and group them under a subject prefix</li>
+<li>the ability to discover both services over the <code>$SRV</code> subjects:
+query which services are present, what endpoints they expose, and
+their current stats</li>
+<li>per-endpoint stats you can read back at any time: how many
+requests each endpoint served, how many failed, and how long they
+took</li>
+<li>two or more instances of <code>OrderInventory</code> sharing the load, with the
+queue group spreading requests across them and no coordinator
+involved</li>
+</ul>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You've read the <a href="/learn/core-nats">Core NATS deep dive</a>, or you're
+otherwise comfortable with <a href="/learn/core-nats/request-reply">request-reply</a>
+and <a href="/learn/core-nats/queue-groups">queue groups</a>. This chapter doesn't
+re-teach those mechanisms. It builds directly on top of them: a service
+is a request-reply responder, and its default load balancing is a queue
+group. When something in this chapter is really one of those underlying
+mechanisms, the page names it and links back rather than explaining it
+again.</p>
+<p>You don't need to know anything about the micro framework itself. We
+start from "what does the framework add to a plain responder" and grow
+from there.</p>
+<p>A service stores nothing; it answers a request and retains no record of
+it. That's the at-most-once nature of request-reply. When you need the work to
+survive a restart or be retried, that's a job for the persistence layer,
+covered in the <a href="/learn/jetstream">JetStream deep dive</a>. We name that
+boundary as it comes up.</p>
+<h2 id="how-to-read-it">How to read it</h2>
+<p>Each page introduces at most two new concepts and carries the same Acme
+ORDERS session forward. You keep the <code>OrderInventory</code> service running and
+add an endpoint, a second service, a discovery query, a stats query, and
+a second instance as the chapter progresses. You can keep one terminal
+open the whole way through.</p>
+<p>The framework exposes many configuration fields: every endpoint option,
+every metadata map, the full discovery wire schema. Where a feature has a
+long list, the page covers only the behavior you need and links to
+<a href="/reference/">Reference</a> for the exhaustive set.</p>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/services/your-first-service">Your first service</a></td><td>Create <code>OrderInventory</code> with one endpoint, and the handler contract</td></tr><tr><td><a href="/learn/services/endpoints-and-groups">Endpoints and groups</a></td><td>Host multiple endpoints in one service and group them under a subject prefix</td></tr><tr><td><a href="/learn/services/discovery">Discovery</a></td><td>The three <code>$SRV</code> verbs (PING, INFO, STATS) and why discovery is broadcast</td></tr><tr><td><a href="/learn/services/observability">Observability</a></td><td>Read per-endpoint stats and signal a service error</td></tr><tr><td><a href="/learn/services/scaling">Scaling</a></td><td>Run N instances and let the queue group balance the load</td></tr><tr><td><a href="/learn/services/where-next">Where to go next</a></td><td>A map of what's beyond this chapter</td></tr></tbody></table>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need:</p>
+<ul>
+<li>A single local <code>nats-server</code>. The Services framework needs nothing
+special enabled. It runs on ordinary request-reply, so a plain
+<code>nats-server</code> is enough. Topology is a separate concern, covered in the
+<a href="/learn/topologies">Topologies deep dive</a>.</li>
+<li>The <code>nats</code> CLI installed and pointed at your server. The CLI can
+request, list, and inspect services directly, and the examples use it
+to drive and observe a running service. Building the service itself
+(creating it, adding endpoints, writing handlers) is a client-library
+task, so reach for your client library (JavaScript, Go, Python, Java,
+Rust, or C#) when you build one for real.</li>
+<li>Comfort with <a href="/learn/core-nats/request-reply">request-reply</a> and
+<a href="/learn/core-nats/queue-groups">queue groups</a>. The framework assumes
+both.</li>
+</ul>
+<p>Open a terminal, start a <code>nats-server</code>, and continue to the next page.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/core-nats/request-reply">Core NATS → Request-reply</a> — the
+mechanism every service is built on</li>
+<li><a href="/learn/core-nats/queue-groups">Core NATS → Queue groups</a> — the load
+balancing a service gets for free</li>
+<li><a href="/concepts/what-is-nats">Concepts → What is NATS</a> — the five-minute
+overview of the whole system</li>
+</ul></main>

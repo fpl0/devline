@@ -1,0 +1,14 @@
+<main><header><h1>sync_interval</h1></header>
+<div>Aliases:<!-- --> <code>sync</code></div>
+<div><span><span>Requires Restart</span></span></div>
+<p>Defines the internal to force sync file-based stream and consumer data
+to disk. The filestore relies on the operating system's filesystem buffers
+to periodically sync to disk. However, the server will still periodically
+force sync files based on this interval.</p>
+<p>For use cases where unclean shutdowns are common, this can provide more
+control over how frequently to force sync data when written.</p>
+<p>If a value <code>always</code> is used, a explicit sync will occur on every write.
+Do note that this will degrade the max throughput due to the additional
+I/O calls.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>duration</code></td><td>Duration as a string with units such as 100ms, 10s, 5m, or 2h.</td><td>-</td></tr><tr><td><code>string</code></td><td></td><td><code>always</code></td></tr></tbody></table></main>

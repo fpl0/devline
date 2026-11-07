@@ -1,0 +1,176 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div class="sect1">
+<h2 id="_importing_a_keycloak_realm"><a class="anchor" href="#_importing_a_keycloak_realm"></a>Importing a Keycloak Realm</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Using the Keycloak Operator, you can perform a realm import for the Keycloak Deployment.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="ulist">
+<ul>
+<li>
+<p>If a Realm with the same name already exists in Keycloak, it will not be overwritten.</p>
+</li>
+<li>
+<p>The Realm Import CR only supports creation of new realms and does not update or delete those. Changes to the realm performed directly on Keycloak are not synced back in the CR.</p>
+</li>
+<li>
+<p>Once the realm is imported you should delete the Realm Import CR as that will cleanup the associated Kubernetes Job and Pod resources.</p>
+</li>
+</ul>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_creating_a_realm_import_custom_resource"><a class="anchor" href="#_creating_a_realm_import_custom_resource"></a>Creating a Realm Import Custom Resource</h3>
+<div class="paragraph">
+<p>The following is an example of a Realm Import Custom Resource (CR):</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.keycloak.org/v2beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KeycloakRealmImport</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-realm-kc</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">keycloakCRName</span><span class="pi">:</span> <span class="s">&lt;name of the keycloak CR&gt;</span>
+  <span class="na">realm</span><span class="pi">:</span>
+    <span class="s">...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>This CR should be created in the same namespace as the Keycloak Deployment CR, defined in the field <code>keycloakCRName</code>.
+The <code>realm</code> field accepts a full <a href="https://www.keycloak.org/docs-api/26.8.2/rest-api//index.html#RealmRepresentation">RealmRepresentation</a>.</p>
+</div>
+<div class="paragraph">
+<p>The recommended way to obtain a <code>RealmRepresentation</code> is by leveraging the export functionality <a href="https://www.keycloak.org/server/importExport">Importing and exporting realms</a>.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Export the Realm to a single file.</p>
+</li>
+<li>
+<p>Convert the JSON file to YAML.</p>
+</li>
+<li>
+<p>Copy and paste the obtained YAML file as body for the <code>realm</code> key, making sure the indentation is correct.</p>
+</li>
+</ol>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_applying_the_realm_import_cr"><a class="anchor" href="#_applying_the_realm_import_cr"></a>Applying the Realm Import CR</h3>
+<div class="paragraph">
+<p>Use <code>kubectl</code> to create the CR in the correct cluster namespace:</p>
+</div>
+<div class="paragraph">
+<p>Create YAML file <code>example-realm-import.yaml</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.keycloak.org/v2beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KeycloakRealmImport</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-realm-kc</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">keycloakCRName</span><span class="pi">:</span> <span class="s">&lt;name of the keycloak CR&gt;</span>
+  <span class="na">realm</span><span class="pi">:</span>
+    <span class="na">id</span><span class="pi">:</span> <span class="s">example-realm</span>
+    <span class="na">realm</span><span class="pi">:</span> <span class="s">example-realm</span>
+    <span class="na">displayName</span><span class="pi">:</span> <span class="s">ExampleRealm</span>
+    <span class="na">enabled</span><span class="pi">:</span> <span class="no">true</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Apply the changes:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl apply <span class="nt">-f</span> example-realm-import.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>To check the status of the running import, enter the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl get keycloakrealmimports/my-realm-kc <span class="nt">-o</span> go-template<span class="o">=</span><span class="s1">'{{range .status.conditions}}CONDITION: {{.type}}{{"\n"}}  STATUS: {{.status}}{{"\n"}}  MESSAGE: {{.message}}{{"\n"}}{{end}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>When the import has successfully completed, the output will look like the following example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">CONDITION: Done
+  STATUS: <span class="nb">true
+  </span>MESSAGE:
+CONDITION: Started
+  STATUS: <span class="nb">false
+  </span>MESSAGE:
+CONDITION: HasErrors
+  STATUS: <span class="nb">false
+  </span>MESSAGE:</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_placeholders"><a class="anchor" href="#_placeholders"></a>Placeholders</h3>
+<div class="paragraph">
+<p>Imports support placeholders referencing environment variables, see <a href="https://www.keycloak.org/server/importExport">Importing and exporting realms</a> for more.
+The <code>KeycloakRealmImport</code> CR allows you to leverage this functionality via the <code>spec.placeholders</code> stanza, for example:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.keycloak.org/v2beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KeycloakRealmImport</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-realm-kc</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">keycloakCRName</span><span class="pi">:</span> <span class="s">&lt;name of the keycloak CR&gt;</span>
+  <span class="na">placeholders</span><span class="pi">:</span>
+    <span class="na">ENV_KEY</span><span class="pi">:</span>
+      <span class="na">secret</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">SECRET_NAME</span>
+        <span class="na">key</span><span class="pi">:</span> <span class="s">SECRET_KEY</span>
+    <span class="s">...</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>In the above example placeholder replacement will be enabled and an environment variable with key <code>ENV_KEY</code> will be created from the Secret <code>SECRET_NAME</code>'s value for key <code>SECRET_KEY</code>.
+Currently only Secrets are supported and they must be in the same namespace as the Keycloak CR.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_security_considerations"><a class="anchor" href="#_security_considerations"></a>Security Considerations</h3>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Anyone with the ability to create or edit KeycloakRealmImport CRs should be a namespace level admin.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Placeholder replacement gives access to all environment variables even sensitive ones.</p>
+</div>
+</div>
+</div>
+</div> </div>
+</main>

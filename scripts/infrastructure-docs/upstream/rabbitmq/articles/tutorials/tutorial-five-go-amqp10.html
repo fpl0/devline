@@ -1,0 +1,61 @@
+<main><header><h1>RabbitMQ tutorial - Topics</h1></header>
+<h2 id="topics">Topics</h2>
+<h3 id="using-the-amqp-10-go-client">(using the AMQP 1.0 Go client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-four-go-amqp10">previous tutorial</a> we improved our logging
+system. Instead of using a <code>fanout</code> exchange only capable of mindless
+broadcasting, we used a <code>direct</code> one, and gained the ability to selectively
+receive the logs.</p>
+<p>Although using the <code>direct</code> exchange improved our system, it still has
+limitations - it can't do routing based on multiple criteria.</p>
+<p>In our logging system we might want to subscribe to not only logs based on
+severity, but also based on the source which emitted the log. You might know
+this concept from the <code>syslog</code> Unix tool, which routes logs based on both
+severity (info/warn/crit...) and facility (auth/cron/kern...).</p>
+<p>That would give us a lot of flexibility - we may want to listen to just critical
+errors coming from 'cron' but also all logs from 'kern'.</p>
+<p>To implement our logging system we're going to use a <code>topic</code> exchange. Topic
+exchanges implement pattern-based message routing.</p>
+<!-- -->
+<p>The <code>topic</code> exchange is powerful and can behave like other exchanges:</p>
+<ul>
+<li>When a queue is bound with binding key <code>"*"</code> (star) it will match any routing key.</li>
+<li>When special characters <code>"*"</code> (star) and <code>"#"</code> (hash) aren't used in bindings, the topic exchange will behave just like a <code>direct</code> one.</li>
+</ul>
+<h2 id="publishing">Publishing</h2>
+<p>We'll use a topic exchange named <code>logs</code> with routing keys that have the form <code>"&lt;facility&gt;.&lt;severity&gt;"</code>:</p>
+<div><div><pre><code class="language-bash">go run emit_log_topic.go kern.critical "A critical kernel error"
+go run emit_log_topic.go auth.info "Auth info message"</code></pre></div></div>
+<p>See <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/emit_log_topic.go">the full <code>emit_log_topic.go</code></a> for the implementation using <code>TopicExchangeSpecification</code>.</p>
+<h2 id="subscribing">Subscribing</h2>
+<p>Receiving will show the power of topic exchanges. We'll create bindings with
+pattern-based routing keys:</p>
+<div><div><pre><code class="language-bash">go run receive_logs_topic.go "kern.*"
+go run receive_logs_topic.go "*.critical"
+go run receive_logs_topic.go "kern.critical" "auth.warn"</code></pre></div></div>
+<ul>
+<li>The first consumer will receive all messages from the <code>kern</code> facility.</li>
+<li>The second will receive all messages of severity <code>critical</code>.</li>
+<li>The third will receive only critical errors from <code>kern</code> and warnings from <code>auth</code>.</li>
+</ul>
+<p>See <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/receive_logs_topic.go">the full <code>receive_logs_topic.go</code></a> for the implementation.</p>
+<h2 id="topic-exchange-binding-rules">Topic exchange binding rules</h2>
+<p>The topic exchange binding rules are:</p>
+<ul>
+<li><code>"#"</code> can substitute for zero or more words.</li>
+<li><code>"*"</code> can substitute for exactly one word.</li>
+<li>Routing keys are separated by dots (e.g., <code>"kern.critical"</code>).</li>
+</ul>
+<h2 id="putting-it-all-together">Putting it all together</h2>
+<p>The full code examples are available at:</p>
+<ul>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/emit_log_topic.go"><code>emit_log_topic.go</code></a></li>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/go-amqp/receive_logs_topic.go"><code>receive_logs_topic.go</code></a></li>
+</ul>
+<p>The main pattern is using <code>TopicExchangeSpecification</code> instead of <code>DirectExchangeSpecification</code>, and binding queues with pattern-based routing keys using <code>"*"</code> and <code>"#"</code> wildcards.</p>
+<p>Now we can move on to <a href="/tutorials/tutorial-six-go-amqp10">tutorial 6</a> to learn about the RPC (Request/Reply) pattern with RabbitMQ.</p></main>

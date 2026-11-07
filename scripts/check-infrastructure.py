@@ -10,43 +10,66 @@ import re
 import subprocess
 from urllib.parse import urlsplit
 
+from infrastructure_sources import REFERENCE, document_id, read_sources, source_path
+
 
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 PLACEHOLDER = re.compile(r"\{\{(port|secret):([a-z][a-z0-9-]*)\}\}")
+
+
+def check_references(data, services):
+    packs = json.loads((data / "docs-catalog.json").read_text())
+    installed_catalog = json.loads((data / "catalog.json").read_text())
+    if installed_catalog["docs"] != packs:
+        raise ValueError("The runtime documentation catalog differs from the source catalog")
+    pack, = [item for item in packs if f"{item['id']}@{item['version']}" == REFERENCE]
+    root = data / pack["path"]
+    sources = {}
+    for index in range(1, pack.get("shards", 1) + 1):
+        name = "documents.json" if index == 1 else f"documents-{index}.json"
+        for record in json.loads((root / name).read_text()):
+            if record["category"] != "reference" or record["id"] in sources:
+                raise ValueError(f"Non-reference or duplicate infrastructure article: {record['id']}")
+            sources[record["id"]] = record["source_url"]
+    expected = {}
+    scope = {"coverage": [], "omissions": []}
+    for service, directory, source in read_sources(services):
+        service_id = service["id"]
+        entry = f"{REFERENCE}/{document_id(service_id, source['entry'])}" if source["entry"] else None
+        if service.get("docs_ref") != entry:
+            raise ValueError(f"{service_id}: wrong official offline entry point")
+        for field in ("coverage", "omissions"):
+            if service.get(f"docs_{field}") != source[field]:
+                raise ValueError(f"{service_id}: missing or stale documentation {field}")
+            scope[field].append(f"{service['name']} {service['version']} — {source[field]}")
+        for page in source["documents"]:
+            expected[document_id(service_id, page["id"])] = page["source_url"]
+        for notice in source["notices"]:
+            included = root / f"{service_id.upper()}-{Path(notice).name}"
+            if included.read_text(encoding="utf-8") != source_path(directory, notice).read_text(encoding="utf-8"):
+                raise ValueError(f"{service_id}: publisher notice differs from its source")
+    if any(pack[field] != entries for field, entries in scope.items()):
+        raise ValueError("The infrastructure docset scope differs from its source inventory")
+    missing = expected.keys() - sources.keys()
+    unexpected = sources.keys() - expected.keys()
+    wrong_source = {key for key in expected.keys() & sources.keys() if sources[key] != expected[key]}
+    if missing or unexpected or wrong_source:
+        raise ValueError(f"Publisher article inventory mismatch. Missing: {sorted(missing)}. "
+                         f"Unexpected: {sorted(unexpected)}. Wrong source: {sorted(wrong_source)}.")
+    print(f"Verified {len(sources)} publisher reference articles in {REFERENCE}")
 
 
 def check_catalog(data):
     catalog = json.loads((data / "infrastructure.json").read_text())
     if catalog["schema_version"] != 1:
         raise ValueError("Unsupported infrastructure catalog schema")
-    packs = json.loads((data / "docs-catalog.json").read_text())
-    doc_refs = set()
-    for pack in packs:
-        if pack["id"] != "infrastructure":
-            continue
-        for record in json.loads((data / pack["path"] / "documents.json").read_text()):
-            source = urlsplit(record["source_url"])
-            publisher = (
-                record["id"].startswith("reference/postgresql/")
-                and source.hostname == "www.postgresql.org"
-                and source.path.startswith("/docs/18/")
-            ) or (
-                record["id"].startswith("reference/seaweedfs/")
-                and source.hostname == "github.com"
-                and source.path.startswith("/seaweedfs/seaweedfs/blob/")
-            )
-            if not publisher or source.scheme != "https" or record["category"] != "reference":
-                raise ValueError(f"Non-publisher infrastructure reference: {record['id']}")
-            doc_refs.add(f"{pack['id']}@{pack['version']}/{record['id']}")
+    check_references(data, catalog["services"])
     releases = set()
     for service in catalog["services"]:
         name = f"{service['id']}@{service['version']}"
         image = service["image"]
         if name in releases:
             raise ValueError(f"{name}: duplicate release")
-        reference = service.get("docs_ref")
-        if reference is not None and reference not in doc_refs:
-            raise ValueError(f"{name}: missing official offline reference")
         help_ref = service.get("help_ref", "")
         if not re.fullmatch(r"[a-z][a-z0-9-]*", help_ref):
             raise ValueError(f"{name}: invalid Devline help ID")

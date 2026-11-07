@@ -1,0 +1,31 @@
+<main>
+		
+		<h1>API (v1)</h1>
+		<p>Mailpit provides a simple REST API to access, search and delete stored messages.
+It also allows you to send messages via HTTP, modify message tags, and release messages via a preconfigured SMTP relay server.</p>
+<p>
+<a href="view.html">Open the online API documentation</a>
+
+</p>
+<p>There is also some documentation about receiving message notifications via the <a href="./websocket/">websocket endpoint</a>, however this is not part of the official API.</p>
+
+<div>
+	<p>If the Mailpit server is set to use Basic Authentication, then all API requests must use Basic Authentication too.</p>
+<p><strong>Send API Authentication (v1.26.0):</strong> The Send API endpoint (<code>/api/v1/send</code>) can have <a href="../configuration/http/#send-api-endpoint-dedicated-authentication">separate authentication</a> configured, independent of other API endpoints. When separate Send API authentication is configured, the Send API will use its own credentials, while all other API endpoints continue to use UI authentication.</p>
+
+</div>
+
+<div>
+	You can also view the <strong>interactive</strong> API documentation directly within Mailpit by going to <code>http://localhost:8025/api/v1/</code> (you may need to adjust to the IP address of your Mailpit instance).
+</div>
+
+<div>
+	The auto-generated Mailpit Swagger 2.0 file (aka OpenAPI 2.0) can be found <a href="https://raw.githubusercontent.com/axllent/mailpit/master/server/ui/api/v1/swagger.json">here</a>.
+</div>
+
+
+
+		
+		
+		
+	</main>

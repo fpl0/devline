@@ -1,0 +1,628 @@
+<main><header><h1>.NET/C# Client API Guide</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide covers <a href="/client-libraries/dotnet">RabbitMQ .NET/C# client</a> version 7.0 and its public API.
+It assumes that the <a href="https://www.nuget.org/packages/RabbitMQ.Client">most recent major version of the client</a> is used
+and the reader is familiar with <a href="/tutorials">the basics</a>.</p>
+<p>Key sections of the guide are:</p>
+<ul>
+<li><a href="#dotnet-versions">.NET version requirements</a></li>
+<li><a href="#major-api-elements">Important interfaces and classes</a> in the public API</li>
+<li><a href="#limitations">Limitations</a></li>
+<li><a href="#connecting">Connecting to RabbitMQ</a></li>
+<li><a href="#connection-and-channel-lifespan">Connection and Channel Lifespan</a></li>
+<li><a href="#client-provided-names">Client-provided connection name</a></li>
+<li><a href="#exchanges-and-queues">Using Exchanges and Queues</a></li>
+<li><a href="#publishing">Publishing Messages</a></li>
+<li><a href="#consuming">Consuming Using a Subscription</a> and <a href="#consuming-memory-safety">Consumer Memory Safety</a></li>
+<li><a href="#concurrency">Concurrency Considerations and Safety</a></li>
+<li><a href="#recovery">Automatic Recovery From Network Failures</a></li>
+<li><a href="#oauth2-support">OAuth 2 Support</a></li>
+</ul>
+<p>An <a href="https://rabbitmq.github.io/rabbitmq-dotnet-client/api/RabbitMQ.Client.html">API reference</a> is available separately.</p>
+<h2 id="dotnet-versions">.NET Version Requirements</h2>
+<p>7.0.x and 6.8.x release series of this library <a href="/client-libraries/dotnet#overview">require .NET 4.6.1+ or a .NET Standard 2.0+ implementation</a>.</p>
+<h2 id="license">License</h2>
+<p>The library is open source, developed <a href="https://github.com/rabbitmq/rabbitmq-dotnet-client/">on GitHub</a>, and is double-licensed under the</p>
+<ul>
+<li><a href="https://www.apache.org/licenses/LICENSE-2.0.html">Apache Public License 2.0</a></li>
+<li><a href="https://www.mozilla.org/MPL/2.0/">Mozilla Public License 2.0</a></li>
+</ul>
+<p>This means that the user can consider the library to be licensed under any of the licenses from the list above.
+For example, the user may choose the Apache Public License 2.0 and include this client into
+a commercial product.</p>
+<h2 id="major-api-elements">Major namespaces, interfaces and classes</h2>
+<p>The client API is closely modelled on the <a href="/tutorials/amqp-concepts">AMQP 0-9-1 protocol model</a>,
+with additional abstractions for ease of use.</p>
+<p>An <a href="https://rabbitmq.github.io/rabbitmq-dotnet-client/">API reference</a> is available separately.</p>
+<p>The core API interfaces and classes are defined in the <code>RabbitMQ.Client</code> namespace:</p>
+<div><div><pre><code class="language-csharp">using RabbitMQ.Client;</code></pre></div></div>
+<p>The core API interfaces and classes are</p>
+<ul>
+<li><code>IChannel</code>: represents an AMQP 0-9-1 channel, and provides most of the operations (protocol methods)</li>
+<li><code>IConnection</code>: represents an AMQP 0-9-1 connection</li>
+<li><code>ConnectionFactory</code>: constructs <code>IConnection</code> instances</li>
+<li><code>IAsyncBasicConsumer</code>: represents a message consumer</li>
+</ul>
+<p>Other useful interfaces and classes include:</p>
+<ul>
+<li><code>AsyncDefaultBasicConsumer</code>: commonly used base class for consumers</li>
+</ul>
+<p>Public namespaces other than <code>RabbitMQ.Client</code> include:</p>
+<ul>
+<li><code>RabbitMQ.Client.Events</code>: various events and event handlers
+that are part of the client library, including <code>AsyncEventingBasicConsumer</code>,
+a consumer implementation built around C# event handlers.</li>
+<li><code>RabbitMQ.Client.Exceptions</code>: exceptions visible to the user.</li>
+</ul>
+<p>All other namespaces are reserved for private implementation detail of
+the library, although members of private namespaces are usually made
+available to applications using the library in order to permit
+developers to implement workarounds for faults and gaps they
+discover in the library implementation. Applications cannot rely on
+any classes, interfaces, member variables etc. that appear within
+private namespaces remaining stable across releases of the library.</p>
+<h2 id="limitations">Limitations</h2>
+<p>This client does not support unsigned 64-bit integers, represented in
+type <code>ulong</code>. Attempting to encode <code>ulong</code> values will throw an exception.
+Note that signed 64-bit integers are supported.</p>
+<p>This is in part due to type marker <a href="/amqp-0-9-1-errata#section_3">ambiguity in the AMQP 0-9-1 spec</a>,
+and in part due to <a href="https://github.com/rabbitmq/rabbitmq-dotnet-client/pull/1299#issuecomment-1433342924">the list of types supported by other popular clients</a>.</p>
+<h2 id="connecting">Connecting to RabbitMQ</h2>
+<p>Before an application can use RabbitMQ, it has to open a <a href="https://www.rabbitmq.com/docs/4.3/connections">connection</a>
+to a RabbitMQ node. The connection then will be used to perform all subsequent
+operations. Connections are <strong>meant to be long-lived</strong>. Opening a connection
+for every operation (e.g. publishing a message) would be very inefficient and is
+<strong>highly discouraged</strong>.</p>
+<p>To open a connection with the .NET client, first instantiate a <code>ConnectionFactory</code>
+and configure it to use desired hostname, virtual host, credentials, <a href="https://www.rabbitmq.com/docs/4.3/ssl">TLS settings</a>,
+and any other parameters as needed.</p>
+<p>Then await the <code>ConnectionFactory.CreateConnectionAsync()</code> method to open a connection.
+Successful and unsuccessful client connection events can be <a href="https://www.rabbitmq.com/docs/4.3/networking#logging">observed in server logs</a>.</p>
+<p>The following two code snippets connect to a RabbitMQ node using a hostname configured
+using the <code>hostName</code> property:</p>
+<div><div><pre><code class="language-csharp">ConnectionFactory factory = new ConnectionFactory();
+// "guest"/"guest" by default, limited to localhost connections
+factory.UserName = user;
+factory.Password = pass;
+factory.VirtualHost = vhost;
+factory.HostName = hostName;
+
+IConnection conn = await factory.CreateConnectionAsync();</code></pre></div></div>
+<div><div><pre><code class="language-csharp">ConnectionFactory factory = new ConnectionFactory();
+factory.Uri = new Uri("amqp://user:pass@hostName:port/vhost");
+
+IConnection conn = await factory.CreateConnectionAsync();</code></pre></div></div>
+<h3 id="endpoints-list">Using Lists of Endpoints</h3>
+<p>It is possible to specify a list of endpoints to use when connecting. The first
+reachable endpoint will be used. In case of <a href="#recovery">connection failures</a>, using
+a list of endpoints makes it possible for the application to connect to a different
+node if the original one is down.</p>
+<p>To use multiple endpoints, provide a list of <code>AmqpTcpEndpoint</code>s to <code>ConnectionFactory#CreateConnection</code>.
+An <code>AmqpTcpEndpoint</code> represents a hostname and port pair.</p>
+<div><div><pre><code class="language-csharp">ConnectionFactory factory = new ConnectionFactory();
+factory.UserName = "username";
+factory.Password = "s3Kre7";
+
+var endpoints = new System.Collections.Generic.List&lt;AmqpTcpEndpoint&gt; {
+  new AmqpTcpEndpoint("hostname"),
+  new AmqpTcpEndpoint("localhost")
+};
+IConnection conn = await factory.CreateConnectionAsync(endpoints);</code></pre></div></div>
+<a id="connecting-uri"></a>
+<p>Since the .NET client uses a stricter interpretation of the <a href="https://www.rabbitmq.com/docs/4.3/uri-spec">AMQP 0-9-1 URI spec</a>
+than the other clients, care must be taken when using URIs.
+In particular, the host part must not be omitted and virtual hosts with
+empty names are not addressable.</p>
+<p>All factory properties have default values. The default value for a property will be used if the property
+remains unassigned prior to creating a connection:</p>
+<table><thead><tr><td>Property</td><td>Default Value</td></tr></thead><tbody><tr><td>Username</td><td><code>"guest"</code></td></tr><tr><td>Password</td><td><code>"guest"</code></td></tr><tr><td>Virtual host</td><td><code>"/"</code></td></tr><tr><td>Hostname</td><td><code>"localhost"</code></td></tr><tr><td>Port</td><td><p><code>5672</code> for regular ("plain TCP") connections,
+<code>5671</code> for <a href="https://www.rabbitmq.com/docs/4.3/ssl">connections with TLS enabled</a></p></td></tr></tbody></table>
+<p>Note that <a href="https://www.rabbitmq.com/docs/4.3/access-control">user guest can only connect from localhost</a> by default.
+This is to limit well-known credential use in production systems.</p>
+<p>The <code>IConnection</code> interface can then be used to open a <a href="https://www.rabbitmq.com/docs/4.3/channels">channel</a>:</p>
+<div><div><pre><code class="language-csharp">IChannel channel = await conn.CreateChannelAsync();</code></pre></div></div>
+<p>The channel can now be used to send and receive messages,
+as described in subsequent sections.</p>
+<p>Just like connections, channels are <strong>meant to be long-lived</strong>. Opening a new channel
+for every operation would be highly inefficient and is <strong>highly discouraged</strong>. Channels,
+however, can have a shorter life span than connections. For example, certain
+protocol errors will automatically close channels. If applications can recover
+from them, they can open a new channel and retry the operation.</p>
+<p>This is covered in more detail in the <a href="https://www.rabbitmq.com/docs/4.3/channels">Channel guide</a> as well as other
+guides such as <a href="https://www.rabbitmq.com/docs/4.3/confirms">Consumer Acknowledgements</a>.</p>
+<h2 id="disconnecting">Disconnecting from RabbitMQ</h2>
+<p>To disconnect, simply close the channel and the connection:</p>
+<div><div><pre><code class="language-csharp">await channel.CloseAsync();
+await conn.CloseAsync();
+await channel.DisposeAsync();
+await conn.DisposeAsync();</code></pre></div></div>
+<p>While disposing channel and connection objects is sufficient, the best practice
+is that they be explicitly closed first.</p>
+<p>Client disconnection events can be <a href="https://www.rabbitmq.com/docs/4.3/networking#logging">observed in server node logs</a>.</p>
+<h2 id="connection-and-channel-lifespan">Connection and Channel Lifespan</h2>
+<p>Connections are meant to be long-lived. The underlying protocol is designed and optimized for
+long running connections. That means that opening a new connection per operation,
+e.g. a message published, is unnecessary and strongly discouraged as it will introduce a lot of
+network roundtrips and overhead.</p>
+<p>Channels are also meant to be long-lived but since many recoverable protocol errors will
+result in channel closure, channel lifespan could be shorter than that of its connection.
+Closing and opening new channels per operation is usually unnecessary but can be
+appropriate. When in doubt, consider reusing channels first.</p>
+<p>Channel-level exceptions such as attempts to consume from a
+queue that does not exist will result in channel closure. A closed channel can no
+longer be used and will not receive any more events from the server (such
+as message deliveries). Channel-level exceptions will be logged by RabbitMQ
+and will initiate a shutdown sequence for the channel (see below).</p>
+<h2 id="client-provided-names">Client-Provided Connection Name</h2>
+<p>RabbitMQ nodes have a limited amount of information about their clients:</p>
+<ul>
+<li>their TCP endpoint (source IP address and port)</li>
+<li>the credentials used</li>
+</ul>
+<p>This information alone can make identifying applications and instances problematic, in particular when credentials can be
+shared and clients connect over a load balancer but <a href="https://www.rabbitmq.com/docs/4.3/networking#proxy-protocol">Proxy protocol</a> cannot be enabled.</p>
+<p>To make it easier to identify clients in <a href="https://www.rabbitmq.com/docs/4.3/logging">server logs</a> and <a href="https://www.rabbitmq.com/docs/4.3/management">management UI</a>,
+AMQP 0-9-1 client connections, including the RabbitMQ .NET client, can provide a custom identifier.
+If set, the identifier will be mentioned in log entries and management UI. The identifier is known as
+the <strong>client-provided connection name</strong>. The name can be used to identify an application or a specific component
+within an application. The name is optional; however, developers are strongly encouraged to provide one
+as it would significantly simplify certain operational tasks.</p>
+<p>RabbitMQ .NET client provides a connection factory property,
+<a href="https://rabbitmq.github.io/rabbitmq-dotnet-client/api/RabbitMQ.Client.ConnectionFactory.html#RabbitMQ_Client_ConnectionFactory_ClientProvidedName"><code>ConnectionFactory.ClientProvidedName</code></a>,
+which, if set, controls the client-provided connection name for all new connections opened
+by this factory.</p>
+<p>Here's a modified connection example used above which provides such a name:</p>
+<div><div><pre><code class="language-csharp">ConnectionFactory factory = new ConnectionFactory();
+// "guest"/"guest" by default, limited to localhost connections
+factory.UserName = user;
+factory.Password = pass;
+factory.VirtualHost = vhost;
+factory.HostName = hostName;
+
+// this name will be shared by all connections instantiated by
+// this factory
+factory.ClientProvidedName = "app:audit component:event-consumer";
+
+IConnection conn = await factory.CreateConnectionAsync();</code></pre></div></div>
+<h2 id="exchanges-and-queues">Using Exchanges and Queues</h2>
+<p>Client applications work with exchanges and <a href="https://www.rabbitmq.com/docs/4.3/queues">queues</a>,
+the high-level <a href="/tutorials/amqp-concepts">building blocks of the protocol</a>.
+These must be "declared" before they can be
+used. Declaring either type of object simply ensures that one of that
+name exists, creating it if necessary.</p>
+<p>Continuing the previous example, the following code declares an
+exchange and a queue, then binds them together.</p>
+<div><div><pre><code class="language-csharp">await channel.ExchangeDeclareAsync(exchangeName, ExchangeType.Direct);
+await channel.QueueDeclareAsync(queueName, false, false, false, null);
+await channel.QueueBindAsync(queueName, exchangeName, routingKey, null);</code></pre></div></div>
+<p>This will actively declare the following objects:</p>
+<ul>
+<li>a non-durable, non-autodelete exchange of "direct" type</li>
+<li>a non-durable, non-autodelete, non-exclusive queue</li>
+</ul>
+<p>The exchange can be customised by using additional parameters.
+The above code then binds the queue to the exchange with the given
+routing key.</p>
+<p>Many channel API (<code>IChannel</code>) methods are overloaded. The convenient
+short form of <code>ExchangeDeclare</code> uses sensible defaults. There are
+also longer forms with more parameters, to let you override these
+defaults as necessary, giving full control where needed.</p>
+<p>This "short version, long version" pattern is used throughout the API.</p>
+<h3 id="passive-declaration">Passive Declaration</h3>
+<p>Queues and exchanges can be declared "passively". A passive declare simply checks that the entity
+with the provided name exists. If it does, the operation is a no-op. For queues successful
+passive declares will return the same information as non-passive ones, namely the number of
+consumers and messages in <a href="https://www.rabbitmq.com/docs/4.3/confirms">ready state</a> in the queue.</p>
+<p>If the entity does not exist, the operation fails with a channel level exception. The channel
+cannot be used after that. A new channel should be opened. It is common to use one-off (temporary)
+channels for passive declarations.</p>
+<p><code>IChannel#QueueDeclarePassiveAsync</code> and <code>IChannel#ExchangeDeclarePassiveAsync</code> are the
+methods used for passive declaration. The following example demonstrates <code>IChannel#QueueDeclarePassive</code>:</p>
+<div><div><pre><code class="language-csharp">var response = await channel.QueueDeclarePassiveAsync("queue-name");
+// returns the number of messages in Ready state in the queue
+response.MessageCount;
+// returns the number of consumers the queue has
+response.ConsumerCount;</code></pre></div></div>
+<p><code>IChannel#ExchangeDeclarePassiveAsync</code>'s return value contains no useful information. Therefore
+if the method returns and no channel exceptions occurs, it means that the exchange does exist.</p>
+<h3 id="nowait-methods">Operations with Optional Responses</h3>
+<p>Some common operations also have a "no wait" version which won't wait for server
+response. For example, to declare a queue and instruct the server to not send any
+response, use</p>
+<div><div><pre><code class="language-csharp">await channel.QueueDeclareAsync(queueName, true, false, false, null, noWait: true);</code></pre></div></div>
+<p>The "no wait" versions are more efficient but offer lower safety guarantees, e.g. they
+are more dependent on the <a href="https://www.rabbitmq.com/docs/4.3/heartbeats">heartbeat mechanism</a> for detection of failed operations.
+When in doubt, start with the standard version. The "no wait" versions are only needed in scenarios
+with high topology (queue, binding) churn.</p>
+<h3 id="deleting-entities">Deleting Entities and Purging Messages</h3>
+<p>A queue or exchange can be explicitly deleted:</p>
+<div><div><pre><code class="language-csharp">await channel.QueueDeleteAsync("queue-name", false, false);</code></pre></div></div>
+<p>It is possible to delete a queue only if it is empty:</p>
+<div><div><pre><code class="language-csharp">await channel.QueueDeleteAsync("queue-name", false, true);</code></pre></div></div>
+<p>or if it is not used (does not have any consumers):</p>
+<div><div><pre><code class="language-csharp">await channel.QueueDeleteAsync("queue-name", true, false);</code></pre></div></div>
+<p>A queue can be purged (all of its messages deleted):</p>
+<div><div><pre><code class="language-csharp">await channel.QueuePurgeAsync("queue-name");</code></pre></div></div>
+<h2 id="publishing">Publishing Messages</h2>
+<p>To publish a message to an exchange, use <code>IChannel.BasicPublishAsync</code> as
+follows:</p>
+<div><div><pre><code class="language-csharp">byte[] messageBodyBytes = System.Text.Encoding.UTF8.GetBytes("Hello, world!");
+var props = new BasicProperties();
+await channel.BasicPublishAsync(exchangeName, routingKey, false, props, messageBodyBytes);</code></pre></div></div>
+<p>For fine control, you can use overloaded variants to specify the
+mandatory flag, or specify messages properties:</p>
+<div><div><pre><code class="language-csharp">byte[] messageBodyBytes = System.Text.Encoding.UTF8.GetBytes("Hello, world!");
+var props = new BasicProperties();
+props.ContentType = "text/plain";
+props.DeliveryMode = 2;
+await channel.BasicPublishAsync(exchangeName, routingKey,
+    mandatory: true, basicProperties: props, body: messageBodyBytes);</code></pre></div></div>
+<p>This sends a mandatory<!-- -->:true<!-- --> message with delivery mode 2 (persistent) and
+content-type "text/plain". See the definition of the <code>IBasicProperties</code>
+interface for more information about the available message properties.</p>
+<p>In the following example, we publish a message with custom headers:</p>
+<div><div><pre><code class="language-csharp">byte[] messageBodyBytes = System.Text.Encoding.UTF8.GetBytes("Hello, world!");
+
+var props = new BasicProperties();
+props.ContentType = "text/plain";
+props.DeliveryMode = 2;
+props.Headers = new Dictionary&lt;string, object&gt;();
+props.Headers.Add("latitude",  51.5252949);
+props.Headers.Add("longitude", -0.0905493);
+
+await channel.BasicPublishAsync(exchangeName, routingKey, true, props, messageBodyBytes);</code></pre></div></div>
+<p>Code sample below sets a message expiration:</p>
+<div><div><pre><code class="language-csharp">byte[] messageBodyBytes = System.Text.Encoding.UTF8.GetBytes("Hello, world!");
+
+var props = new BasicProperties();
+props.ContentType = "text/plain";
+props.DeliveryMode = 2;
+props.Expiration = "36000000";
+
+await channel.BasicPublishAsync(exchangeName, routingKey, true, props, messageBodyBytes);</code></pre></div></div>
+<h2 id="consuming">Retrieving Messages By Subscription ("push API")</h2>
+<p>The recommended and most convenient way to receive messages is to set up a
+subscription using the <code>IAsyncBasicConsumer</code> interface. The messages will then
+be delivered automatically as they arrive, rather than having to be requested
+proactively.</p>
+<p>One way to implement a consumer is to use the convenience class
+<code>AsyncEventingBasicConsumer</code>, which dispatches deliveries and other consumer
+lifecycle events as C# events:</p>
+<div><div><pre><code class="language-csharp">var consumer = new AsyncEventingBasicConsumer(channel);
+consumer.ReceivedAsync += async (ch, ea) =&gt;
+                {
+                    var body = ea.Body.ToArray();
+                    // copy or deserialise the payload
+                    // and process the message
+                    // ...
+                    await channel.BasicAckAsync(ea.DeliveryTag, false);
+                };
+// this consumer tag identifies the subscription
+// when it has to be cancelled
+string consumerTag = await channel.BasicConsumeAsync(queueName, false, consumer);</code></pre></div></div>
+<p>Another option is to subclass <code>AsyncDefaultBasicConsumer</code>, overriding methods
+as necessary, or implement <code>IAsyncBasicConsumer</code> directly. You will generally
+want to implement the core method
+<code>IAsyncBasicConsumer.HandleBasicDeliverAsync</code>.</p>
+<p>More sophisticated consumers will need to implement further methods. In
+particular, <code>HandleChannelShutdown</code> traps channel/connection closure. Consumers
+can also implement <code> HandleBasicCancelOk</code> to be notified of cancellations.</p>
+<p>The <code>ConsumerTag</code> property of <code>AsyncDefaultBasicConsumer</code> can be used to
+retrieve the server-generated consumer tag, in cases where none was supplied to
+the original <code>IChannel.BasicConsumeAsync</code> call.</p>
+<p>You can cancel an active consumer with <code>IChannel.BasicCancelAsync</code>:</p>
+<div><div><pre><code class="language-csharp">await channel.BasicCancelAsync(consumerTag);</code></pre></div></div>
+<p>When calling the API methods, you always refer to consumers by their
+consumer tags, which can be either client- or server-generated as
+explained in the <a href="https://www.rabbitmq.com/docs/4.3/specification">AMQP 0-9-1 specification</a> document.</p>
+<h2 id="consuming-memory-safety">Consumer Memory Safety Requirements</h2>
+<p>As of <a href="https://github.com/rabbitmq/rabbitmq-dotnet-client/blob/main/CHANGELOG.md">version 7.0</a>
+of the .NET client, message payloads are represented using the
+<a href="https://learn.microsoft.com/en-us/dotnet/api/system.readonlymemory-1?view=netstandard-2.0"><code>System.ReadOnlyMemory&lt;byte&gt;</code></a>
+type from the <a href="https://www.nuget.org/packages/System.Memory/"><code>System.Memory</code> library</a>.</p>
+<p>The <code>RabbitMQ.Client</code> library places certain restrictions on when a read only
+memory span can be accessed by applications.</p>
+<p><strong>Important</strong>: consumer interface implementations <strong>must deserialize or copy
+delivery payload before delivery handler method returns</strong>. Retaining a
+reference to the payload is not safe: the memory allocated for it can be
+deallocated at any moment after the handler returns.</p>
+<h2 id="basic-get">Fetching Individual Messages (Polling or "pull API")</h2>
+<p>It is also possible to retrieve individual messages on demand ("pull API" a.k.a. polling).
+This approach to consumption is <strong>very inefficient</strong> as it is effectively polling
+and applications repeatedly have to ask for results even if the vast majority of the requests
+yield no results. Therefore using this approach <strong>is highly discouraged</strong>.</p>
+<p>To "pull" a message, use the <code>IChannel.BasicGetAsync</code> method.
+The returned value is an instance of <code>BasicGetResult</code>, from which the header
+information (properties) and message body can be extracted:</p>
+<div><div><pre><code class="language-csharp">bool autoAck = false;
+BasicGetResult result = await channel.BasicGetAsync(queueName, autoAck);
+if (result == null) {
+    // No message available at this time.
+} else {
+    var props = result.BasicProperties;
+    ReadOnlyMemory&lt;byte&gt; body = result.Body;
+    ...</code></pre></div></div>
+<p>The above example uses <a href="https://www.rabbitmq.com/docs/4.3/confirms">manual acknowledgements</a> (<code>autoAck = false</code>), so the application must also call
+<code>IChannel.BasicAckAsync</code> to acknowledge the delivery after processing:</p>
+<div><div><pre><code class="language-csharp">    ...
+    // acknowledge receipt of the message
+    await channel.BasicAckAsync(result.DeliveryTag, false);
+}</code></pre></div></div>
+<p>Note that fetching messages using this API is relatively inefficient. If you'd prefer
+RabbitMQ to push messages to the client, see the next section.</p>
+<h2 id="concurrency">Concurrency Considerations for Consumers</h2>
+<p>There is a number of concurrency-related topics for a library user to consider.</p>
+<h3 id="concurrency-channel-sharing">Sharing Channels Between Threads</h3>
+<p><code>IChannel</code> instance usage by more than one thread simultaneously should be
+avoided. Application code should maintain a clear notion of thread ownership
+for <code>IChannel</code> instances.</p>
+<p>This is a <strong>hard requirement for publishers</strong>: sharing a channel (an <code>IChannel</code>
+instance) for concurrent publishing will lead to incorrect frame interleaving
+at the protocol level. Channel instances <strong>must not be shared</strong> by threads that
+publish on them.</p>
+<p>If more than one thread needs to access a particular <code>IChannel</code> instances, the
+application should enforce mutual exclusion. One way of achieving this is for
+all users of an <code>IChannel</code> to <code>lock</code> the instance itself:</p>
+<div><div><pre><code class="language-csharp">IChannel ch = RetrieveSomeSharedIChannelInstance();
+await _channelSemaphore.WaitAsync();
+try
+{
+  ch.BasicPublishAsync(...);
+}
+finally
+{
+  _channelSemaphore.Release();
+}</code></pre></div></div>
+<p>Symptoms of incorrect serialisation of <code>IChannel</code> operations include, but are
+not limited to:</p>
+<ul>
+<li><a href="https://www.rabbitmq.com/docs/4.3/connections#error-handling">connection-level exceptions</a> due to invalid frame
+interleaving on the wire. RabbitMQ <a href="https://www.rabbitmq.com/docs/4.3/logging">server logs</a> will
+contain unexpected frame errors in such scenario.</li>
+<li>Pipelining and continuation exceptions thrown by the client</li>
+</ul>
+<p>Consumption that involve sharing a channel between threads should be avoided
+when possible but can be done safely.</p>
+<p>Consumers that can be multi-threaded or use a thread pool internally, including TPL-based
+consumers, must use mutual exclusion of <a href="https://www.rabbitmq.com/docs/4.3/confirms">acknowledgements</a> operations
+on a shared channel.</p>
+<h3 id="concurrency-thread-usage">Per-Connection Task Use</h3>
+<p>Each <code>IConnection</code> instance is, in the current implementation, backed by a
+single <code>Task</code> that reads from the socket and dispatches the resulting events to
+the application. If heartbeats are enabled, they will use a pair of .NET timers
+per connection.</p>
+<p>Usually, therefore, there will be at least two <code>Task</code> instances active in an
+application using this library:</p>
+<dl><dt>the application thread ("main" <code>Task</code>)</dt><dd><p>contains the application logic, and makes
+calls on <code>IChannel</code> methods to perform protocol operations.</p></dd><dt>the I/O activity <code>Task</code> instances</dt><dd><p>hidden away and completely managed by the
+<code>IConnection</code> instance.</p></dd></dl>
+<p>The one place where the nature of the threading model is visible to
+the application is in any callback the application registers with the
+library. Such callbacks include:</p>
+<ul>
+<li>any <code>IAsyncBasicConsumer</code> method</li>
+<li>the <code>BasicReturn</code> event on <code>IChannel</code></li>
+<li>any of the various shutdown events on <code>IConnection</code>, <code>IChannel</code> etc.</li>
+</ul>
+<h3 id="consumer-callbacks-and-ordering">Consumer Callbacks, Concurrency and Operation Ordering</h3>
+<h4 id="is-consumer-operation-dispatch-concurrent">Is Consumer Operation Dispatch Concurrent?</h4>
+<p><code>IAsyncBasicConsumer</code> callbacks are invoked sequantially (with a concurrency
+degree of one) by default.</p>
+<p>For concurrent dispatch of inbound consumer deliveries, set <a href="https://rabbitmq.github.io/rabbitmq-dotnet-client/api/RabbitMQ.Client.ConnectionFactory.html#RabbitMQ_Client_ConnectionFactory_ConsumerDispatchConcurrency"><code>ConnectionFactory.ConsumerDispatchConcurrency</code></a>
+to a value greater than one.</p>
+<h4 id="message-ordering-guarantee">Message Ordering Guarantee</h4>
+<p>Consumer events on the same channel are guaranteed to be dispatched in the same
+order they were received in.</p>
+<p>For example, if messages A and B were delivered in this order on the same
+channel, they will be dispatched to a consumer (a specific <code>IAsyncBasicConsumer</code>
+instance) in this order.</p>
+<p>If messages A and B were delivered on different channels, they can be
+dispatched to consumers in any order (or in parallel).</p>
+<p>With the concurrency degree of one, deliveries on the same channel will be
+handled sequentially. With a higher concurrency degree, their dispatch will
+happen in the same order but actual processing can happen in parallel
+(depending on the number of available cores and application runtime), which can
+result in concurrency hazards.</p>
+<h4 id="acknowledgement-of-multiple-deliveries-at-once">Acknowledgement of Multiple Deliveries at Once</h4>
+<p>Consumers can <a href="https://www.rabbitmq.com/docs/4.3/confirms">acknowledge</a> multiple deliveries at a time. When
+consumer dispatch concurrency degree is higher than one, this can result in a
+<a href="https://www.rabbitmq.com/docs/4.3/confirms#consumer-acks-double-acking">double acknowledgement</a>, which is
+considered to be <a href="https://www.rabbitmq.com/docs/4.3/channels#error-handling">an error in the protocol</a>.</p>
+<p>Therefore, with concurrent consumer dispatch, consumers should acknowledge only
+one delivery at a time.</p>
+<h4 id="consumers-and-operations-on-the-same-channel">Consumers and Operations on the Same Channel</h4>
+<p>Consumer event handlers can invoke operations on the same channel (such as
+<code>IChannel.QueueDeclareAsync</code> or <code>IChannel.BasicCancelAsync</code>) without
+deadlocking.</p>
+<h2 id="basic-return">Handling Unroutable Messages</h2>
+<p>If a message is published with the "mandatory" flag
+set, but cannot be delivered, the broker will return it to the sending
+client (via a <code>basic.return</code> AMQP 0-9-1 command).</p>
+<p>To be notified of such returns, clients can subscribe to the
+<code>IChannel.BasicReturn</code> event. If there are no listeners attached to the
+event, then returned messages will be silently dropped.</p>
+<div><div><pre><code class="language-csharp">channel.BasicReturn += (sender, ea) =&gt; {
+    ...
+};</code></pre></div></div>
+<p>The <code>BasicReturn</code> event will fire, for example, if the client
+publishes a message with the "mandatory" flag set to an exchange of
+"direct" type which is not bound to a queue.</p>
+<h2 id="recovery">Automatic Recovery From Network Failures</h2>
+<h3 id="connection-recovery">Connection Recovery</h3>
+<p>Network connection between clients and RabbitMQ nodes can fail.
+RabbitMQ .NET/C# client supports automatic recovery of connections
+and topology (queues, exchanges, bindings, and consumers). The feature
+has certain limitations covered later in this guide.</p>
+<p>The automatic recovery process performs the following steps:</p>
+<ul>
+<li>Reconnect</li>
+<li>Restore connection listeners</li>
+<li>Re-open channels</li>
+<li>Restore channel listeners</li>
+<li>Restore channel <code>basic.qos</code> setting, publisher confirms and transaction settings</li>
+</ul>
+<p>Topology recovery starts after the above actions are completed. The following
+steps are performed for every channel known to being open at the time of
+connection failure:</p>
+<ul>
+<li>Re-declare exchanges (except for predefined ones)</li>
+<li>Re-declare queues</li>
+<li>Recover all bindings</li>
+<li>Recover all consumers</li>
+</ul>
+<p>To enable automatic connection recovery, set
+<code>ConnectionFactory.AutomaticRecoveryEnabled</code> to true:</p>
+<div><div><pre><code class="language-csharp">ConnectionFactory factory = new ConnectionFactory();
+factory.AutomaticRecoveryEnabled = true;
+// connection that will recover automatically
+IConnection conn = await factory.CreateConnectionAsync();</code></pre></div></div>
+<p>If recovery fails due to an exception (e.g. RabbitMQ node is still not
+reachable), it will be retried after a fixed time interval (default is 5
+seconds). The interval can be configured:</p>
+<div><div><pre><code class="language-csharp">ConnectionFactory factory = new ConnectionFactory();
+// attempt recovery every 10 seconds
+factory.NetworkRecoveryInterval = TimeSpan.FromSeconds(10);</code></pre></div></div>
+<h3 id="recovery-triggers">When Will Connection Recovery Be Triggered?</h3>
+<p>Automatic connection recovery, if enabled, will be triggered by the following events:</p>
+<ul>
+<li>An I/O exception is thrown in connection's I/O loop</li>
+<li>A socket read operation times out</li>
+<li>Missed server <a href="https://www.rabbitmq.com/docs/4.3/heartbeats">heartbeats</a> are detected</li>
+<li>Any other unexpected exception is thrown in connection's I/O loop</li>
+</ul>
+<p>whichever happens first.</p>
+<p>If initial client connection to a RabbitMQ node fails, automatic connection
+recovery won't kick in. Applications developers are responsible for retrying
+such connections, logging failed attempts, implementing a limit to the number
+of retries and so on. Here's a very basic example:</p>
+<div><div><pre><code class="language-csharp">ConnectionFactory factory = new ConnectionFactory();
+// configure various connection settings
+
+try {
+  IConnection conn = await factory.CreateConnectionAsync();
+} catch (RabbitMQ.Client.Exceptions.BrokerUnreachableException e) {
+  await Task.Delay(5000);
+  // apply retry logic
+}</code></pre></div></div>
+<p>When a connection is closed by the application via the <code>Connection.CloseAsync</code> method,
+connection recovery will not be initiated.</p>
+<p>Channel-level exceptions will not trigger any kind of recovery as they usually
+indicate a semantic issue in the application (e.g. an attempt to consume from a
+non-existent queue).</p>
+<h3 id="publishers">Effects on Publishing</h3>
+<p>Messages that are published using <code>IChannel.BasicPublishAsync</code> when connection is down
+will be lost. The client does not enqueue them for delivery after connection has recovered.
+To ensure that published messages reach RabbitMQ applications need to use <a href="https://www.rabbitmq.com/docs/4.3/confirms">Publisher Confirms</a>
+and account for connection failures.</p>
+<h3 id="topology-recovery">Topology Recovery</h3>
+<p>Topology recovery involves recovery of exchanges, queues, bindings
+and consumers. It is enabled by default but can be disabled:</p>
+<div><div><pre><code class="language-csharp">ConnectionFactory factory = new ConnectionFactory();
+factory.AutomaticRecoveryEnabled = true;
+factory.TopologyRecoveryEnabled  = false;
+
+IConnection conn = await factory.CreateConnectionAsync();</code></pre></div></div>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>When topology recovery is enabled, applications should not attempt to recover topology themselves,
+in particular consumers. Manual recovery should be reserved for cases where automatic
+topology recovery fails.</p><p>Redundant recovery can be harmful. For example, registering a consumer with the same consumer tag
+as one restored by topology recovery is a <a href="https://www.rabbitmq.com/docs/4.3/connections#error-handling">connection-level protocol error</a>:
+RabbitMQ closes the connection with all of its channels. This triggers another
+recovery attempt, which can turn into an endless recovery loop.</p></div></div>
+<h3 id="automatic-recovery-limitations">Failure Detection and Recovery Limitations</h3>
+<p>Automatic connection recovery has a number of limitations and intentional
+design decisions that applications developers need to be aware of.</p>
+<p>When a connection is down or lost, it <a href="https://www.rabbitmq.com/docs/4.3/heartbeats">takes time to detect</a>.
+Therefore there is a window of time in which both the library and the
+application are unaware of effective connection failure. Any messages
+published during this time frame are serialised and written to the TCP socket
+as usual. Their delivery to the broker can only be guaranteed via <a href="https://www.rabbitmq.com/docs/4.3/confirms">publisher
+confirms</a>: publishing in AMQP 0-9-1 is entirely asynchronous by
+design.</p>
+<p>When a socket or I/O operation error is detected by a connection with automatic
+recovery enabled, recovery begins after a configurable delay, 5 seconds by
+default. This design assumes that even though a lot of network failures are
+transient and generally short lived, they do not go away in an instant.
+Connection recovery attempts will continue at identical time intervals until a
+new connection is successfully opened.</p>
+<p>When a connection is in the recovering state, any publishes attempted on its
+channels will be rejected with an exception. The client currently does not
+perform any internal buffering of such outgoing messages. It is an application
+developer's responsibility to keep track of such messages and republish them
+when recovery succeeds. <a href="https://www.rabbitmq.com/docs/4.3/confirms">Publisher confirms</a> is a protocol
+extension that should be used by publishers that cannot afford message loss.</p>
+<p>Connection recovery will not kick in when a channel is closed due to a
+<a href="https://www.rabbitmq.com/docs/4.3/channels#error-handling">channel-level exception</a>.</p>
+<p>Such exceptions often indicate application-level issues. The library cannot
+determine whether that's the case and make an informed decision about what can
+be done to recover.</p>
+<p>Closed channels won't be recovered even after connection recovery kicks in.
+This includes both explicitly closed channels and the channel-level exception
+case above.</p>
+<h3 id="basic-ack-and-recovery">Manual Acknowledgements and Automatic Recovery</h3>
+<p>When manual acknowledgements are used, it is possible that network connection
+to RabbitMQ node fails between message delivery and acknowledgement. After
+connection recovery, RabbitMQ will reset delivery tags on all channels.</p>
+<p>This means that <code>basic.ack</code>, <code>basic.nack</code>, and
+<code>basic.reject</code> with old delivery tags will cause a channel
+exception. To avoid this, RabbitMQ .NET client keeps track of and updates
+delivery tags to make them monotonically growing between recoveries.</p>
+<p><code>IChannel.BasicAckAsync</code>, <code>IChannel.BasicNackAsync</code>, and
+<code>IChannel.BasicRejectAsync</code> then translate adjusted delivery tags
+into those used by RabbitMQ.</p>
+<p>Acknowledgements with stale delivery tags will not be sent. Applications that
+use manual acknowledgements and automatic recovery must be capable of handling
+redeliveries.</p>
+<h2 id="oauth2-support">OAuth 2 Support</h2>
+<p>The client can authenticate against an OAuth 2 server like <a href="https://github.com/cloudfoundry/uaa">UAA</a>.
+The <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_auth_backend_oauth2">OAuth 2 plugin</a>
+must be turned on on the server side and configured to use the same OAuth 2
+server as the client. This section assumes that the <a href="https://www.nuget.org/packages/RabbitMQ.Client.OAuth2">most recent major version of the OAuth2 client library</a> is used.</p>
+<h3 id="oauth2-getting-token">Getting the OAuth 2 Token</h3>
+<p>The .NET client provides the <code>OAuth2ClientCredentialsProvider</code> class to get a
+JWT token using the <a href="https://tools.ietf.org/html/rfc6749#section-4.4">OAuth 2 Client Credentials
+flow</a>. The client sends the
+access token in the password field when opening a connection. The broker then
+verifies the access token signature, validity, and permissions before
+authorising the connection and granting access to the requested virtual host.</p>
+<div><div><pre><code class="language-csharp">using RabbitMQ.Client.OAuth2;
+
+var tokenEndpointUri = new Uri("http://somedomain.com/token");
+var oAuth2Client = new OAuth2ClientBuilder("client_id", "client_secret", tokenEndpointUri).Build();
+ICredentialsProvider credentialProvider = new OAuth2ClientCredentialsProvider("prod-uaa-1", oAuth2Client);
+
+var connectionFactory = new ConnectionFactory
+{
+  CredentialsProvider = credentialsProvider
+};
+var connection = await connectionFactory.CreateConnectionAsync();</code></pre></div></div>
+<p>In production, ensure you use HTTPS for the token endpoint URI and configure
+a <code>HttpClientHandler</code> appropriately for the <code>HttpClient</code> :</p>
+<div><div><pre><code class="language-csharp">HttpClientHandler httpClientHandler = buildHttpClientHandlerWithTLSEnabled();
+
+var tokenEndpointUri = new Uri("https://somedomain.com/token");
+
+var oAuth2ClientBuilder = new OAuth2ClientBuilder("client_id", "client_secret", tokenEndpointUri)
+oAuth2ClientBuilder.SetHttpClientHandler(httpClientHandler);
+var oAuth2Client = await oAuth2ClientBuilder.BuildAsync();
+
+ICredentialsProvider credentialsProvider = new OAuth2ClientCredentialsProvider("prod-uaa-1", oAuth2Client);
+
+var connectionFactory = new ConnectionFactory
+{
+  CredentialsProvider = credentialsProvider
+};
+var connection = await connectionFactory.CreateConnectionAsync();</code></pre></div></div>
+<p>Note: In case your Authorization server requires extra request parameters
+beyond what the specification requires, you can add <code>&lt;key, value&gt;</code> pairs to a
+<code>Dictionary</code> and passing it to the <code>OAuth2ClientCredentialsProvider</code>
+constructor rather than an <code>EMPTY</code> one as shown above.</p>
+<h3 id="oauth2-refreshing-token">Refreshing the Token</h3>
+<p>When tokens expire, the broker refuses further operations over the connection.
+It is possible to call <code>ICredentialsProvider#GetCredentialsAsync()</code> before expiring and
+send the new token to the server. This is not convenient for applications so,
+the .NET client provides help with the <code>CredentialsRefresher</code>.</p>
+<p>See the <a href="https://github.com/rabbitmq/rabbitmq-dotnet-client/blob/main/projects/Test/OAuth2/TestOAuth2.cs"><code>TestOAuth2</code> class</a>
+for how to use the <code>CredentialsRefresher</code> class.</p>
+<p>The <code>CredentialsRefresher</code> schedules a refresh after 2/3 of the token validity
+time. For example, if the token expires in 60 minutes, it is refreshed after 40
+minutes.</p></main>

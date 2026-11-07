@@ -1,0 +1,36 @@
+<main>
+		
+		<h1>POP3 server</h1>
+		
+<div>
+	To enable the POP3 server, you must configure <a href="#adding-pop3-authentication">POP3 authentication</a>.
+</div>
+
+<p>Mailpit can run a POP3 server, allowing you to download captured messages into your email client. By default, it runs on port <code>1110</code> and does not use encryption. However, the port can be set with <code>--pop3 &lt;interface&gt;:&lt;port&gt;</code>, and SSL/TLS encryption can also be enabled (see below).</p>
+<h2 id="notes-about-the-pop3-server">Notes about the POP3 server</h2>
+<ol>
+<li>Messages deleted via POP3 by the client are also deleted from the Mailpit server.</li>
+<li>Downloading messages will <em>not</em> mark those messages as read in Mailpit.</li>
+<li>For performance reasons, only the latest 100 messages are available via POP3. If this is a problem for you and you have a valid reason for accessing more, please <a href="https://github.com/axllent/mailpit/issues">open an issue</a> on GitHub to discuss this further.</li>
+<li>The POP3 server will run either unencrypted <em>or</em> using SSL/TLS encryption, but not both.</li>
+</ol>
+<h2 id="adding-pop3-authentication">Adding POP3 authentication</h2>
+<p>To enable the POP3 server, a valid <a href="../passwords/">password file</a> must be provided with the startup flag <code>--pop3-auth-file &lt;file&gt;</code> or the <code>MP_POP3_AUTH_FILE=&lt;file&gt;</code> environment variable.
+Alternatively, you can set the <code>MP_POP3_AUTH</code> environment variable (only) to provide a space-separated list of credentials (see below).</p>
+<p>To run Mailpit with POP3 authentication:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --pop3-auth-file /path/to/password-file
+</span></span></code></pre></div><h3 id="setting-via-environment">Setting via environment</h3>
+<p>You can optionally export the <code>MP_POP3_AUTH</code> environment variable with a space-separated list of your credentials, e.g., <code>MP_POP3_AUTH="user1:password1 user2:password2"</code>. For security reasons, this option is not available as a CLI flag.</p>
+<h2 id="enabling-ssltls-pop3">Enabling SSL/TLS POP3</h2>
+<p>By default, the POP3 server runs unencrypted on port <code>1110</code>. If you wish to enable SSL/TLS encryption, you must provide both the TLS certificate and key:</p>
+<div><pre><code class="language-shell"><span><span>mailpit <span>\
+</span></span></span><span><span>--pop3-auth-file /path/to/password-file <span>\
+</span></span></span><span><span>--pop3-tls-cert /path/to/cert.pem <span>\
+</span></span></span><span><span>--pop3-tls-key /path/to/key.pem
+</span></span></code></pre></div><p>Certificates can be either <a href="../certificates/">self-signed/generated</a> or official certificates (if you have a valid domain name) obtained from sources like <a href="https://letsencrypt.org/">Let’s Encrypt</a>.</p>
+
+
+		
+		
+		
+	</main>

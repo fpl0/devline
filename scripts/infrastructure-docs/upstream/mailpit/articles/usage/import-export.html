@@ -1,0 +1,54 @@
+<main>
+		
+		<h1>Importing &amp; exporting</h1>
+		<p>Normally, Mailpit will receive messages sent via various applications over SMTP; however, there may be a need to bulk import (ingest) or export (dump) messages.
+There are two separate command-line utilities to facilitate this.</p>
+<h2 id="ingesting-importing-messages">Ingesting (importing) messages</h2>
+<p>You can ingest an entire folder of individual messages (such as those stored in maildir folders) using the <code>mailpit ingest &lt;file-or-folder&gt;</code> subcommand.
+This can be useful for bulk-loading messages, benchmark testing, or restoring a previous backup.</p>
+<p>If a folder is specified, then ingestion will scan the folder for messages and attempt to send each one over SMTP to a <strong>running</strong> Mailpit instance.
+The SMTP server defaults to <code>localhost:1025</code> (Mailpit’s default SMTP port); however, it can be manually specified by passing the <code>--smtp-addr &lt;host&gt;:&lt;port&gt;</code> syntax.</p>
+
+<div>
+	<p>Please note that neither SMTP authentication nor TLS encryption is supported for ingesting messages.</p>
+<p>Please also ensure you do not use a live SMTP server’s address!</p>
+
+</div>
+
+<p>It is also possible to only import messages modified within the last X days by adding the <code>--recent &lt;days&gt;</code> flag.
+Note that this uses the file modification date, and <strong>not</strong> the message date.</p>
+<h2 id="dumping-messages">Dumping messages</h2>
+<p>It is also possible to dump (export) all messages from Mailpit, storing the individual messages in a local folder. This can be used to back up messages
+if you do not have the ability to back up the actual database file.</p>
+<p>Messages can be dumped from a running Mailpit instance (local or remote), or directly from a local Mailpit database file.</p>
+<p>Stored messages are named <code>&lt;folder&gt;/&lt;message-id&gt;.eml</code>, and have the file timestamp that they were originally received by Mailpit.
+Each message is stored as a separate file (plain text), and existing messages in the backup are skipped (this will speed up repeated backups of the same mailbox).</p>
+<p>Existing dumps are only appended to, and no messages are ever deleted from either the Mailpit database or the local backup folder.</p>
+<p>Please note that there is a default limit of 50MB for the total size of messages to be dumped, which can be overridden by passing the <code>--max-message-size &lt;MB&gt;</code> flag.
+This is both a security measure, as well as an optional feature to allow you to exclude very large messages.</p>
+<h3 id="dump-via-network--api">Dump via network / API</h3>
+<p>If you wish to dump messages from a running Mailpit instance (local or remote), you can export all messages over HTTP (via the API).
+The HTTP host &amp; port must be supplied via the <code>--http</code> flag, and should not include the path to the API. If you have configured your
+Mailpit with <code>--webroot</code>, then this should be included in the URL.</p>
+<div><pre><code class="language-shell"><span><span>mailpit dump --http http://localhost:8025 &lt;output-folder&gt;
+</span></span></code></pre></div><div>
+	If your server uses basic auth (e.g., <code>--ui-auth-file</code>), then the username and password should be supplied as part of the URL, for instance
+<code>mailpit dump --http http://user:password@localhost:8025 &lt;output-folder&gt;</code>
+</div>
+
+<h3 id="dump-from-local-database">Dump from local database</h3>
+<p>To dump messages directly from an existing local Mailpit database file. This method requires direct access to the database,
+and can cause temporary database locks while the dump is in progress.</p>
+<div><pre><code class="language-shell"><span><span>mailpit dump --database &lt;database-file&gt; &lt;output-folder&gt;
+</span></span></code></pre></div><p>If your database is using a tenant ID, then this can be set by adding the <code>--tenant-id &lt;id&gt;</code> to the command.</p>
+
+<div>
+	If your local Mailpit server is potentially very active at the time of the dump, then it is recommended to use the API method (see above).
+</div>
+
+
+
+		
+		
+		
+	</main>

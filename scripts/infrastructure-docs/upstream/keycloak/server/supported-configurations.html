@@ -1,0 +1,262 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>This guide provides an overview of the platforms, versions, and configurations that are tested and supported for running Keycloak in production environments.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_java_virtual_machine"><a class="anchor" href="#_java_virtual_machine"></a>Java Virtual Machine</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak requires a Java Virtual Machine (JVM) to run. The following Java Development Kit (JDK) versions are supported:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>OpenJDK 17 (LTS)</p>
+</li>
+<li>
+<p>OpenJDK 21 (LTS)</p>
+</li>
+<li>
+<p>OpenJDK 25 (LTS)</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+To benefit from the latest performance improvements, we suggest using the latest supported JDK version for production deployments.
+This is currently OpenJDK 25.
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_container_image"><a class="anchor" href="#_container_image"></a>Container Image</h3>
+<div class="paragraph">
+<p>Keycloak provides official container image that is using OpenJDK 21. Consider this when writing
+custom extensions. For more details on the container image, see <a href="https://www.keycloak.org/server/containers">Running Keycloak in a container</a>.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_runtime_platform"><a class="anchor" href="#_runtime_platform"></a>Runtime Platform</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak can be deployed in various environments:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Bare Metal / Virtual Machines</strong> - Direct installation on Linux or Windows servers</p>
+</li>
+<li>
+<p><strong>Containers</strong> - Docker, Podman</p>
+</li>
+<li>
+<p><strong>Kubernetes</strong> - OpenShift 4.18-4.21, corresponding to Kubernetes API 1.31-1.34</p>
+</li>
+</ul>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Other non-OpenShift Kubernetes distributions (like Amazon EKS or Azure Kubernetes Service etc.) are supported only in a best-effort manner, i.e. support will be provided for issues that
+are specific to the supported Kubernetes API or OpenShift versions, but issues that are reproducible only on a particular Kubernetes distribution may not be supported.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The supported versions of each respective environment are limited to the versions that are currently supported by the respective vendors. For example, for OpenShift, only the versions that are currently supported by Red Hat are supported by Keycloak.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_supported_databases"><a class="anchor" href="#_supported_databases"></a>Supported Databases</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak has built-in support for different relational databases. The following table lists the supported databases and their tested versions.</p>
+</div>
+<table class="tableblock frame-all grid-all fit-content">
+<colgroup>
+<col/>
+<col/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Database</th>
+<th class="tableblock halign-left valign-top">Supported Versions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">MariaDB Server</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">11.8 (LTS), 11.4 (LTS), 10.11 (LTS), 10.6 (LTS)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Microsoft SQL Server</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">2022, 2019</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">MySQL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">8.4 (LTS), 8.0 (LTS)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Oracle Database</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">23.x (i.e 23.5+), 19c (19.3+) (<strong>Note:</strong> Oracle RAC is also supported if using the same database engine version, e.g 23.5+, 19.3+)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PostgreSQL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">18.x, 17.x, 16.x, 15.x, 14.x</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">EnterpriseDB Advanced</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">18.x, 17.x</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Amazon Aurora PostgreSQL</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">17.x, 16.x, 15.x</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Azure SQL Database</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">latest</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Azure SQL Managed Instance</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">latest</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>For details on configuring a supported database, see <a href="https://www.keycloak.org/server/db">Configuring the database</a> guide.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_supported_browsers"><a class="anchor" href="#_supported_browsers"></a>Supported Browsers</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Keycloak UI including login pages, Admin Console and Account Console are supported with the following browsers:</p>
+</div>
+<table class="tableblock frame-all grid-all fit-content">
+<colgroup>
+<col/>
+<col/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Browser</th>
+<th class="tableblock halign-left valign-top">Supported Versions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Google Chrome</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Latest stable version</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Mozilla Firefox</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Latest stable version</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Microsoft Edge</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Latest stable version</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Apple Safari</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Latest stable version</p></td>
+</tr>
+</tbody>
+</table>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+Both desktop and mobile versions of the browsers are supported.
+</td>
+</tr>
+</table>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+The Admin Console and Account Console require JavaScript to be enabled. Browsers must support modern web standards including ES6+, WebAuthn, and Web Crypto API for full functionality.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_clustering_and_high_availability"><a class="anchor" href="#_clustering_and_high_availability"></a>Clustering and High Availability</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak supports clustering for high availability and scalability using external Infinispan 16.0.15.
+For details, visit the <a href="https://www.keycloak.org/high-availability/introduction">High availability overview</a>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_hardware_requirements"><a class="anchor" href="#_hardware_requirements"></a>Hardware Requirements</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The hardware requirements for running Keycloak depend on the expected load and deployment environment.
+Consult  the <a href="https://www.keycloak.org/high-availability/introduction">High availability overview</a> for recommendations on hardware sizing for different deployment scenarios.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_additional_resources"><a class="anchor" href="#_additional_resources"></a>Additional Resources</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>For more detailed configuration information, see:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><a href="https://www.keycloak.org/server/configuration-production">Configuring Keycloak for production</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/server/db">Configuring the database</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/server/containers">Running Keycloak in a container</a></p>
+</li>
+<li>
+<p><a href="https://www.keycloak.org/high-availability/introduction">High availability overview</a></p>
+</li>
+</ul>
+</div>
+</div>
+</div> </div>
+</main>

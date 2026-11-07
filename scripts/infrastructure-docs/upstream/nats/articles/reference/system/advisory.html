@@ -1,0 +1,71 @@
+<main><header><h1>Server Advisory</h1></header>
+<p>Server advisory messages are published by the NATS server to notify clients of significant events related to connections, accounts, and system state.</p>
+<h2 id="overview">Overview</h2>
+<p>Advisory messages provide real-time notifications about important server events. These messages are published to specific subjects in the <code>$SYS</code> hierarchy and can be subscribed to by clients with appropriate permissions.</p>
+<h2 id="purpose">Purpose</h2>
+<p>Server advisories enable:</p>
+<ul>
+<li><strong>Connection Monitoring</strong> - Track client connections and disconnections</li>
+<li><strong>Account Management</strong> - Monitor account limits and usage</li>
+<li><strong>Audit Trails</strong> - Log system events for compliance</li>
+<li><strong>Alerting</strong> - Trigger actions based on system events</li>
+<li><strong>Debugging</strong> - Troubleshoot connection issues</li>
+</ul>
+<h2 id="available-advisories">Available Advisories</h2>
+<h3 id="connection-events">Connection Events</h3>
+<ul>
+<li>
+<p><a href="/reference/system/advisory/client-connect">Client Connect</a> - Published when a client connects to the server</p>
+<ul>
+<li>Subject: <code>$SYS.ACCOUNT.{account}.CONNECT</code></li>
+<li>Contains client ID, IP address, and metadata</li>
+</ul>
+</li>
+<li>
+<p><a href="/reference/system/advisory/client-disconnect">Client Disconnect</a> - Published when a client disconnects from the server</p>
+<ul>
+<li>Subject: <code>$SYS.ACCOUNT.{account}.DISCONNECT</code></li>
+<li>Includes disconnect reason and statistics</li>
+</ul>
+</li>
+</ul>
+<h3 id="account-events">Account Events</h3>
+<ul>
+<li><a href="/reference/system/advisory/account-connections">Account Connections</a> - Published when account connection limits are reached<!-- -->
+<ul>
+<li>Subject: <code>$SYS.ACCOUNT.{account}.CONNECTIONS</code></li>
+<li>Alerts when approaching or exceeding limits</li>
+</ul>
+</li>
+</ul>
+<h2 id="subscription-requirements">Subscription Requirements</h2>
+<p>To receive advisory messages:</p>
+<ol>
+<li>Client must have permissions to subscribe to <code>$SYS.&gt;</code> subjects</li>
+<li>System account privileges may be required for some advisories</li>
+<li>Account-scoped advisories require access to specific account subjects</li>
+</ol>
+<h2 id="message-format">Message Format</h2>
+<p>All advisory messages follow a consistent JSON structure:</p>
+<div><div><pre><code class="language-json">{
+  "type": "io.nats.server.advisory.v1.{event_type}",
+  "id": "unique_event_id",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "server": {
+    "name": "server_name",
+    "host": "127.0.0.1",
+    "id": "server_id",
+    "cluster": "cluster_name"
+  },
+  "data": {
+    // Event-specific data
+  }
+}</code></pre></div></div>
+<h2 id="best-practices">Best Practices</h2>
+<ul>
+<li>Use queue groups when multiple consumers process advisories</li>
+<li>Filter advisories at subscription level using subject wildcards</li>
+<li>Store critical advisories for audit purposes</li>
+<li>Set up alerts for connection limit warnings</li>
+<li>Monitor advisory message rates to detect anomalies</li>
+</ul></main>

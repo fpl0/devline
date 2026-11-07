@@ -1,0 +1,297 @@
+<main><header><h1>Discovery</h1></header>
+<p>Your <code>OrderInventory</code> service answers on <code>orders.inventory.check</code>, and
+<code>ShippingQuote</code> answers on <code>shipping.quote</code>. To call them, you had to know
+those subjects in advance. This page removes that requirement.</p>
+<p>Every service the framework creates also answers a second, automatic set
+of subjects: the <strong>discovery verbs</strong>. Through them, a caller can ask the
+running system what services exist, what each one answers, and how it's
+doing, without anyone hard-coding a subject or maintaining a registry on
+the side.</p>
+<p>You add no code to get this. The moment <code>AddService</code> returned on the
+<code>your-first-service</code> page, the framework subscribed to these subjects for
+you. This page shows how to use them.</p>
+<h2 id="the-three-discovery-verbs">The three discovery verbs</h2>
+<p>Discovery is <strong>learning what services exist and what they answer</strong> through
+a fixed set of subjects under the <code>$SRV</code> prefix. Every service answers
+three verbs there:</p>
+<ul>
+<li><strong>PING</strong>: checks whether a service is present. The reply carries the
+service name, instance id, and version. Use it to find services and
+measure round-trip time.</li>
+<li><strong>INFO</strong>: reports what a service answers. The reply adds the description
+and the list of endpoints, each with its subject and queue group.</li>
+<li><strong>STATS</strong>: reports how a service is doing. The reply adds per-endpoint
+counters. We read those on the next page; for now, it's enough to know
+the verb exists.</li>
+</ul>
+<p>The verbs are uppercase, and so are their subjects. A service doesn't
+publish to <code>$SRV</code> itself; it subscribes there and replies to your
+requests, the same request-reply you already know.</p>
+<h2 id="three-levels-of-address">Three levels of address</h2>
+<p>Each verb answers at three levels, narrowing from every service down to
+one instance:</p>
+<table><thead><tr><th>Subject</th><th>Who answers</th></tr></thead><tbody><tr><td><code>$SRV.INFO</code></td><td>every service in the account</td></tr><tr><td><code>$SRV.INFO.OrderInventory</code></td><td>every instance named <code>OrderInventory</code></td></tr><tr><td><code>$SRV.INFO.OrderInventory.&lt;id&gt;</code></td><td>the one instance with that id</td></tr></tbody></table>
+<p>The same three levels work for <code>PING</code> and <code>STATS</code>. The first level is how
+you enumerate an unfamiliar system. The second narrows to one service
+name. The third reaches a single <strong>instance</strong>: one running copy of a
+service, identified by the <strong>service id</strong> the framework generated for it.</p>
+<p>Ask <code>OrderInventory</code> to describe itself at the name level, and read the
+endpoint list out of the reply:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Ask the OrderInventory service to describe itself. INFO is a discovery
+# verb every service answers automatically on the $SRV subject tree. The
+# name level ($SRV.INFO.OrderInventory) reaches every running instance of
+# OrderInventory, and each one replies with its name, id, version, and the
+# list of endpoints it serves.
+#
+# Discovery is broadcast: a plain request would return only the first
+# reply, so the CLI waits a short window and collects every responder.
+# That is why the timeout matters here.
+nats request '$SRV.INFO.OrderInventory' '' --replies=0 --timeout=1s
+
+# The reply for each instance is JSON like:
+#
+#   {
+#     "type": "io.nats.micro.v1.info_response",
+#     "name": "OrderInventory",
+#     "id": "JJTBR2MN3JSAYBI5ST7E32",
+#     "version": "1.0.0",
+#     "endpoints": [
+#       { "name": "check",
+#         "subject": "orders.inventory.check",
+#         "queue_group": "q" }
+#     ]
+#   }
+#
+# Read the endpoints array to learn what the service answers and on which
+# subject -- no documentation lookup required.
+#
+# The same information, formatted, comes from the CLI ops shortcut:
+nats service info OrderInventory</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Ask every running instance of OrderInventory to describe itself.
+// INFO is a discovery verb the framework answers automatically; the
+// name level ($SRV.INFO.OrderInventory) reaches every instance, and
+// each one replies with its name, id, version, and endpoint list.
+//
+// Discovery is broadcast: a plain request would return only the first
+// reply. Subscribe to a private inbox, send the request there, and
+// collect replies until none arrives within the deadline.
+int instances = 0;
+
+if (s == NATS_OK)
+    s = natsInbox_Create(&amp;inbox);
+if (s == NATS_OK)
+    s = natsConnection_SubscribeSync(&amp;sub, conn, (const char *) inbox);
+if (s == NATS_OK)
+    s = natsConnection_PublishRequestString(conn, "$SRV.INFO.OrderInventory",
+                                            (const char *) inbox, "");
+
+while (s == NATS_OK)
+{
+    natsMsg *info = NULL;
+
+    // Stop once no further instance replies within the deadline.
+    s = natsSubscription_NextMsg(&amp;info, sub, 1000);
+    if (s != NATS_OK)
+        break;
+
+    // Each reply is an info_response JSON document; its "endpoints"
+    // array lists each endpoint's subject and queue group.
+    printf("info: %.*s\n",
+           natsMsg_GetDataLength(info), natsMsg_GetData(info));
+    instances++;
+    natsMsg_Destroy(info);
+}
+printf("collected %d instance(s)\n", instances);</code></pre></div></div>
+<p>The reply tells you the <code>check</code> endpoint listens on
+<code>orders.inventory.check</code> in queue group <code>"q"</code>. That's the same fact you
+configured by hand earlier, but now any caller can read it back from the
+live service instead of trusting documentation.</p>
+<p>The <code>$SRV.PING</code>/<code>INFO</code>/<code>STATS</code> wire format and JSON response schemas are
+documented in <a href="/reference/services/">Reference</a>. We only need the behavior here.</p>
+<h2 id="discovery-is-broadcast-not-load-balanced">Discovery is broadcast, not load-balanced</h2>
+<p>One detail on this page works differently than you might expect. The
+endpoints you built answer in a <strong>queue group</strong>, so each request goes to
+exactly one instance. The discovery verbs do <strong>not</strong>. A
+<code>$SRV.INFO.OrderInventory</code> request reaches <em>every</em> instance named
+<code>OrderInventory</code>, and every one of them replies.</p>
+<p>That's deliberate. The point of discovery is to get a response from every
+instance, all three of them, not whichever one happened to answer first.
+So a caller doesn't wait for a single reply; it waits a short deadline and
+collects however many responses arrive in that window.</p>
+<div></div>
+<p>The animation shows it: one <code>$SRV.INFO.OrderInventory</code> request fans out to
+all three instances, and three INFO replies come back. The single targeted
+query at the end, <code>$SRV.STATS.OrderInventory.id2</code>, reaches only <code>id2</code>,
+because the third address level pins the request to one instance.</p>
+<h2 id="targeting-one-instance">Targeting one instance</h2>
+<p>When you already know an id (from a PING or INFO reply), you can address
+that instance alone. This is how you inspect or compare a single copy of a
+service that's running many.</p>
+<p>The third level reaches exactly one instance, so you expect a single
+reply and don't need a deadline loop:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# The third discovery level adds the service id, addressing exactly one
+# instance instead of all of them. Use it when several instances of
+# OrderInventory are running and you want to inspect one in particular.
+#
+# Pick an id from an earlier INFO or PING reply, then target it. Replace
+# the id below with one your own service printed.
+INSTANCE_ID="JJTBR2MN3JSAYBI5ST7E32"
+
+# $SRV.STATS.OrderInventory.&lt;id&gt; reaches only the instance with that id,
+# so a single reply is expected -- no deadline loop needed for one
+# instance.
+nats request "\$SRV.STATS.OrderInventory.$INSTANCE_ID" '' --timeout=1s
+
+# PING at the instance level is the lightweight check: it confirms that
+# one specific instance is alive and reports its name, id, and version.
+nats request "\$SRV.PING.OrderInventory.$INSTANCE_ID" '' --timeout=1s</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The third discovery level adds the service id, addressing exactly
+// one instance instead of all of them. Pick an id from an earlier
+// INFO or PING reply; replace the one below with your own.
+const char *instanceID = "JJTBR2MN3JSAYBI5ST7E32";
+natsMsg    *reply      = NULL;
+char       subject[256];
+
+// $SRV.STATS.OrderInventory.&lt;id&gt; reaches only the instance with that
+// id, so a single reply is expected -- no deadline loop needed.
+snprintf(subject, sizeof(subject),
+         "$SRV.STATS.OrderInventory.%s", instanceID);
+if (s == NATS_OK)
+    s = natsConnection_RequestString(&amp;reply, conn, subject, "", 1000);
+if (s == NATS_OK)
+{
+    printf("stats: %.*s\n",
+           natsMsg_GetDataLength(reply), natsMsg_GetData(reply));
+    natsMsg_Destroy(reply);
+    reply = NULL;
+}
+
+// PING at the instance level is the lightweight check: it confirms
+// that one specific instance is alive and reports its name, id, and
+// version.
+snprintf(subject, sizeof(subject),
+         "$SRV.PING.OrderInventory.%s", instanceID);
+if (s == NATS_OK)
+    s = natsConnection_RequestString(&amp;reply, conn, subject, "", 1000);
+if (s == NATS_OK)
+{
+    printf("ping: %.*s\n",
+           natsMsg_GetDataLength(reply), natsMsg_GetData(reply));
+    natsMsg_Destroy(reply);
+}</code></pre></div></div>
+<h2 id="collecting-replies-with-the-cli">Collecting replies with the CLI</h2>
+<p>For interactive use, the <code>nats</code> CLI wraps the broadcast loop. <code>nats service list</code> enumerates every service and instance it can find; <code>nats service info</code> formats one service's endpoints; <code>nats service ping</code>
+measures round-trip time to each responder:</p>
+<div><div><pre><code class="language-bash">nats service list
+nats service info OrderInventory
+nats service ping</code></pre></div></div>
+<p>These run the same <code>$SRV</code> requests internally and gather the replies
+by deadline. They're the fastest way to see what's running while you
+develop; the programmatic verbs above are what your own tooling uses.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two mistakes are common the first time you query discovery. Both come from
+the broadcast behavior above.</p>
+<p><strong>Discovery is broadcast: a single reply is not the whole answer.</strong> A
+plain request returns the first response and stops. Against
+<code>$SRV.INFO.OrderInventory</code> that gives you one instance and silently hides
+the rest, so five running instances appear as one. Don't treat a discovery
+request like a normal request-reply call. Wait a deadline and collect
+every reply, exactly as the CLI does:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Ask the OrderInventory service to describe itself. INFO is a discovery
+# verb every service answers automatically on the $SRV subject tree. The
+# name level ($SRV.INFO.OrderInventory) reaches every running instance of
+# OrderInventory, and each one replies with its name, id, version, and the
+# list of endpoints it serves.
+#
+# Discovery is broadcast: a plain request would return only the first
+# reply, so the CLI waits a short window and collects every responder.
+# That is why the timeout matters here.
+nats request '$SRV.INFO.OrderInventory' '' --replies=0 --timeout=1s
+
+# The reply for each instance is JSON like:
+#
+#   {
+#     "type": "io.nats.micro.v1.info_response",
+#     "name": "OrderInventory",
+#     "id": "JJTBR2MN3JSAYBI5ST7E32",
+#     "version": "1.0.0",
+#     "endpoints": [
+#       { "name": "check",
+#         "subject": "orders.inventory.check",
+#         "queue_group": "q" }
+#     ]
+#   }
+#
+# Read the endpoints array to learn what the service answers and on which
+# subject -- no documentation lookup required.
+#
+# The same information, formatted, comes from the CLI ops shortcut:
+nats service info OrderInventory</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Ask every running instance of OrderInventory to describe itself.
+// INFO is a discovery verb the framework answers automatically; the
+// name level ($SRV.INFO.OrderInventory) reaches every instance, and
+// each one replies with its name, id, version, and endpoint list.
+//
+// Discovery is broadcast: a plain request would return only the first
+// reply. Subscribe to a private inbox, send the request there, and
+// collect replies until none arrives within the deadline.
+int instances = 0;
+
+if (s == NATS_OK)
+    s = natsInbox_Create(&amp;inbox);
+if (s == NATS_OK)
+    s = natsConnection_SubscribeSync(&amp;sub, conn, (const char *) inbox);
+if (s == NATS_OK)
+    s = natsConnection_PublishRequestString(conn, "$SRV.INFO.OrderInventory",
+                                            (const char *) inbox, "");
+
+while (s == NATS_OK)
+{
+    natsMsg *info = NULL;
+
+    // Stop once no further instance replies within the deadline.
+    s = natsSubscription_NextMsg(&amp;info, sub, 1000);
+    if (s != NATS_OK)
+        break;
+
+    // Each reply is an info_response JSON document; its "endpoints"
+    // array lists each endpoint's subject and queue group.
+    printf("info: %.*s\n",
+           natsMsg_GetDataLength(info), natsMsg_GetData(info));
+    instances++;
+    natsMsg_Destroy(info);
+}
+printf("collected %d instance(s)\n", instances);</code></pre></div></div>
+<p>The reverse holds too: when you want one specific instance, use the
+<code>$SRV.STATS.OrderInventory.&lt;id&gt;</code> level instead of filtering a broadcast.
+It reaches that instance directly and returns one reply.</p>
+<p><strong><code>$SRV</code> is a reserved subject prefix: do not publish to it yourself.</strong>
+The framework owns the entire <code>$SRV</code> tree; services subscribe there to
+answer PING, INFO, and STATS. Publishing your own messages under <code>$SRV</code>
+collides with that machinery and corrupts what callers discover. Keep your
+own subjects under your own prefixes (<code>orders.*</code>, <code>shipping.*</code>) and let
+the framework own <code>$SRV</code>. Who may even see <code>$SRV</code> across account
+boundaries is a separate question, covered in
+<a href="/learn/security">Security</a>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You can now discover the system instead of memorizing it. With <code>$SRV</code>
+PING, INFO, and STATS, you can enumerate every service in the account,
+ask one service which endpoints it answers, and target a single instance
+by its id. You also know the catch: discovery is broadcast, so you gather
+replies by deadline rather than taking the first one.</p>
+<p><code>OrderInventory</code> and <code>ShippingQuote</code> are still running. Nothing about them
+changed; you just learned to ask them what they are.</p>
+<h2 id="whats-next">What's next</h2>
+<p>INFO told you <em>what</em> a service answers. The STATS verb tells you <em>how
+it's doing</em>: request counts, error counts, and processing time per
+endpoint. The next page reads those counters and shows how a handler
+records an error.</p>
+<p>Continue to <a href="/learn/services/observability">Observability</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/core-nats/request-reply">Request-reply</a> — the mechanism every
+<code>$SRV</code> reply rides on.</li>
+<li><a href="/learn/services/observability">Observability</a> — what the STATS verb
+reports and how to read it.</li>
+<li><a href="/reference/services/">Reference</a> — the <code>$SRV</code> wire format and response schemas.</li>
+</ul></main>

@@ -1,0 +1,7 @@
+<main><header><h1>Server Out of Space</h1></header>
+<p>Server storage exhausted.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$JS.EVENT.ADVISORY.SERVER.OUT_OF_STORAGE</code></p>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>An Advisory sent when a Server has run out of disk space</p><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.server_out_of_space"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>stream</span><span>string</span></div><div>The Stream that triggered the out of space event</div></div><div><div><span>server</span><span>string</span><span>required</span></div><div>The server name that ran out of space</div></div><div><div><span>server_id</span><span>string</span><span>required</span></div><div>The server ID that ran out of space</div></div><div><div><span>cluster</span><span>string</span></div><div>The cluster the server is in</div></div><div><div><span>domain</span><span>string</span></div><div>The domain of the JetStream server the event is from</div></div></div></div></main>

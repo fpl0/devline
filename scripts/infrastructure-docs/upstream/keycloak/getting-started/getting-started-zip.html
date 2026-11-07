@@ -1,0 +1,355 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div class="sect1">
+<h2 id="_before_you_start"><a class="anchor" href="#_before_you_start"></a>Before you start</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Make sure your machine or container platform can provide sufficient memory and CPU for your desired usage of Keycloak.
+See <a href="https://www.keycloak.org/high-availability/single-cluster/concepts-memory-and-cpu-sizing">Concepts for sizing CPU and memory resources</a> for more on how to get started with production sizing.</p>
+</div>
+<div class="paragraph">
+<p>Make sure you have <a href="https://openjdk.java.net/">OpenJDK 25</a> installed.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_download_keycloak"><a class="anchor" href="#_download_keycloak"></a>Download Keycloak</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Download and extract <a href="https://github.com/keycloak/keycloak/releases/download/26.8.2/keycloak-26.8.2.zip">keycloak-26.8.2.zip</a>
+from the Keycloak website.</p>
+</div>
+<div class="paragraph">
+<p>After extracting this file, you should have a directory that is named <code>keycloak-26.8.2</code>.</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_start_keycloak"><a class="anchor" href="#_start_keycloak"></a>Start Keycloak</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>From a terminal, open the <code>keycloak-26.8.2</code> directory.</p>
+</li>
+<li>
+<p>Enter the following command:</p>
+<div class="ulist">
+<ul>
+<li>
+<p>On Linux, run:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.sh start-dev</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>On Windows, run:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin<span class="se">\k</span>c.bat start-dev</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>Using the <code>start-dev</code> option, you are starting Keycloak in development mode. In this mode, you can try out Keycloak for the first time to get it up and running quickly. This mode offers convenient defaults for developers, such as for developing a new Keycloak theme.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+By default, Keycloak in development mode on Windows Subsystem For Linux the server binds to all network addresses (<code>0.0.0.0</code>). This means your Keycloak instance may be accessible from other machines on your network, not just from your local machine.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_create_an_admin_user"><a class="anchor" href="#_create_an_admin_user"></a>Create an admin user</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Keycloak has no default admin user. You need to create an admin user before you can start Keycloak.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Open <a href="http://localhost:8080/">http://localhost:8080/</a>.</p>
+</li>
+<li>
+<p>Fill in the form with your preferred username and password.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_log_in_to_the_admin_console"><a class="anchor" href="#_log_in_to_the_admin_console"></a>Log in to the Admin Console</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Go to the <a href="http://localhost:8080/admin">Keycloak Admin Console</a>.</p>
+</li>
+<li>
+<p>Log in with the username and password you created earlier.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_create_a_realm"><a class="anchor" href="#_create_a_realm"></a>Create a realm</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A realm in Keycloak is equivalent to a tenant. Each realm allows an administrator to create isolated groups of applications and users. Initially, Keycloak
+includes a single realm, called <code>master</code>. Use this realm only for managing Keycloak and not for managing any applications.</p>
+</div>
+<div class="paragraph">
+<p>Use these steps to create the first realm.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Open the <a href="http://localhost:8080/admin">Keycloak Admin Console</a>.</p>
+</li>
+<li>
+<p>Click <strong>Manage realms</strong> in the left column.</p>
+</li>
+<li>
+<p>Click <strong>Create realm</strong>.</p>
+</li>
+<li>
+<p>Enter <code>myrealm</code> in the <strong>Realm name</strong> field.</p>
+</li>
+<li>
+<p>Click <strong>Create</strong>.</p>
+</li>
+</ol>
+</div>
+<div class="imageblock">
+<div class="content">
+<img alt="Add realm" src="/images/add-realm.png"/>
+</div>
+<div class="title">Figure 1. Add realm</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_create_a_user"><a class="anchor" href="#_create_a_user"></a>Create a user</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Initially, the realm has no users. Use these steps to create a user:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Verify that you are still in the <strong>myrealm</strong> realm, which is next to <strong>Current realm</strong>.</p>
+</li>
+<li>
+<p>Click <strong>Users</strong> in the left-hand menu.</p>
+</li>
+<li>
+<p>Click <strong>Create new user</strong>.</p>
+</li>
+<li>
+<p>Fill in the form with the following values:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Username</strong>: <code>myuser</code></p>
+</li>
+<li>
+<p><strong>First name</strong>: any first name</p>
+</li>
+<li>
+<p><strong>Last name</strong>: any last name</p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Click <strong>Create</strong>.</p>
+</li>
+</ol>
+</div>
+<div class="imageblock">
+<div class="content">
+<img alt="Create user" src="/images/add-user.png"/>
+</div>
+<div class="title">Figure 2. Create user</div>
+</div>
+<div class="paragraph">
+<p>This user needs a password to log in. To set the initial password:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Click <strong>Credentials</strong> at the top of the page.</p>
+</li>
+<li>
+<p>Fill in the <strong>Set password</strong> form with a password.</p>
+</li>
+<li>
+<p>Toggle <strong>Temporary</strong> to <strong>Off</strong> so that the user does not need to update this password at the first login.</p>
+</li>
+</ol>
+</div>
+<div class="imageblock">
+<div class="content">
+<img alt="Set password" src="/images/set-password.png"/>
+</div>
+<div class="title">Figure 3. Set password</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_log_in_to_the_account_console"><a class="anchor" href="#_log_in_to_the_account_console"></a>Log in to the Account Console</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>You can now log in to the Account Console to verify this user is configured correctly.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Open the <a href="http://localhost:8080/realms/myrealm/account">Keycloak Account Console</a>.</p>
+</li>
+<li>
+<p>Log in with <code>myuser</code> and the password you created earlier.</p>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>As a user in the Account Console, you can manage your account including modifying your profile, adding two-factor authentication, and including identity provider accounts.</p>
+</div>
+<div class="imageblock">
+<div class="content">
+<img alt="Keycloak Account Console" src="/images/account-console.png"/>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_secure_the_first_application"><a class="anchor" href="#_secure_the_first_application"></a>Secure the first application</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To secure the first application, you start by registering the application with your Keycloak instance:</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Open the <a href="http://localhost:8080/admin">Keycloak Admin Console</a>.</p>
+</li>
+<li>
+<p>Click <strong>myrealm</strong> next to <strong>Current realm</strong>.</p>
+</li>
+<li>
+<p>Click <strong>Clients</strong>.</p>
+</li>
+<li>
+<p>Click <strong>Create client</strong></p>
+</li>
+<li>
+<p>Fill in the form with the following values:</p>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Client type</strong>: <code>OpenID Connect</code></p>
+</li>
+<li>
+<p><strong>Client ID</strong>: <code>myclient</code></p>
+<div class="imageblock">
+<div class="content">
+<img alt="Add client" src="/images/add-client-1.png"/>
+</div>
+<div class="title">Figure 4. Add client</div>
+</div>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Click <strong>Next</strong></p>
+</li>
+<li>
+<p>Confirm that <strong>Standard flow</strong> is enabled.</p>
+</li>
+<li>
+<p>Click <strong>Next</strong>.</p>
+</li>
+<li>
+<p>Make these changes under <strong>Login settings</strong>.</p>
+<div class="ulist">
+<ul>
+<li>
+<p>Set <strong>Valid redirect URIs</strong> to <code>https://www.keycloak.org/app/*</code></p>
+</li>
+<li>
+<p>Set <strong>Web origins</strong> to <code>https://www.keycloak.org</code></p>
+</li>
+</ul>
+</div>
+</li>
+<li>
+<p>Click <strong>Save</strong>.</p>
+</li>
+</ol>
+</div>
+<div class="imageblock">
+<div class="content">
+<img alt="Update client" src="https://www.keycloak.org/resources/images/guides/add-client-2.png"/>
+</div>
+<div class="title">Figure 5. Update client</div>
+</div>
+<div class="paragraph">
+<p>To confirm the client was created successfully, you can use the SPA testing application on the <a href="https://www.keycloak.org/app/">Keycloak website</a>.</p>
+</div>
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Open <a class="bare" href="https://www.keycloak.org/app/">https://www.keycloak.org/app/</a>.</p>
+</li>
+<li>
+<p>Click <strong>Save</strong> to use the default configuration.</p>
+</li>
+<li>
+<p>Click <strong>Sign in</strong> to authenticate to this application using the Keycloak server you started earlier.</p>
+</li>
+</ol>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_taking_the_next_step"><a class="anchor" href="#_taking_the_next_step"></a>Taking the next step</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Before you run Keycloak in production, consider the following actions:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Switch to a production ready database such as PostgreSQL.</p>
+</li>
+<li>
+<p>Configure SSL with your own certificates.</p>
+</li>
+<li>
+<p>Switch the admin password to a more secure password.</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>For more information, see the <a href="https://www.keycloak.org/guides#server">server guides</a>.</p>
+</div>
+</div>
+</div> </div>
+</main>

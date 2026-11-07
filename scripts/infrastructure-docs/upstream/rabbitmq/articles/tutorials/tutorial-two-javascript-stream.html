@@ -1,0 +1,213 @@
+<main><header><h1>RabbitMQ Stream tutorial - Offset Tracking</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a>, running on
+<code>localhost</code> and the <a href="https://www.rabbitmq.com/docs/4.3/stream#enabling-plugin">stream plugin</a>  enabled.
+The <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard stream port</a> is 5552. In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="using-docker">Using docker</h3><p>If you don't have RabbitMQ installed, you can run it in a Docker container:</p><div><div><pre><code class="language-bash">docker run -it --rm --name rabbitmq -p 5552:5552 -p 15672:15672 -p 5672:5672  \
+    -e RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS='-rabbitmq_stream advertised_host localhost' \
+    rabbitmq:4-management</code></pre></div></div><p>wait for the server to start and then enable the stream and stream management plugins:</p><div><div><pre><code class="language-bash">docker exec rabbitmq rabbitmq-plugins enable rabbitmq_stream rabbitmq_stream_management </code></pre></div></div><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through the <a href="https://groups.google.com/forum/#!forum/rabbitmq-users">mailing
+list</a> or <a href="https://www.rabbitmq.com/discord">discord community server</a>.</p></div></div>
+<p>RabbitMQ Streams was introduced in RabbitMQ 3.9.
+More information is available <a href="https://www.rabbitmq.com/docs/4.3/streams">here</a>.</p>
+<h2 id="offset-tracking">Offset Tracking</h2>
+<h3 id="setup">Setup</h3>
+<p>This part of the tutorial consists in writing two programs in Javascript; a producer that sends a wave of messages with a marker message at the end, and a consumer that receives messages and stops when it gets the marker message.
+It shows how a consumer can navigate through a stream and can even restart where it left off in a previous execution.</p>
+<p>This tutorial uses <a href="/tutorials/tutorial-one-javascript-stream#using-the-nodejs-stream-client">the stream Javascript client</a>.
+Make sure to follow <a href="/tutorials/tutorial-one-javascript-stream#setup">the setup steps</a> from the first tutorial.</p>
+<p>An executable version of this tutorial can be found in the <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/javascript-nodejs-stream/">RabbitMQ tutorials repository</a>.
+The sending program is called <code>offset_tracking_send.js</code> and the receiving program is called <code>offset_tracking_receive.js</code>.
+The tutorial focuses on the usage of the client library, so the final code in the repository should be used to create the scaffolding of the files (e.g. imports, main function, etc).</p>
+<h3 id="sending">Sending</h3>
+<p>In
+<a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/javascript-nodejs-stream/offset_tracking_send.js"><code>offset_tracking_send.js</code></a>,
+we need to add the client:</p>
+<div><div><pre><code class="language-javascript">const rabbit = require("rabbitmq-stream-js-client");</code></pre></div></div>
+<p>then we can create a connection to the server and a stream:</p>
+<div><div><pre><code class="language-javascript">const client = await rabbit.connect({
+  hostname: "localhost",
+  port: 5552,
+  username: "guest",
+  password: "guest",
+  vhost: "/",
+});
+
+console.log("Making sure the stream exists...");
+const streamSizeRetention = 5 * 1e9;
+const streamName = "stream-offset-tracking-javascript";
+await client.createStream({ stream: streamName, arguments: { "max-length-bytes": streamSizeRetention } });</code></pre></div></div>
+<p>The program then creates a <code>producer</code> and publishes 100 messages.
+The body value of the last message is set to <code>marker</code>; this is a marker for the <code>consumer</code> to stop consuming.</p>
+<div><div><pre><code class="language-javascript">console.log("Creating the publisher...");
+const publisher = await client.declarePublisher({ stream: streamName });
+
+const messageCount = 100;
+console.log(`Publishing ${messageCount} messages`);
+for (let i = 0; i &lt; messageCount; i++) {
+  const body = i === messageCount - 1 ? "marker" : `hello ${i}`;
+  await publisher.send(Buffer.from(body));
+}</code></pre></div></div>
+<p>For any problem you have in sending the messages i suggest you to checkout some solutions <a href="/tutorials/tutorial-one-javascript-stream#sending-does-not-work"><code>here</code></a></p>
+<p>Let's now create the receiving program.</p>
+<h3 id="receiving">Receiving</h3>
+<p>The receiving program <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/javascript-nodejs-stream/offset_tracking_receive.js"><code>offset_tracking_receive.js</code></a> adds the client, creates a connection to the server and a stream as well.
+This part of the code is the same as in the sending program, so it is skipped in the next code snippets for brevity's sake.</p>
+<p>The receiving program starts a consumer that attaches at the beginning of the stream (<code>rabbit.Offset.first()</code>).
+It uses variables to output the offsets of the first and last received messages at the end of the program.</p>
+<p>The consumer stops when it receives the marker message: it assigns the offset to a variable and stores the message offset on the server.
+Like for the sender, the channel tells the program to move on when the consumer is done with its job.</p>
+<div><div><pre><code class="language-javascript">const startFrom = rabbit.Offset.first();
+let firstOffset = startFrom.value;
+let lastOffset = startFrom.value;
+let messageCount = 0;
+const consumer = await client.declareConsumer({ stream: streamName, offset: startFrom }, (message) =&gt; {
+  messageCount++;
+  if (messageCount === 1) {
+    console.log("First message received");
+    firstOffset = message.offset;
+  }
+  if (message.content.toString() === "marker") {
+    console.log("Marker found");
+    lastOffset = message.offset;
+    console.log(`Done consuming, first offset was ${firstOffset}, last offset was ${lastOffset}`);
+  }
+});
+
+console.log(`Start consuming...`);
+await sleep(2000);</code></pre></div></div>
+<h3 id="exploring-the-stream">Exploring the Stream</h3>
+<p>In order to run both examples, open two terminal (shell) tabs.</p>
+<p>In the first tab, run the sender to publish a wave of messages:</p>
+<div><div><pre><code class="language-shell">npm run offset-tracking-publish</code></pre></div></div>
+<p>The output is the following:</p>
+<div><div><pre><code class="language-shell">Connecting...
+Making sure the stream exists...
+Creating the publisher...
+Publishing 100 messages
+Closing the connection...
+done!</code></pre></div></div>
+<p>Let's run now the receiver.
+Open a new tab.
+Remember it should start from the beginning of the stream because of the <code>first</code> offset specification.</p>
+<div><div><pre><code class="language-shell">npm run offset-tracking-receive</code></pre></div></div>
+<p>Here is the output:</p>
+<div><div><pre><code class="language-shell">Connecting...
+First message received
+Start consuming...
+Marker found
+Done consuming, first offset was 0, last offset was 99</code></pre></div></div>
+<div class="admonition note"><div class="admonition-title">What is an offset?</div><div><p>A stream can be seen as an array where elements are messages.
+The offset is the index of a given message in the array.</p></div></div>
+<p>A stream is different from a queue: consumers can read and re-read the same messages and the messages stay in the stream.</p>
+<p>Let's try this feature by using the <code>offset(bigint)</code> specification to attach at a given offset.
+Set the <code>startFrom</code> variable from <code>rabbit.Offset.first()</code> to <code>rabbit.Offset.offset(42)</code>:</p>
+<div><div><pre><code class="language-javascript">const startFrom = rabbit.Offset.offset(42n);</code></pre></div></div>
+<p>Offset 42 is arbitrary, it could have been any number between 0 and 99.
+Run the receiver again:</p>
+<div><div><pre><code class="language-shell">npm run offset-tracking-receive</code></pre></div></div>
+<p>The output is the following:</p>
+<div><div><pre><code class="language-shell">Connecting...
+Start consuming...
+First message received
+Marker found
+Done consuming, first offset was 42, last offset was 99</code></pre></div></div>
+<p>There is also a way to attach at the very end of stream to see only new messages at the time of the consumer creation.
+This is the <code>next</code> offset specification.
+Let's try it:</p>
+<div><div><pre><code class="language-javascript">const startFrom = rabbit.Offset.next();</code></pre></div></div>
+<p>Run the receiver:</p>
+<div><div><pre><code class="language-shell">npm run offset-tracking-receive</code></pre></div></div>
+<p>This time the consumer does not get any messages:</p>
+<div><div><pre><code class="language-shell">Connecting...
+Start consuming...</code></pre></div></div>
+<p>It is waiting for new messages in the stream.
+Let's publish some by running the sender again.
+Back to the first tab:</p>
+<div><div><pre><code class="language-shell">npm run offset-tracking-publish</code></pre></div></div>
+<p>Wait for the program to exit and switch back to the receiver tab.
+The consumer received the new messages:</p>
+<div><div><pre><code class="language-shell">First message received
+Marker found
+Done consuming, first offset was 100, last offset was 199</code></pre></div></div>
+<p>The receiver stopped because of the new marker message the sender put at the end of the stream.</p>
+<p>This section showed how to "browse" a stream: from the beginning, from any offset, even for new messages.
+The next section covers how to leverage server-side offset tracking to resume where a consumer left off in a previous execution.</p>
+<h3 id="server-side-offset-tracking">Server-Side Offset Tracking</h3>
+<p>RabbitMQ Streams provide server-side offset tracking to store the progress of a given consumer in a stream.
+If the consumer were to stop for any reason (crash, upgrade, etc), it would be able to re-attach where it stopped previously to avoid processing the same messages.</p>
+<p>RabbitMQ Streams provides an API for offset tracking, but it is possible to use other solutions to store the progress of consuming applications.
+It may depend on the use case, but a relational database can be a good solution as well.</p>
+<p>Let's modify the receiver to store the offset of processed messages.
+The updated lines are outlined with comments:</p>
+<div><div><pre><code class="language-javascript">// start consuming at the beginning of the stream
+const consumerRef = "offset-tracking-tutorial"; // the consumer must a have name
+let firstOffset = undefined;
+let offsetSpecification = rabbit.Offset.first();
+try {
+  const offset = await client.queryOffset({ reference: consumerRef, stream: streamName }); // take the offset stored on the server if it exists
+  offsetSpecification = rabbit.Offset.offset(offset + 1n); // start from the message after 'marker'
+} catch (e) {}
+
+let lastOffset = offsetSpecification.value;
+let messageCount = 0;
+const consumer = await client.declareConsumer(
+  { stream: streamName, offset: offsetSpecification, consumerRef },
+  async (message) =&gt; {
+    messageCount++;
+    if (!firstOffset &amp;&amp; messageCount === 1) {
+      firstOffset = message.offset;
+      console.log("First message received");
+    }
+    if (messageCount % 10 === 0) {
+      await consumer.storeOffset(message.offset); // store offset every 10 messages
+    }
+    if (message.content.toString() === "marker") {
+      console.log("Marker found");
+      lastOffset = message.offset;
+      await consumer.storeOffset(message.offset); // store the offset on consumer closing
+      await consumer.close(true);
+    }
+  }
+);
+
+console.log(`Start consuming...`);
+await sleep(2000);
+console.log(`Done consuming, first offset was ${firstOffset}, last offset was ${lastOffset}`);
+process.exit(0);</code></pre></div></div>
+<p>The most relevant changes are:</p>
+<ul>
+<li>The consumer attaches at the beginning of the stream with <code>rabbit.Offset.first()</code> the first time it is started.</li>
+<li>The consumer must have a name. It is the key to store and retrieve the last stored offset value.</li>
+<li>The offset is stored every 10 messages.
+This is an unusually low value for offset storage frequency, but this is OK for this tutorial.
+Values in the real world are rather in the hundreds or in the thousands.</li>
+<li>The offset is stored before closing the consumer, just after getting the marker message.</li>
+</ul>
+<p>Let's run the updated receiver:</p>
+<div><div><pre><code class="language-shell">npm run offset-tracking-receive</code></pre></div></div>
+<p>Here is the output:</p>
+<div><div><pre><code class="language-shell">Connecting...
+Start consuming...
+First message received
+Marker found
+Done consuming, first offset was 0, last offset was 99</code></pre></div></div>
+<p>There is nothing surprising there: the consumer got the messages from the beginning of the stream and stopped when it reached the marker message.</p>
+<p>Let's publish another batch of 100 message and start the receiver another time:</p>
+<div><div><pre><code class="language-shell">npm run offset-tracking-publish</code></pre></div></div>
+<div><div><pre><code class="language-shell">npm run offset-tracking-receive</code></pre></div></div>
+<p>Here is the output:</p>
+<div><div><pre><code class="language-shell">Connecting...
+Start consuming...
+Marker found
+Done consuming, first offset was 100, last offset was 201</code></pre></div></div>
+<p>The consumer restarted exactly where it left off: the last offset in the first run was 99 and the first offset in this second run is 100.
+Note the second run the offset specification is taken through the <code>queryOffset</code> method.
+The consumer stored offset tracking information in the first run, so the client library offers the possibility to retrieve it to resume consuming at the right position in the second run.</p>
+<p>This concludes this tutorial on consuming semantics in RabbitMQ Streams.
+It covered how a consumer can attach anywhere in a stream.
+Consuming applications are likely to keep track of the point they reached in a stream.
+They can use the built-in server-side offset tracking feature as demonstrated in this tutorial.
+They are also free to use any other data store solution for this task.</p>
+<p>See the <a href="https://www.rabbitmq.com/blog/2021/09/13/rabbitmq-streams-offset-tracking">RabbitMQ blog</a> and the <a href="https://rabbitmq.github.io/rabbitmq-stream-nodejs-client/snapshot/htmlsingle/#consumer-offset-tracking">stream Javascript nodejs client documentation</a> for more information on offset tracking.</p></main>

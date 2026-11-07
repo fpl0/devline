@@ -1,0 +1,133 @@
+<main><header><h1>Where to go next</h1></header>
+<p>You started this chapter with a cluster design: the three-node
+<code>east</code> cluster the Topologies chapter designed, carrying the R3 <code>ORDERS</code>
+stream. You end it with that same cluster sized, running on Kubernetes,
+reconfigurable without downtime, upgradable without losing the stream,
+and locked down with TLS on every link. Those steps take a cluster
+design and produce a running system.</p>
+<p>This page introduces no new material. It collects the runbook you built
+into one place and points you at the chapters and Reference that take it
+further.</p>
+<h2 id="the-five-operational-steps">The five operational steps</h2>
+<p>Every page in this chapter advanced the same cluster through one
+operational step, and the order they run in matters.</p>
+<p>You <strong>size</strong> it first. A node uses four resources (CPU, memory, disk,
+and file descriptors), and an R3 stream counts three times against the
+<code>ORDERS</code> account limits. Sizing means reading those limits before you
+commit to a PVC, rather than estimating them after the disk fills.</p>
+<p>You <strong>deploy</strong> it second. The NATS Helm chart stands the cluster up as a
+StatefulSet whose three pods, <code>nats-0</code>/<code>nats-1</code>/<code>nats-2</code>, are the same
+<code>n1-east</code>/<code>n2-east</code>/<code>n3-east</code> nodes from Topologies. The NACK controller
+turns the <code>ORDERS</code> stream and its consumers into declarative CRDs.</p>
+<p>You <strong>configure</strong> it third. An include splits the config into
+per-account and per-region files, and a SIGHUP reloads the reloadable
+keys in place without a restart or a client reconnect. The reloader
+sidecar turns a ConfigMap edit into that SIGHUP.</p>
+<p>You <strong>upgrade</strong> it fourth. Lame-duck mode lets a node drain its clients
+and transfer Raft leadership before it stops, and the upgrade order
+(non-leaders first, the meta-leader last, quorum protected by a
+PodDisruptionBudget) keeps the R3 ORDERS stream available the whole way.</p>
+<p>You <strong>harden</strong> it fifth. TLS goes on every link, the <code>ACME</code> credentials
+mount as files, a locked-down systemd unit strips the process of every
+capability it doesn't need, and the monitor port closes to everything
+but localhost.</p>
+<p>The five steps are size, deploy, configure, upgrade, and harden, and
+everything else in this chapter is a detail of one of those five.</p>
+<h2 id="where-the-exhaustive-details-are-documented">Where the exhaustive details are documented</h2>
+<p>The chapter is unversioned and concept-first. The exact keys, defaults,
+and ranges live in <strong>Reference</strong>, which is versioned and exhaustive. When
+you need the precise type of a config field or the full list of TLS or
+JetStream limit options, that's where to look.</p>
+<p>The full set of server configuration options lives in
+<a href="/reference/config">Reference → Configuration</a>. The handoff phrases
+throughout this chapter ("we only cover the keys this deployment needs")
+all point into it.</p>
+<h2 id="sibling-deep-dives">Sibling deep dives</h2>
+<p>This chapter is the runbook, and five other chapters continue from where
+it ends. Each of those chapters covers a separate job, so the cluster you
+built here carries straight into them.</p>
+<p>The <a href="/learn/topologies">Topologies deep dive</a> covers the <strong>shape</strong>. It's
+where the three-node <code>east</code> cluster came from, and where you go to choose
+a different shape (a super-cluster across regions, or leaf nodes at the
+edge) before you size and deploy it.</p>
+<p>The <a href="/learn/clustering">Clustering &amp; Replication deep dive</a> covers the
+<strong>Raft mechanics</strong> this chapter only triggers. When a rolling upgrade
+transfers leadership, <a href="/learn/clustering/raft-and-leaders">raft-and-leaders</a>
+explains how the meta-leader is elected and how R3 stays consistent
+through the change.</p>
+<p>The <a href="/learn/security">Security deep dive</a> covers the <strong>auth model</strong> behind
+the credentials this chapter mounts. This chapter turns TLS on and points
+the server at a creds file;
+<a href="/learn/security/operator-mode">operator-mode</a> is where you design the
+operator <code>ACME</code>, the accounts, and the JWTs that the creds file carries.</p>
+<p>The <a href="/learn/monitoring">Monitoring deep dive</a> covers <strong>what to watch</strong> once
+the cluster is live. This chapter exposes <code>/healthz</code> and runs
+<code>nats server report</code> as one-off operational checks;
+<a href="/learn/monitoring/monitoring-endpoints">monitoring-endpoints</a> is where
+you turn those signals into ongoing alerting.</p>
+<p>The <a href="/learn/backup-recovery">Backup &amp; Recovery deep dive</a> covers
+<strong>disaster recovery</strong> (snapshotting the ORDERS stream and restoring it),
+the one production concern this chapter's hardening doesn't cover.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>This is the end of the chapter. The Acme ORDERS cluster is now sized,
+deployed as a StatefulSet, split into includes you can reload live,
+upgradable through lame-duck mode, and hardened with TLS and a
+locked-down systemd unit. This page introduces no new scenario state; the
+cluster is running exactly as you left it on the hardening page.</p>
+<p>You now have the whole runbook: take a topology shape, size its resources,
+stand it up declaratively, change it without downtime, roll it forward
+safely, and lock it down. That runbook is the minimum baseline for
+operating any NATS cluster in production, not only this one.</p>
+<h2 id="production-checklist">Production checklist</h2>
+<p>Every page in this chapter closed with a Pitfalls section. This collects
+the action items from all of them in one place as a last pass before you
+run real orders through the cluster. Each group links back to the page
+that explains the why.</p>
+<h3 id="sizing--resources--see-pitfalls">Sizing &amp; resources — see <a href="/learn/deployment/sizing-and-resources#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Set <code>max_file_store</code> to a size the disk can actually hold; an oversized limit lets JetStream error mid-publish instead of failing fast. Test small (<code>10GB</code>) and watch <code>df -h</code>.</li>
+<li><input/> <!-- -->Keep <code>max_payload</code> at or below <code>max_pending</code>; a <code>max_payload</code> larger than <code>max_pending</code> refuses the server start. Hold <code>max_pending</code> at <code>≥ 10×</code> your peak message size.</li>
+<li><input/> <!-- -->Raise the file-descriptor limit before the process starts (<code>ulimit -n 800000</code>); a big cluster spends about two FDs per stream plus routes and gossip and exhausts the default cap.</li>
+<li><input/> <!-- -->Keep server versions aligned as you roll operator-mode upgrades, so every node reads the same JWT limit fields; account limits change only when you edit and push the account JWT, not on a server reload.</li>
+<li><input/> <!-- -->Read the live limits with <code>nats account info</code> before sizing, so you plan against the limits the server actually enforces.</li>
+</ul>
+<h3 id="kubernetes--see-pitfalls">Kubernetes — see <a href="/learn/deployment/kubernetes#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Use <code>volumeClaimTemplates</code> (the Helm default) so each PVC binds before its StatefulSet replica starts; an unbound PVC leaves the pod Pending.</li>
+<li><input/> <!-- -->Run the config reloader sidecar; a ConfigMap edit does not reload the server on its own.</li>
+<li><input/> <!-- -->Raise the readiness failure threshold so the probe doesn't flap not-ready during a healthy JetStream rebalance.</li>
+<li><input/> <!-- -->Never mix <code>nats</code> CLI mutations with a CRD-owned stream; NACK re-creates a deleted stream on its ~30s resync, and in <code>--control-loop</code> mode it also reverts manual config edits on about a one-minute cycle.</li>
+<li><input/> <!-- -->Confirm the CRD-created stream is R3 with <code>nats stream info ORDERS</code> from nats-box before trusting the declarative path.</li>
+</ul>
+<h3 id="config-management--see-pitfalls">Config management — see <a href="/learn/deployment/config-management#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Write include paths as absolute paths; an include resolves relative to the config file's directory, not the working directory.</li>
+<li><input/> <!-- -->Fit a SIGHUP inside the graceful window; a reload during a rebalance can interrupt leadership transfer.</li>
+<li><input/> <!-- -->Monitor TLS cert expiry as you rotate it; a rotation without monitoring leaves old connections hung on an expired cert.</li>
+<li><input/> <!-- -->Trim oversized streams by hand after lowering <code>max_file</code>; a reload changes the ceiling, not the contents, so new writes fail until an admin trims.</li>
+<li><input/> <!-- -->Dry-run every config change with <code>nats-server -c nats.conf -t</code> before you reload it.</li>
+</ul>
+<h3 id="rolling-upgrades--see-pitfalls">Rolling upgrades — see <a href="/learn/deployment/rolling-upgrades#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Measure rebalance time before setting <code>lame_duck_duration</code>; a duration shorter than the rebalance drops clients before replicas sync.</li>
+<li><input/> <!-- -->Transfer leadership before killing the meta-leader; upgrading it directly stalls stream ops until a new leader is elected (about 5 to 10 seconds with default timeouts). Do non-leaders first.</li>
+<li><input/> <!-- -->Set a PodDisruptionBudget with <code>minAvailable: 2</code>; without it an eviction can drain all three pods and lose quorum.</li>
+<li><input/> <!-- -->Stagger lame-duck start across ordinals; firing it on every node at once triggers a reconnect storm.</li>
+<li><input/> <!-- -->Read replicas and leader with <code>nats stream info ORDERS</code> before and after the upgrade to confirm the stream stayed R3.</li>
+</ul>
+<h3 id="hardening--see-pitfalls">Hardening — see <a href="/learn/deployment/hardening#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Keep the JetStream <code>store_dir</code> (and the pid/ports-file dirs) inside <code>ReadWritePaths</code>; <code>ProtectSystem=strict</code> blocks writes there, not the cert reads a reload does.</li>
+<li><input/> <!-- -->Set <code>MemoryMax</code> above the node's real peak usage (memory store plus buffers plus GC headroom); a cap below the working set gets the process OOM-killed under load, not at startup.</li>
+<li><input/> <!-- -->Open cluster port 6222 between nodes; a firewall that blocks it leaves nodes unable to form quorum and showing as orphans.</li>
+<li><input/> <!-- -->Bind the monitor port 8222 to localhost; exposed to the internet it leaks version, client count, and memory.</li>
+<li><input/> <!-- -->Connect with <code>--creds</code> and <code>--tlsca</code> and publish one order to prove auth and TLS are live before you call the cluster hardened.</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config">Reference → Configuration</a> — every config key, flag,
+default, and limit, versioned and exhaustive.</li>
+<li><a href="/learn/topologies">Topologies deep dive</a> — the shape this chapter runs.</li>
+<li><a href="/learn/monitoring">Monitoring deep dive</a> — what to watch once the
+cluster is live.</li>
+</ul></main>

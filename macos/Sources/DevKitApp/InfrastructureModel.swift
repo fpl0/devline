@@ -24,6 +24,7 @@ struct InfrastructureService: Decodable, Identifiable, Sendable {
     let ports: [Port]
     let provenance: Provenance
     let docsRef, helpRef, quickStart: String?
+    let docsCoverage, docsOmissions: String?
     var reference: String { "\(id)@\(version)" }
     var symbol: String {
         switch id {

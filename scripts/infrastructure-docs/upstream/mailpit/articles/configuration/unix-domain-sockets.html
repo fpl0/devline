@@ -1,0 +1,62 @@
+<main>
+		
+		<h1>Unix domain sockets</h1>
+		
+<div>
+	<p>This feature was added in Mailpit v1.21.0.</p>
+<p>This article describes a new (still somewhat experimental) way to use Unix domain sockets rather than network interfaces and ports.</p>
+<p>This is not the recommended approach for general use and is aimed at advanced users managing mass hosting.</p>
+
+</div>
+
+<p>Mailpit traditionally listens on designated network interfaces and ports for both the web UI/API (HTTP server) and mail (SMTP server).
+This means that the ports must be available in order to start Mailpit, which can be inconvenient when running dozens of Mailpit instances on the same server.
+In such situations, it may be more convenient to listen on Unix sockets instead, especially when using a proxy server.</p>
+<p>Mailpit can be configured to listen via a Unix domain socket for both the HTTP and SMTP servers.</p>
+<p>The syntax to listen on a Unix socket instead of an <code>&lt;ip&gt;:&lt;port&gt;</code> is <code>unix:&lt;path&gt;:&lt;permissions&gt;</code>, where:</p>
+<ul>
+<li><code>&lt;path&gt;</code> is the path to the socket file, e.g., <code>/var/run/mailpit/http.sock</code></li>
+<li><code>&lt;permissions&gt;</code> is the Unix permissions to assign to the socket, such as <code>600</code></li>
+</ul>
+<p>Socket files are created with the same ownership as the process starting Mailpit, and the permissions must allow read and write access to whatever process will be reading from that socket (e.g., Nginx proxy).
+The folder where the socket will be written must also have read, write, and execute permissions by the user starting the Mailpit service, and read and execute permissions by the service that will be connecting to the socket.</p>
+<p>The HTTP and SMTP services cannot share a socket, and every Mailpit instance must use its own sockets. Mailpit’s Unix domain sockets do not support TLS encryption (if you require HTTPS, add that to your proxy).</p>
+<p>Example:</p>
+<div><pre><code class="language-shell"><span><span>mailpit --listen unix:/var/run/mailpit/http.sock:666 --smtp unix:/var/run/mailpit/smtp.sock:666
+</span></span></code></pre></div><p>This will allow global read and write access to both <code>/var/run/mailpit/http.sock</code> and <code>/var/run/mailpit/smtp.sock</code> sockets, provided the process also has read/execute access to <code>/var/run/mailpit/</code>.</p>
+<h2 id="reverse-web-proxy-using-a-unix-socket">Reverse web proxy using a Unix socket</h2>
+<p>Unix sockets are not connectable over a network, so a proxy is required to communicate with the socket.</p>
+<h3 id="nginx">Nginx</h3>
+<div><pre><code class="language-nginx"><span><span><span>server</span> <span>{</span>
+</span></span><span><span>    <span>listen</span>       <span>80</span><span>;</span>
+</span></span><span><span>    <span>server_name</span>  <span>localhost</span><span>;</span>
+</span></span><span><span>
+</span></span><span><span>    <span>location</span> <span>/</span> <span>{</span>
+</span></span><span><span>        <span>proxy_pass</span> <span>http://unix:/var/run/mailpit/http.sock</span><span>;</span>
+</span></span><span><span>
+</span></span><span><span>        <span># enable the websocket
+</span></span></span><span><span>        <span>proxy_http_version</span> <span>1</span><span>.1</span><span>;</span>
+</span></span><span><span>        <span>proxy_set_header</span> <span>Upgrade</span> <span>$http_upgrade</span><span>;</span>
+</span></span><span><span>        <span>proxy_set_header</span> <span>Connection</span> <span>"Upgrade"</span><span>;</span>
+</span></span><span><span>    <span>}</span>
+</span></span><span><span><span>}</span>
+</span></span></code></pre></div><h3 id="apache">Apache</h3>
+<p>Apache support for reverse websocket connections to Unix sockets requires version <code>&gt;= 2.4.47</code> and the <code>proxy</code> and <code>proxy_http</code> modules must be enabled.</p>
+<p>Also note the syntax should always include a <code>|http://&lt;anything&gt;</code> (even though it is completely unused!), and include <code>upgrade=websocket</code> to support websockets (web UI).</p>
+<div><pre><code class="language-apache"><span><span><span>&lt;VirtualHost</span> <span>*:80</span><span>&gt;</span>
+</span></span><span><span>    <span>ServerName</span> localhost
+</span></span><span><span>
+</span></span><span><span>    <span>ProxyPass</span> <span>"/"</span> <span>"unix:/var/run/mailpit/http.sock|http://ignore.this/"</span> upgrade=websocket
+</span></span><span><span><span>&lt;/VirtualHost&gt;</span>
+</span></span></code></pre></div><h2 id="sending-mail-via-a-unix-socket">Sending mail via a Unix socket</h2>
+<p>To do this, you will need to use Mailpit’s sendmail (which supports Unix domain sockets). The SMTP socket should be set as the SMTP server address with <code>-S unix:&lt;path&gt;</code> or by setting the global environment variable <code>MP_SENDMAIL_SMTP_ADDR=unix:&lt;path&gt;</code>.</p>
+<p>For example:</p>
+<div><pre><code class="language-shell"><span><span>mailpit sendmail -S unix:/var/run/mailpit/smtp.sock &lt; message
+</span></span></code></pre></div><p>If using something like the Symfony mailer, you can configure your mailer as follows:</p>
+<div><pre><code class="language-shell"><span><span><span>MAILER_DSN</span><span>=</span><span>"sendmail://default?command=mailpit%20sendmail%20-S%20unix:/var/run/mailpit/smtp.sock%20-bs"</span>
+</span></span></code></pre></div>
+
+		
+		
+		
+	</main>

@@ -1,0 +1,170 @@
+<main><header><h1>4. Persist messages with JetStream</h1></header>
+<p>So far your messages have been fleeting: a subscriber that isn't listening at
+the moment you publish never sees them. In this tutorial you turn on JetStream,
+create a <strong>stream</strong> that stores messages durably, publish a few, and then
+<strong>replay</strong> them from the very beginning. By the end you'll have proof that
+the messages survived, sitting in storage, ready to read again.</p>
+<div></div>
+<h2 id="what-youll-need">What you'll need</h2>
+<ul>
+<li><code>nats-server</code> and the <code>nats</code> CLI installed (from <a href="/tutorials/hello-nats">Hello NATS</a>).</li>
+<li>A terminal. You'll start the server in one and run commands in another.</li>
+</ul>
+<h2 id="step-1-start-the-server-with-jetstream">Step 1: Start the server with JetStream</h2>
+<p>Stop any server you started earlier, then start a new one with the <code>-js</code> flag.
+That flag turns on JetStream, the subsystem that stores messages.</p>
+<div><div><pre><code class="language-bash">nats-server -js</code></pre></div></div>
+<p>You should see a startup log that mentions JetStream, including a line like:</p>
+<div><div><pre><code class="language-text">[INF] Starting JetStream
+[INF] Server is ready</code></pre></div></div>
+<p>Leave this running. Open a second terminal for the remaining steps.</p>
+<h2 id="step-2-create-a-stream">Step 2: Create a stream</h2>
+<p>In the second terminal, create a stream named <code>EVENTS</code> that captures every
+subject beginning with <code>events.</code>. The <code>--defaults</code> flag fills in sensible
+starting values so you aren't prompted for anything.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Create a stream named EVENTS that captures every subject under events.&gt;
+# --defaults fills in sensible starting values so the CLI does not prompt.
+nats stream add EVENTS --subjects "events.&gt;" --defaults</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Create a stream named EVENTS that captures every subject under
+// events.&gt;. Every other setting keeps its sensible default.
+jsStreamConfig  cfg;
+const char      *subjects[] = {"events.&gt;"};
+
+jsStreamConfig_Init(&amp;cfg);
+cfg.Name        = "EVENTS";
+cfg.Subjects    = subjects;
+cfg.SubjectsLen = 1;
+
+s = js_AddStream(&amp;si, js, &amp;cfg, NULL, &amp;jerr);
+if (s == NATS_OK)
+    printf("Stream %s was created\n", si-&gt;Config-&gt;Name);</code></pre></div></div>
+<p>You should see output ending with:</p>
+<div><div><pre><code class="language-text">Stream EVENTS was created</code></pre></div></div>
+<p>Your stream now exists and is waiting for messages.</p>
+<h2 id="step-3-publish-a-few-messages">Step 3: Publish a few messages</h2>
+<p>Publish three messages to subjects under <code>events.</code>. Because each subject matches
+the stream, the server stores every one.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Publish three messages. Each subject starts with events. so the EVENTS
+# stream captures and stores every one. For each publish the CLI prints a
+# "Stored in Stream" line with the assigned sequence, confirming it was stored.
+nats pub events.page_loaded   '{"page":"/home"}'    --jetstream
+nats pub events.input_changed '{"field":"email"}'   --jetstream
+nats pub events.page_loaded   '{"page":"/pricing"}' --jetstream</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Publish three messages. Each subject starts with events. so the
+// EVENTS stream stores every one. The returned ack carries the
+// stream name and the sequence the message was stored at.
+const char *subjects[] = {"events.page_loaded",
+                          "events.input_changed",
+                          "events.page_loaded"};
+const char *payloads[] = {"{\"page\":\"/home\"}",
+                          "{\"field\":\"email\"}",
+                          "{\"page\":\"/pricing\"}"};
+int        i;
+
+for (i = 0; (s == NATS_OK) &amp;&amp; (i &lt; 3); i++)
+{
+    jsPubAck *ack = NULL;
+
+    s = js_Publish(&amp;ack, js, subjects[i],
+                   payloads[i], (int) strlen(payloads[i]),
+                   NULL, &amp;jerr);
+    if (s == NATS_OK)
+    {
+        printf("Stored in Stream: %s Sequence: %" PRIu64 "\n",
+               ack-&gt;Stream, ack-&gt;Sequence);
+        jsPubAck_Destroy(ack);
+    }
+}</code></pre></div></div>
+<p>For each publish you should see two lines: one confirming the message was sent,
+and one confirming the stream stored it with an assigned sequence number:</p>
+<div><div><pre><code class="language-text">13:42:01 Published 16 bytes to "events.page_loaded"
+13:42:01 Stored in Stream: EVENTS Sequence: 1
+13:42:01 Published 17 bytes to "events.input_changed"
+13:42:01 Stored in Stream: EVENTS Sequence: 2
+13:42:01 Published 19 bytes to "events.page_loaded"
+13:42:01 Stored in Stream: EVENTS Sequence: 3</code></pre></div></div>
+<p>Confirm the stream now holds three messages:</p>
+<div><div><pre><code class="language-bash">nats stream info EVENTS</code></pre></div></div>
+<p>You should see a <code>State</code> block reporting three messages:</p>
+<div><div><pre><code class="language-text">State:
+
+             Messages: 3
+                Bytes: 159 B
+       First Sequence: 1 @ 2026-06-09 13:42:01
+        Last Sequence: 3 @ 2026-06-09 13:42:01
+     Active Consumers: 0
+   Number of Subjects: 2</code></pre></div></div>
+<h2 id="step-4-replay-the-stored-messages">Step 4: Replay the stored messages</h2>
+<p>Now read the messages back. This replays every message the stream holds, oldest
+first, starting from the very first one. Nothing is removed: replaying a stream
+is a read.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Replay every message stored in the stream, oldest first.
+#   --all              start at the first stored message (sequence 1)
+#   --terminate-at-end stop once all stored messages have been read
+nats sub "events.&gt;" --all --terminate-at-end</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Replay every message stored in the stream, oldest first. An
+// ordered consumer starts at the first stored message; the metadata
+// on each message tells us how many are still pending, so we stop
+// once we've read everything. Nothing is removed: this is a read.
+jsSubOptions so;
+
+jsSubOptions_Init(&amp;so);
+so.Stream  = "EVENTS";
+so.Ordered = true;
+
+s = js_SubscribeSync(&amp;sub, js, "events.&gt;", NULL, &amp;so, &amp;jerr);
+
+while (s == NATS_OK)
+{
+    natsMsg         *msg    = NULL;
+    jsMsgMetaData   *meta   = NULL;
+    uint64_t        pending = 0;
+
+    s = natsSubscription_NextMsg(&amp;msg, sub, 5000);
+    if (s != NATS_OK)
+        break;
+
+    s = natsMsg_GetMetaData(&amp;meta, msg);
+    if (s == NATS_OK)
+    {
+        pending = meta-&gt;NumPending;
+        printf("seq: %" PRIu64 " / subject: %s\n%.*s\n\n",
+               meta-&gt;Sequence.Stream, natsMsg_GetSubject(msg),
+               natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+        jsMsgMetaData_Destroy(meta);
+    }
+    natsMsg_Destroy(msg);
+
+    // Exit on our own once everything stored has been read.
+    if ((s == NATS_OK) &amp;&amp; (pending == 0))
+        break;
+}
+// An empty stream simply times out waiting for the first message.
+if (s == NATS_TIMEOUT)
+    s = NATS_OK;</code></pre></div></div>
+<p>You should see all three messages, in the order they were published:</p>
+<div><div><pre><code class="language-text">[#1] Received JetStream message: stream: EVENTS seq: 1 / pending: 2 / subject: events.page_loaded / time: 2026-06-09 13:42:01
+{"page":"/home"}
+
+[#2] Received JetStream message: stream: EVENTS seq: 2 / pending: 1 / subject: events.input_changed / time: 2026-06-09 13:42:01
+{"field":"email"}
+
+[#3] Received JetStream message: stream: EVENTS seq: 3 / pending: 0 / subject: events.page_loaded / time: 2026-06-09 13:42:01
+{"page":"/pricing"}</code></pre></div></div>
+<p>The command exits on its own once it's read everything stored. Run it again
+and you'll see the same three messages: the stream still has them.</p>
+<h2 id="what-you-built">What you built</h2>
+<p>You enabled JetStream, created the <code>EVENTS</code> stream, published three messages into
+it, and replayed all three back from storage. And they were still there to read
+again afterward.</p>
+<h2 id="next">Next</h2>
+<ul>
+<li>Next tutorial: <a href="/tutorials/stream-consumer">Read a stream with a durable consumer</a>
+— a reader that tracks what it's processed and resumes after a restart.</li>
+<li>Understand how this works: the <a href="/learn/jetstream">JetStream deep dive</a> explains
+what a stream really is, and <a href="/learn/jetstream/your-first-stream">Your first stream</a>
+walks through every value JetStream filled in for you.</li>
+</ul></main>

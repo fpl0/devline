@@ -248,9 +248,9 @@ The destination needs Docker, the project toolchains, and dependencies. Importin
 
 ## Updates
 
-**Updates** brings documentation, starters, and image archives into one overview. **Check All Sources** checks their publishers and shows freshness or failures for each source. **Update Available** prepares checked updates for the content you already use. It keeps previous versions and project pins. Failed items remain available to retry until preparation and offline verification succeed. Toolchains remain managed outside Devline, and app updates are separate.
+**Updates** brings documentation, starters, and image archives into one overview. **Check All Sources** checks their publishers and shows freshness or failures for each source. **Update Available** prepares checked updates for the content you already use. By default, Devline keeps previous releases. Failed items remain available to retry until preparation and offline verification succeed. Toolchains remain managed outside Devline, and app updates are separate.
 
-The **Documentation** tab downloads independently published snapshots. Devline checks archive size and SHA-256, resumes interrupted downloads where the server supports it, and keeps installed versions for rollback and project pins. The details show sources, coverage, and known omissions.
+The **Documentation** tab downloads independently published snapshots. Devline checks archive size and SHA-256 and resumes interrupted downloads where the server supports it. The details show sources, coverage, and known omissions. You can roll back to an earlier installed release.
 
 ```sh
 devline docs updates                 # cached channel status
@@ -267,11 +267,34 @@ Follow either background operation with `devline jobs status JOB_ID --follow`. C
 
 Runtime updates open official installation pages. Devline 0.7.0 uses direct downloads: the app-update section and CLI link to the checked public release. Install or upgrade using the GitHub DMG. The signed Sparkle updater remains disabled in this build because no signed appcast is published. A future build can enable it only with its signing key and Ed25519-signed feed and archives. [Download Devline 0.7.0](https://github.com/fpl0/devline/releases/download/v0.7.0/Devline-macos-arm64.dmg)
 
-Infrastructure also checks publishers for newer compatible images. `devline infra updates check` refreshes observations, and `devline infra update SERVICE` prepares the checked release alongside its predecessor. App updates can include newer catalog entries. Existing project configurations retain their exact pins and archived releases.
+Infrastructure also checks publishers for newer compatible images. `devline infra updates check` refreshes observations, and `devline infra update SERVICE` prepares the checked release. App updates can include newer catalog entries.
+
+### Purge older releases
+
+In **Settings → Local Library**, turn on **Keep only the latest version after updates** to purge older releases of an item when Devline installs its newest local version. The setting is off by default. Use **Purge Older Versions…** to clean existing docsets, starters, and image archives in one pass, regardless of the setting.
+
+Cleanup applies to Devline’s local library. Each project keeps its exact pins and may need a purged release prepared again before it can work offline.
+
+```sh
+devline library retention                         # show the current setting
+devline library retention --keep-latest true      # enable automatic cleanup
+devline library retention --keep-latest false     # disable automatic cleanup
+devline library purge                             # purge older local releases now
+```
 
 ## Devline help and reference coverage
 
-Use **Read Devline Guide** in Infrastructure, or `devline guide`, for Devline’s own setup instructions. These guides are separate from official publisher references. The infrastructure reference pack currently includes five PostgreSQL pages and one SeaweedFS API guide. The service screen identifies the other offline reference gaps and links to each publisher’s documentation. [Documentation policy](DOCUMENTATION-POLICY.md)
+Select a service in **Infrastructure** and choose **Read Offline Reference**. Devline installs the bundled reference if needed and opens the publisher’s article. **Offline Reference Coverage** describes the bundled scope and its omissions. **Publisher Documentation** opens the service’s manual online.
+
+The Infrastructure References pack covers all ten catalog services. It includes the complete PostgreSQL 18.6 HTML manual and redistributable publisher material for the other services. MySQL and MongoDB include upstream command-line and image references, with their full database manuals linked online. Redis includes command help for the pinned image and archived publisher guides. The pack records the source version, license, and scope for each service. [Infrastructure source inventory](data/docs/infrastructure/2026.11.07+devline.3/SOURCES.md)
+
+```sh
+devline --offline docs install infrastructure --version 2026.11.07+devline.3
+devline --offline docs search JetStream --docset infrastructure@2026.11.07+devline.3
+devline --offline docs show 'infrastructure@2026.11.07+devline.3/reference/postgres/index'
+```
+
+Use **Read Devline Guide** or `devline guide` for setup instructions specific to Devline. [Documentation policy](DOCUMENTATION-POLICY.md)
 
 ## Build and validate
 

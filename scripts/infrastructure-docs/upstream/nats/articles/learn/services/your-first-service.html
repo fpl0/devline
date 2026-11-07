@@ -1,0 +1,241 @@
+<main><header><h1>Your first service</h1></header>
+<p>In the Core NATS chapter you built an inventory responder. It subscribed
+to <code>orders.inventory.check</code>, read each request, and published an answer
+back. It worked, but it was anonymous: nothing on the network knew its
+name, its version, or which subjects it served.</p>
+<p>This page promotes that responder into a <strong>service</strong>: the same answering
+behavior, now wrapped by the micro framework so it gains a name, a
+version, and a built-in identity. The bytes on the wire stay the same.
+The responder becomes a first-class thing the network can name and, on
+later pages, discover, observe, and scale.</p>
+<p>You need a local <code>nats-server</code> running and you should already be
+comfortable with <a href="/learn/core-nats/request-reply">request-reply</a>. This
+page covers the two things the framework adds on top of how a reply
+finds its way back, rather than re-teaching that.</p>
+<h2 id="a-service-is-a-named-responder">A service is a named responder</h2>
+<p>A <strong>service</strong> is a request-reply responder that the framework formalizes.
+You create one by calling <code>AddService</code> with three values: a <code>Name</code>, a
+<code>Version</code>, and a <code>Description</code>. The framework takes those, opens the
+necessary subscriptions, and hands you back a handle to manage it.</p>
+<p>The <code>Name</code> is shared by every copy of this service you ever run. Here it
+is <code>OrderInventory</code>. The <code>Version</code> is a SemVer string, <code>1.0.0</code> for our
+first cut. The <code>Description</code> is free text for humans.</p>
+<p>When you create the service, the framework also generates a unique
+<strong>service ID</strong> for this one running copy, an auto-generated NUID like
+<code>IcpremQQGTYS0fK1iyfQ86</code>. You never set it. The <strong>service name</strong>
+identifies the kind of service; the <strong>service ID</strong> identifies this one
+instance of it. That distinction is what later lets you run five copies
+of <code>OrderInventory</code> and still talk to exactly one of them.</p>
+<p>A service on its own answers nothing yet. It needs an <strong>endpoint</strong>: a
+named handler bound to a subject. This is where the inventory logic
+lives. Add one endpoint, <code>check</code>, on the subject <code>orders.inventory.check</code>
+(the same subject the Core NATS responder used) and give it the handler
+that answers the in-stock question.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Create the OrderInventory service. This is a client-library call, not a
+# CLI one: your code calls AddService(Name: "OrderInventory",
+# Version: "1.0.0", Description: ...) and then AddEndpoint("check", handler)
+# with the subject set to "orders.inventory.check". The framework opens the
+# subscriptions, joins the endpoint to the default queue group "q", and
+# subscribes the discovery verbs under $SRV.
+#
+# The CLI cannot host this shape: `nats service serve` only runs a demo
+# echo service on &lt;name&gt;.echo, not a named endpoint on a subject you choose.
+# So start OrderInventory from your service program, then use the CLI to
+# talk to it. With the service running, read its registration back:
+nats service info OrderInventory</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The check endpoint handler: the same answering behavior as the raw
+// responder. The framework already read the reply subject off the
+// incoming request; Respond sends the answer back to it.
+static microError *
+handleCheck(microRequest *req)
+{
+    const char *answer = "{\"in_stock\":true,\"warehouse\":\"us-east\"}";
+
+    return microRequest_Respond(req, answer, strlen(answer));
+}
+    // Promote the responder into a service: a Name, a SemVer Version, and
+    // a Description. The "check" endpoint binds the handler to
+    // orders.inventory.check and joins the default queue group "q".
+    microEndpointConfig checkCfg = {
+        .Name    = "check",
+        .Subject = "orders.inventory.check",
+        .Handler = handleCheck,
+    };
+    microServiceConfig svcCfg = {
+        .Name        = "OrderInventory",
+        .Version     = "1.0.0",
+        .Description = "Checks whether an order's items are in stock",
+        .Endpoint    = &amp;checkCfg,
+    };
+
+    err = micro_AddService(&amp;svc, conn, &amp;svcCfg);
+    if (err == NULL)
+    {
+        printf("OrderInventory 1.0.0 answering on orders.inventory.check\n");
+        // Block until the service stops.
+        err = microService_Run(svc);
+    }</code></pre></div></div>
+<p>Two details matter. First, the endpoint joins the framework's
+default <strong>queue group</strong>, <code>"q"</code>, automatically. That's the same queue
+group mechanism from <a href="/learn/core-nats/queue-groups">Core NATS</a>: if you
+run more than one copy of this service, each request goes to exactly one
+of them. You get load balancing for free, and the <a href="/learn/services/scaling">scaling</a>
+page builds on it.</p>
+<p>Second, creating the service quietly subscribes it to a set of
+<strong>discovery</strong> subjects under <code>$SRV</code>: the verbs that let callers find it
+and read its stats. You don't see them here; the
+<a href="/learn/services/discovery">discovery</a> page is where they are used. For
+now, know that they exist the moment the service starts.</p>
+<p>The full set of service configuration fields and their valid ranges is
+documented in <a href="/reference/">Reference</a>. We only need the behavior here.</p>
+<h2 id="the-handler-contract">The handler contract</h2>
+<p>Inside an endpoint, the <strong>handler</strong> is the function that processes a
+request. Its contract is the request-reply you already know, with the
+framework managing the connection. Each request hands you a request
+object. You read the incoming bytes with <code>Data()</code> and you send the answer
+with <code>Respond()</code>.</p>
+<p>That covers the whole shape, <code>Data()</code> to read and <code>Respond()</code> to answer.
+The framework took care of subscribing on <code>orders.inventory.check</code>,
+joining the queue group, reading the reply subject off the incoming
+message, and publishing your answer to it. The handler doesn't touch a
+reply subject or an inbox; the framework does, the same work the raw
+responder performed manually.</p>
+<p>With the service running, a caller asks the same question as before. The
+<code>order-svc</code> client sends the canonical order payload to the <code>check</code>
+endpoint and waits for one reply:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Ask the OrderInventory service whether an order's item is in stock.
+# `nats service request` looks the service up by name, resolves the
+# endpoint's subject from its discovery info, sends the order payload,
+# and prints the reply.
+#
+# The arguments are the service name, the endpoint name, and the payload.
+# Underneath it is plain request-reply: a private reply subject, the
+# request out on the endpoint's subject, and one answer back.
+nats service request OrderInventory check \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Ask the OrderInventory service whether the order's item is in stock.
+// Underneath it is plain request-reply: a private reply subject, the
+// request out on the check endpoint's subject, and one answer back.
+const char *order = "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+                    "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}";
+natsMsg    *reply = NULL;
+
+s = natsConnection_RequestString(&amp;reply, conn, "orders.inventory.check",
+                                 order, 2000);
+if (s == NATS_OK)
+{
+    printf("OrderInventory replied: %.*s\n",
+           natsMsg_GetDataLength(reply), natsMsg_GetData(reply));
+    natsMsg_Destroy(reply);
+}</code></pre></div></div>
+<p>The request travels to <code>orders.inventory.check</code>, the framework routes it
+into the <code>check</code> endpoint's queue subscription, your handler runs, and
+the response flows back to the caller's reply subject. Here's the round
+trip with the framework wrapper in place:</p>
+<div></div>
+<p>The orange arrow is the request out on <code>orders.inventory.check</code>. The
+green arrow is the answer coming back. Underneath, it's plain
+request-reply over a queue group; the framework gave the responder a name
+and an identity.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two mistakes are common when building your first service. Both are about
+validation: the framework names your responder and sets up its
+subscriptions, but it doesn't validate the data that flows through it.</p>
+<p><strong>Validate the request body; never let bad input crash the handler.</strong> The
+framework hands your handler whatever bytes the caller sent. If your
+handler blindly parses them and the caller sent garbage, the parse fails
+and, depending on the language, the handler can panic, return nothing,
+or leave the caller waiting out a timeout. Don't assume the payload is
+well-formed. Parse it, and on failure respond with a <strong>service error</strong>
+instead: a response that carries <code>Nats-Service-Error</code> and a
+<code>Nats-Service-Error-Code</code> header whose value is always safe to parse as a
+number (use <code>400</code> for bad input). The caller then sees
+a clear "bad request" rather than a hang, and the service stays up for
+the next caller.</p>
+<p>Send a deliberately malformed body and watch the service answer with the
+error rather than fall over:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Pitfall demo: send a malformed body to the running OrderInventory service.
+# A handler that validates its input parses req.Data() and, on failure,
+# responds with a service error carrying the Nats-Service-Error and
+# Nats-Service-Error-Code (400) headers instead of crashing or hanging.
+#
+# The default output prints the reply headers, so you can see the error
+# headers the handler returned. The caller still gets a clear answer back,
+# those headers tell it the request was bad, and the service stays up for
+# the next caller.
+nats service request OrderInventory check 'not-json'</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Validate the request body before using it. On bad input the handler
+// returns a service error: the framework attaches the Nats-Service-Error
+// and Nats-Service-Error-Code headers to the response and the service
+// stays up for the next caller.
+static microError *
+handleCheck(microRequest *req)
+{
+    const char *data   = microRequest_GetData(req);
+    int         len    = microRequest_GetDataLength(req);
+    const char *answer = "{\"in_stock\":true,\"warehouse\":\"us-east\"}";
+
+    // A real handler parses the JSON; the point is to reject garbage
+    // instead of letting it crash the parse.
+    if ((len == 0) || (data[0] != '{'))
+        return micro_ErrorfCode(400, "invalid order: body is not JSON");
+
+    return microRequest_Respond(req, answer, strlen(answer));
+}
+    // Send a deliberately malformed body. The service answers with the
+    // error headers rather than falling over; the caller reads them on
+    // the reply.
+    natsMsg *reply = NULL;
+
+    s = natsConnection_RequestString(&amp;reply, conn, "orders.inventory.check",
+                                     "not-json", 2000);
+    if (s == NATS_OK)
+    {
+        const char *code = NULL;
+        const char *desc = NULL;
+
+        natsMsgHeader_Get(reply, "Nats-Service-Error-Code", &amp;code);
+        natsMsgHeader_Get(reply, "Nats-Service-Error", &amp;desc);
+        if (code != NULL)
+            printf("service error %s: %s\n", code, desc);
+        natsMsg_Destroy(reply);
+    }</code></pre></div></div>
+<p>The full mechanics of reading that error code back live on the
+<a href="/learn/services/observability#pitfalls">observability</a> page; here the
+point is only that the handler must produce it.</p>
+<p><strong>A service <code>Name</code> and <code>Version</code> are validated at creation.</strong> The <code>Name</code>
+must match the framework's character rule (letters, digits, hyphens,
+underscores; no dots or spaces), and the <code>Version</code> must be valid SemVer.
+A <code>Name</code> of <code>Order Inventory</code> (with a space) or a <code>Version</code> of <code>v1</code>
+(not SemVer) fails the <code>AddService</code> call outright; the service never
+starts. Don't discover this in production: pick a valid <code>Name</code> and a
+real SemVer <code>Version</code> (<code>1.0.0</code>) the first time. The same goes for any
+<code>Metadata</code> you attach. It's immutable once set, so there's no editing
+it after creation; you stop the service and start a new one. The full
+character rules are in <a href="/reference/">Reference</a>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The Acme world now has its first real service:</p>
+<ul>
+<li><code>OrderInventory</code>, version <code>1.0.0</code>, with a unique service ID assigned by
+the framework.</li>
+<li>One endpoint, <code>check</code>, answering on <code>orders.inventory.check</code> in the
+default queue group <code>"q"</code>.</li>
+<li>The same in-stock behavior as the Core NATS responder, now named and
+wrapped, plus discovery subscriptions running quietly under <code>$SRV</code>.</li>
+</ul>
+<p>Nothing about the payload or the subject changed; the responder became a
+service.</p>
+<h2 id="whats-next">What's next</h2>
+<p>One service with one endpoint is the smallest useful shape. Real services
+expose several endpoints and organize them under subject prefixes called
+groups. The next page adds a second endpoint and a second service.</p>
+<p>Continue to <a href="/learn/services/endpoints-and-groups">Endpoints and groups</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/core-nats/request-reply">Core NATS → Request-reply</a> — how the
+reply actually finds its way back, which this page assumes.</li>
+<li><a href="/learn/core-nats/queue-groups">Core NATS → Queue groups</a> — the default
+<code>"q"</code> group that an endpoint joins.</li>
+<li><a href="/reference/">Reference</a> — every service configuration field and its
+valid range.</li>
+</ul></main>

@@ -1,0 +1,162 @@
+<main><header><h1>Profiling the server</h1></header>
+<p>Every number in this chapter so far reports <em>what</em> the <code>east</code> cluster is
+doing: how many clients <code>n1-east</code> holds, how far the <code>shipping</code> consumer
+has fallen behind, how much memory the process has taken. None of them
+say <em>where</em> inside the server that memory or CPU time went, and a
+profile does.</p>
+<p>Profiling sits outside the chapter's four lenses. You reach for it when
+<code>/varz</code> shows <code>n1-east</code> growing its heap with no matching change in
+traffic, or pinning a core while the Grafana panels show nothing that
+explains it. It's a development and support tool: you collect a profile,
+read it with <code>go tool pprof</code>, and often hand it to whoever is debugging
+the server. For day-to-day runtime statistics, keep using the
+<a href="/learn/monitoring/monitoring-endpoints">monitoring port</a>.</p>
+<p>You'll collect a profile two ways: over the system account with the
+<code>nats</code> CLI, and from the server's own HTTP profiling port. Both produce
+the same pprof file.</p>
+<h2 id="a-profile-is-a-sample-of-the-running-process">A profile is a sample of the running process</h2>
+<p>A <strong>profile</strong> is a sample the Go runtime takes from inside the server
+process. It comes back in <strong>pprof</strong> format, the binary format
+<a href="https://pkg.go.dev/net/http/pprof"><code>go tool pprof</code></a> reads. Each kind of
+profile answers a different question, and which one you want follows
+from the symptom:</p>
+<table><thead><tr><th>Profile</th><th>What it holds</th><th>Ask for it when</th></tr></thead><tbody><tr><td><code>heap</code></td><td>Live objects only</td><td>Memory is growing and you want to know what still holds it</td></tr><tr><td><code>allocs</code></td><td>Every allocation since startup, freed ones included</td><td>Memory churn: you want to know what allocates the most</td></tr><tr><td><code>goroutine</code></td><td>A stack trace for every goroutine running now</td><td>The server looks stuck, or its goroutine count is climbing</td></tr><tr><td><code>cpu</code></td><td>Stacks sampled over a fixed window</td><td>A node is pinning a core</td></tr></tbody></table>
+<p>The server also serves <code>block</code>, <code>mutex</code>, and <code>threadcreate</code>. <code>block</code>
+needs sampling turned on before it holds anything (see
+<a href="#pitfalls">Pitfalls</a>); the other two are rarely the first thing you
+reach for.</p>
+<p>Memory and goroutine profiles return immediately, because the runtime
+already has the data. A CPU profile has to watch the process for a
+while, so the request blocks for the length of the sampling window and
+then returns.</p>
+<h2 id="request-a-profile-over-the-system-account">Request a profile over the system account</h2>
+<p><code>nats server request profile</code> asks running servers for a profile and
+writes each reply to a file. The request travels on
+<code>$SYS.REQ.SERVER.PING.PROFILEZ</code>, so your context has to be connected to
+the <strong>system account</strong>. A normal account like <code>ACME</code> has no permission
+on <code>$SYS</code>, so the request gets no replies.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Ask every server in the system for a heap profile.
+# The request travels on $SYS.REQ.SERVER.PING.PROFILEZ, so the context
+# must be connected to the system account.
+nats server request profile heap
+
+# Write the files somewhere other than the working directory.
+# The directory has to exist already.
+mkdir -p ./profiles
+nats server request profile heap ./profiles</code></pre></div></div>
+<p>Every server that answers writes its own file, named
+<code>&lt;profile&gt;-&lt;timestamp&gt;-&lt;server&gt;</code> in the working directory:</p>
+<div><div><pre><code class="language-text">Server "n1-east" profile written: heap-20260824-141530-n1-east
+Server "n2-east" profile written: heap-20260824-141530-n2-east
+Server "n3-east" profile written: heap-20260824-141530-n3-east</code></pre></div></div>
+<p>Nothing here changes the server's configuration or requires a restart,
+which is why this is the route to try first.</p>
+<h3 id="narrow-the-request-to-specific-servers">Narrow the request to specific servers</h3>
+<p>Asking the whole system for a profile is fine on a three-node cluster
+and wasteful on a large one. The <code>--name</code>, <code>--host</code>, <code>--cluster</code>, and
+<code>--tags</code> flags limit which servers answer, and they combine.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Profile one node instead of the whole system.
+nats server request profile heap --name=n1-east
+
+# Profile every node in the east cluster.
+nats server request profile heap --cluster=east
+
+# Profile every node carrying a configured tag.
+nats server request profile heap --tags=aws</code></pre></div></div>
+<h3 id="cpu-profiles-need-a-sampling-window">CPU profiles need a sampling window</h3>
+<p>For <code>cpu</code>, the CLI reuses the global <code>--timeout</code> flag as the sampling
+window. The default is <code>5s</code>, so a bare
+<code>nats server request profile cpu</code> samples for five seconds. The server
+rejects a window longer than <strong>15 seconds</strong> and returns an error instead
+of a profile, so a long capture has to come from the profiling port
+below.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Sample n1-east's CPU for the default five seconds.
+nats server request profile cpu --name=n1-east
+
+# --timeout doubles as the sampling window for cpu profiles.
+# The server rejects a window longer than 15 seconds.
+nats server request profile cpu --name=n1-east --timeout=10s</code></pre></div></div>
+<h2 id="or-expose-the-profiling-port">Or expose the profiling port</h2>
+<p>The server can also serve Go's <code>net/http/pprof</code> handlers on a port of
+its own. It's off until you set <code>prof_port</code> in the node's
+configuration:</p>
+<div><div><pre><code class="language-conf">prof_port: 65432</code></pre></div></div>
+<p><code>prof_port</code> is not reloadable, so a SIGHUP won't pick it up and the node
+has to restart before the port comes up. See
+<a href="/reference/config/prof_port">Reference → prof_port</a>, and
+<a href="/learn/deployment/config-management">Config management</a> for what SIGHUP
+does and doesn't cover.</p>
+<p>Once the port is listening, <code>http://localhost:65432/debug/pprof/</code> lists
+every profile the runtime offers, and each one downloads over plain
+HTTP:</p>
+<div><div><pre><code class="language-bash"># Live heap, returns immediately.
+curl -o heap.prof http://localhost:65432/debug/pprof/heap
+
+# CPU sampled for 30 seconds; the request blocks for that long.
+curl -o cpu.prof "http://localhost:65432/debug/pprof/profile?seconds=30"</code></pre></div></div>
+<p>The 15-second cap is a limit of the system-account handler, not of
+<code>pprof</code>, so <code>?seconds=</code> accepts a longer window here.</p>
+<h2 id="read-the-profile">Read the profile</h2>
+<p>Both routes produce the same pprof file, and <code>go tool pprof</code> reads it.
+A text summary of the heaviest call sites:</p>
+<div><div><pre><code class="language-bash">go tool pprof -top heap-20260824-141530-n1-east</code></pre></div></div>
+<p>Or the interactive web view, with flame graphs and a call tree:</p>
+<div><div><pre><code class="language-bash">go tool pprof -http=:8080 cpu.prof</code></pre></div></div>
+<p>If you're collecting the profile for someone else to read, you need
+neither; send the file as it is.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Three problems come up the first time an operator profiles a production
+node. All three stay within this page's two routes: the system-account
+request and the profiling port.</p>
+<p><strong>The profiling port has no authentication.</strong> Nothing checks who asks:
+anyone who can reach <code>:65432</code> can pull a goroutine dump, and a goroutine
+dump shows subjects and internal state. The port also binds to the same
+host as the client port, <code>host</code>, which defaults to <code>0.0.0.0</code> and covers
+every interface; there is no separate profiling host to narrow. Leave
+<code>prof_port</code> unset in production, or restrict the port with firewall
+rules or a network policy. The system-account route carries no such
+exposure because it's authenticated like any other <code>$SYS</code> request, so
+prefer it.</p>
+<p><strong>Turning on <code>prof_port</code> costs a restart.</strong> It isn't reloadable, so
+enabling it on a live node means a rolling restart of the cluster: not
+what you want mid-incident, when the state you're chasing may not
+survive the restart. Reach for <code>nats server request profile</code> first. It
+needs no config change and no restart, and it captures the node as it is
+right now.</p>
+<p><strong>Block profiling is empty until you enable it.</strong> Asking for <code>block</code>
+without setting <code>prof_block_rate</code> returns a profile with nothing in it,
+because the runtime samples blocking events only when the rate is above
+zero. Unlike <code>prof_port</code>, <code>prof_block_rate</code> <em>is</em> reloadable, so you can
+raise it with a SIGHUP, take the profile, and drop it back to zero.
+Leave it off the rest of the time; block sampling slows the server down.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You can now collect a profile from a running server. The <code>east</code> cluster
+and the ORDERS workload are still running exactly as you left them;
+nothing on this page changed them. What you added is a way to answer the
+question the four lenses can't: when <code>/varz</code> says <code>n1-east</code> is spending
+memory or CPU, a profile says on what.</p>
+<p>Two routes get you there. <code>nats server request profile</code> works over the
+system account against a live cluster, needs no config change, and caps
+CPU sampling at 15 seconds. <code>prof_port</code> serves the full <code>pprof</code> endpoint
+set over HTTP with no cap and no authentication, and needs a restart to
+turn on. Both write pprof files that <code>go tool pprof</code> reads.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The next page recaps the four ways of observing, points to where the
+<em>fixes</em> for what you observe live, and collects every page's Pitfalls
+into one production checklist.</p>
+<p>Continue to <a href="/learn/monitoring/where-next">Where to go next</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/monitoring/monitoring-endpoints">Monitoring endpoints</a> — the
+<code>/varz</code> memory and CPU numbers that send you here</li>
+<li><a href="/learn/deployment/sizing-and-resources">Deployment → sizing and resources</a>
+— what a node is expected to spend, before you go looking for why it
+spent more</li>
+<li><a href="/learn/deployment/hardening">Deployment → hardening</a> — closing ports
+the internet shouldn't reach</li>
+<li><a href="/reference/system/monitor/profilez">Reference → profilez</a> — the
+request and response schema behind <code>nats server request profile</code></li>
+</ul></main>

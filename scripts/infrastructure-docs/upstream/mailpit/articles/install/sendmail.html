@@ -1,0 +1,41 @@
+<main>
+		
+		<h1>Configure sendmail</h1>
+		<p>Mailpit requires messages to be delivered via SMTP. Emails can come directly from and email client (eg: Thunderbird), or via a mail transfer agent (MTA) such as <code>sendmail</code> (which is commonly used with applications such as PHP). Mailpit has its own implementation of sendmail for convenience (by default delivering to <code>localhost:1025</code> instead of <code>localhost:25</code>), however you can theoretically use any existing sendmail client, provided it allows you to set the delivery host &amp; port.</p>
+
+<div>
+	Please note that Mailpit’s implementation of sendmail is not intended to deliver email to other SMTP servers, only Mailpit. It may work, but is not recommended.
+</div>
+
+<p>There are several different options available:</p>
+<h2 id="use-the-mailpit-binary-directly">Use the mailpit binary directly</h2>
+<p>You can use <code>mailpit sendmail</code> as your sendmail configuration in <code>php.ini</code>:</p>
+<div><pre><code class="language-shell"><span><span><span>sendmail_path</span> <span>=</span> /usr/local/bin/mailpit sendmail
+</span></span></code></pre></div><p>If your Mailpit server is not running on the default 1025 port or on another machine, then this can be set by adding <code>-S &lt;host&gt;:&lt;port&gt;</code> to the sendmail command.</p>
+<h2 id="symlink-to-the-mailpit-binary">Symlink to the mailpit binary</h2>
+<p>If Mailpit is found on the same host as sendmail, you can symlink the Mailpit binary to sendmail, eg: <code>ln -s /usr/local/bin/mailpit /usr/sbin/sendmail</code>  (only if Mailpit is running on default 1025 port).</p>
+<h2 id="use-a-system-installed-sendmail-binary">Use a system-installed sendmail binary</h2>
+<p>You can use your default system <code>sendmail</code> binary to route directly to port <code>1025</code> (configurable) by calling <code>/usr/sbin/sendmail -S localhost:1025 -t</code>. This may vary depending on which implementation of sendmail you are using, and whether it allows you to configure the port.</p>
+<h2 id="compile-mailpits-sendmail-implementation">Compile Mailpit’s sendmail implementation</h2>
+<p>You can build a Mailpit-specific sendmail binary from source (see <a href="/docs/install/source/">building from source</a>).</p>
+<h2 id="mailpits-sendmail-options">Mailpit’s sendmail options</h2>
+<p>Mailpit’s sendmail works very similar to other implementations, and shares several of the common flags (even if most are ignored and simply exist for compatibility).</p>
+<p>To view all options, see <code>mailpit sendmail -h</code></p>
+<div><pre><code class="language-shell"><span><span>Usage: mailpit sendmail <span>[</span>flags<span>]</span> <span>[</span>recipients<span>]</span> &lt; message
+</span></span><span><span>
+</span></span><span><span>Flags:
+</span></span><span><span>  -S  string  SMTP server address <span>(</span>default <span>"localhost:1025"</span><span>)</span>
+</span></span><span><span>  -f  string  Set the envelope sender address <span>(</span>default <span>"user@host"</span><span>)</span>
+</span></span><span><span>  -bs         Handle SMTP commands on standard input
+</span></span><span><span>  -t          Ignored
+</span></span><span><span>  -i          Ignored
+</span></span><span><span>  -o          Ignored
+</span></span><span><span>  -v          Ignored
+</span></span></code></pre></div><h3 id="settings-via-the-environment">Settings via the environment</h3>
+<p>The server for Mailpit’s sendmail implementation can also be set using the environment variable <code>MP_SENDMAIL_SMTP_ADDR=mailpit:1025</code>, and the “from” (bounce) address via <code>MP_SENDMAIL_FROM=user@host</code>.</p>
+
+
+		
+		
+		
+	</main>

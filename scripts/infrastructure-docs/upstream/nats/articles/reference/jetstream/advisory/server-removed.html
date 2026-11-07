@@ -1,0 +1,7 @@
+<main><header><h1>Server Removed</h1></header>
+<p>Server removed from cluster.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$JS.EVENT.ADVISORY.SERVER.REMOVED</code></p>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>An Advisory sent when a Server has been removed from the cluster</p><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.server_removed"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>server</span><span>string</span><span>required</span></div><div>The server name that was remove</div></div><div><div><span>server_id</span><span>string</span><span>required</span></div><div>The server ID that was remove</div></div><div><div><span>cluster</span><span>string</span><span>required</span></div><div>The cluster the server was in</div></div><div><div><span>domain</span><span>string</span></div><div>The domain the server was in</div></div></div></div></main>

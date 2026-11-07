@@ -1,0 +1,153 @@
+<main><header><h1>Use Keycloak as OAuth 2.0 server</h1></header><h2 id="use-keycloak-as-oauth-20-server">Use Keycloak as OAuth 2.0 server</h2>
+<p>This guide explains how to set up OAuth 2.0 for RabbitMQ and Keycloak as Authorization Server using
+the following flows:</p>
+<ul>
+<li>Access <a href="/docs/4.3/management">management UI</a> via a browser</li>
+<li>Access management HTTP API</li>
+<li>Application authentication and authorization</li>
+</ul>
+<h2 id="keycloak-jwt-payloads">Keycloak JWT payloads</h2>
+<p>Keycloak can issue two types of JWT payloads.</p>
+<p>One type of payload is found in a <a href="/docs/4.3/oauth2#requesting-party-token">Requesting Party Token</a>.
+RabbitMQ supports this type of token and it extracts the scopes from it. You do not need to
+configure anything.</p>
+<p>The second type of payload is the following:</p>
+<div><div><pre><code class="language-json">{
+  "realm_access": {
+    "roles": [
+      "offline_access",
+      "uma_authorization",
+      "rabbitmq.tag:management",
+    ]
+  },
+  "resource_access": {
+    "account": {
+      "roles": [
+        "manage-account",
+        "manage-account-links",
+        "view-profile",
+        "rabbitmq.write:*/*"
+      ]
+    }
+  },
+  "roles": "rabbitmq.read:*/*",
+  "scope": "profile email"
+}</code></pre></div></div>
+<div class="admonition info"><div class="admonition-title">info</div><div><p>The claim <code>roles</code> is not, strictly speaking, part of Keycloak official claims. Instead, it is a
+custom claim configured by the user from the Keycloak administration console.</p></div></div>
+<p>RabbitMQ does not read the scopes from this token unless you configure it to do so. For example, to
+configure RabbitMQ to extract the scopes from <code>roles</code> under the <code>realm_access</code> claim, add the
+following configuration variable:</p>
+<div><div><pre><code class="language-json">auth_oauth2.additional_scopes_key = realm_access.roles</code></pre></div></div>
+<p>To configure RabbitMQ to also read from <code>resource_access</code> claim, edit the previous configuration as
+follows:</p>
+<div><div><pre><code class="language-json">auth_oauth2.additional_scopes_key = realm_access.roles resource_access.account.roles</code></pre></div></div>
+<p>And finally, if you also want to use the scopes in the claim <code>roles</code>, you edit the previous
+configuration:</p>
+<div><div><pre><code class="language-json">auth_oauth2.additional_scopes_key = roles realm_access.roles resource_access.account.roles</code></pre></div></div>
+<p>RabbitMQ reads the scopes from all those sources.</p>
+<h2 id="prerequisites-to-follow-this-guide">Prerequisites to follow this guide</h2>
+<ul>
+<li>
+<p>Docker</p>
+</li>
+<li>
+<p>make</p>
+</li>
+<li>
+<p>A local clone of a
+<a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/tree/next">GitHub repository</a> for branch
+<code>next</code> that contains all the configuration files and scripts used on this example</p>
+</li>
+<li>
+<p>Add the following entry to <code>/etc/hosts</code>:</p>
+<div><div><pre><code class="language-console">localhost keycloak rabbitmq</code></pre></div></div>
+</li>
+</ul>
+<h2 id="deploy-keycloak">Deploy Keycloak</h2>
+<ol>
+<li>
+<p>First, deploy Keycloak. It comes preconfigured with all the required scopes, users, and clients.</p>
+</li>
+<li>
+<p>Start the Keycloak server by running:</p>
+<div><div><pre><code class="language-bash">make start-keycloak</code></pre></div></div>
+</li>
+</ol>
+<p>There is a dedicated Keycloak realm called <code>Test</code> configured as follows:</p>
+<ul>
+<li>A <a href="https://keycloak:8443/admin/master/console/#/test/realm-settings/keys">rsa</a> signing key. Use
+<code>admin</code>:<code>admin</code> when prompted for credentials to access the Keycloak Administration page</li>
+<li>A <a href="https://keycloak:8443/admin/master/console/#/test/realm-settings/keys/providers">rsa provider</a></li>
+<li>Three clients: <code>rabbitmq-client-code</code> for the RabbitMQ management UI, <code>mgt_api_client</code> to access
+via the management API and <code>producer</code> to access via the AMQP protocol.</li>
+</ul>
+<h2 id="start-rabbitmq">Start RabbitMQ</h2>
+<p>Run the command below to start RabbitMQ configured with the <code>Keycloak</code> server we started in the
+previous section: This is the
+<a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/blob/next/conf/keycloak/rabbitmq.conf">rabbitmq.conf</a>
+used for Keycloak.</p>
+<div><div><pre><code class="language-bash">export MODE=keycloak
+make start-rabbitmq</code></pre></div></div>
+<div class="admonition info"><div class="admonition-title">info</div><div><p>RabbitMQ is deployed with TLS enabled and Keycloak is configured with the corresponding <code>redirect_url</code>
+which uses HTTPS.</p></div></div>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>RabbitMQ is configured to read the scopes from the custom claim
+<a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/blob/next/conf/keycloak/rabbitmq.conf#L11">extra_scope</a>
+and by default from the standard claim <code>scope</code>.
+However, if your scopes are deep in a map/list structure such as <code>authorization.permissions.scopes</code>,
+or under <code>realm_access.roles</code> or <code>resource_access.account.roles</code>, you can configure RabbitMQ to use
+those locations instead. For more information, see the section
+<a href="/docs/4.3/oauth2#use-different-token-field">Use a different token field for the scope</a>.</p></div></div>
+<h2 id="access-management-api">Access Management API</h2>
+<p>To access the management api run the following command. It uses the client
+<a href="https://keycloak:8443/admin/master/console/#/test/clients/c5be3c24-0c88-4672-a77a-79002fcc9a9d/settings">mgt_api_client</a>
+that has the scope
+<a href="https://keycloak:8443/admin/master/console/#/test/client-scopes/f6e6dd62-22bf-4421-910e-e6070908764c/settings">rabbitmq.tag<!-- -->:administrator</a>.</p>
+<div><div><pre><code class="language-bash">make curl-keycloak url=https://localhost:15671/api/overview client_id=mgt_api_client secret=LWOuYqJ8gjKg3D2U8CJZDuID3KiRZVDa realm=test</code></pre></div></div>
+<h2 id="application-authentication-and-authorization-with-perftest">Application authentication and authorization with PerfTest</h2>
+<p>To test OAuth 2.0 authentication with the AMQP protocol you use the RabbitMQ PerfTest tool, which
+uses RabbitMQ Java Client.</p>
+<p>First you obtain the token and pass it as a parameter to the make target
+<code>start-perftest-producer-with-token</code>.</p>
+<div><div><pre><code class="language-bash">make start-perftest-producer-with-token PRODUCER=producer TOKEN=$(bin/keycloak/token producer kbOFBXI9tANgKUq8vXHLhT6YhbivgXxn test)</code></pre></div></div>
+<div class="admonition info"><div class="admonition-title">info</div><div><p>Initializing an application with a token has one drawback: the application cannot use the connection
+beyond the lifespan of the token. See the next section where you demonstrate how to refresh the token.</p></div></div>
+<h2 id="application-authentication-and-authorization-with-pika">Application authentication and authorization with Pika</h2>
+<p>In the following information, OAuth 2.0 authentication is tested with the AMQP protocol and the Pika
+library. These tests specifically demonstrate how to refresh a token on a live AMQP connection.</p>
+<p>The sample Python application is
+<a href="https://github.com/rabbitmq/rabbitmq-oauth2-tutorial/tree/next/pika-client">in GitHub</a>.</p>
+<p>To run this sample code proceed as follows:</p>
+<div><div><pre><code class="language-bash">python3 --version
+pip install pika
+pip install requests
+python3 pika-client/producer.py producer kbOFBXI9tANgKUq8vXHLhT6YhbivgXxn</code></pre></div></div>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>If <code>pip</code> is not available try instead the following two commands to installing it:</p><div><div><pre><code class="language-bash">python3 -m venv venv
+source venv/bin/activate</code></pre></div></div></div></div>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>Ensure that you install pika 1.3.</p></div></div>
+<h2 id="access-management-ui">Access <a href="/docs/4.3/management">management UI</a></h2>
+<ol>
+<li>Go to <a href="https://localhost:15671">https://localhost:15671</a>.</li>
+<li>Click on the single button on the page which redirects to Keycloak to authenticate.</li>
+<li>Enter <code>rabbit_admin</code> and <code>rabbit_admin</code> and you should be redirected back to RabbitMQ Management
+fully logged in.</li>
+</ol>
+<h2 id="stop-keycloak">Stop Keycloak</h2>
+<div><div><pre><code class="language-bash">make stop-keycloak</code></pre></div></div>
+<h2 id="notes-about-setting-up-keycloak">Notes about setting up Keycloak</h2>
+<h3 id="configure-client">Configure client</h3>
+<p>For backend applications which uses <strong>Client Credentials flow</strong>, you can create a <strong>Client</strong> with:</p>
+<ul>
+<li><strong>Access Type</strong>: <code>public</code></li>
+<li>Turn off <code>Standard Flow</code>, <code>Implicit Flow</code>, and <code>Direct Access Grants</code></li>
+<li>With <strong>Service Accounts Enabled</strong> on. If it is not enabled you do not have the tab <code>Credentials</code></li>
+<li>In the <code>Credentials</code> tab, you have the <code>client id</code></li>
+</ul>
+<h3 id="configure-client-scopes">Configure client scopes</h3>
+<p><em>Default Client Scope</em> are scopes automatically granted to every token. Whereas
+<em>Optional Client Scope</em> are scopes which are only granted if they are explicitly requested during
+the authorization/token request flow.</p>
+<h3 id="include-appropriate-aud-claim">Include appropriate aud claim</h3>
+<p>You must configure a <strong>Token Mapper</strong> of type <strong>Hardcoded claim</strong> with the value of RabbitMQ's
+<code>resource_server_id</code>. You can configure <strong>Token Mapper</strong> either to a <strong>Client scope</strong> or to a
+<strong>Client</strong>.</p></main>

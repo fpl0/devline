@@ -1,0 +1,309 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+This guide is describing a feature which is currently in preview.
+Please provide your feedback while we’re continuing to work on this.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_managing_oidc_and_saml_clients_with_the_operator"><a class="anchor" href="#_managing_oidc_and_saml_clients_with_the_operator"></a>Managing OIDC and SAML clients with the Operator</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The Keycloak Operator can manage OIDC and SAML clients declaratively through Custom Resources.
+The operator creates, updates, and deletes clients on the Keycloak server to match the desired state defined in the CR.</p>
+</div>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Do not modify operator-managed clients through the Admin UI or API, including server-side client secret rotation.
+The operator does not detect external changes and will overwrite them.
+A future release will introduce resource ownership controls that prevent such modifications automatically.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_prerequisites"><a class="anchor" href="#_prerequisites"></a>Prerequisites</h3>
+<div class="paragraph">
+<p>The following must be in place before creating client CRs.</p>
+</div>
+<div class="sect3">
+<h4 id="_enable_the_client_admin_api_feature"><a class="anchor" href="#_enable_the_client_admin_api_feature"></a>Enable the Client Admin API feature</h4>
+<div class="paragraph">
+<p>The <code>client-admin-api:v2</code> feature must be enabled on the Keycloak server.
+For more details about this API, see the <a href="https://www.keycloak.org/admin-api/admin-api-v2">Admin API v2: Reference</a> guide.
+Add it to the Keycloak CR:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.keycloak.org/v2beta1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Keycloak</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">example-kc</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">features</span><span class="pi">:</span>
+    <span class="na">enabled</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">client-admin-api:v2</span>
+  <span class="s">...</span></code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_configure_the_admin_credentials"><a class="anchor" href="#_configure_the_admin_credentials"></a>Configure the admin credentials</h4>
+<div class="paragraph">
+<p>The operator authenticates to Keycloak using the client credentials flow against the <code>master</code> realm.
+It reads credentials from a Kubernetes Secret named <code>&lt;keycloak-cr-name&gt;-admin</code> in the same namespace, which must contain <code>client-id</code> and <code>client-secret</code> keys.
+This Secret must be created manually as part of the bootstrap admin setup.
+For setup details, see the Admin Bootstrapping section in the <a href="https://www.keycloak.org/operator/advanced-configuration">Advanced configuration</a> guide.
+A future release may simplify this by automating the credential setup.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_mutual_tls"><a class="anchor" href="#_mutual_tls"></a>Mutual TLS</h4>
+<div class="paragraph">
+<p>If Keycloak <a href="https://www.keycloak.org/server/mutual-tls">Configuring trusted certificates for mTLS</a>,
+<code>spec.admin.tlsSecret</code> is used to provide the name of a Kubernetes TLS Secret containing the operator’s client certificate and private key (<code>tls.crt</code> and <code>tls.key</code>), which must be trusted by the server.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_creating_an_oidc_client"><a class="anchor" href="#_creating_an_oidc_client"></a>Creating an OIDC Client</h3>
+<div class="paragraph">
+<p>Create a file <code>my-oidc-client.yaml</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.keycloak.org/v2alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KeycloakOIDCClient</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-oidc-app</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">keycloakCRName</span><span class="pi">:</span> <span class="s">example-kc</span> <i class="conum" data-value="2"></i><b>(2)</b>
+  <span class="na">realm</span><span class="pi">:</span> <span class="s">my-realm</span> <i class="conum" data-value="3"></i><b>(3)</b>
+  <span class="na">client</span><span class="pi">:</span> <i class="conum" data-value="4"></i><b>(4)</b>
+    <span class="na">loginFlows</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s">STANDARD</span>
+    <span class="na">redirectUris</span><span class="pi">:</span>
+      <span class="pi">-</span> <span class="s2">"</span><span class="s">https://my-app.example.com/*"</span></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Becomes the <code>clientId</code> in Keycloak. Cannot be changed after creation.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Must match the <code>metadata.name</code> of the Keycloak CR (e.g., <code>example-kc</code> from the prerequisite example). Cannot be changed after creation.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>The realm where the client is created. Cannot be changed after creation.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td>Available fields are defined by the client representations in the <a href="https://www.keycloak.org/admin-api/admin-api-v2">Admin API v2: Reference</a> guide.</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>Apply the CR:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl apply <span class="nt">-f</span> my-oidc-client.yaml</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_creating_a_saml_client"><a class="anchor" href="#_creating_a_saml_client"></a>Creating a SAML Client</h3>
+<div class="paragraph">
+<p>Create a file <code>my-saml-client.yaml</code>:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.keycloak.org/v2alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KeycloakSAMLClient</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-saml-app</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">keycloakCRName</span><span class="pi">:</span> <span class="s">example-kc</span>
+  <span class="na">realm</span><span class="pi">:</span> <span class="s">my-realm</span>
+  <span class="na">client</span><span class="pi">:</span>
+    <span class="na">nameIdFormat</span><span class="pi">:</span> <span class="s">persistent</span>
+    <span class="na">signDocuments</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">signAssertions</span><span class="pi">:</span> <span class="no">true</span>
+    <span class="na">forcePostBinding</span><span class="pi">:</span> <span class="no">true</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Apply the CR:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl apply <span class="nt">-f</span> my-saml-client.yaml</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_using_secret_references_for_oidc_authentication"><a class="anchor" href="#_using_secret_references_for_oidc_authentication"></a>Using Secret References for OIDC Authentication</h3>
+<div class="paragraph">
+<p>OIDC clients that use <code>client-secret</code> authentication can store the secret in a Kubernetes Secret rather than inline in the CR.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">v1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">Secret</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-app-credentials</span>
+  <span class="na">labels</span><span class="pi">:</span>
+    <span class="na">operator.keycloak.org/kind</span><span class="pi">:</span> <span class="s">KeycloakOIDCClient</span> <i class="conum" data-value="1"></i><b>(1)</b>
+<span class="na">stringData</span><span class="pi">:</span>
+  <span class="na">client-secret-key</span><span class="pi">:</span> <span class="s2">"</span><span class="s">my-secret"</span></code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="yaml"><span class="na">apiVersion</span><span class="pi">:</span> <span class="s">k8s.keycloak.org/v2alpha1</span>
+<span class="na">kind</span><span class="pi">:</span> <span class="s">KeycloakOIDCClient</span>
+<span class="na">metadata</span><span class="pi">:</span>
+  <span class="na">name</span><span class="pi">:</span> <span class="s">my-confidential-app</span>
+<span class="na">spec</span><span class="pi">:</span>
+  <span class="na">keycloakCRName</span><span class="pi">:</span> <span class="s">example-kc</span>
+  <span class="na">realm</span><span class="pi">:</span> <span class="s">my-realm</span>
+  <span class="na">client</span><span class="pi">:</span>
+    <span class="na">auth</span><span class="pi">:</span>
+      <span class="na">method</span><span class="pi">:</span> <span class="s">client-secret</span>
+      <span class="na">secretRef</span><span class="pi">:</span>
+        <span class="na">name</span><span class="pi">:</span> <span class="s">my-app-credentials</span> <i class="conum" data-value="2"></i><b>(2)</b>
+        <span class="na">key</span><span class="pi">:</span> <span class="s">client-secret-key</span> <i class="conum" data-value="3"></i><b>(3)</b></code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Required label for the Secret to be usable by an KeycloakOIDCClient</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Name of the Kubernetes Secret in the same namespace.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Key within the Secret that holds the client secret value.</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>If the referenced Secret does not exist, the CR will report a <code>HasErrors</code> status condition.
+When the value in the Kubernetes Secret changes, the operator detects the change within its polling interval and updates the client on the Keycloak server.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_checking_client_status"><a class="anchor" href="#_checking_client_status"></a>Checking Client Status</h3>
+<div class="paragraph">
+<p>To check the status of a client CR:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl get keycloakoidcclients/my-oidc-app <span class="nt">-o</span> go-template<span class="o">=</span><span class="s1">'{{range .status.conditions}}CONDITION: {{.type}}{{"\n"}}  STATUS: {{.status}}{{"\n"}}  MESSAGE: {{.message}}{{"\n"}}{{end}}'</span></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>When the client has been created successfully:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code>CONDITION: HasErrors
+  STATUS: false
+  MESSAGE:</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Common error causes include a missing <code>client-admin-api:v2</code> feature, a missing secret reference, or the Keycloak server not being ready.
+The operator retries the operation periodically until it succeeds.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_updating_a_client"><a class="anchor" href="#_updating_a_client"></a>Updating a Client</h3>
+<div class="paragraph">
+<p>To update a client, modify the <code>spec.client</code> fields in the CR and re-apply:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl apply <span class="nt">-f</span> my-oidc-client.yaml</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The Custom Resource must contain the complete desired client configuration.
+The operator detects changes and updates the client on the Keycloak server.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_deleting_a_client"><a class="anchor" href="#_deleting_a_client"></a>Deleting a Client</h3>
+<div class="paragraph">
+<p>To delete a client from Keycloak, delete the CR:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl delete keycloakoidcclients/my-oidc-app</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The operator deletes the client from the Keycloak server before removing the CR.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>If the Keycloak CR is deleted before the client CR, the operator cannot reach the server and the client will remain on the Keycloak server.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_security_considerations"><a class="anchor" href="#_security_considerations"></a>Security Considerations</h3>
+<div class="admonitionblock warning">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-warning" title="Warning"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Anyone with the ability to create or edit KeycloakOIDCClient or KeycloakSAMLClient CRs will have the full ability to create or edit clients that the admin credentials provide.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+</div> </div>
+</main>

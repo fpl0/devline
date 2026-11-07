@@ -28,6 +28,8 @@ Pick a release in **App Starters**. For example, start a FastAPI or Chi API, try
 
 While connected, use **Infrastructure** to archive services such as PostgreSQL, Redis, RabbitMQ, or an S3-compatible store. With a local Docker engine running and Compose installed, Devline can restore those exact images from its vault and start them on local ports without pulling them again. For example, the Chi Taskboard starter uses PostgreSQL for storage and Redis for caching. Stop the services from **Current Project** and the data volumes stay on disk.
 
+Choose **Read Offline Reference** on a service to open its publisher documentation. **Offline Reference Coverage** lists the included material and any gaps. [Infrastructure documentation](USAGE.md#devline-help-and-reference-coverage)
+
 When adding a service, you can also choose its recommended client library for your project’s language. The choice is optional. Devline adds the selected packages, saves their dependencies locally, and checks the build before applying the change.
 
 Before going offline, use **Prepare Offline** in **Current Project** to prepare its docs, dependencies, and pinned image archives together. The result shows anything still needed, such as a missing toolchain or a stopped Docker engine. **Updates** checks the content sources together and can prepare newer releases without changing your project's pins. You can also export portable docsets, starters, and image archives to take to another compatible Mac.

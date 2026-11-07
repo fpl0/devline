@@ -1,0 +1,49 @@
+<main>
+		
+		<h1>Testing Mailpit</h1>
+		<p>These instructions provide an easy way to “send” a test email to Mailpit to ensure it is working.
+This assumes Mailpit is running, and is listening on port 1025 (default).</p>
+<p>Create a text file <code>email.txt</code> with the following contents.</p>
+<div><pre><code class="language-text"><span><span>From: sender@example.com
+</span></span><span><span>To: recipient@example.com
+</span></span><span><span>Subject: Email Subject
+</span></span><span><span>
+</span></span><span><span>This is the body of the email.
+</span></span><span><span>It can contain multiple lines of text.
+</span></span></code></pre></div><p>Then run the following command to “send” your test email:</p>
+<div><pre><code class="language-shell"><span><span>mailpit sendmail &lt; email.txt
+</span></span></code></pre></div><p>If you are using a system-installed version of sendmail, your command may look like this:</p>
+<div><pre><code class="language-shell"><span><span>sendmail -t -S localhost:1025 &lt; email.txt
+</span></span></code></pre></div>
+<div>
+	Please note that various packages provide different implementations of sendmail, and they all work slightly different to each other,
+so please refer to the help of your version of sendmail.
+</div>
+
+<h2 id="docker-testing">Docker testing</h2>
+<p>If you are running Mailpit in Docker, create the same <code>email.txt</code> file (above) on your host machine,
+then pipe it into the container using <code>docker exec</code>:</p>
+<div><pre><code class="language-shell"><span><span>docker <span>exec</span> -i &lt;container&gt; sendmail &lt; email.txt
+</span></span></code></pre></div><p>Replace <code>&lt;container&gt;</code> with your Mailpit container name or ID.
+The <code>-i</code> flag is required to pass the file contents via stdin.</p>
+<h2 id="test-using-telnet">Test using telnet</h2>
+<p>You can also send an email directly to Mailpit using telnet:</p>
+<div><pre><code class="language-shell"><span><span><span>{</span>
+</span></span><span><span>  <span>echo</span> <span>"EHLO localhost"</span>
+</span></span><span><span>  <span>echo</span> <span>"MAIL FROM: &lt;from@example.com&gt;"</span>
+</span></span><span><span>  <span>echo</span> <span>"RCPT TO: &lt;recipient@example.com&gt;"</span>
+</span></span><span><span>  <span>echo</span> <span>"DATA"</span>
+</span></span><span><span>  <span>echo</span> <span>"From: &lt;from@example.com&gt;"</span>
+</span></span><span><span>  <span>echo</span> <span>"To: &lt;recipient@example.com&gt;"</span>
+</span></span><span><span>  <span>echo</span> <span>"Subject: Your Subject"</span>
+</span></span><span><span>  <span>echo</span> <span>""</span>
+</span></span><span><span>  <span>echo</span> <span>"Your message body"</span>
+</span></span><span><span>  <span>echo</span> <span>"."</span>
+</span></span><span><span>  <span>echo</span> <span>"QUIT"</span>
+</span></span><span><span><span>}</span> <span>|</span> telnet localhost <span>1025</span>
+</span></span></code></pre></div>
+
+		
+		
+		
+	</main>

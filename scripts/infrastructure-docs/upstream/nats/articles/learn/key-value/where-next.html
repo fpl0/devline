@@ -1,0 +1,117 @@
+<main><header><h1>Where to go next</h1></header>
+<p>This chapter began with a JetStream stream and the claim that NATS
+gives you a key-value store on top of it. By the end you have an <code>INVENTORY</code>
+bucket: keys that are SKUs, values that are stock counts, a warehouse
+dashboard watching for changes, safe decrements through compare-and-swap,
+a key that expires on its own, and a clear view of the stream underneath.
+That covers the chapter.</p>
+<p>This page collects the model you built
+into one place and points you at the chapters and Reference that take it
+further.</p>
+<h2 id="the-key-value-to-jetstream-mapping">The key-value to JetStream mapping</h2>
+<p>Every page in this chapter came back to the same idea: a bucket is a stream
+with a key-value interface over it. The point to remember is how the
+key-value words map onto the JetStream words.</p>
+<p>A <strong>bucket</strong> is a stream. When you create <code>INVENTORY</code> you create a stream
+named <code>KV_INVENTORY</code> on the subjects <code>$KV.INVENTORY.&gt;</code>. Every bucket limit
+you set (history depth, max bytes, max value size) is a stream limit.</p>
+<p>A <strong>key</strong> is a subject token. The key <code>widget-blue</code> is the last token of
+the subject <code>$KV.INVENTORY.widget-blue</code>. A watch's key filter is a subject
+filter, where <code>*</code> matches one whole token.</p>
+<p>A <strong>put</strong> is a message. Each value you put is one message appended to the
+stream; a <strong>get</strong> reads the last message for that subject.</p>
+<p>A <strong>revision</strong> is a sequence number. Each put bumps the key's revision
+because each message lands at the next sequence in the stream. History is
+the prior messages the stream still holds for that subject.</p>
+<p>A <strong>watch</strong> is a consumer. It's an ephemeral, ordered consumer that
+replays the current value of every matching key, then streams live
+changes.</p>
+<p>In short: a bucket is a stream, a key is a subject, a put is a message, a
+revision is a sequence, and a watch is a consumer. Everything else in this
+chapter is a refinement of that mapping.</p>
+<h2 id="where-the-details-live-now">Where the details live now</h2>
+<p>The chapter is unversioned and concept-first. The exact flags, defaults,
+and ranges live in <strong>Reference</strong>, which is versioned and exhaustive. When
+you need the precise type of a config field or the full list of bucket
+options, that's where to look.</p>
+<p>Because a bucket is created as a stream, the authoritative knob list is
+the stream-create reference. The full set of bucket configuration options
+is documented in
+<a href="/reference/jetstream/api/stream/create">Reference → Create Stream</a>, and
+the direct read path you met under the hood lives in
+<a href="/reference/jetstream/api/stream/msg-get">Reference → Get Stream Message</a>.</p>
+<h2 id="sibling-deep-dives">Sibling deep dives</h2>
+<p>Key-value sits on the JetStream foundation, so the stream model carries
+straight into the chapters around it.</p>
+<p>The <a href="/learn/jetstream">JetStream deep dive</a> is the chapter underneath this
+one. Every time this chapter said "that is a stream limit" or "a watch is
+a consumer," that's where the mechanism is taught in full:
+<a href="/learn/jetstream/your-first-stream#why-a-stream">why a stream</a>,
+<a href="/learn/jetstream/retention-policies">retention policies</a>, and the
+<a href="/learn/jetstream/message-ttl">per-message TTL</a> that per-key TTL rides on.</p>
+<p>The <a href="/learn/object-store">Object Store deep dive</a> is the next step when a
+value outgrows the bucket. Key-value values are small and capped; the
+object store is built for large values, reassembled from multiple
+messages on read. If you need to keep a file, a build artifact, or
+something multi-megabyte, start with
+<a href="/learn/object-store/your-first-object">your first object</a>.</p>
+<p>The <a href="/learn/clustering">Clustering &amp; Replication deep dive</a> is where the
+<code>Replicas</code> field you saw named under the hood takes effect. It covers how
+a bucket survives node loss and explains the replication mechanics behind
+that field in full.</p>
+<p>There's one more direction worth mentioning. A bucket can be sourced from
+or mirrored into another bucket: a regional <code>EU_INVENTORY</code> bucket could
+source from <code>INVENTORY</code> so both hold the same keys, kept in sync by a
+subject transform from <code>$KV.SRC.&gt;</code> to <code>$KV.DST.&gt;</code>. The chapter doesn't
+build it, because the mechanism is the JetStream one; see
+<a href="/learn/jetstream/mirrors-and-sources">mirrors and sources</a>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>This is the end of the chapter. The whole arc is complete, and this page
+adds no new scenario state. The <code>INVENTORY</code> bucket, its watcher,
+its history, and the <code>flash-sale</code> key are still in your session exactly as
+you left them under the hood. You can keep experimenting with them, or
+tear the bucket down with <code>nats kv rm INVENTORY</code> when you're done.</p>
+<p>You have the core model: a bucket is a stream, a key is a subject token, a
+put is a message, a revision is a sequence, and a watch is a consumer.
+That mapping is the basis for every key-value feature you'll meet.</p>
+<h2 id="production-checklist">Production checklist</h2>
+<p>Every page in this chapter closed with a Pitfalls section. This collects
+the action items from all of them in one place, as a last pass before you
+use a bucket for real inventory. Each group links back to the page that
+explains the why.</p>
+<h3 id="your-first-bucket--see-pitfalls">Your first bucket — see <a href="/learn/key-value/your-first-bucket#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Check that an entry exists before reading its value; a key-not-found isn't the same as an empty value, and reading the value of a missing entry trips up.</li>
+<li><input/> <!-- -->Keep bucket names to alphanumerics, dashes, and underscores; the server rejects anything else.</li>
+<li><input/> <!-- -->Keep keys to alphanumerics and <code>-/_=.</code> with no leading or trailing dot; an order id with a <code>:</code> or a leading dot is rejected as a key.</li>
+</ul>
+<h3 id="watching--see-pitfalls">Watching — see <a href="/learn/key-value/watching#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Consume the end-of-initial-data nil entry; ignoring it or stopping the loop at the snapshot boundary misses every live update.</li>
+<li><input/> <!-- -->Treat a watch as live state, not a query; it's an ephemeral consumer that ends with the process, so use get or history for a point read.</li>
+</ul>
+<h3 id="history-and-revisions--see-pitfalls">History and revisions — see <a href="/learn/key-value/history-and-revisions#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Wrap every update in a re-get-and-retry loop; an update on a stale revision is rejected, not queued, and a missing retry loses the write.</li>
+<li><input/> <!-- -->Reach for update (compare-and-swap), not put, for any read-modify-write like a decrement; an unconditional put clobbers a concurrent write.</li>
+</ul>
+<h3 id="ttl-and-limits--see-pitfalls">TTL and limits — see <a href="/learn/key-value/ttl-and-limits#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Set a per-key TTL at create time only; passing a TTL to put or update does not change it, so delete then create to change a key's TTL.</li>
+<li><input/> <!-- -->Size the bucket for the working set, not the average; a bucket at its byte limit rejects the next put with an error instead of making room by dropping old values.</li>
+</ul>
+<h3 id="under-the-hood--see-pitfalls">Under the hood — see <a href="/learn/key-value/under-the-hood#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Reach for purge, not delete, when you must actually drop prior revisions; delete leaves a marker and keeps history.</li>
+<li><input/> <!-- -->Use the key-value API, never raw <code>nats pub</code> to <code>$KV.INVENTORY.&gt;</code> or hand edits to the <code>KV_INVENTORY</code> config; the backing stream is managed and the rollup and marker headers must stay correct.</li>
+<li><input/> <!-- -->Keep keys to legal subject tokens, since a key becomes the last token of <code>$KV.INVENTORY.&lt;key&gt;</code>; a name with a <code>:</code> or two dots in a row is rejected.</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/">Reference</a> — every config field, flag, default, and
+error code, versioned and exhaustive.</li>
+<li><a href="/learn/object-store">Object Store deep dive</a> — the next chapter, for
+values too large for a bucket.</li>
+<li><a href="/learn/jetstream">JetStream deep dive</a> — the stream foundation every
+key-value feature rests on.</li>
+</ul></main>

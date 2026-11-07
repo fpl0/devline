@@ -1,0 +1,245 @@
+<main><header><h1>Your first cluster</h1></header>
+<p>The <a href="/learn/topologies/single-server">previous page</a> left Acme running on one
+server, <code>n1</code>. That server publishes <code>orders.*</code> and holds the <code>ORDERS</code> stream. It
+also has one critical limitation: if it stops, the whole ORDERS system stops
+with it.</p>
+<p>This page fixes that. You'll stand up the production cluster <code>east</code>
+(three servers: <code>n1-east</code>, <code>n2-east</code>, and <code>n3-east</code>) and watch a client
+continue working through the loss of one of them.</p>
+<p>Publishing doesn't change: the same publish to <code>orders.created</code>, the same
+<code>ORDERS</code> stream, the same payload. The deployment underneath is what
+changes.</p>
+<p>This page introduces two ideas: a cluster is a set of servers joined by
+routes, and a client connects to any one of those servers and fails
+over to another when its server dies.</p>
+<h2 id="what-a-cluster-is">What a cluster is</h2>
+<p>A <strong>cluster</strong> is a set of <code>nats-server</code> processes that know about each
+other and act as one logical NATS system. A client connected to any server
+in the cluster can reach a subscriber connected to any one of the servers in the
+cluster.</p>
+<p>The servers talk to each other over <strong>routes</strong>. A route is a
+server-to-server connection, distinct from the client connections you've
+used so far. Clients connect on the client port (<code>4222</code>, the NATS
+default); servers connect to each other on a separate cluster port
+(<code>6222</code> in the configs below).</p>
+<p>Every server holds a route to every other server, so each is one hop from
+all the rest. With three servers that's three routes. There's no central
+coordinator and no single server the others depend on; each is a peer. A
+message a server receives over a route is delivered to that server's own
+clients and forwarded no further, because one hop is always enough to reach
+anyone.</p>
+<div></div>
+<p>The wire-level detail of how two servers open a route, exchange
+subscriptions, and forward messages is documented in
+<a href="/reference/protocols/route">Reference → Route protocol</a>. We only need the
+config and the shape here.</p>
+<h2 id="configure-three-servers">Configure three servers</h2>
+<p>Each server in <code>east</code> needs the same cluster name and its own pair of ports.
+Routes connect the servers, but the cluster name has to match for them to join:
+a mismatched name (a typo like <code>eats</code>) gets that server's route refused —
+the log contains <code>cluster name "eats" does not match "east"</code> — and it ends up a
+cluster of its own.</p>
+<p>Here's <code>n1-east</code>. It carries one <code>routes</code> entry, pointing at <code>n2-east</code>; the
+other two point back at <code>n1-east</code>.</p>
+<div><div>n1-east.conf</div><div><pre><code class="language-conf">server_name: n1-east
+listen: 127.0.0.1:4222
+
+jetstream {
+  store_dir: "./js/n1-east"
+}
+
+cluster {
+  name: east
+  listen: 127.0.0.1:6222
+  routes: [
+    nats://127.0.0.1:6223
+  ]
+}</code></pre></div></div>
+<p><code>n2-east</code> has its own ports and name, and its <code>routes</code> entry points back at
+<code>n1-east</code>.</p>
+<div><div>n2-east.conf</div><div><pre><code class="language-conf">server_name: n2-east
+listen: 127.0.0.1:4223
+
+jetstream {
+  store_dir: "./js/n2-east"
+}
+
+cluster {
+  name: east
+  listen: 127.0.0.1:6223
+  routes: [
+    nats://127.0.0.1:6222
+  ]
+}</code></pre></div></div>
+<p><code>n3-east</code> is the same pattern again, one port higher, pointing at the same
+server.</p>
+<div><div>n3-east.conf</div><div><pre><code class="language-conf">server_name: n3-east
+listen: 127.0.0.1:4224
+
+jetstream {
+  store_dir: "./js/n3-east"
+}
+
+cluster {
+  name: east
+  listen: 127.0.0.1:6224
+  routes: [
+    nats://127.0.0.1:6222
+  ]
+}</code></pre></div></div>
+<p>Three fields do the work in each <code>cluster {}</code> block.</p>
+<p><code>name</code> is the cluster identifier. It must be <code>east</code> on all three servers,
+or they won't join.</p>
+<p><code>listen</code> is the address and port this server accepts routes on. It's the
+cluster port (<code>6222</code>, <code>6223</code>, <code>6224</code>), separate from the client
+port in <code>listen</code> at the top of the file.</p>
+<p><code>routes</code> is the list of peers to actively connect to — one per server.
+<code>n2-east</code> and <code>n3-east</code> point at <code>n1-east</code> on <code>6222</code>; <code>n1-east</code> points at
+<code>n2-east</code> on <code>6223</code>. None lists every peer.</p>
+<p>Each config also carries a <code>jetstream</code> block with its own <code>store_dir</code>, so
+the cluster can hold the <code>ORDERS</code> stream the workload has been using. It's
+only switched on here — what JetStream actually does once it runs across a
+cluster is the <a href="/learn/topologies/jetstream-in-a-cluster">next page</a>. This
+page is about the routes.</p>
+<h2 id="how-the-remaining-routes-are-formed">How the remaining routes are formed</h2>
+<p>Look again at the configs: each server lists a single route to one peer —
+<code>n2-east</code> and <code>n3-east</code> at <code>n1-east</code>, and <code>n1-east</code> back at <code>n2-east</code>.
+That's one route apiece, not the full mesh from above where every server
+holds a route to every other. The obvious move is to finish it by hand —
+give every config a route to both of its peers.</p>
+<p>You can, and it's a valid cluster: the servers simply notice the
+redundant connections and drop the extras (the log notes a <code>Duplicate Route</code> close). But you don't need to, because they complete the mesh on
+their own.</p>
+<p>When a server connects to a route you wrote, it learns about every other
+server that peer already knows, and dials those too. So <code>n2-east</code> connects
+to <code>n1-east</code>, discovers the rest of the cluster, and connects to them
+directly; when <code>n3-east</code> joins, the others learn about it and connect back.
+The routes you didn't write appear on their own.</p>
+<p>This is why each server only needs one route, not the full list:
+<code>n2-east</code>, <code>n3-east</code>, and any server you add later point at <code>n1-east</code>,
+<code>n1-east</code> points back at one of them, and gossip fills in the rest. The
+by-hand mesh is the other end of the trade-off — no server depends on a
+single seed being up first, but every new server then means editing every
+config.</p>
+<h2 id="start-the-cluster">Start the cluster</h2>
+<p>Start all three servers, each with its own config file:</p>
+<div><div><pre><code class="language-bash">nats-server -c n1-east.conf &amp;
+nats-server -c n2-east.conf &amp;
+nats-server -c n3-east.conf &amp;</code></pre></div></div>
+<p><code>n1-east</code> comes up first and waits. As <code>n2-east</code> and <code>n3-east</code> start, they
+dial it, discover the rest, and within a moment all three hold routes to
+each other.</p>
+<p>The <code>&amp;</code> runs each in the background of one terminal. Stop the cluster with
+<code>kill %1 %2 %3</code> (or <code>pkill nats-server</code>). If you'd rather watch each
+server's log on its own — handy in a moment when you kill one to test
+failover — drop the <code>&amp;</code> and run each <code>nats-server -c …</code> in its own
+terminal instead.</p>
+<h2 id="confirm-the-routes">Confirm the routes</h2>
+<p>Confirm a message crosses the cluster: subscribe on one server, publish on
+another, and watch it arrive.</p>
+<p>Subscribe to <code>orders.&gt;</code> on <code>n3-east</code>, in its own terminal:</p>
+<div><div><pre><code class="language-bash">nats sub "orders.&gt;" --server nats://localhost:4224</code></pre></div></div>
+<p>In another terminal, publish to <code>n1-east</code>:</p>
+<div><div><pre><code class="language-bash">nats pub orders.created '{"order_id":"ord_8w2k"}' --server nats://localhost:4222</code></pre></div></div>
+<p>The subscriber on <code>n3-east</code> prints the order:</p>
+<div><div><pre><code class="language-text">[#1] Received on "orders.created"
+{"order_id":"ord_8w2k"}</code></pre></div></div>
+<p>It was published on <code>n1-east</code>, crossed a route to <code>n3-east</code>, and arrived —
+without any client ever naming two servers. If the two hadn't joined (a
+mismatched cluster name, say), nothing would show up.</p>
+<h2 id="a-client-connects-to-any-server">A client connects to any server</h2>
+<p>Your application connects to a server, not to "the cluster." But it can be
+handed several servers and treat them as interchangeable.</p>
+<p>A client connects to one of the servers it's given. From that one
+connection it can publish <code>orders.created</code> and have a consumer on any
+server in <code>east</code> receive it, because the routes carry the message to
+wherever the interest is.</p>
+<p>The server also tells the client about its peers. On connect, a server
+sends an INFO message that includes the other servers' client URLs. The
+client now knows about all three even if you only configured one.</p>
+<p>This discovery is what makes the next part work. The client doesn't need
+the full server list written into its config; it gets the rest from the
+server it reached.</p>
+<h2 id="survive-a-server-loss">Survive a server loss</h2>
+<p>Next, test failover. Point a publisher at one specific server — <code>n1-east</code>
+— send a steady stream of orders, then kill <code>n1-east</code> out from under it.</p>
+<p>In its own terminal, publish an order a second to <code>n1-east</code>:</p>
+<div><div><pre><code class="language-bash">nats pub orders.created "order {{Count}}" --count 100 --sleep 1s --trace --server nats://localhost:4222</code></pre></div></div>
+<p>Let a few go by, then kill <code>n1-east</code>: <code>kill %1</code> in the terminal where you
+started the servers, or <code>Ctrl+C</code> its window if you gave it one. The
+publisher doesn't stop. With <code>--trace</code> it logs each connection event, so you
+can watch it drop <code>n1-east</code> and reconnect (a couple of discovery lines are
+trimmed below):</p>
+<div><div><pre><code class="language-text">12:00:22 &gt;&gt;&gt; Connected to nats://localhost:4222 (127.0.0.1:4222)
+12:00:23 Published 7 bytes to "orders.created"
+12:00:24 Published 7 bytes to "orders.created"
+12:00:25 &gt;&gt;&gt; Disconnected due to: EOF, will attempt reconnect
+12:00:25 &gt;&gt;&gt; Reconnected to nats://localhost:4223 (127.0.0.1:4223)
+12:00:26 Published 7 bytes to "orders.created"
+12:00:27 Published 7 bytes to "orders.created"</code></pre></div></div>
+<p>Look at where it reconnected: <code>4223</code> is <code>n2-east</code> — a server you never
+named. You pointed the publisher at <code>n1-east</code> and nothing else, but on
+connect <code>n1-east</code> handed it the rest of the cluster (the discovery from
+<a href="#a-client-connects-to-any-server">the section above</a>). So when <code>n1-east</code>
+died, the publisher had somewhere to go, and the orders kept flowing.
+That's what the cluster buys: the loss of one server is a reconnect, not an
+outage.</p>
+<p>One control governs this. If a server sets <code>no_advertise: true</code>, it stops
+advertising its peers, and a client only knows the URLs you gave it by
+hand. Leave it off (the default) and failover spans the whole cluster.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A cluster is easy to set up, but a handful of details cause problems if you
+get them wrong. These three come up most often when standing up <code>east</code>.</p>
+<p><strong>Misspell a cluster name.</strong> A typo in <code>name</code> doesn't raise an error.
+The server with the odd name forms its own cluster and never
+joins <code>east</code>, leaving you with two clusters that look like one until a
+message fails to cross. (On the wire the server rejects the route with
+<code>cluster name does not match</code>.) Set the same <code>name</code> on all three. To catch
+a stray one, look for that rejection line in its log, or rerun the
+cross-server publish from <a href="#confirm-the-routes">Confirm the routes</a>: if a
+message published on one server never reaches a subscriber on another, they
+never joined.</p>
+<p><strong>Expose the cluster port to the world.</strong> The cluster <code>listen</code> port (6222)
+accepts routes from other servers, not clients — and a route is a <em>trusted</em>
+link: it carries every account's traffic plus the system account, far more
+than any one client connection sees. Leave it reachable with no
+authorization (these configs have none) and anyone who connects with the
+cluster name <code>east</code> can join as a server and read or inject messages across
+your accounts. Bind it to a private interface and firewall it — and in
+production require route credentials or TLS. The configs above bind it to
+<code>127.0.0.1</code>, off the network entirely.</p>
+<p><strong>Plan for an even server count.</strong> A cluster of two or four servers works
+fine for plain <code>orders.*</code> traffic, but the moment you replicate the
+<code>ORDERS</code> stream you want an <em>odd</em> count. A two-server set loses its majority
+as soon as one server is down, and a four-server set tolerates only one loss
+— the same as three — so the extra server adds cost without buying more
+failure tolerance. That's a JetStream
+concern, covered on the <a href="/learn/topologies/jetstream-in-a-cluster">next page</a>;
+the consensus math behind it lives in
+<a href="/learn/clustering">Clustering &amp; Replication</a>. For a pure routing cluster,
+any count is fine.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>Acme has grown from one dev server to a three-server production cluster:</p>
+<ul>
+<li>The cluster <code>east</code> runs <code>n1-east</code>, <code>n2-east</code>, and <code>n3-east</code> locally, on
+client ports 4222/4223/4224 and cluster ports 6222/6223/6224.</li>
+<li>The three servers are joined by routes: every server holds a route to
+every other, built from pointing each one at <code>n1-east</code>.</li>
+<li>A client connects to any server, discovers the rest, and fails over to a
+survivor when its server dies.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>What you watched cross the cluster was plain pub/sub — the durable <code>ORDERS</code>
+stream isn't on <code>east</code> yet. The next page creates it on the cluster,
+replicated across the three servers so it survives a server loss the way the
+cluster already does:
+<a href="/learn/topologies/jetstream-in-a-cluster">JetStream in a cluster</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/protocols/route">Reference → Route protocol</a> — the
+wire-level detail of how servers form routes and forward messages.</li>
+<li><a href="/learn/clustering">Operate → Clustering &amp; Replication</a> — Raft, leader
+election, and replica placement inside a cluster.</li>
+<li><a href="/concepts/topologies">Core Concepts → Topologies</a> — the five-minute
+overview of every shape.</li>
+</ul></main>

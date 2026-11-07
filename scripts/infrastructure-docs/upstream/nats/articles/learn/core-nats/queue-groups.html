@@ -1,0 +1,255 @@
+<main><header><h1>Queue groups</h1></header>
+<p>So far every subscriber on a subject gets a copy of every message.
+That's what you want for <code>notifications</code> and <code>analytics</code>: each of them
+needs to see every order. It's not what you want for <code>warehouse</code>.</p>
+<p>The warehouse does real work for each order: it prints a label and packs
+the box. One process can't keep up with a busy day. You want a pool of
+packers, and you want each order packed by exactly one of them, not zero
+and not two.</p>
+<p>Plain pub/sub can't do that. Run three copies of the <code>warehouse</code>
+subscriber and all three pack the same order. This page introduces the
+NATS answer: the queue group.</p>
+<h2 id="what-a-queue-group-is">What a queue group is</h2>
+<p>A <strong>queue group</strong> is a set of subscribers on the same subject that share
+a name. The server treats the whole group as one logical subscriber: for
+each message, it picks exactly one member of the group and delivers to
+that member alone.</p>
+<p>The shared name is the <strong>queue group name</strong>. A subscriber joins a group
+by subscribing to a subject <em>and</em> naming a group at the same time. Any
+subscriber that names the same group, on the same subject, is in the same
+group.</p>
+<p>There's nothing to configure on the server. Your application picks the
+queue group name, and it arrives with the subscription. The server
+learns a group exists the moment its first member subscribes.</p>
+<div></div>
+<h2 id="add-the-packers-pool">Add the packers pool</h2>
+<p>Our running scenario carries over one <code>nats-server</code> from earlier pages,
+with the <code>notifications</code> and <code>analytics</code> subscribers still running. Now
+replace the single <code>warehouse</code> subscriber with a pool.</p>
+<p>Each packer subscribes to <code>orders.created</code> and names the queue group
+<code>packers</code>. The <code>--queue</code> flag is what turns a plain subscription into a
+queue-group membership:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Subscribe to orders.created as a member of the "packers" queue group.
+# The --queue flag names the group; every subscriber that names the same
+# group on the same subject shares the load. Each published order is
+# delivered to exactly one member of the group, chosen at random.
+#
+# Run this command in several terminals to watch the load balance: each
+# order lands in only one of the running copies.
+nats sub orders.created --queue packers</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Join the "packers" queue group on orders.created. Every subscriber that
+// names the same group shares the load: each order is delivered to exactly
+// one member. Run this in several processes to watch the load balance.
+const sub = nc.subscribe("orders.created", { queue: "packers" });
+for await (const msg of sub) {
+  console.log(`packer handling: ${msg.string()}`);
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Join the "packers" queue group on orders.created. Every subscriber that
+// names the same group shares the load: each order is delivered to exactly
+// one member. Run this in several processes to watch the load balance.
+nc.QueueSubscribe("orders.created", "packers", func(m *nats.Msg) {
+	fmt.Printf("packer handling: %s\n", string(m.Data))
+})</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Join the "packers" queue group on orders.created. Every subscriber that
+# names the same group shares the load: each order is delivered to exactly
+# one member. Run this in several processes to watch the load balance.
+async with await client.subscribe("orders.created", queue="packers") as subscription:
+    async for message in subscription:
+        print(f"packer handling: {message.data.decode()}")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Join the "packers" queue group on orders.created. Every subscriber that
+// names the same group shares the load: each order is delivered to exactly
+// one member. Run this in several processes to watch the load balance.
+nc.createDispatcher(msg -&gt;
+    System.out.println("packer handling: " + new String(msg.getData(), StandardCharsets.UTF_8))
+).subscribe("orders.created", "packers");</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Join the "packers" queue group on orders.created. Every subscriber that
+// names the same group shares the load: each order is delivered to exactly
+// one member. Run this in several processes to watch the load balance.
+let mut sub = client
+    .queue_subscribe("orders.created", "packers".to_string())
+    .await?;
+while let Some(msg) = sub.next().await {
+    println!("packer handling: {}", String::from_utf8_lossy(&amp;msg.payload));
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Join the "packers" queue group on orders.created. Every subscriber that
+// names the same group shares the load: each order is delivered to exactly
+// one member. Run this in several processes to watch the load balance.
+await foreach (var msg in client.SubscribeAsync&lt;Order&gt;("orders.created", queueGroup: "packers"))
+{
+    output.WriteLine($"packer handling: {msg.Data}");
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Join the "packers" queue group on orders.created. Every subscriber that
+// names the same group shares the load: each order is delivered to exactly
+// one member. Run this in several processes to watch the load balance.
+static void
+onOrder(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("packer handling: %.*s\n",
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+
+    natsMsg_Destroy(msg);
+}
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;sub, conn, "orders.created",
+                                          "packers", onOrder, NULL);</code></pre></div></div>
+<p>The queue group name here is <code>packers</code>. It's a plain string the
+application chooses. Pick a name that says what the group does;
+<code>packers</code> reads better in logs than <code>q1</code>.</p>
+<h2 id="see-the-load-balancing">See the load balancing</h2>
+<p>Open three terminals and run the same <code>nats sub</code> in each, so you have
+three packers in the <code>packers</code> group:</p>
+<div><div><pre><code class="language-bash"># Terminal 1, 2, and 3 — three members of the packers group
+nats sub orders.created --queue packers</code></pre></div></div>
+<p>In a fourth terminal, publish a few orders:</p>
+<div><div><pre><code class="language-bash">nats pub orders.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+nats pub orders.created '{"order_id":"ord_2zr9","customer":"globex","total_cents":7800,"ts":"2026-05-22T10:14:25Z"}'
+nats pub orders.created '{"order_id":"ord_4kp1","customer":"acme-co","total_cents":1500,"ts":"2026-05-22T10:14:29Z"}'</code></pre></div></div>
+<p>Each message lands in exactly one of the three terminals. Publish a dozen
+more and they spread across the three packers. No packer sees a message
+that another packer already took.</p>
+<h2 id="how-the-server-picks-a-member">How the server picks a member</h2>
+<p>The server keeps the live members of a group in a list. For each message,
+it picks a random index into that list and delivers to that member. On a
+single server the selection is uniform-random across the available
+members; a cluster adds a locality preference, covered below.</p>
+<p>Random selection has one consequence: the server doesn't rotate fairly
+through the members the way round-robin would. The same packer can be
+chosen twice in a row, and over a handful of messages the split can look
+lopsided. Over many messages it evens out.</p>
+<h2 id="membership-is-dynamic">Membership is dynamic</h2>
+<p>A packer joins the group by subscribing and leaves by unsubscribing or
+disconnecting. Both happen with no configuration and no coordination
+step.</p>
+<p>Start a fourth packer while orders are flowing. It starts receiving its
+share immediately, because the server includes it in the next random
+pick. Stop a packer and the server drops it from the list; the next
+message goes to one of the survivors.</p>
+<p>This is what makes a queue group a good fit for an autoscaler. A pool
+that grows to ten packers under load and shrinks to two overnight needs
+no broker reconfiguration. Each instance subscribes on start and the
+group resizes itself.</p>
+<p>One limit belongs here: core NATS is at-most-once, so if the server picks
+a packer and it dies <em>after</em> delivery, that message is gone — the server
+won't retry it with another member. Work that must survive a worker crash
+belongs in a durable work queue in <a href="/learn/jetstream">JetStream</a>.</p>
+<h2 id="queue-members-and-plain-subscribers-coexist">Queue members and plain subscribers coexist</h2>
+<p>A queue group and a plain subscriber can share the same subject without
+interfering. <code>analytics</code> subscribes to <code>orders.created</code> with no queue
+group; the three packers subscribe in the <code>packers</code> group. For each
+published order:</p>
+<ul>
+<li><code>analytics</code> receives it: plain subscribers always get every message.</li>
+<li>exactly one packer receives it: the group gets one copy, shared.</li>
+</ul>
+<p>The server runs the two distributions independently, so the same subject
+carries both behaviors with no extra configuration — analytics counts
+every order while packing happens once per order.</p>
+<p>You can confirm it. Keep the three <code>packers</code> terminals open, and in
+another terminal subscribe plain:</p>
+<div><div><pre><code class="language-bash"># A plain subscriber alongside the packers group
+nats sub orders.created</code></pre></div></div>
+<p>Publish an order. The plain terminal prints it, and exactly one of the
+three packers prints it too.</p>
+<h2 id="a-group-only-shares-within-one-subject">A group only shares within one subject</h2>
+<p>Membership is evaluated <em>after</em> subject matching. The server first finds
+the subscriptions whose subject matches the message, then, among those,
+applies the group pick. The name alone doesn't pull in members on a
+different subject.</p>
+<p>Two packers in a group named <code>packers</code>, one subscribed to <code>orders.created</code>
+and one to <code>orders.shipped</code>, don't share load. They match different
+subjects, so a message to <code>orders.created</code> is only ever considered for the
+first one. The shared name does nothing across different subjects.</p>
+<p>A queue group can subscribe with a wildcard, and then it load-balances
+across everything that wildcard matches. A <code>packers</code> group on
+<code>orders.*.created</code> (the regional subjects from the
+<a href="/learn/core-nats/subjects-and-wildcards">subjects page</a>) would spread
+<code>orders.us.created</code> and <code>orders.eu.created</code> across its members. The group
+shares load across the subjects its own subscription matches, and only
+those.</p>
+<h2 id="a-note-on-placement-across-regions">A note on placement across regions</h2>
+<p>When the same queue group has members in several clusters, the server
+prefers a member in the publisher's own cluster before reaching across to
+another region. That keeps work local and cuts cross-region traffic.</p>
+<p>That behavior, geo-affinity for queue groups, belongs to multi-cluster
+deployments, which this chapter doesn't set up. Our scenario is a single
+local server, so every packer is equally local. See
+<a href="/learn/topologies/super-clusters">Topologies → Super-clusters</a> for how
+it works once you span regions.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>A typo in the queue group name makes a second group.</strong> The server
+matches members by the exact name string, so <code>packers</code> and <code>packer</code> are
+two separate groups on the same subject. Both subscriptions succeed with
+no warning, and each published order goes to one member of <em>each</em> group:
+the work is double-handled instead of load-balanced. Give every member the
+byte-for-byte identical name.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# A typo in the queue group name silently creates a SECOND group.
+# The server matches members by the exact name string, so "packers" and
+# "packer" are two different groups on the same subject. There is no
+# warning -- both subscriptions succeed.
+#
+# To see it, run these two subscribers in separate terminals. Note the
+# mismatched names: one says "packers", the other "packer".
+nats sub orders.created --queue packers   # terminal 1: group "packers"
+nats sub orders.created --queue packer    # terminal 2: group "packer" (typo)
+
+# Now publish the same test order three times from a third terminal:
+#   nats pub orders.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}' --count 3
+#
+# Each order is delivered to ONE member of EACH group, so BOTH terminals
+# print every order -- the work is double-handled, not load-balanced.
+# Fix: give every member the byte-for-byte identical group name.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// A typo in the queue group name silently creates a SECOND group. The
+// server matches members by the exact name string, so "packers" and
+// "packer" are two different groups on the same subject. Both
+// subscriptions succeed with no warning.
+static void
+onOrder(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("group %s handling: %.*s\n", (const char *) closure,
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+
+    natsMsg_Destroy(msg);
+}
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;sub1, conn, "orders.created",
+                                          "packers", onOrder, (void *) "packers");
+    if (s == NATS_OK)
+        s = natsConnection_QueueSubscribe(&amp;sub2, conn, "orders.created",
+                                          "packer", onOrder, (void *) "packer"); // typo!
+
+    // Publish an order and BOTH callbacks print it: one member of EACH
+    // group receives it, so the work is double-handled instead of
+    // load-balanced. Fix: give every member the byte-for-byte identical
+    // group name.</code></pre></div></div>
+<p><strong>Don't expect ordering or an even split.</strong> Selection is random per
+message, not round-robin, so a short burst can look lopsided. If work must
+be strictly ordered for a customer, keep it on a single subscriber, not a
+queue group.</p>
+<p><strong>Make a packer's work safe to repeat.</strong> A packer that's slow or briefly
+cut off can still be doing work the publisher assumes was lost, and core
+NATS won't send it again. Write each packer so handling the same order
+twice is harmless — pack by <code>order_id</code>, skip one already packed.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>Your running session now looks like this:</p>
+<ul>
+<li>One local <code>nats-server</code>, carried from earlier pages.</li>
+<li>A <code>packers</code> queue group on <code>orders.created</code>, load-balancing each order
+to exactly one packer, with members you can add and remove live.</li>
+<li><code>analytics</code> still a plain subscriber on <code>orders.created</code>, seeing every
+order, undisturbed by the group.</li>
+</ul>
+<p>You can do load-balanced <em>work</em> now, and the same mechanics apply to
+request-reply: a queue group of responders on one subject answers each
+request exactly once. The next pattern is the opposite case — one request
+where you <em>want</em> every responder to answer, and you gather all the
+replies.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The next page is <a href="/learn/core-nats/scatter-gather">Scatter-gather</a>: one
+request, many responders, and gathering all the replies instead of taking
+the first. You'll query three <code>shipping.quote</code> providers and pick the
+best.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/concepts/queue-groups">Core Concepts → Queue Groups</a> — the
+five-minute overview of the same material.</li>
+<li><a href="/learn/jetstream">JetStream → Learn</a> — durable work queues, where a
+message survives a worker crash and is retried to another member.</li>
+<li><a href="/learn/topologies/super-clusters">Topologies → Super-clusters</a> —
+geo-affinity that keeps queue-group work in the publisher's region.</li>
+</ul></main>

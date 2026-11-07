@@ -1,0 +1,41 @@
+<main><header><h1>RabbitMQ tutorial - Publish/Subscribe</h1></header>
+<h2 id="publishsubscribe">Publish/Subscribe</h2>
+<h3 id="using-the-amqp-10-net-client">(using the AMQP 1.0 .NET client)</h3>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<!-- -->
+<p>In the <a href="/tutorials/tutorial-two-dotnet-amqp10">previous tutorial</a> we created a work
+queue. In this tutorial we'll deliver a message to <strong>multiple</strong> consumers — the "publish/subscribe" pattern.</p>
+<p>We'll build a simple logging system: one program emits logs, and one or more receivers print them.</p>
+<h2 id="exchanges">Exchanges</h2>
+<p>The producer sends messages to an <em>exchange</em>, not directly to a queue. The exchange routes messages to queues according to its type.</p>
+<!-- -->
+<p>Declare a <code>fanout</code> exchange named <code>logs</code>:</p>
+<div><div><pre><code class="language-csharp">IExchangeSpecification exchangeSpec = management.Exchange(exchangeName).Type("fanout");
+await exchangeSpec.DeclareAsync();</code></pre></div></div>
+<h2 id="bindings">Bindings</h2>
+<p>Bind a temporary exclusive queue to the exchange:</p>
+<!-- -->
+<div><div><pre><code class="language-csharp">IQueueSpecification tempQueue = management.Queue().Exclusive(true).AutoDelete(true);
+IQueueInfo queueInfo = await tempQueue.DeclareAsync();
+string queueName = queueInfo.Name();
+
+IBindingSpecification binding = management.Binding()
+    .SourceExchange(exchangeSpec)
+    .DestinationQueue(queueName)
+    .Key(string.Empty);
+await binding.BindAsync();</code></pre></div></div>
+<p>The publisher uses <code>PublisherBuilder().Exchange(exchangeName)</code>; the consumer subscribes on <code>queueName</code> and calls <code>ctx.Accept()</code> in the handler.</p>
+<h3 id="running">Running</h3>
+<p>From <code>dotnet-amqp</code>:</p>
+<div><div><pre><code class="language-bash">dotnet run --project ReceiveLogs/ReceiveLogs.csproj
+dotnet run --project EmitLog/EmitLog.csproj</code></pre></div></div>
+<h3 id="source">Source</h3>
+<ul>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/EmitLog/Program.cs"><code>EmitLog/Program.cs</code></a></li>
+<li><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/dotnet-amqp/ReceiveLogs/Program.cs"><code>ReceiveLogs/Program.cs</code></a></li>
+</ul>
+<p>Now we can move on to <a href="/tutorials/tutorial-four-dotnet-amqp10">tutorial 4</a> and learn how to route messages based on routing keys.</p></main>

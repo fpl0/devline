@@ -1,0 +1,77 @@
+<main><header><h1>JetStream API Headers</h1></header>
+<p>This document provides a comprehensive reference for all headers used in JetStream operations. These headers are used for message publishing, delivery, and various JetStream features.</p>
+<h2 id="message-publishing-headers">Message Publishing Headers</h2>
+<p>Headers used when publishing messages to JetStream streams.</p>
+<h3 id="message-identification-and-deduplication">Message Identification and Deduplication</h3>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Msg-Id</code></td><td>Unique message ID</td><td>Unique message ID for deduplication. Messages with the same ID within the deduplication window will be rejected as duplicates.</td></tr><tr><td><code>Nats-Expected-Last-Msg-Id</code></td><td>Message ID</td><td>Message will only be stored if the last message ID matches this value</td></tr></tbody></table>
+<h3 id="expected-state-headers">Expected State Headers</h3>
+<p>These headers enforce expected state conditions when publishing. If conditions are not met, the publish will fail.</p>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Expected-Stream</code></td><td>Stream name</td><td>Verifies the message is being published to the expected stream</td></tr><tr><td><code>Nats-Expected-Last-Sequence</code></td><td>Sequence number</td><td>Message will only be stored if the stream's last sequence matches this value</td></tr><tr><td><code>Nats-Expected-Last-Subject-Sequence</code></td><td>Sequence number</td><td>Message will only be stored if the last sequence for this subject matches this value</td></tr><tr><td><code>Nats-Expected-Last-Subject-Sequence-Subject</code></td><td>Subject</td><td>Specifies the subject for the expected last subject sequence check</td></tr></tbody></table>
+<h3 id="message-rollup">Message Rollup</h3>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Rollup</code></td><td><code>sub</code> or <code>all</code></td><td>Indicates this message should replace previous messages. <code>sub</code> replaces all previous messages on the same subject, <code>all</code> replaces all messages in the stream</td></tr><tr><td><code>Nats-Schedule-Rollup</code></td><td>String</td><td></td></tr></tbody></table>
+<h3 id="message-size">Message Size</h3>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Msg-Size</code></td><td>Size in bytes</td><td>Indicates the size of the message payload</td></tr></tbody></table>
+<h3 id="message-ttl">Message TTL</h3>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-TTL</code></td><td>Duration string (e.g., <code>60s</code>, <code>5m</code>)</td><td>Time-to-live for the message. Message will be automatically removed after this duration</td></tr></tbody></table>
+<h3 id="counter-operations">Counter Operations</h3>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Incr</code></td><td>Number</td><td>Increment value for counter operations</td></tr><tr><td><code>Nats-Counter-Sources</code></td><td>JSON</td><td>Sources for counter values in JSON format</td></tr></tbody></table>
+<h3 id="batch-operations">Batch Operations</h3>
+<p>Headers for atomic batch publishing:</p>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Batch-Id</code></td><td>Batch ID</td><td>Unique identifier for the batch</td></tr><tr><td><code>Nats-Batch-Sequence</code></td><td>Sequence number</td><td>Sequence number within the batch</td></tr><tr><td><code>Nats-Batch-Commit</code></td><td><code>1</code></td><td>Marks the final message in a batch, triggering atomic commit</td></tr></tbody></table>
+<h3 id="scheduled-messages">Scheduled Messages</h3>
+<p>Headers for scheduled message delivery:</p>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Schedule</code></td><td>Cron expression</td><td>Schedule pattern for message delivery</td></tr><tr><td><code>Nats-Schedule-Time-Zone</code></td><td>String</td><td></td></tr><tr><td><code>Nats-Schedule-TTL</code></td><td>Duration string (e.g., <code>60s</code>, <code>5m</code>)</td><td>Time-to-live for the schedule</td></tr><tr><td><code>Nats-Schedule-Target</code></td><td>Subject</td><td>Target subject for scheduled delivery</td></tr><tr><td><code>Nats-Schedule-Source</code></td><td>Subject</td><td>Source subject for scheduled message delivery</td></tr><tr><td><code>Nats-Scheduler</code></td><td>Scheduler ID</td><td>Identifier for the scheduler</td></tr><tr><td><code>Nats-Schedule-Next</code></td><td>RFC3339 timestamp or <code>purge</code></td><td>Next scheduled time or purge indicator</td></tr></tbody></table>
+<h2 id="message-delivery-headers">Message Delivery Headers</h2>
+<p>Headers added by JetStream when delivering messages to consumers.</p>
+<h3 id="stream-information">Stream Information</h3>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Last-Stream</code></td><td>Sequence number</td><td>Stream's last sequence at delivery time</td></tr><tr><td><code>Nats-Stream</code></td><td>Stream name</td><td>Name of the stream the message came from</td></tr><tr><td><code>Nats-Sequence</code></td><td>Sequence number</td><td>Stream sequence number of the message</td></tr><tr><td><code>Nats-Time-Stamp</code></td><td>RFC3339 timestamp</td><td>Timestamp when the message was stored</td></tr><tr><td><code>Nats-Subject</code></td><td>Subject</td><td>Original subject the message was published to</td></tr><tr><td><code>Nats-Last-Sequence</code></td><td>Sequence number</td><td>Last sequence number in the stream when this message was delivered</td></tr><tr><td><code>Nats-UpTo-Sequence</code></td><td>Sequence number</td><td>Upper bound sequence for batch delivery</td></tr><tr><td><code>Nats-Stream-Identity</code></td><td>String</td><td>JSStreamIdentity is the stream's identity used to reject consumer create on a mismatch, and return the stream identity in the consumer create/reset responses.</td></tr></tbody></table>
+<h3 id="consumer-information">Consumer Information</h3>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Last-Consumer</code></td><td>Sequence number</td><td>Consumer's last delivered sequence</td></tr><tr><td><code>Nats-Consumer-Stalled</code></td><td>Reply subject</td><td>Indicates consumer is stalled with delivery count</td></tr></tbody></table>
+<h3 id="pull-request-headers">Pull Request Headers</h3>
+<p>Headers used in pull request responses:</p>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Num-Pending</code></td><td>Count</td><td>Number of pending messages for the consumer</td></tr><tr><td><code>Nats-Pending-Messages</code></td><td>Count</td><td>Number of pending messages for the pull request</td></tr><tr><td><code>Nats-Pending-Bytes</code></td><td>Size in bytes</td><td>Number of pending bytes for the pull request</td></tr><tr><td><code>Nats-Pin-Id</code></td><td>NUID</td><td>Priority group pin identifier for the pull request</td></tr></tbody></table>
+<h3 id="source-and-mirror-information">Source and Mirror Information</h3>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Stream-Source</code></td><td>Stream source info</td><td>Information about the source stream in format: stream-name &gt; seq &gt; subject</td></tr></tbody></table>
+<h3 id="response-type">Response Type</h3>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Response-Type</code></td><td>Response type string</td><td>Type of response being sent</td></tr></tbody></table>
+<h2 id="api-headers">API Headers</h2>
+<p>Headers used in JetStream API requests and responses.</p>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Required-Api-Level</code></td><td>API level number</td><td>Minimum API level required for the request</td></tr></tbody></table>
+<h2 id="marker-headers">Marker Headers</h2>
+<p>Headers used to mark special message types in streams.</p>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Marker-Reason</code></td><td><code>MaxAge</code>, <code>Purge</code>, or <code>Remove</code></td><td>Reason for the marker: MaxAge, Purge, or Remove</td></tr></tbody></table>
+<h2 id="authentication-and-authorization-headers">Authentication and Authorization Headers</h2>
+<p>Headers used for authentication callout and authorization.</p>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Request-Info</code></td><td>JSON-encoded client info</td><td>Client authorization information for the request</td></tr><tr><td><code>Nats-Server-Xkey</code></td><td>X-Key string</td><td>Server X-Key for encrypted auth callout requests</td></tr></tbody></table>
+<h2 id="message-tracing-headers">Message Tracing Headers</h2>
+<p>Headers used for message tracing and diagnostics.</p>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>Nats-Trace-Dest</code></td><td>Subject</td><td>Destination subject for message tracing</td></tr><tr><td><code>Nats-Trace-Hop</code></td><td>Hop count</td><td>Number of hops in the trace</td></tr><tr><td><code>Nats-Trace-Origin-Account</code></td><td>Account name</td><td>Origin account for message tracing</td></tr><tr><td><code>Nats-Trace-Only</code></td><td>Boolean flag</td><td>Indicates trace-only mode (message is not delivered)</td></tr></tbody></table>
+<h2 id="key-value-store-headers">Key-Value Store Headers</h2>
+<p>Headers used by the NATS Key-Value store built on JetStream.</p>
+<table><thead><tr><th>Header</th><th>Value</th><th>Description</th></tr></thead><tbody><tr><td><code>KV-Operation</code></td><td><code>PUT</code>, <code>DEL</code>, or <code>PURGE</code></td><td>Type of KV operation: PUT, DEL, or PURGE</td></tr></tbody></table>
+<h2 id="usage-examples">Usage Examples</h2>
+<h3 id="publishing-with-deduplication">Publishing with Deduplication</h3>
+<div><div><pre><code class="language-text">Nats-Msg-Id: unique-message-123</code></pre></div></div>
+<h3 id="publishing-with-expected-state">Publishing with Expected State</h3>
+<div><div><pre><code class="language-text">Nats-Expected-Last-Sequence: 42
+Nats-Expected-Stream: my-stream</code></pre></div></div>
+<h3 id="batch-publishing">Batch Publishing</h3>
+<div><div><pre><code class="language-text">Nats-Batch-Id: batch-456
+Nats-Batch-Sequence: 1</code></pre></div></div>
+<p>For the last message in batch:</p>
+<div><div><pre><code class="language-text">Nats-Batch-Id: batch-456
+Nats-Batch-Sequence: 10
+Nats-Batch-Commit: 1</code></pre></div></div>
+<h3 id="scheduled-message">Scheduled Message</h3>
+<div><div><pre><code class="language-text">Nats-Schedule: 0 */5 * * * *
+Nats-Schedule-TTL: 24h
+Nats-Schedule-Target: notifications.email</code></pre></div></div>
+<h2 id="notes">Notes</h2>
+<ul>
+<li>Headers are case-sensitive</li>
+<li>Some headers are set automatically by the server and should not be manually set by clients</li>
+<li>Headers prefixed with <code>Nats-Expected-</code> are used for optimistic concurrency control</li>
+<li>The <code>Nats-Rollup</code> header is used in conjunction with the stream's <code>MaxMsgsPerSubject</code> setting</li>
+<li>Batch operations require all messages in a batch to succeed or the entire batch is rejected</li>
+<li>Counter operations are atomic and support distributed counters across clustered streams</li>
+</ul></main>

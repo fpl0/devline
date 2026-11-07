@@ -1,0 +1,207 @@
+<main><header><h1>Leaf nodes over WebSocket</h1></header>
+<p>A leaf node can dial its hub over WebSocket instead of the leafnode
+port. Everything about the leaf node itself is unchanged — the same
+account, the same subject interest, the same behaviour when the link
+goes down. Only the transport differs. <a href="/learn/topologies/leaf-nodes">Topologies → Leaf
+nodes</a> covers the model this page reuses.</p>
+<p>The reason to do it is usually on the hub side. Acme reaches the <code>east</code>
+cluster through the HTTPS ingress set up in <a href="/learn/websocket/tls-and-proxies">TLS and
+proxies</a>. The leafnode port isn't
+published through it, but the WebSocket listener is — the same one the
+warehouse dashboard connects to. An Acme retail
+branch running a leaf node for its tills uses that door.</p>
+<h2 id="the-hub-side">The hub side</h2>
+<p>The hub needs two things: leafnode connections enabled, and a WebSocket
+listener for them to arrive on.</p>
+<div><div><pre><code class="language-conf"># n1-east — hub
+listen: 0.0.0.0:4222
+server_name: n1-east
+
+leafnodes {
+  port: 7422
+}
+
+websocket {
+  listen: 0.0.0.0:443
+  tls {
+    cert_file: "/etc/nats/certs/nats.acme.example.pem"
+    key_file:  "/etc/nats/certs/nats.acme.example-key.pem"
+  }
+}</code></pre></div></div>
+<p>This is the certificate-on-the-listener shape from the previous page. The
+terminated shape — <code>no_tls: true</code> plus <code>advertise</code>, with the ingress
+holding the certificate — works identically for leaf nodes; the branch
+config below doesn't change either way.</p>
+<p>Leaf nodes and browser clients share the WebSocket listener. What tells
+them apart is the path on the upgrade request: a leaf node asks for
+<code>/leafnode</code>, a client asks for <code>/</code>. The server reads that and builds the
+right kind of connection.</p>
+<p>You never write <code>/leafnode</code> yourself — the branch's remote URL stays
+<code>wss://host:443</code> and the server appends it. It matters when something
+between the two routes on path. A proxy publishing only <code>/nats</code> never
+sees <code>/leafnode</code> and the branch can't connect; give the remote the
+proxy's prefix (<code>wss://host:443/nats</code>) and the request becomes
+<code>GET /nats/leafnode</code>, which the rule does match.</p>
+<h3 id="why-both-blocks-when-the-branch-only-uses-443">Why both blocks, when the branch only uses 443</h3>
+<p>The branch dials <code>:443</code>, so the <code>leafnodes</code> block looks redundant, but
+the two blocks do different jobs:</p>
+<ul>
+<li><code>leafnodes { port: 7422 }</code> is the switch that makes this server willing
+to accept leaf nodes <strong>at all</strong>.</li>
+<li><code>websocket {}</code> is the door the branch actually arrives through.</li>
+</ul>
+<p>Drop the <code>leafnodes</code> block, or write it empty as <code>leafnodes {}</code> with no
+port, and the branch's connection is accepted by the WebSocket listener
+and then closed — the hub isn't taking leaf nodes. The port number in it
+is never used by a WebSocket leaf node, but the block has to be there.</p>
+<p>One consequence worth knowing: 7422 is a real listener, open to whatever
+can reach it, even though no WebSocket leaf node uses it. Treat it like
+the other server ports and restrict it to the peers that need it —
+<a href="/learn/deployment/hardening">Deployment → Hardening</a> covers the firewall
+rules for the rest of them.</p>
+<h2 id="the-branch-side">The branch side</h2>
+<p>The remote URL carries the scheme:</p>
+<div><div><pre><code class="language-conf"># branch till server
+listen: 127.0.0.1:4222
+server_name: branch-42
+
+leafnodes {
+  remotes [
+    { urls: ["wss://nats.acme.example:443"] }
+  ]
+}</code></pre></div></div>
+<p>That's the whole change. Compared with a leafnode-port remote, the URL
+scheme is <code>wss://</code> and the port is 443.</p>
+<p>The branch's connection reaches the hub's WebSocket listener, the leaf
+node registers, and subject interest flows both ways as it would over
+7422.</p>
+<div></div>
+<h2 id="what-turns-tls-on">What turns TLS on</h2>
+<p>Two things do, and either is enough on its own: the <code>wss://</code> scheme, or
+a <code>tls {}</code> block on the remote. You don't need both.</p>
+<p>Against a hub whose WebSocket listener requires TLS:</p>
+<table><thead><tr><th>Remote</th><th>TLS handshake</th><th>Result</th></tr></thead><tbody><tr><td><code>ws://</code> alone</td><td>no</td><td>fails — the hub is expecting TLS</td></tr><tr><td><code>ws://</code> with <code>tls {}</code></td><td>yes</td><td>connects</td></tr><tr><td><code>wss://</code> alone</td><td>yes</td><td>connects if the hub's certificate is publicly trusted</td></tr><tr><td><code>wss://</code> with <code>tls {}</code></td><td>yes</td><td>connects</td></tr></tbody></table>
+<p>A <code>wss://</code> remote with no <code>tls {}</code> block anywhere still performs a
+handshake — this is what a failure looks like when the hub's certificate
+isn't one the branch already trusts:</p>
+<div><div><pre><code class="language-text">[ERR] TLS leafnode handshake error: tls: failed to verify certificate:
+      x509: certificate signed by unknown authority</code></pre></div></div>
+<p>The handshake ran and failed at certificate verification. What fixes it
+is a <code>tls {}</code> block carrying the right CA, rather than one added to turn
+TLS on.</p>
+<p>So the <code>tls {}</code> block has two jobs, and it helps to keep them apart. It
+turns TLS on where the scheme hasn't, and it supplies what verification
+needs — a CA for a certificate your system store doesn't carry, or a
+client certificate when the hub verifies its leaf nodes:</p>
+<div><div><pre><code class="language-conf">leafnodes {
+  remotes [
+    {
+      urls: ["wss://nats.acme.example:443"]
+      tls {
+        ca_file: "/etc/nats/certs/acme-ca.pem"
+      }
+    }
+  ]
+}</code></pre></div></div>
+<p>With a certificate from a public CA, the branch needs no <code>tls {}</code> block
+at all.</p>
+<p>The practical consequence is that <strong>the URL scheme doesn't tell you
+whether a link is encrypted</strong>. A remote written <code>ws://</code> with a <code>tls {}</code>
+block beside it is a TLS connection. If you want that to be obvious to
+whoever reads the config next, write <code>wss://</code> and let the scheme say so.</p>
+<h2 id="one-scheme-per-remote">One scheme per remote</h2>
+<p>Every URL in a single remote must use the same kind of scheme. Mixing
+them stops the server at startup:</p>
+<div><div><pre><code class="language-conf">remotes [
+  { urls: ["wss://nats.acme.example:443", "nats://n2-east:7422"] }
+]</code></pre></div></div>
+<div><div><pre><code class="language-text">nats-server: remote leaf node configuration cannot have a mix of
+websocket and non-websocket urls: ["wss://nats.acme.example:443"
+"nats://n2-east:7422"]</code></pre></div></div>
+<p>This bites when adding a second hub address for redundancy. Every URL in
+the list has to be <code>wss://</code>, pointing at hubs that all run a WebSocket
+listener — you can't list the ingress and a direct leafnode port as
+alternatives to each other.</p>
+<p>Write the port explicitly, on every remote URL. A leafnode URL without a
+port gets <code>:7422</code> appended whatever its scheme, so <code>wss://nats.acme.example</code>
+quietly dials the leafnode port rather than 443 — and then fails, because
+that port doesn't speak WebSocket.</p>
+<h2 id="compression-and-masking">Compression and masking</h2>
+<p>Two settings apply only to WebSocket remotes:</p>
+<div><div><pre><code class="language-conf">remotes [
+  {
+    urls: ["wss://nats.acme.example:443"]
+    ws_compression: true
+    ws_no_masking: true
+  }
+]</code></pre></div></div>
+<p><code>ws_compression</code> asks the hub to negotiate compression on the link, and
+carries the same trade as it does for clients: CPU on both ends against
+bytes on the wire. A leafnode link carries whatever the branch
+subscribes to, so the answer depends on that traffic and on the link —
+measure it rather than assume.</p>
+<p><code>ws_no_masking</code> asks the hub to accept unmasked frames. The WebSocket
+specification requires clients to mask what they send, which exists to
+stop a browser being used to poison intermediary caches — a concern that
+doesn't apply to a server-to-server link. Setting it removes the
+per-frame masking step. Both are requests: the hub decides, and the link
+works either way if it declines.</p>
+<p>Both accept longer aliases (<code>websocket_compression</code>,
+<code>websocket_no_masking</code>) that mean the same thing.</p>
+<h2 id="restricting-the-credential">Restricting the credential</h2>
+<p>The branch's credential shouldn't work as an ordinary client
+connection. The connection type for a leaf node arriving over WebSocket
+is <code>LEAFNODE_WS</code>, not <code>LEAFNODE</code>:</p>
+<div><div><pre><code class="language-conf">authorization {
+  users [
+    { user: branch-42, password: s3cr3t, allowed_connection_types: ["LEAFNODE_WS"] }
+  ]
+}</code></pre></div></div>
+<p>Using <code>LEAFNODE</code> here refuses the branch, because the transport it
+arrives on is part of what the value names.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>Reading the scheme as the encryption status.</strong> <code>ws://</code> with a <code>tls {}</code>
+block is encrypted, and <code>wss://</code> on its own is too. Neither the scheme
+nor the block alone tells you what a link is doing — check both before
+concluding a connection is in the clear.</p>
+<p><strong>Mixing schemes in one <code>urls</code> list.</strong> The server refuses to start. Every
+URL in a remote is <code>wss://</code> or none of them is.</p>
+<p><strong>Pointing the remote at the leafnode port.</strong> The branch dials the hub's
+<em>WebSocket</em> listener. Port 7422 speaks the leafnode protocol directly
+and will not complete a WebSocket handshake.</p>
+<p><strong>Granting <code>LEAFNODE</code> to a WebSocket leaf.</strong> The value has to match the
+transport. A leaf over WebSocket needs <code>LEAFNODE_WS</code>.</p>
+<p><strong>A path-routing proxy that doesn't forward <code>/leafnode</code>.</strong> The server
+marks a WebSocket leaf by appending <code>/leafnode</code> to the remote URL's path,
+so a proxy publishing only <code>/nats</code> never sees the request. Either route
+<code>/</code> or give the remote the proxy's prefix so the path becomes
+<code>/nats/leafnode</code>.</p>
+<p><strong>Reaching a hub that isn't running a WebSocket listener.</strong> The transport
+has to exist on both ends. A hub with only a leafnode port has nothing
+for a <code>wss://</code> remote to connect to.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The branch is on the backbone through the same endpoint the dashboard
+uses:</p>
+<ul>
+<li>the hub runs a WebSocket listener with a certificate, shared by
+browsers and leaf nodes</li>
+<li>the branch dials <code>wss://nats.acme.example:443</code> and registers as an
+ordinary leaf node</li>
+<li>TLS is on because the scheme says so, with <code>tls {}</code> supplying a CA
+only where the certificate isn't publicly trusted</li>
+<li>the branch credential is restricted to <code>LEAFNODE_WS</code></li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>That's the chapter. <a href="/learn/websocket/where-next">Where to go
+next</a> collects the model into one place,
+points at the reference for the field detail, and gathers the pitfalls
+from every page into a checklist to run before this goes to production.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/websocket/">Reference → websocket</a> — the listener
+the hub runs</li>
+<li><a href="/learn/topologies/leaf-nodes">Topologies → Leaf nodes</a> — the leaf-node
+model this page changes the transport of</li>
+<li><a href="/learn/security/encryption">Security → Encryption</a> — TLS across the
+server's listeners</li>
+</ul></main>

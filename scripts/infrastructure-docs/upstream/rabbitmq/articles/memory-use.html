@@ -1,0 +1,402 @@
+<main><header><h1>Reasoning About Memory Footprint</h1></header>
+<h2 id="overview">Overview</h2>
+<p>Operators need to be able to reason about node's memory use,
+both absolute and relative ("what uses most memory"). This is an
+important aspect of <a href="/docs/4.3/monitoring">system monitoring</a>.</p>
+<p>This guide focusses on reasoning about node's reported (monitored) memory footprint
+of a RabbitMQ node, including the <a href="#page-cache">kernel page cache</a> part, which is very
+important to understand in the context of <a href="/docs/4.3/streams">streams and partitioned streams</a>.</p>
+<p>It is accompanied by a few closely related guides:</p>
+<ul>
+<li><a href="/docs/4.3/memory">Memory Alarm Threshold</a></li>
+<li><a href="/docs/4.3/alarms">Resource Alarms</a></li>
+</ul>
+<p>RabbitMQ provides tools that report and help analyse node memory use:</p>
+<ul>
+<li><a href="/docs/4.3/cli"><code>rabbitmq-diagnostics memory_breakdown</code></a></li>
+<li><a href="/docs/4.3/management-cli"><code>rabbitmqadmin show memory_breakdown_in_percent</code></a> and <a href="/docs/4.3/management-cli"><code>rabbitmqadmin show memory_breakdown_in_bytes</code></a></li>
+<li><a href="/docs/4.3/cli"><code>rabbitmq-diagnostics observer</code></a> provides a very fine-grained, an Erlang process-level view of memory consumption</li>
+<li><a href="/docs/4.3/prometheus">Prometheus and Grafana</a>-based monitoring makes it possible to observe memory breakdown over time</li>
+<li><a href="/docs/4.3/management">Management UI</a> provides the same breakdown on the node page as <code>rabbitmq-diagnostics status</code></li>
+<li><a href="/docs/4.3/management#http-api">HTTP API</a> provides the same information as the management UI, useful <a href="/docs/4.3/monitoring">for monitoring</a></li>
+<li><a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_top">rabbitmq-top</a> and <code>rabbitmq-diagnostics observer</code> provide a more fine-grained <a href="https://en.wikipedia.org/wiki/Top_(software)">top</a>-like per Erlang process view</li>
+</ul>
+<p>Obtaining a node memory breakdown should be the first step when reasoning about node memory use.</p>
+<p>Note that all measurements are somewhat approximate, based on values
+returned by the underlying runtime or the kernel at a specific point in
+time, usually within a 5 seconds time window.</p>
+<h2 id="containers">Running RabbitMQ in Containers and on Kubernetes</h2>
+<p>When a RabbitMQ runs in an environment where cgroups are used, namely in various
+containerized environments and on Kubernetes, certain aspects related to <a href="/docs/4.3/memory#absolute-limit">memory limits</a>
+and <a href="#page-cache">kernel page cache</a> must be taken into account,
+in particular in clusters where streams and super streams are used.</p>
+<h2 id="breakdown">Memory Use Breakdown</h2>
+<p>A RabbitMQ node can report its memory usage breakdown. The breakdown is provided
+as a list of categories (shown below) and the memory footprint of that category.</p>
+<p>Each category is a sum of runtime-reported memory footprint of every process or table
+of that kind. This means that the connections category is the sum of memory used by
+all connection processes, the channels category is the sum of memory used by all channel
+processes, ETS tables is the sum of memory used of all in-memory tables on the node,
+and so on.</p>
+<h3 id="breakdown-intro">How Memory Breakdown Works</h3>
+<p>Memory use breakdown reports allocated memory distribution on the target node, by category:</p>
+<ul>
+<li><a href="#breakdown-connections">Connections</a> (further split into four categories: readers, writers, channels, other)</li>
+<li><a href="/docs/4.3/quorum-queues">Quorum queue</a> replicas</li>
+<li><a href="/docs/4.3/streams">Stream</a> replicas</li>
+<li>Classic queue message store and indices</li>
+<li><a href="#breakdown-binaries">Binary heap references</a></li>
+<li>Node-local metrics (<a href="/docs/4.3/management">management plugin</a> stats database)</li>
+<li>Internal schema database tables</li>
+<li><a href="/docs/4.3/plugins">Plugins</a>, including protocols that transfer messages, such as <a href="/docs/4.3/shovel">Shovel</a> and <a href="/docs/4.3/federation">Federation</a>, and their internal queues</li>
+<li>Memory <a href="/docs/4.3/runtime#allocators">allocated but not yet used</a></li>
+<li>Code (bytecode, module metadata)</li>
+<li>ETS (in memory key/value store) tables</li>
+<li><a href="/docs/4.3/runtime">Atom tables</a></li>
+<li>Other</li>
+</ul>
+<p>Generally there is no overlap between the categories (no double accounting for the same memory).
+Plugins and runtime versions may affect this.</p>
+<h3 id="breakdown-cli">Producing Memory Use Breakdown Using CLI Tools</h3>
+<p>Memory breakdown can be produced using CLI tools, both <code>rabbitmq-diagnostics</code> and <code>rabbitmqadmin</code> v2:</p>
+<h4>rabbitmq-diagnostics with bash</h4><div><div><pre><code class="language-bash">rabbitmq-diagnostics memory_breakdown
+
+rabbitmq-diagnostics -n rabbit@hostname memory_breakdown</code></pre></div></div><h4>rabbitmqadmin with bash</h4><div><div><pre><code class="language-bash">rabbitmqadmin show memory_breakdown_in_bytes --node rabbit@hostname
+
+rabbitmqadmin show memory_breakdown_in_percent --node rabbit@hostname</code></pre></div></div><h4>rabbitmq-diagnostics with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmq-diagnostics.bat memory_breakdown
+
+rabbitmq-diagnostics.bat -n rabbit@hostname memory_breakdown</code></pre></div></div><h4>rabbitmqadmin with PowerShell</h4><div><div><pre><code class="language-powershell">rabbitmqadmin.exe show memory_breakdown_in_bytes --node rabbit@hostname
+
+rabbitmqadmin.exe show memory_breakdown_in_percent --node rabbit@hostname</code></pre></div></div>
+<p>Here's example output from <code>rabbitmq-diagnostics memory_breakdown</code>:</p>
+<div><div><pre><code class="language-ini">quorum_queue_procs: 0.4181 gb (28.8%)
+binary: 0.4129 gb (28.44%)
+allocated_unused: 0.1959 gb (13.49%)
+connection_other: 0.1894 gb (13.05%)
+plugins: 0.0373 gb (2.57%)
+other_proc: 0.0325 gb (2.24%)
+code: 0.0305 gb (2.1%)
+quorum_ets: 0.0303 gb (2.09%)
+connection_readers: 0.0222 gb (1.53%)
+other_system: 0.0209 gb (1.44%)
+connection_channels: 0.017 gb (1.17%)
+mgmt_db: 0.017 gb (1.17%)
+metrics: 0.0109 gb (0.75%)
+other_ets: 0.0073 gb (0.5%)
+connection_writers: 0.007 gb (0.48%)
+atom: 0.0015 gb (0.11%)
+mnesia: 0.0006 gb (0.04%)
+msg_index: 0.0002 gb (0.01%)
+queue_procs: 0.0002 gb (0.01%)
+reserved_unallocated: 0.0 gb (0.0%)</code></pre></div></div>
+<table><thead><tr><td>Report Field</td><td>Category</td><td>Details</td></tr></thead><tbody><tr><td>total</td><td></td><td>Total amount as reported by the effective memory calculation strategy (see above)</td></tr><tr><td>connection_readers</td><td>Connections</td><td><p>Processes responsible for connection parser and most of connection state. Most of their memory attributes
+to TCP buffers. The more client connections a node has, the more memory will be used by this category.
+See <a href="./networking">Networking guide</a> for more information.</p></td></tr><tr><td>connection_writers</td><td>Connections</td><td><p>Processes responsible for serialisation of outgoing protocol frames and writing to client connection sockets.
+The more client connections a node has, the more memory will be used by this category.
+See <a href="./networking">Networking guide</a> for more information.</p></td></tr><tr><td>connection_channels</td><td>Channels</td><td>The more channels client connections use, the more memory will be used by this category.</td></tr><tr><td>connection_other</td><td>Connections</td><td>Other memory related to client connections</td></tr><tr><td>quorum_queue_procs</td><td>Queues</td><td><p><a href="./quorum-queues">Quorum queue</a> processes, both currently elected leaders and followers.
+Memory footprint can be capped on a per-queue basis.
+See the <a href="./quorum-queues">Quorum Queues</a> guide for more information.</p></td></tr><tr><td>queue_procs</td><td>Queues</td><td><p>Classic queue leaders, indices and messages kept in memory. The greater the number of messages enqueued,
+the more memory will generally be attributed to this section. However, this greatly depends on
+queue type and properties.
+See <a href="./memory">Memory</a>, <a href="./classic-queues">Classic Queues</a> for more information.</p></td></tr><tr><td>metrics</td><td><a href="./management">Stats DB</a></td><td><p>Node-local metrics. The more connections, channels, queues are node hosts, the more stats there are to collect and keep.
+See <a href="./management">management plugin guide</a> for more information.</p></td></tr><tr><td>stats_db</td><td>Stats DB</td><td><p>Aggregated and pre-computed metrics, inter-node HTTP API request cache and everything else related to the stats DB.
+See <a href="./management">management plugin guide</a> for more information.</p></td></tr><tr><td>binaries</td><td>Binaries</td><td>Runtime binary heap. Most of this section is usually message bodies and properties (metadata).</td></tr><tr><td>plugins</td><td>Plugins</td><td><p>Plugins such as <a href="./shovel">Shovel</a>, <a href="./federation">Federation</a>, or protocol implementations such as <a href="./stomp">STOMP</a>
+can accumulate messages in memory.</p></td></tr><tr><td>allocated_unused</td><td>Preallocated Memory</td><td>Allocated by the runtime but not yet used.</td></tr><tr><td>reserved_unallocated</td><td>Preallocated Memory</td><td>Allocated/reserved by the kernel but not the runtime</td></tr><tr><td>metadata_store</td><td>Internal Database</td><td>Khepri process memory.</td></tr><tr><td>metadata_store_ets</td><td>Internal Database</td><td>Metadata tables for virtual hosts, users, permissions, queues, exchanges, and bindings.</td></tr><tr><td>quorum_ets</td><td>Internal Database</td><td>Raft implementation's WAL and other memory tables. Most of these are periodically moved to disk.</td></tr><tr><td>other_ets</td><td>Internal Database</td><td>Some plugins can use ETS tables to store their state</td></tr><tr><td>code</td><td>Code</td><td><p>Bytecode and module metadata. This should only consume double digit % of
+memory on blank/empty nodes.</p></td></tr><tr><td>other</td><td>Other</td><td><p>All other processes that RabbitMQ cannot categorise</p></td></tr></tbody></table>
+<h2 id="breakdown-management-ui">Producing Memory Use Breakdown Using Management UI</h2>
+<p>Management UI can be used to produce a memory breakdown chart. This information is available on the
+node metrics page that can be accessed from Overview:</p>
+<figure><p><img alt="Cluster node list in management UI" src="/assets/images/mgmt-ui-node-list-b08bb58e56514c82731d7a10cc28f588.png"/></p></figure>
+<p>On the node metrics page, scroll down to the memory breakdown buttons:</p>
+<figure><p><img alt="Node memory use breakdown buttons" src="/assets/images/mgmt-ui-memory-use-breakdown-buttons-b16c49b9851c61e5f687ba78c9abf0d4.png"/></p></figure>
+<p>Memory and binary heap breakdowns can be expensive to calculate and are produced on demand when the <code>Update</code> button is pressed:</p>
+<figure><p><img alt="Node memory use breakdown chart" src="/assets/images/mgmt-ui-memory-use-breakdown-ff91d5cba04f72d7188e4130b97f35d2.png"/></p></figure>
+<p>It is also possible to display a breakdown of binary heap use by various
+things in the system (e.g. connections, queues):</p>
+<figure><p><img alt="Binary heap use breakdown chart" src="/assets/images/mgmt-ui-binaries-breakdown-31d40db18f25ac1965a933c82e751c79.png"/></p></figure>
+<h2 id="breakdown-http-api-curl">Producing Memory Use Breakdown Using HTTP API and curl</h2>
+<p>It is possible to produce memory use breakdown over <a href="/docs/4.3/management">HTTP API</a>
+by issuing a <code>GET</code> request to the <code>/api/nodes/{node}/memory</code> endpoint.</p>
+<div><div><pre><code class="language-json">curl -s -u guest:guest http://127.0.0.1:15672/api/nodes/rabbit@mercurio/memory | python -m json.tool
+
+{
+    "memory": {
+        "atom": 1041593,
+        "binary": 5133776,
+        "code": 25299059,
+        "connection_channels": 1823320,
+        "connection_other": 150168,
+        "connection_readers": 83760,
+        "connection_writers": 113112,
+        "metrics": 217816,
+        "mgmt_db": 266560,
+        "mnesia": 93344,
+        "msg_index": 48880,
+        "other_ets": 2294184,
+        "other_proc": 27131728,
+        "other_system": 21496756,
+        "plugins": 3103424,
+        "queue_procs": 2957624,
+        "total": 89870336
+    }
+}</code></pre></div></div>
+<p>It is also possible to retrieve a relative breakdown using the
+<code>GET</code> request to the <code>/api/nodes/{node}/memory</code> endpoint.
+Note that reported relative values are rounded to integers. This endpoint is
+intended to be used for relative comparison (identifying top contributing categories),
+not precise calculations.</p>
+<div><div><pre><code class="language-json">curl -s -u guest:guest http://127.0.0.1:15672/api/nodes/rabbit@mercurio/memory/relative | python -m json.tool
+
+{
+    "memory": {
+        "allocated_unused": 32,
+        "atom": 1,
+        "binary": 5,
+        "code": 22,
+        "connection_channels": 2,
+        "connection_other": 1,
+        "connection_readers": 1,
+        "connection_writers": 1,
+        "metrics": 1,
+        "mgmt_db": 1,
+        "mnesia": 1,
+        "msg_index": 1,
+        "other_ets": 2,
+        "other_proc": 21,
+        "other_system": 19,
+        "plugins": 3,
+        "queue_procs": 4,
+        "reserved_unallocated": 0,
+        "total": 100
+    }
+}</code></pre></div></div>
+<h2 id="breakdown-categories">Memory Breakdown Categories</h2>
+<h3 id="breakdown-connections">Connections</h3>
+<p>This includes memory used by client connections (including <a href="/docs/4.3/shovel">Shovels</a> and <a href="/docs/4.3/federation">Federation links</a>)
+and channels, and outgoing ones (Shovels and Federation upstream links). Most of the memory
+is usually used by TCP buffers, which on Linux autotune to about 100 kB in size by default.
+TCP buffer size can be reduced at the cost of a proportional decrease in connection throughput.
+See the <a href="/docs/4.3/networking">Networking guide</a> for details.</p>
+<p>Channels also consume RAM. By optimising how many channels applications use, that amount
+can be decreased. It is possible to cap the max number of channels on a connection using
+the <code>channel_max</code> configuration setting:</p>
+<div><div><pre><code class="language-ini">channel_max = 16</code></pre></div></div>
+<p>Note that some libraries and tools that build on top of RabbitMQ clients may implicitly require
+a certain number of channels. Finding an optimal value is usually a matter of trial and error.</p>
+<h3 id="breakdown-queues">Queues and Messages</h3>
+<p>Memory used by queues, queue indices, queue state. Messages enqueued will
+in part contribute to this category.</p>
+<p>Queues will <a href="/docs/4.3/memory">swap their contents out to disc when under memory pressure</a>.
+The exact behavior of this depends on <a href="/docs/4.3/queues">queue properties</a>,
+whether clients publish messages as persistent or transient, and <a href="/docs/4.3/persistence-conf">persistence configuration</a> of the node.</p>
+<p>Message bodies do not show up here but in Binaries.</p>
+<h3 id="breakdown-message-store-indexes">Message Store Indexes</h3>
+<p>By default message store uses an in-memory
+index of all messages, including those paged out to disc.
+Plugins allow for replacing it with disk-based implementations.</p>
+<h3 id="breakdown-plugins">Plugins</h3>
+<p>Memory used by plugins (apart from the Erlang client which
+is counted under Connections, and the management database
+which is counted separately). This category will include
+some per-connection memory here for protocol plugins such as
+STOMP and MQTT as well as messages enqueued by plugins such
+as Shovel and Federation.</p>
+<h3 id="breakdown-preallocated-memory">Preallocated Memory</h3>
+<p>Memory preallocated by the runtime (VM allocators) but not yet
+used. This is covered in more detail below.</p>
+<h3 id="breakdown-internal-database">Internal Database</h3>
+<p>The <a href="/docs/4.3/metadata-store">metadata store</a> keeps metadata for queues, exchanges,
+bindings, users, and virtual hosts in memory and persists it to disk.
+Its memory use grows with the number of these entities.</p>
+<h3 id="breakdown-management-stats-db">Management (Stats) Database</h3>
+<p>The stats database (if the management plugin is enabled). In
+a cluster, most stats are stored locally on the
+node. Cross-node requests needed to aggregate stats in a
+cluster can be cached. The cached data will be reported in
+this category.</p>
+<h3 id="breakdown-binaries">Binaries</h3>
+<p>Memory used by shared binary data in the runtime. Most of this
+memory is message bodies and metadata.</p>
+<p>With some workloads binary data heap can be garbage collected infrequently.
+<code>rabbitmqctl force_gc</code> can be used force collection. The following
+couple of commands forces collection and reports top processes that released most
+binary heap references:</p>
+<div><div><pre><code class="language-bash">rabbitmqctl eval 'recon:bin_leak(10).'
+
+rabbitmqctl force_gc</code></pre></div></div>
+<p>With RabbitMQ versions that do not provide <code>rabbitmqctl force_gc</code>, use</p>
+<div><div><pre><code class="language-bash">rabbitmqctl eval 'recon:bin_leak(10).'
+
+rabbitmqctl eval '[garbage_collect(P) || P &lt;- processes()].'</code></pre></div></div>
+<h3 id="breakdown-ets-tables">Other ETS tables</h3>
+<p>Other in-memory tables besides those belonging to the stats database
+and internal database tables.</p>
+<h3 id="breakdown-code">Code</h3>
+<p>Memory used by code (bytecode, module metadata). This
+section is usually fairly constant and relatively small
+(unless the node is entirely blank and stores no data).</p>
+<h3 id="breakdown-atoms">Atoms</h3>
+<p>Memory used by atoms. Should be fairly constant.</p>
+<h3 id="breakdown-top">Per-process Analysis with rabbitmq-top</h3>
+<p><a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_top">rabbitmq-top</a> is a plugin that helps
+identify runtime processes ("lightweight threads") that consume most memory or scheduler (CPU)
+time.</p>
+<p>The plugin ships with RabbitMQ. Enable it with</p>
+<div><div><pre><code class="language-bash">[sudo] rabbitmq-plugins enable rabbitmq_top</code></pre></div></div>
+<p>The plugin adds new administrative tabs to the <a href="/docs/4.3/management">management UI</a>. One
+tab displays top processes by one of the metrics:</p>
+<ul>
+<li>Memory used</li>
+<li>Reductions (unit of scheduler/CPU consumption)</li>
+<li>Erlang mailbox length</li>
+<li>For <code>gen_server2</code> processes, internal operation buffer length</li>
+</ul>
+<figure><p><img alt="Top processes in rabbitmq-top" src="/assets/images/rabbitmq-top-processes-aec14cd31ebaec3eba751f76293689da.png"/></p></figure>
+<p>Second tab displays ETS (internal key/value store) tables. The tables can be sorted by
+the amount of memory used or number of rows:</p>
+<figure><p><img alt="Top ETS tables in rabbitmq-top" src="/assets/images/rabbitmq-top-ets-tables-32090274f28447deff78ca154d4cf940.jpg"/></p></figure>
+<h2 id="preallocated-memory">Preallocated Memory</h2>
+<p>Erlang memory breakdown reports only memory is currently being used, and not
+the memory that has been allocated for later use or reserved by the operating system.
+OS tools like <code>ps</code> can report more memory used than the runtime.</p>
+<p>This memory consists of allocated but not used,
+as well as unallocated but reserved by the OS. Both values depend on the OS and Erlang VM allocator
+settings and can fluctuate significantly.</p>
+<p>How the value in both sections is computed depend on the <code>vm_memory_calculation_strategy</code> setting.
+If the strategy is set to <code>erlang</code>, unused
+memory will not be reported.
+If memory calculation strategy is set to <code>allocated</code>, memory
+reserved by OS will not be reported. Therefore <code>rss</code> is the strategy
+that provides most information from both the kernel and the runtime.</p>
+<p>When a node reports a large amount of allocated but unused memory on a long running node, it may be
+an indicator of runtime memory fragmentation. A different set of allocator settings can reduce fragmentation
+and increase the percentage of efficiently used memory. The right set of settings depends on
+the workload and message payload size distribution.</p>
+<p>Runtime's memory allocator behavior can be tuned, please refer to the <a href="/docs/4.3/runtime#allocators">Runtime guide</a>,
+<a href="http://erlang.org/doc/man/erl.html">erl</a> and
+<a href="http://erlang.org/doc/man/erts_alloc.html">erts_alloc</a>
+documentation.</p>
+<h2 id="page-cache">Kernel Page Cache</h2>
+<p>Besides the memory allocated and used directly by a RabbitMQ node, files read by that node
+can be cached by the operating system. This cache improves I/O operation efficiency and is
+evicted (cleared) when the OS detects that a high percentage of available memory is in used.</p>
+<p>Workloads that use <a href="/docs/4.3/streams">RabbitMQ streams</a> often lead to large kernel page cache size,
+in particular when consumers access messages that span days or weeks.</p>
+<div class="admonition important"><div class="admonition-title">important</div><div><p>Some monitoring tools do not include the size of page cache into process monitoring metrics. Others
+add it to the residential set size (RSS)
+footprint of the process. This can lead to confusion: the <strong>page cache is not maintained or controlled
+by RabbitMQ nodes. It is maintained, controlled and evicted (cleared) by the operating system kernel</strong>.</p></div></div>
+<p>This is particularly <a href="https://github.com/kubernetes/kubernetes/issues/43916">common in Kubernetes-based</a> deployments
+<a href="https://kubernetes.io/blog/2022/08/31/cgroupv2-ga-1-25/">that do not use cgroup v2</a>) and run RabbitMQ
+using container images based on <a href="https://kubernetes.io/blog/2022/08/31/cgroupv2-ga-1-25/#how-do-you-use-cgroup-v2">older distributions</a> that use cgroups v1.</p>
+<p>Kubernetes 1.25.0 (or later) and the following distributions are highly recommended as they
+use a more reasonable approach to kernel page cache memory accounting:</p>
+<ul>
+<li>CentOS Stream 9 or later</li>
+<li>Fedora 31 or later</li>
+<li>Ubuntu 21.10 or later</li>
+<li>Debian 11 Bullseye or later</li>
+</ul>
+<p>Red Hat OpenShift versions starting with 4.12 are based on Kubernetes 1.25 (or later versions).</p>
+<h3 id="what-does-a-large-page-cache-size-tell-us-about-a-workload">What Does a Large Page Cache Size Tell Us About a Workload?</h3>
+<p>Usually a large page cache size simply indicates that the workload is I/O heavy and likely uses streams
+with large data sets. It does not indicate a memory leak by the node: the cache will be cleared
+by the kernel when it detects that the system runs low on available memory.</p>
+<h3 id="inspecting-page-cache-without-containerization-in-virtual-or-physical-machines">Inspecting Page Cache without Containerization (in Virtual or Physical Machines)</h3>
+<p>In non-containerized environments (e.g. RabbitMQ nodes run in virtual machines or on bare metal hardware),
+use</p>
+<div><div><pre><code class="language-bash">cat /proc/meminfo | grep -we "Cached"</code></pre></div></div>
+<p>to inspect the size of the kernel page cache.</p>
+<h3 id="inspecting-page-cache-size-in-containerized-environments">Inspecting Page Cache Size in Containerized Environments</h3>
+<p>In containerized environments such as Kubernetes, the following two <code>/sys</code> pseudo filesystem
+paths can be used to inspect both RSS and page cache footprint:</p>
+<div><div><pre><code class="language-bash">cat /sys/fs/cgroup/memory/memory.stat
+cat /sys/fs/cgroup/memory/memory.usage_in_bytes</code></pre></div></div>
+<p>The two key metrics are named <code>rss</code> (for resident set size) and <code>cache</code> (for page cache).</p>
+<h2 id="memory-breakdown-and-monitoring">Memory Use Monitoring</h2>
+<p>It is recommended that production systems monitor memory usage of all cluster nodes,
+ideally with a breakdown, together with <a href="/docs/4.3/monitoring">infrastructure-level metrics</a>.
+By correlating breakdown categories with other metrics, e.g. the number of concurrent
+connections or enqueued messages, it becomes possible to detect problems that
+stem from an application-specific behavior (e.g. connection leaks or ever growing queues without consumers).</p>
+<h2 id="queue-memory">Queue Memory</h2>
+<h3 id="message-memory-usage">How much memory does a message use?</h3>
+<p>A message has multiple parts that use up memory:</p>
+<ul>
+<li>Payload: &gt;= 1 byte, variable size, typically few hundred bytes to a few hundred kilobytes</li>
+<li>Protocol attributes: &gt;= 0 bytes, variable size, contains headers, priority, timestamp, reply to, etc.</li>
+<li>RabbitMQ metadata: &gt;= 720 bytes, variable size, contains exchange, routing keys, message properties, persistence, redelivery status, etc.</li>
+<li>RabbitMQ message ordering structure: 16 bytes</li>
+</ul>
+<p>Messages with a 1KB payload will use up 2KB of memory once attributes and metadata is factored in.</p>
+<p>Some messages can be stored on disk, but still have their metadata kept in memory.</p>
+<h3 id="queue-memory-usage">How much memory does a queue use?</h3>
+<p>A message has multiple parts that use up memory. Every queue is backed by an Erlang process.
+If a queue is replicated, each replica is a separate Erlang process running on separate cluster nodes.</p>
+<p>Since every replica of a queue, whether leader or follower, is a single Erlang process, message ordering can be guaranteed.
+Multiple queues means multiple Erlang processes which get an even amount of CPU time.
+This ensures that no queue can block other queues.</p>
+<p>The memory use of a single queue can be obtained via the HTTP API:</p>
+<div><div><pre><code class="language-json">curl -s -u guest:guest http://127.0.0.1:15672/api/queues/%2f/queue-name |
+  python -m json.tool
+
+{
+    ..
+    "memory": 97921904,
+    ...
+    "message_bytes_ram": 2153429941,
+    ...
+}</code></pre></div></div>
+<ul>
+<li><code>memory</code>: memory used by the queue process, accounts for message metadata (at least 720 bytes per message), does not account for message payloads over 64 bytes</li>
+<li><code>message_bytes_ram</code>: memory used by the message payloads, regardless of the size</li>
+</ul>
+<p>If messages are small, message metadata can use more memory than the message payload.
+10,000 messages with 1 byte of payload will use 10KB of <code>message_bytes_ram</code> (payload) and 7MB of <code>memory</code> (metadata).</p>
+<p>If message payloads are large, they will not be reflected in the queue process memory.
+10,000 messages with 100 KB of payload will use 976MB of <code>message_bytes_ram</code> (payload) and 7MB of <code>memory</code> (metadata).</p>
+<h3 id="queue-memory-usage-dynamics">Why does the queue memory grow and shrink when publishing/consuming?</h3>
+<p>Erlang uses <a href="https://www.erlang-solutions.com/blog/erlang-garbage-collector/">generational garbage collection</a> for each Erlang process.
+Garbage collection is done per queue, independently of all other Erlang processes.</p>
+<p>When garbage collection runs, it will copy used process memory before deallocating unused memory.
+This can lead to the queue process using up to twice as much memory during garbage collection, as shown here (queue contains a lot of messages):</p>
+<figure><p><img alt="Queue under load memory usage" src="/assets/images/queue-memory-usage-spikes-6a3ddad305ee118dee9e9ddaa149c8da.png"/></p></figure>
+<h3 id="queue-memory-usage-gc">Is queue memory growth during garbage collection a concern?</h3>
+<p>If Erlang VM tries to allocate more memory than is available, the VM itself will either crash or be killed by the OOM killer.
+When the Erlang VM crashes, RabbitMQ will lose all non-persistent data.</p>
+<p>Garbage collection can briefly double the memory used by a queue. However, given that:</p>
+<ul>
+<li>the garbage collection process is performed on different queues at different times</li>
+<li>and given that in modern RabbitMQ versions, all types of queues (classic, quorum, streams)
+either don't store messages in memory at all or store only a limited amount of messages in memory</li>
+</ul>
+<p>a significant spike in overall RabbitMQ node memory usage caused by the garbage collection process is very unlikely.</p>
+<h2 id="strategies">Total Memory Use Calculation Strategies</h2>
+<p>RabbitMQ can use different strategies to compute how much memory a node uses.
+Historically, nodes obtained this information from the runtime, reporting how much
+memory is used (not just allocated). This strategy, known as <code>legacy</code> (alias for <code>erlang</code>) tends to
+underreport and is not recommended.</p>
+<p>Effective strategy is configured using the <code>vm_memory_calculation_strategy</code> key.
+There are two primary options:</p>
+<ul>
+<li>
+<p><code>rss</code> uses OS-specific means of querying the kernel to find
+RSS (Resident Set Size) value of the node OS process. This strategy is most precise
+and used by default on Linux, MacOS, BSD and Solaris systems. When
+this strategy is used, RabbitMQ runs short lived subprocesses once a second.</p>
+</li>
+<li>
+<p><code>allocated</code> is a strategy that queries runtime memory allocator
+information. It is usually quite close to the values reported by the <code>rss</code>
+strategy. This strategy is used by default on Windows.</p>
+</li>
+</ul>
+<p>The <code>vm_memory_calculation_strategy</code> setting also impacts
+memory breakdown reporting. If set to <code>legacy</code> (<code>erlang</code>) or <code>allocated</code>,
+some memory breakdown fields will not be reported. This is covered in more detail
+further in this guide.</p>
+<p>The following configuration example uses the <code>rss</code> strategy:</p>
+<div><div><pre><code class="language-ini">vm_memory_calculation_strategy = rss</code></pre></div></div>
+<p>Similarly, for the <code>allocated</code> strategy, use:</p>
+<div><div><pre><code class="language-ini">vm_memory_calculation_strategy = allocated</code></pre></div></div>
+<p>To find out what strategy a node uses, see its <a href="/docs/4.3/configure">effective configuration</a>.</p></main>

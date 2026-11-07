@@ -1,0 +1,711 @@
+<main><header><h1>RabbitMQ vs. Apache Kafka®</h1></header>
+<p>Most existing comparisons of these two systems were written years ago by someone who sells one of them.
+This one is written by the team that builds RabbitMQ, so bear that in mind — but we have tried hard to describe Kafka the
+way its own documentation describes it, and we are explicit about the things Kafka does that
+RabbitMQ does not. If anything here reads as unfair to you, we would genuinely like
+to know — <a href="https://github.com/rabbitmq/rabbitmq-website/discussions">tell us</a>.</p>
+<p>The short version: the two systems started from opposite ends of the problem and have
+been growing towards each other for years. RabbitMQ built its reputation as the
+default choice for messaging and task queueing; Kafka built its reputation as the
+default choice for event streaming. RabbitMQ then gained a durable, replicated log in
+2021, and Kafka gained queue semantics in 2026. Their high-level capabilities now overlap
+substantially.</p>
+<p>If you are looking for a high-level summary and want to skip the technical details, you can <a href="#use-cases">jump directly to the use cases</a>.</p>
+<h2 id="the-old-line">The line that used to divide them</h2>
+<p>For a long time the advice was easy to give:</p>
+<blockquote>
+<p>RabbitMQ for messaging and queueing, Kafka for streaming.</p>
+</blockquote>
+<p>It was good advice. It is now out of date on both sides.</p>
+<p><strong>RabbitMQ has had a real log since 3.9 (2021).</strong> <a href="/docs/4.3/streams">Streams</a> are an
+append-only, replicated, disk-based log with non-destructive reads, offset-based
+positioning, retention policies and a <a href="https://github.com/rabbitmq/rabbitmq-server/blob/main/deps/rabbitmq_stream/docs/PROTOCOL.adoc">dedicated protocol</a>
+built for throughput. RabbitMQ 3.11 (2022) added <a href="/docs/4.3/streams#super-streams">super streams</a>
+— partitioned streams — along with <a href="/docs/4.3/streams#single-active-consumer">single active consumer</a>, giving ordered,
+partition-parallel consumption. Streams have been a mature, widely deployed feature for
+several release series, not a recent bolt-on. This is not a queue wearing a log costume;
+it is a log, designed as one, with the same mechanical sympathies that make Kafka fast.</p>
+<p><strong>Kafka has had queue semantics since 4.2 (2026).</strong>
+<a href="https://cwiki.apache.org/confluence/x/4hA0Dw">KIP-932 "Queues for Kafka"</a> introduced
+<em>share groups</em>, production-ready as of Kafka 4.2. Share consumers acquire individual
+messages under a time-limited lock, acknowledge them one at a time, and can outnumber
+the partitions they read from. Kafka's own documentation is refreshingly direct about
+why this was needed: <em>"some traditional messaging workloads are not a good fit for
+consumer groups."</em></p>
+<p>The idea had been circulating for years. In April 2020 the RabbitMQ team sketched its own
+design for <a href="https://github.com/rabbitmq/osiris/issues/2">competing readers over a stream</a> —
+strikingly close in shape to share groups in Kafka, four years before KIP-932 was filed. We claim no
+influence; the log imposes similar constraints on everyone who builds this.</p>
+<p>So the honest framing is not "log versus queue". It is: two mature systems, each of
+which now does both things, each still carrying the assumptions of where it started.
+Kafka's queue semantics are a consumption mode layered on a log. RabbitMQ's queue is a queue,
+and RabbitMQ's log is a log.</p>
+<h2 id="two-models">Two models, side by side</h2>
+<h3 id="rabbitmq-model">How RabbitMQ organises data</h3>
+<p>RabbitMQ splits the problem in two. Publishers send to an <a href="/docs/4.3/exchanges">exchange</a>.
+<a href="/docs/4.3/exchanges#what-are-bindings">Bindings</a> — rules attached to the exchange — decide which queues
+or streams receive a copy.
+Exchanges and bindings are just metadata living inside RabbitMQ that decide on the routing algorithm and therefore define the routing and messaging topology.</p>
+<!-- -->
+<p>Behind the exchange you choose a <a href="/docs/4.3/queues">queue type</a>. Queue types are genuinely
+different data structures storing your messages:</p>
+<table><thead><tr><th>Type</th><th>Storage</th><th>Reads</th><th>Best at</th></tr></thead><tbody><tr><td><a href="/docs/4.3/quorum-queues">Quorum queue</a></td><td>Raft-replicated log, <a href="https://man7.org/linux/man-pages/man2/fsync.2.html">fsync</a>ed before confirm</td><td>Destructive</td><td>Work distribution where data safety and high availability matters</td></tr><tr><td><a href="/docs/4.3/classic-queues">Classic queue</a></td><td>Local, per-message persistence</td><td>Destructive</td><td>Transient, high-churn, single-node queues</td></tr><tr><td><a href="/docs/4.3/streams">Stream</a></td><td>Replicated append-only log</td><td>Non-destructive</td><td>Fan-out, replay, large backlogs, high throughput</td></tr><tr><td><a href="/blog/2026/04/23/rabbitmq-4.3-release#jms-queue-type">JMS queue</a> <em>(VMware Tanzu RabbitMQ)</em></td><td>Raft-replicated log, fsynced before confirm</td><td>Destructive or non-destructive</td><td><a href="https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/package-summary">JMS</a> applications needing <a href="/blog/2026/04/23/rabbitmq-4.3-release#jms-message-selectors">selectors</a> or <a href="/blog/2026/04/23/rabbitmq-4.3-release#queue-browser">queue browsers</a></td></tr><tr><td><a href="/docs/4.3/mqtt#qos0-queue-type">MQTT QoS 0 queue</a></td><td>None</td><td>Destructive</td><td>Low-latency fire-and-forget fanouts to <a href="https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#_Toc3901103">MQTT QoS 0</a> subscribers</td></tr></tbody></table>
+<p>A single RabbitMQ cluster runs all of these at once.</p>
+<h3 id="rabbitmq-stream-model">How RabbitMQ streams organise data</h3>
+<p>Streams deserve their own picture, because this is where the comparison with Kafka is
+closest — and where readers coming from Kafka usually want a mapping.</p>
+<p>A <strong><a href="/docs/4.3/streams#super-streams">super stream</a></strong> is a logical stream partitioned into individual <strong>streams</strong>. Roughly:
+a super stream corresponds to a Kafka topic, and a stream to one of its partitions.
+The mapping is not exact, and the difference is worth understanding: a RabbitMQ stream
+is a first-class, individually named object that exists on its own, whereas a Kafka
+partition is a subordinate of a topic and has no independent identity. You can create,
+bind, and consume a single RabbitMQ stream without any super stream in sight.</p>
+<!-- -->
+<p>Two things in that diagram are worth calling out.</p>
+<p><strong>Stream protocol publishers write straight to the stream.</strong> A client using the
+<a href="https://github.com/rabbitmq/rabbitmq-server/blob/main/deps/rabbitmq_stream/docs/PROTOCOL.adoc">RabbitMQ Stream protocol</a> discovers which node hosts the stream leader
+and publishes to it directly, with no exchange and no routing step in the path — the
+same shape as a Kafka producer writing to a partition leader, and for the same
+performance reason.</p>
+<p><strong>Everything else can still use the exchange.</strong> A stream is also integrated as an ordinary "queue" type, so a device publishing over MQTT, a microservice publishing over AMQP 1.0, and
+a legacy application publishing over AMQP 0-9-1 can all land messages in the same
+stream by way of a binding. You get the log's throughput without forcing every producer
+in your estate onto one protocol. Kafka has no equivalent: to write to a Kafka topic,
+you have to speak the Kafka protocol.</p>
+<table><thead><tr><th>Kafka</th><th>RabbitMQ</th><th>Difference that matters</th></tr></thead><tbody><tr><td>Topic</td><td>Super stream</td><td>A super stream is a logical grouping of real, independently usable streams</td></tr><tr><td>Partition</td><td>Stream</td><td>A stream is a first-class named object; a partition is not</td></tr><tr><td>Offset</td><td>Offset</td><td>Broker-side <a href="/docs/4.3/streams#offset-tracking">offset tracking</a> in both</td></tr><tr><td>Record batch</td><td><a href="/docs/4.3/stream-filtering#on-disk-stream-layout">Chunk</a></td><td>Same idea, same purpose: amortise everything</td></tr><tr><td>Consumer group</td><td><a href="/docs/4.3/streams#single-active-consumer">Single active consumer</a> per partition</td><td>Same ordered, partition-parallel consumption</td></tr><tr><td>Producer to partition leader</td><td>Stream protocol client to stream leader</td><td>Same; RabbitMQ <em>also</em> accepts writes via exchanges from other protocols</td></tr></tbody></table>
+<h3 id="kafka-model">How Kafka organises data</h3>
+<p>A Kafka <strong>topic</strong> is split into <strong>partitions</strong>. A partition is an ordered, immutable
+sequence of messages on disk. Producers append to the end; each message gets a
+monotonically increasing <strong>offset</strong>. Messages with the same key land in the same
+partition, which is how Kafka gives ordering guarantees for related events. Consumers
+track their position by offset and can rewind or replay at will.</p>
+<!-- -->
+<p>Routing happens in the producer: the client picks the partition, usually by hashing a
+key. The broker does not inspect the message. Consumption parallelism in a <strong>consumer
+group</strong> is bounded by the partition count, because each partition goes to at most one
+consumer in the group. <strong>Share groups</strong> lift that bound — that is largely what they
+exist for.</p>
+<p>This is an excellent design for a log, and it is why Kafka is so hard to beat at
+replaying terabytes of history.</p>
+<h2 id="where-they-agree">Where the two designs agree: streaming</h2>
+<p>This section exists because comparisons usually skip it, and skipping it produces a
+wrong mental model. RabbitMQ streams and Kafka partitions solve the same problem in
+strikingly similar ways.</p>
+<p><strong>Batching as the unit of work.</strong> Kafka's <a href="https://kafka.apache.org/43/design/design/">design document</a> explains that its protocol is
+built around a <em>"message set"</em> abstraction so that network requests can group messages
+together: <em>"The server in turn appends chunks of messages to its log in one go, and the
+consumer fetches large linear chunks at a time."</em> RabbitMQ streams use exactly this
+approach: a <a href="/docs/4.3/stream-filtering#on-disk-stream-layout">stream segment</a> is made of <strong>chunks</strong>,
+and a chunk is made of messages. Both systems also support <a href="/docs/4.3/stream-core-plugin-comparison#stream-clients-sub-entry-batching-compression-options">compressing</a> a batch once
+rather than each message individually — RabbitMQ calls these sub-entry batches.</p>
+<p><strong>One binary format from producer to disk to consumer.</strong> Kafka standardised its message
+format across producer, broker and consumer so data moves between them without
+re-encoding. RabbitMQ streams do the same, using the
+<a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#section-message-format">AMQP 1.0 message format</a> as both the on-disk and on-wire representation.</p>
+<p><strong>Zero-copy reads.</strong> Because the on-disk format is the on-wire format, both brokers hand
+a region of a log file straight to a socket with the <a href="https://man7.org/linux/man-pages/man2/sendfile.2.html">sendfile</a> system call, skipping
+several copies through user space. Both lose that optimisation under TLS.</p>
+<p><strong>Page cache over heap.</strong> Neither broker keeps the log in its own process memory. Both
+write to the filesystem and let the operating system's page cache do what it is good
+at. A caught-up consumer is served from RAM without reading from disk.</p>
+<p><strong>Publisher-side deduplication.</strong> Kafka's idempotent producer assigns each producer an
+ID and deduplicates using a sequence number, so a retry after an ambiguous failure does
+not create a duplicate entry in the log. RabbitMQ streams offer
+<a href="/docs/4.3/streams#deduplication-published-messages">the same guarantee</a> through named
+producers and publishing IDs.</p>
+<p><strong>Raft for cluster metadata.</strong> Kafka replaced ZooKeeper with <a href="https://kafka.apache.org/43/operations/kraft/">KRaft</a>. RabbitMQ replaced
+Mnesia with <a href="/docs/4.3/metadata-store#khepri">Khepri</a>, likewise built on Raft.
+Both projects concluded independently that cluster metadata deserves a real consensus protocol.</p>
+<p>If you have internalised how Kafka achieves its throughput, you already understand how
+RabbitMQ streams achieve theirs.</p>
+<h2 id="where-they-differ">Where the two designs differ: queueing</h2>
+<p>With the shared design philosophies of streaming in mind, let's take a look at how RabbitMQ and Kafka diverge around queuing.</p>
+<h3 id="rabbitmq-messages-are-independent-items-of-work">RabbitMQ messages are independent items of work</h3>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>In Kafka, a message is a position in a shared log. In RabbitMQ, a message is an independent item of work.</p></div></div>
+<p>That does not mean Kafka only tracks an offset: share
+groups durably track a delivery state and a delivery count for every message.</p>
+<p>It also does not mean RabbitMQ reads your payload.
+For performance reasons a message body is opaque bytes to
+RabbitMQ exactly as it is to Kafka. What RabbitMQ parses is the message envelope:
+<a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#type-header">headers</a>,
+<a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#type-message-annotations">annotations</a>
+and <a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#type-properties">properties</a>,
+which is what makes broker-side <a href="/tutorials/tutorial-four-java">routing</a>,
+<a href="/docs/4.3/stream-filtering">filtering</a>, <a href="/docs/4.3/ttl">TTL</a>,
+<a href="/docs/4.3/quorum-queues#priorities">priorities</a>, and scheduled delivery possible.</p>
+<p>What it does mean is <strong>coupling</strong>. A Kafka message's fate is tied to its neighbours'. Its
+position in the log is fixed, a share group's progress is anchored at a start offset that
+advances only once every earlier message has reached a terminal state, and the bytes stay
+on disk until the topic's retention policy removes them. A RabbitMQ message has none of
+those ties: it can be held back, rescheduled, rerouted, or deleted on its
+own, without reference to the messages around it.</p>
+<h3 id="raft-per-message">Quorum Queues use Raft all the way down to the individual message</h3>
+<p>A <a href="/docs/4.3/quorum-queues">quorum queue</a> is a replicated state machine built on
+<a href="https://raft.github.io/">Raft</a>. Distributed consensus is about getting different nodes to agree
+on a value, and in Raft that value is an ordered log of operations. Kafka uses Raft
+for cluster metadata. RabbitMQ uses it for that <em>and</em> for the queue itself.</p>
+<p>The operations in a quorum queue's Raft log are individual, per-message events:</p>
+<ul>
+<li><em>enqueue this message</em></li>
+<li><em>this consumer granted credit — assign messages</em></li>
+<li><em>that message was acknowledged — delete it</em></li>
+<li><em>that message was rejected — dead-letter it</em></li>
+<li><em>message processing failed — increase the delivery count and re-queue</em></li>
+<li><em>hold that message until 14:32:10</em></li>
+</ul>
+<p>Each one is replicated to a majority of members and flushed to disk before it takes
+effect, which means <strong>delivery state in RabbitMQ is as durable as the message itself</strong>.</p>
+<p>That has a concrete payoff during failures. If the node hosting a quorum queue leader
+dies, the new leader resumes with exactly the same view: which messages were acquired
+by which consumer, how many attempts each has had, and which were parked or scheduled for
+later. Consumers pick up where they left off. In Kafka, the delivery state and counter are
+durable, but the <em>acquisition</em> — which consumer currently holds a message — is state in the
+share-partition leader's memory. A leader change therefore returns in-flight messages to
+<code>Available</code> to be delivered again. That is correct at-least-once behaviour, and for most
+workloads it is fine; however, it does mean a Kafka broker failover produces a burst of redeliveries,
+which matters if the work is expensive to repeat.</p>
+<h3 id="per-message-toolkit">The RabbitMQ per-message toolkit</h3>
+<p>This is where Kafka is lacking features that RabbitMQ provides. None of these are niche; they are the
+day-to-day mechanics of running work through a queue reliably. Each one needs the broker
+to make a decision about one message independently of the rest.</p>
+<p><strong><a href="/docs/4.3/quorum-queues#delayed-retry">Delayed retry</a>.</strong> A quorum queue sets a failed
+message aside and makes it available again after a backoff derived from its <a href="/docs/4.3/quorum-queues#when-is-delivery-count-incremented">delivery count</a>.
+A consumer can override that per message with an exact <a href="/docs/4.3/quorum-queues#explicit-delivery-time">timestamp</a> — so when a
+downstream API rate-limits <em>one</em> tenant with a <code>Retry-After</code> header, that single message is
+rescheduled for precisely when the API is ready while everyone else's work continues at
+full speed.</p>
+<p><strong><a href="/docs/4.3/ttl">Message TTL</a>.</strong> Individual messages can have distinct TTLs expiring on their own schedule.</p>
+<p><strong><a href="/docs/4.3/quorum-queues#priorities">32 strict priority levels</a>.</strong> An urgent message
+overtakes the backlog.</p>
+<p><strong><a href="/docs/4.3/dlx">Dead-letter routing</a>.</strong> A rejected message is re-routed <em>through an
+exchange</em>, so the failure path has the same routing power as the success path: different
+failure categories to different queues, owned by different teams.</p>
+<p><strong><a href="/blog/2024/10/11/modified-outcome">The modified outcome</a>.</strong> A consumer can
+add or change <a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#type-message-annotations">message annotations</a> <em>on the way back</em> — recording why it failed, when, and
+on which consumer. The next consumer to receive the message sees them. Better still, when
+dead-lettering to a <a href="/tutorials/amqp-concepts#exchange-headers">headers exchange</a>, those annotations drive the routing, so the consumer
+can effectively choose which dead-letter queue its failure lands in: one queue for
+transient faults worth retrying, another for business-logic errors a human must inspect,
+another for unknown schemas.</p>
+<p><strong><a href="/docs/4.3/quorum-queues#poison-message-handling">Poison message handling</a>.</strong> A message that
+keeps failing is dead-lettered instead of looping forever.</p>
+<p><strong><a href="/docs/4.3/quorum-queues#consumer-timeout">Consumer timeouts</a>.</strong> A stuck consumer's messages
+are returned and handed to a healthy one.</p>
+<p><strong><a href="/docs/4.3/consumers#single-active-consumer">Single active consumer</a> and
+<a href="/docs/4.3/consumer-priority">consumer priorities</a>.</strong> Control over <em>which</em> consumer gets the
+next message, including hot-standby patterns.</p>
+<p><strong><a href="/docs/4.3/message-interceptors">Message interceptors</a>.</strong> RabbitMQ can run your custom logic on every message — stamping, validating, annotating.</p>
+<p><strong>Disk that tracks your backlog.</strong> An acknowledged message is deleted and its space
+eventually reclaimed, so a queue converges towards empty. A Kafka partition's disk usage tracks your
+retention window instead: completed work is still stored, and still costs money, until
+retention expires.</p>
+<h3 id="share-groups">What Kafka share groups do and do not change</h3>
+<p>Share groups close a real gap. It is worth being precise about what they do, because the marketing around them is not.</p>
+<p>They <strong>do</strong> give you: many consumers per partition, per-message acknowledgement, durable
+per-message delivery counting with a configurable limit, a 30-second default acquisition
+lock released automatically if a consumer dies, and explicit <code>release</code> / <code>reject</code> / <code>renew</code>
+delivery states. If your requirement is <em>"spread work items across a variable pool of consumers
+and retry the failures"</em>, that is now a thing Kafka can do.</p>
+<p>What Kafka share groups do not change is the storage layer underneath:</p>
+<ul>
+<li>
+<p><strong>Acknowledging does not delete.</strong> The message stays in the partition until retention
+removes it, so you size disk for your retention window rather than your backlog.</p>
+</li>
+<li>
+<p><strong>No per-message TTL, priorities, delayed retries, or consumer-annotated returns.</strong></p>
+</li>
+<li>
+<p><strong>No dead-letter routing.</strong> Rejecting archives the message for that share group; where it
+should go and how it gets reprocessed is yours to build.</p>
+</li>
+<li>
+<p><strong>Head-of-line blocking is reduced, not eliminated.</strong> A share group's in-flight window runs
+from the share-partition start offset to the last offset fetched, and that whole span is
+capped — 2000 offsets by default (<code>share.partition.max.record.locks</code>). The start offset
+advances only once <em>every</em> earlier message has reached a terminal state, and messages above
+an unfinished one cannot leave the window even after they are acknowledged. So a single
+message that is still in flight — whether it keeps failing or is simply slow — pins the
+start offset while completed work piles up behind it, and once the span reaches the cap
+no further messages are fetched from that partition at all. The stall lasts
+as long as that one message stays unfinished. In RabbitMQ an unacknowledged message never
+blocks the delivery of another one: other consumers keep receiving work, and a problem
+message can be dead-lettered or delayed for retry.</p>
+</li>
+<li>
+<p><strong>Every read is served by the partition leader.</strong> A regular consumer can be steered to a
+nearby follower instead (<a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-392%3A+Allow+consumers+to+fetch+from+closest+replica">KIP-392</a>), if the operator configures
+<code>replica.selector.class</code> and the consumer sets <code>client.rack</code>. That KIP exists because
+reading from a distant leader is expensive:</p>
+<blockquote>
+<p>consumers are limited to fetching only from the leader, so there is no easy way to leverage locality in order to reduce expensive cross-dc traffic.</p>
+</blockquote>
+<p>Share groups do not get that escape hatch — the <code>ShareFetch</code> request
+carries no rack, its response carries no preferred read replica, and the broker always
+reads from the leader. In contrast, in RabbitMQ, a quorum queue
+<a href="/blog/2020/06/23/quorum-queues-local-delivery">delivers from whichever member is local to the consumer</a>, leader or follower, with nothing to
+configure. Quorum queue consumers therefore read from the node they are connected to, which spreads read
+load off the leader, and — for a cluster <a href="/docs/4.3/clustering#wan">stretched across data centers</a> — keeps the delivery
+path inside the local site.</p>
+</li>
+<li>
+<p><strong>No server-side filtering.</strong> Neither consumer groups nor share groups can express "only
+give me the messages I care about"; every consumer receives everything in its assigned
+partitions and discards what it does not want, paying full network and deserialisation
+cost for the privilege.</p>
+</li>
+<li>
+<p><strong>Records remain opaque to the broker.</strong> No interceptors, no broker-side selectors, no
+routing on content.</p>
+</li>
+</ul>
+<h2 id="durability">Durability: what "acknowledged" actually means</h2>
+<p>Martin Kleppmann writes in <em>Designing Data-Intensive Applications</em>:</p>
+<blockquote>
+<p>Perfect durability does not exist: if all your hard disks and all your backups are destroyed at the same time,
+there’s obviously nothing your database can do to save you. [...]
+In practice, there is no one technique that can provide absolute guarantees. There are
+only various risk-reduction techniques, including writing to disk, replicating to
+remote machines, and backups — and they can and should be used together.</p>
+</blockquote>
+<p>Therefore, a system's durability guarantee depends on which of these risk-reduction techniques are switched on.
+Both projects document their defaults clearly, so this comparison is easy to make fairly, and the difference is
+substantial.</p>
+<p><strong>Kafka relies on replication alone, by default.</strong> Its <a href="https://kafka.apache.org/43/operations/hardware-and-os/#application-vs-os-flush-management">documentation</a> is unambiguous:</p>
+<blockquote>
+<p>Note that durability in Kafka does not require syncing data to disk, as a failed node will always recover from its replicas.
+We recommend using the default flush settings which disable application fsync entirely.</p>
+</blockquote>
+<p>The per-topic <code>flush.messages</code> setting can force an fsync per message, but the <a href="https://kafka.apache.org/43/configuration/topic-configs/#topicconfigs_flush.messages">documentation</a> advises against it:</p>
+<blockquote>
+<p>In general we recommend you not set this and use replication for durability</p>
+</blockquote>
+<p>Be clear about what this means in practice. When a Kafka producer receives an
+acknowledgement with <code>acks=all</code>, the message is in the page cache of every in-sync
+replica. It is not necessarily on any physical disk. Kafka's default configuration does
+not flush the log itself. Instead, it relies on the operating system to write those pages to disk,
+meaning it can take several seconds by default before the data is physically stored.</p>
+<p>The durability guarantee therefore holds as long as failures are independent. One machine dying is
+survivable, because the others still have the data and will eventually flush it.</p>
+<div class="admonition warning"><div class="admonition-title">warning</div><div><p>If every in-sync replica in your on-prem data center loses power at once,
+then messages Kafka has already acknowledged to the publisher - but not yet fsynced - are lost.</p></div></div>
+<p>Kafka's design assumes hardware failures are independent, and a correlated power event is
+exactly what breaks that assumption. Spreading replicas across racks or availability
+zones makes it unlikely, and for most cloud deployments that is a perfectly reasonable
+trade — which is why it is the default.</p>
+<p>That mitigation assumes separate zones with independent power. Many on-premises and
+private-cloud deployments run from a single facility on a single utility feed, where no
+amount of rack- or software-level separation delivers that — so it is worth confirming
+with your infrastructure team whether your "zones" are genuinely on separate power before
+relying on it.</p>
+<p>For payments, orders, or anything with a legal or financial consequence, this should be a
+conscious decision rather than an inherited one.</p>
+<p><strong>RabbitMQ quorum queues do both, by default.</strong>
+A quorum queue issues a publisher confirm only once a majority of its Raft members have <em>written and
+flushed</em> the message to disk. Pull the power on the whole data centre and the confirmed
+messages are still there when it comes back. This is as durable as a practical system gets.</p>
+<p><strong>RabbitMQ streams make the same trade as Kafka, and we should say so.</strong>
+<a href="/docs/4.3/streams#data-safety">Streams do not explicitly fsync</a>; like Kafka, they rely on
+replication plus the operating system's writeback, and they carry the same
+correlated-failure exposure.</p>
+<p>What differs is having the choice at all. <strong>In Kafka, adopting queue semantics does not
+change the durability story</strong>: share groups consume from ordinary topics, so a work queue is
+stored exactly like an event stream and inherits the same page-cache exposure — with the
+discouraged <code>flush.messages</code>/<code>flush.ms</code> settings as the only levers. That matters because queueing
+workloads, such as orders, payments and jobs you must not drop, are usually the ones where
+durability matters most. In RabbitMQ you choose per destination: a stream where Kafka's trade
+is the right one, a quorum queue where it is not, in the same cluster.</p>
+<h3 id="fsync-cost">Why fsync per message is cheap in RabbitMQ and expensive in Kafka</h3>
+<p>Kafka's <a href="https://kafka.apache.org/43/operations/hardware-and-os/#application-vs-os-flush-management">documentation</a>
+gives two reasons for discouraging <code>flush.messages</code>:</p>
+<blockquote>
+<p>The drawback of using application level flush settings is that it is less efficient in its disk usage pattern (it gives the OS less leeway to re-order writes) and it can introduce latency as fsync in most Linux filesystems blocks writes to the file whereas the background flushing does much more granular page-level locking.</p>
+</blockquote>
+<p>Both points are true, and the architecture explains why they bite at scale.</p>
+<p>In Kafka, a log is <strong>per partition</strong>. The flush check sits in the append path, inside that
+partition's own append lock, and each flush syncs the segment plus its offset, time and
+transaction indexes. Nothing coordinates flushing across partitions, because there is nothing
+shared to coordinate on: every partition is its own directory of segment files. Enabling
+per-message fsync therefore costs a separate flush for every partition. This is not an
+oversight — Kafka's design treats replication as <em>the</em> durability mechanism, so the flush path
+was never meant to be a hot one.</p>
+<p>RabbitMQ starts from the opposite assumption, and its Raft library,
+<a href="https://github.com/rabbitmq/ra">Ra</a>, is explicitly a <strong>multi-Raft</strong> implementation: one node
+runs thousands of independent Raft clusters — one per quorum queue — and they <strong>share a single
+write-ahead log</strong> (WAL). The WAL is a batching server: it collects operations arriving from many
+different quorum queues, writes them to the shared WAL file in one write, calls fsync <strong>once</strong>,
+and only then notifies each queue that its entries are durable. Because every quorum
+queue appends to the same file, a single fsync makes writes durable for all of them at once, so
+the number of fsync calls tracks the batching cadence rather than the number of queues. In
+Kafka, where each partition has its own files, one fsync cannot cover many partitions however
+the calls are scheduled.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>RabbitMQ is designed for all three: many queues, data safety and throughput at the same time.
+With thousands of quorum queues, every message is replicated and written to physical storage before it is acknowledged.</p><p>Kafka's architecture cannot give you all three: pick at most two, and the one you give up is usually data safety.</p></div></div>
+<h3 id="disaster-recovery">Disaster recovery</h3>
+<p><a href="https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-rabbitmq-on-kubernetes/4-3/tanzu-rabbitmq-kubernetes/standby-replication.html">VMware Tanzu RabbitMQ</a> adds continuous schema and data replication to standby clusters in
+other data centres, so a site can be promoted after a disaster. Kafka's equivalent,
+MirrorMaker 2, ships with Apache Kafka and is built on Kafka Connect; richer
+multi-region capabilities come from commercial Kafka vendors.</p>
+<table><thead><tr><th></th><th>Replicated</th><th>fsynced before confirm</th><th>Survives a site-wide power loss</th><th>Cross-site standby</th></tr></thead><tbody><tr><td>Kafka topic — streaming and queue semantics</td><td>Yes</td><td>No, discouraged by default</td><td>No, acknowledged messages can be lost</td><td>MirrorMaker 2</td></tr><tr><td>RabbitMQ stream</td><td>Yes</td><td>No, same trade as Kafka</td><td>No, same exposure as Kafka</td><td><a href="https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-rabbitmq-on-kubernetes/4-3/tanzu-rabbitmq-kubernetes/standby-replication.html">Warm Standby Replication</a></td></tr><tr><td>RabbitMQ quorum queue</td><td>Yes</td><td>Yes</td><td>Yes</td><td><a href="https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-rabbitmq-on-kubernetes/4-3/tanzu-rabbitmq-kubernetes/standby-replication.html">Warm Standby Replication</a></td></tr></tbody></table>
+<h2 id="routing">Broker-side routing and filtering</h2>
+<p>In Kafka, routing is a producer-side concern: the client hashes a key to choose a
+partition, and consumers subscribe to whole topics. Anything more selective happens in
+the consuming application. Consumer groups and share groups have no filters — it is why
+"selective fan-out to interested parties" tends to turn into topic sprawl on Kafka.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>One of the main strengths of RabbitMQ is its powerful model consisting of <a href="/docs/4.3/exchanges">exchanges</a>, <a href="/docs/4.3/exchanges#what-are-bindings">bindings</a>, and <a href="/docs/4.3/queues">queues</a> enabling flexible broker-side routing.</p></div></div>
+<p>RabbitMQ puts routing in the broker, where it can be changed by clients dynamically at
+runtime without redeploying the client or broker.</p>
+<p><a href="/docs/4.3/exchanges">Exchanges</a> define the routing algorithm.
+RabbitMQ ships several built-in exchange types including <a href="/docs/4.3/exchanges#direct">direct</a>,
+<a href="/docs/4.3/exchanges#topic">topic</a> (supporting wildcard patterns like <code>orders.eu.*.priority</code>), <a href="/docs/4.3/exchanges#fanout">fanout</a>, <a href="/tutorials/amqp-concepts#exchange-headers">headers</a>, <a href="/docs/4.3/local-random-exchange">local random</a>,
+<a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_consistent_hash_exchange">consistent-hash</a> - and more.
+<a href="/docs/4.3/e2e">Exchange-to-exchange bindings</a> let you compose them into more complex topologies:
+For example, a JMS client subscribing to a <a href="https://jakarta.ee/specifications/messaging/3.1/jakarta-messaging-spec-3.1#topic-semantics">JMS topic</a> with a <a href="https://jakarta.ee/specifications/messaging/3.1/jakarta-messaging-spec-3.1#using-message-selection">JMS message selector</a> will create an exchange-to-exchange binding by using a topic exchange as the first filtering stage and the JMS message selector exchange as the second filtering stage.</p>
+<p>Exchange types are an extension point - you can develop and deploy your own custom exchange types.</p>
+<p>For streams, where consumers read a shared log rather than a private queue, RabbitMQ
+supports broker-side filtering too (<a href="/docs/4.3/stream-filtering">full details</a>):</p>
+<ol>
+<li><strong><a href="/docs/4.3/stream-filtering#stage-1-bloom-filter">Bloom filters</a></strong> let the broker skip whole chunks on disk without decoding them —
+very cheap, and very effective when a stream carries many logical sub-topics.</li>
+<li><strong><a href="/docs/4.3/stream-filtering#stage-2-amqp-filter-expressions">AMQP filter expressions</a></strong> match on specific
+message properties, and can be written as <a href="/blog/2025/09/23/sql-filter-expressions">SQL expressions</a>.</li>
+</ol>
+<p>The practical consequence: when you have thousands of distinct event kinds, Kafka pushes
+you towards more topics or more partitions, each with its own metadata, file handles and
+replication overhead. RabbitMQ lets you keep one stream and filter server-side, so
+consumers pay network cost only for messages they actually want.</p>
+<p>VMware Tanzu RabbitMQ extends the same idea to <a href="/blog/2026/04/23/rabbitmq-4.3-release#jms-queue-type">JMS queues</a> with <a href="/blog/2026/04/23/rabbitmq-4.3-release#jms-message-selectors">JMS message selectors</a>, evaluated on the broker.</p>
+<h3 id="routing-example">A worked example: <code>orders.#</code></h3>
+<p>Suppose a consumer wants every message about an order — any region, any priority. In
+RabbitMQ that is one binding to a <a href="/tutorials/tutorial-five-java">topic exchange</a> with the
+pattern <code>orders.#</code>, declared by the consumer at runtime. Publishers neither know nor care,
+and no existing consumer is affected.</p>
+<p>Kafka has no direct equivalent, because there is nothing for the pattern to match: the
+broker does not look at a message's key or headers when deciding what to deliver. There are
+three workarounds, and each costs something.</p>
+<ol>
+<li><strong>Split the data across many topics</strong> — <code>orders.eu.priority</code>, <code>orders.us.standard</code> and so
+on — then subscribe with a topic-<em>name</em> regex:
+<code>consumer.subscribe(Pattern.compile("orders\\..*"))</code>. This genuinely works and is the
+closest analogue. But the <em>producer</em> has to commit to the taxonomy at write time, every
+combination becomes a topic carrying its own partitions, files, metadata and replication
+overhead, and adding a dimension means creating a new generation of topic names. Note too
+that pattern subscription belongs to the regular consumer: <code>KafkaShareConsumer</code> accepts
+only an explicit list of topic names, so Kafka's queueing mode cannot subscribe by
+pattern at all.</li>
+<li><strong>One topic, filter in the consumer</strong> — straightforward, but every consumer fetches and
+deserialises every message in order to throw most of them away, paying the full network
+and CPU cost of the messages it does not want.</li>
+<li><strong>A stream processing job</strong> — read the topic, filter, write a derived topic. Correct and
+idiomatic, but it is another application to deploy and monitor, a second copy of the
+data on disk, and additional end-to-end latency.</li>
+</ol>
+<p>The underlying difference is <em>who decides</em>. In Kafka, selection happens at the topic level,
+and only there: the producer's choice of topic name fixes at write time what a consumer can
+subscribe to. In RabbitMQ, the consumer declares what it is interested in whenever it
+likes, and the broker does the matching.</p>
+<h2 id="protocols">Protocols and clients</h2>
+<p>Kafka has one wire protocol. It is well documented and widely implemented.
+It is not an independent or formal standard.
+However, it has become a "de facto" standard because other "Kafka-compatible" streaming platforms have emerged in recent years.
+The officially maintained client is the Java one.
+Some commercial vendors support additional Kafka clients.</p>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>RabbitMQ treats multi-protocol support as a feature: One broker for all your messaging use cases.
+Numerous clients in numerous languages are <a href="/client-libraries/devtools">officially supported</a>.</p></div></div>
+<table><thead><tr><th>Protocol</th><th>RabbitMQ</th><th>Apache Kafka</th></tr></thead><tbody><tr><td><a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-overview-v1.0-os.html">AMQP 1.0</a> (ISO/IEC and OASIS Standard)</td><td><a href="/blog/2024/08/05/native-amqp">Yes</a></td><td>No</td></tr><tr><td><a href="https://github.com/rabbitmq/amqp-0.9.1-spec/blob/main/docs/amqp-0-9-1-reference.md">AMQP 0-9-1</a></td><td>Yes</td><td>No</td></tr><tr><td>MQTT 3.1, <a href="https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html">3.1.1</a>, <a href="https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html">5.0</a> (ISO/IEC and OASIS Standard)</td><td><a href="/blog/2023/03/21/native-mqtt">Yes</a></td><td>No</td></tr><tr><td><a href="/docs/4.3/stomp">STOMP</a></td><td>Yes</td><td>No</td></tr><tr><td><a href="/docs/4.3/stream">RabbitMQ Stream protocol</a></td><td>Yes</td><td>No</td></tr><tr><td>Kafka protocol</td><td>No</td><td>Yes</td></tr><tr><td><a href="https://datatracker.ietf.org/doc/html/rfc6455">WebSocket</a> (IETF standard)</td><td>Yes: <a href="/blog/2025/04/16/amqp-websocket">AMQP 1.0 over WebSocket</a>, <a href="/docs/4.3/web-mqtt">MQTT over WebSocket</a>, and <a href="/docs/4.3/web-stomp">STOMP over WebSocket</a></td><td>External community proxies only</td></tr><tr><td><a href="https://jakarta.ee/specifications/messaging/3.1/jakarta-messaging-spec-3.1">JMS</a> (Java Message Service API)</td><td>Yes: supported in <a href="https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-rabbitmq-oci/4-3/tanzu-rabbitmq-oci-image/site-jms.html">VMware Tanzu RabbitMQ</a> over AMQP 1.0</td><td>No</td></tr><tr><td>HTTP</td><td><a href="/docs/4.3/management#http-api">Management HTTP API</a></td><td>Admin API; REST proxies are vendor products</td></tr></tbody></table>
+<p>In RabbitMQ, a message published over MQTT from an IoT device can be consumed over AMQP 1.0 by a backend service and
+read again from a stream over the RabbitMQ Stream Protocol by an analytics job. RabbitMQ handles the protocol
+<a href="/docs/4.3/conversions">conversions</a> transparently broker-side and documents them precisely.</p>
+<p>This matters most at the edges of an architecture. If you are terminating IoT traffic,
+serving browsers, or integrating a Java estate that speaks JMS, RabbitMQ does it in the
+broker you already run. With Kafka each of those is a separate component — an MQTT
+broker, a WebSocket proxy, a JMS bridge — to deploy, secure, and monitor.</p>
+<h2 id="security">Security</h2>
+<p>Both systems are enterprise-grade here, and neither should be a reason to rule the other
+out. The differences are in granularity and in what comes built in.</p>
+<table><thead><tr><th></th><th>RabbitMQ</th><th>Apache Kafka</th></tr></thead><tbody><tr><td>Transport encryption</td><td>TLS on every protocol, including inter-node</td><td>TLS on client and inter-broker listeners</td></tr><tr><td>Authentication</td><td><a href="https://datatracker.ietf.org/doc/html/rfc4422">SASL</a>: Username/password, mTLS, <a href="/docs/4.3/access-control#certificate-authentication">x.509 certificates</a>, <a href="/docs/4.3/ldap">LDAP</a>, <a href="/docs/4.3/oauth2">OAuth 2.0 / OIDC</a>, pluggable backends</td><td>SASL: GSSAPI (Kerberos), PLAIN, SCRAM-SHA-256/512, OAUTHBEARER; mTLS</td></tr><tr><td>Authorisation</td><td>Per-<a href="/docs/4.3/vhosts">vhost</a> and per-user <a href="/docs/4.3/access-control#authorisation">permissions</a> supporting regular expressions, <a href="/docs/4.3/access-control#topic-authorisation">topic authorisations</a>, <a href="/docs/4.3/access-control#authorisation">ACLs</a></td><td>ACLs per resource, prefixed ACLs</td></tr><tr><td>Tenant isolation</td><td><a href="/docs/4.3/vhosts">Virtual hosts</a>: namespaces with their own exchanges, queues, permissions and <a href="/docs/4.3/vhosts#limits">limits</a></td><td>Topic naming conventions plus prefixed ACLs plus quotas</td></tr><tr><td>Resource protection</td><td>Per-vhost and per-user connection, and queue <a href="/docs/4.3/limits">limits</a></td><td>Client and broker quotas, request rate throttling</td></tr><tr><td>Credential management</td><td>Management UI, HTTP API, CLI, definitions import/export</td><td>CLI, Admin API</td></tr></tbody></table>
+<p>Two things are worth drawing out. First, <strong>virtual hosts are a real boundary</strong>, not a
+convention: a user with access to the <code>payments</code> vhost cannot see, name, or collide with
+anything in <code>analytics</code>, and you can export and re-import a vhost's entire topology as a
+definitions file. Kafka's documented multi-tenancy approach is a hierarchical topic
+naming structure enforced by prefixed ACLs — workable, widely used, and rather more of a
+convention than a boundary. Second, <strong>topic authorisation lets RabbitMQ authorise on the
+routing key</strong>, so permissions can follow your event taxonomy in addition to your queue
+names.</p>
+<p><a href="/commercial-features">VMware Tanzu RabbitMQ</a> adds FIPS 140-2 compliance, <a href="https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-rabbitmq-on-kubernetes/4-3/tanzu-rabbitmq-kubernetes/audit-logger.html">audit logging</a> of internal events such as who deleted a
+queue, and continuous <a href="/security#security-advisories">CVE</a> scanning of both RabbitMQ and its dependencies.</p>
+<h2 id="performance">Performance</h2>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>Both systems can move more messages per second than the overwhelming majority of applications will ever produce.</p></div></div>
+<p><em>"RabbitMQ is slow"</em> is the most common misconception that exists in the marketplace.
+Let’s objectively review some numbers to see if this is indeed fact or fiction.</p>
+<ul>
+<li>A single <strong>quorum queue</strong> handles on the order of <a href="/blog/2024/08/21/amqp-benchmarks#summary-quorum-queues"><strong>80,000 messages per second</strong></a> — while replicating and fsyncing every one of them.</li>
+<li>A single <strong>classic queue</strong> handles on the order of <a href="/blog/2024/08/21/amqp-benchmarks#summary-classic-queues"><strong>100,000 messages per second</strong></a>.</li>
+<li>A single <strong>stream</strong> reads at <a href="/blog/2025/09/26/stream-delivery-optimization"><strong>several million messages per second</strong></a> when chunks are well filled.
+With sub-entry batching, the end-to-end throughput of one stream has been measured above <a href="https://youtu.be/GxdyQSUEj5U?si=I5e2F5KzIdhOR1lR&amp;t=1689"><strong>4 million messages per
+second</strong></a> and five streams above <strong>17 million messages per second</strong></li>
+</ul>
+<p>Throughput on a log is governed by how full the chunks are, in both systems. A stream
+fed one message at a time is slow for the same reason a Kafka partition fed one message
+at a time is slow. The <a href="/blog/2025/09/26/stream-delivery-optimization">Delivery Optimization blog post</a> shows a 20x
+difference between well-batched (high ingress) and poorly-batched (low ingress) streams.</p>
+<p>The <a href="https://github.com/ggreen/rabbit-vs-kafka-experiments">RabbitMQ vs. Kafka experiments</a> point the same way: for streaming,
+RabbitMQ Streams and Kafka land in the same ballpark on both throughput and latency. Neither
+has a structural speed advantage over the other here — expected, given how much of
+<a href="#where-they-agree">the underlying design the two share</a>.</p>
+<p>Treat any head-to-head benchmark you read elsewhere with that in mind. The two systems expose
+very different knobs — batch and chunk sizes, acks/confirms settings, replication factors,
+compression, disk and network setup — and a benchmark that tunes one side hard while leaving
+the other on defaults is comparing tuning effort, not what the systems are capable of.
+Always be sure to read and understand the configuration before the result.</p>
+<h2 id="operations">Operational considerations</h2>
+<p><strong>A management UI in the box.</strong> RabbitMQ ships a <a href="/docs/4.3/management">management plugin</a>
+with a web UI, an <a href="/docs/4.3/management#http-api">HTTP API</a> and the <a href="/docs/4.3/management-cli"><code>rabbitmqadmin</code></a> CLI — inspect
+queues, <a href="/docs/4.3/firehose">trace</a> messages, change <a href="/docs/4.3/policies">policies</a>, <a href="/docs/4.3/definitions">export and re-import</a> entire topologies. Apache
+Kafka ships CLI tools; web UIs are third-party or commercial. VMware Tanzu RabbitMQ adds a
+<a href="/blog/2026/04/23/rabbitmq-4.3-release#stream-browser">Stream Browser</a> for inspecting stream contents by offset or
+timestamp from the UI.</p>
+<p><strong>Windows.</strong> <a href="https://kafka.apache.org/43/operations/hardware-and-os/#os">Kafka's documentation says</a>:</p>
+<blockquote>
+<p>We have seen a few issues running on Windows and Windows is not currently a well supported platform.</p>
+</blockquote>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>RabbitMQ <a href="/docs/4.3/install-windows">supports Windows</a> as a first-class platform.</p></div></div>
+<p>Some organisations — often in finance, manufacturing, healthcare and the public sector — run
+their on-premises infrastructure under a Windows Server standard as a matter of policy.
+Where that policy applies, it decides the question before any other criterion is considered.</p>
+<p><strong>Kubernetes.</strong> RabbitMQ <a href="https://www.youtube.com/watch?v=GxdyQSUEj5U">runs on Kubernetes</a> and has official
+<a href="/kubernetes/operator/operator-overview">Kubernetes Operators</a> maintained by
+the RabbitMQ team. Kafka's most popular operator, Strimzi, is an excellent CNCF project,
+but it is not part of Apache Kafka.</p>
+<p><strong>Deployment surface.</strong> Both run on bare metal, VMs, containers, on-premises and in
+every major cloud, and both are offered as managed services by multiple vendors.</p>
+<h3 id="runtime">The runtime</h3>
+<p>Kafka is implemented in Java and runs on the Java Virtual Machine (JVM). RabbitMQ is
+implemented in Erlang and runs on the BEAM.</p>
+<p>The JVM is one of the great pieces of systems engineering: a superb JIT compiler,
+decades of optimisation, world-class profiling
+and debugging tooling, an enormous library ecosystem, and by far the largest talent pool of
+any managed runtime. For general-purpose server software it is an outstanding default, and
+Kafka's team has used it expertly.</p>
+<p>But a message broker is not general-purpose server software. It is <strong>critical
+infrastructure</strong>: when your broker stops, every application that depends on it stops with
+it. For infrastructure in that position, the property that matters more than any other is
+that <strong>it stays up</strong> — under load, under partial failure, under misbehaving clients, for
+years at a time. And for that, you do not want an excellent general-purpose runtime. You
+want a runtime built specifically for staying up.</p>
+<p>That is exactly what the BEAM is. The <a href="https://www.erlang.org/">Erlang/OTP</a> virtual machine
+— also the foundation of <a href="https://elixir-lang.org/">Elixir</a> — was built at Ericsson to run
+telephone switches that were not permitted to stop. Today it also features a highly effective JIT compiler, but more importantly, it gives RabbitMQ properties
+that matter enormously for a broker:</p>
+<ul>
+<li><strong>Fault isolation.</strong> Every connection, session and queue is its own lightweight <a href="https://www.erlang.org/doc/system/ref_man_processes.html">Erlang
+process</a> with its own heap, sharing no memory and communicating only by message passing —
+the actor model, with roots in Hoare's <a href="https://en.wikipedia.org/wiki/Communicating_sequential_processes">communicating sequential processes
+(CSP)</a>. When one process
+crashes, its supervisor restarts it in microseconds while everything else carries on
+undisturbed. A malformed frame from one badly-behaved client is a non-event, not an
+incident.</li>
+<li><strong>Scalability.</strong> Erlang processes are cheap to create and destroy, so a node can host
+<a href="/blog/2023/03/21/native-mqtt">millions</a> of them. One process per connection and per queue
+is not a design compromise; it is the natural unit.</li>
+<li><strong>Parallelism without locks.</strong> Give a RabbitMQ node more CPU cores and the work spreads
+across them: connection processes parsing frames, session processes routing, queue
+processes dispatching to consumers, writer processes serialising frames to the socket — all in
+parallel, with no application-level locking.</li>
+<li><strong>Garbage collection that stays local.</strong> The scheduler is pre-emptive, so one busy queue
+cannot starve the others. More importantly, there is no shared heap to collect: garbage
+collection runs per process on its own small heap, and that is true of both minor and major
+(fullsweep) collections. A major GC pauses the one process it belongs to, not the broker. So
+a node's tail latency does not fall off a cliff as total memory grows, and GC tuning is not
+a prerequisite for going to production.</li>
+</ul>
+<div class="admonition tip"><div class="admonition-title">tip</div><div><p>Fault tolerance, scalability and parallelism are properties RabbitMQ inherits from its
+runtime, not features it had to build. The choice to use Erlang and BEAM was deliberate.
+If we were starting RabbitMQ from scratch today, we would choose it again.</p></div></div>
+<p>Kafka's own <a href="https://kafka.apache.org/25/design/design/#persistence">documentation</a> acknowledges the other side of this trade. It is precisely why
+Kafka keeps data out of the heap and in the page cache, noting that</p>
+<blockquote>
+<ol>
+<li>The memory overhead of objects is very high, often doubling the size of the data stored (or worse).</li>
+<li>Java garbage collection becomes increasingly fiddly and slow as the in-heap data increases.</li>
+</ol>
+</blockquote>
+<p>That is a sound and well-executed workaround. It is still a workaround for a problem the
+BEAM does not have, to begin with.</p>
+<h3 id="monitoring">Monitoring</h3>
+<p>RabbitMQ exposes <a href="/docs/4.3/prometheus">Prometheus metrics natively</a>. The broker serves a
+<code>/metrics</code> endpoint directly, and the project maintains a set of <a href="/docs/4.3/prometheus#overview-grafana">Grafana dashboards</a> to
+go with it. Point Prometheus at your nodes and you have observability with no additional software in the path.</p>
+<p>Kafka reports metrics through JMX. Getting them into Prometheus means either running a JMX
+exporter agent inside every broker JVM, or enabling remote JMX and scraping that. Either way
+there is real operational cost:</p>
+<ul>
+<li><strong>An extra moving part per broker</strong> — with its own version and failure modes, inside the
+process you are trying to keep healthy.</li>
+<li><strong>A mapping file to maintain</strong> — JMX metric names do not map cleanly onto Prometheus names,
+so you keep a set of regex rewrite rules. Kafka 4.2 renamed metrics to standardise on the
+<code>kafka.COMPONENT</code> convention, so those rules, and every dashboard and alert built on them,
+needed revisiting.</li>
+<li><strong>Security you have to add</strong> — Kafka's documentation notes that remote JMX, and JMX
+authentication, are both disabled by default.</li>
+</ul>
+<p>Both approaches end in a Grafana dashboard. Only Kafka requires an agent and a mapping file in between.</p>
+<h2 id="rabbitmq-advantages">What RabbitMQ does that Kafka does not</h2>
+<ul>
+<li><strong>Queue semantics designed as queue semantics</strong>, not a consumption mode over a log:
+<a href="/docs/4.3/dlx">dead-letter routing</a> through <a href="/docs/4.3/exchanges">exchanges</a>, <a href="/docs/4.3/ttl">per-message TTL</a>, <a href="/docs/4.3/quorum-queues#priorities">32 strict priority levels</a>,
+<a href="/docs/4.3/quorum-queues#delayed-retry">delayed retry</a> with per-message override,
+consumer-annotated returns via the <a href="/blog/2024/10/11/modified-outcome">modified outcome</a>, <a href="/docs/4.3/consumer-priority">consumer
+priorities</a>, <a href="/docs/4.3/consumers#single-active-consumer">single active consumer</a> — and a backlog that converges to empty and returns
+the disk space.</li>
+<li><strong>replication <em>and</em> <a href="https://man7.org/linux/man-pages/man2/fsync.2.html">fsync</a> by default</strong> on <a href="/docs/4.3/quorum-queues">quorum queues</a>, so a site-wide power failure
+does not lose confirmed messages.</li>
+<li><strong>Thousands of independent queues</strong> on one cluster, efficiently, with amortised fsyncs.</li>
+<li><strong>Per-message delivery state replicated through Raft</strong>, so what the broker knows about
+every message survives a leader failure exactly as the message does.</li>
+<li><strong>Broker-side routing</strong> through <a href="/docs/4.3/exchanges">exchanges</a>, <a href="/docs/4.3/exchanges#what-are-bindings">bindings</a> and <a href="/docs/4.3/e2e">exchange-to-exchange</a>
+composition, changeable at runtime without touching producers.</li>
+<li><strong>Broker-side filtering</strong> — <a href="/docs/4.3/stream-filtering#stage-1-bloom-filter">Bloom filters</a> and <a href="/blog/2025/09/23/sql-filter-expressions">SQL expressions</a> on streams, <a href="/blog/2026/04/23/rabbitmq-4.3-release#jms-message-selectors">JMS selectors</a> on queues.</li>
+<li><strong>Five protocols in one broker</strong> — <a href="/blog/2024/08/05/native-amqp">AMQP 1.0</a>, <a href="https://github.com/rabbitmq/amqp-0.9.1-spec/blob/main/docs/amqp-0-9-1-reference.md">AMQP 0-9-1</a>, <a href="/docs/4.3/mqtt">MQTT</a>, <a href="/docs/4.3/stomp">STOMP</a> and the <a href="/docs/4.3/stream">stream
+protocol</a> — with documented broker-side <a href="/docs/4.3/conversions">conversions</a>, plus WebSocket transports for browser apps.</li>
+<li><strong>Connectable through a load balancer</strong>, rather than requiring every broker node to be
+individually addressable from every client.</li>
+<li><strong><a href="/blog/2020/06/23/quorum-queues-local-delivery">Local delivery from any queue replica</a></strong>: a consumer connected to a RabbitMQ node that hosts a quorum queue
+member is served by that member, leader or follower, with no configuration — so consumers
+exploit locality even when the cluster is <a href="/docs/4.3/clustering#wan">stretched across availability zones or data
+centers</a>. Kafka's queue semantics always read from the partition
+leader, which results in expensive cross data center traffic.</li>
+<li><strong><a href="/docs/4.3/vhosts">Virtual hosts</a></strong> as tenant boundaries, and <a href="/docs/4.3/access-control#topic-authorisation">authorisation on topics</a>.</li>
+<li><strong><a href="/docs/4.3/prometheus">Native Prometheus metrics</a> and a <a href="/docs/4.3/management">built-in management UI</a></strong>, with no agents to install.</li>
+<li><strong><a href="/docs/4.3/install-windows">First-class Windows support</a></strong> — a first-class platform, not a caveat in the
+documentation.</li>
+<li><strong>A runtime built for always-on systems</strong>, where a fault is contained to one process and
+garbage collection is per process rather than over one shared heap.</li>
+<li><strong>MQTT at scale</strong>: <a href="/blog/2023/03/21/native-mqtt">millions of concurrent device connections</a>
+on the same cluster that serves your backend queues.</li>
+<li><strong><a href="/blog/2026/04/23/rabbitmq-4.3-release#jms-queue-type">First-class JMS</a></strong> in VMware Tanzu RabbitMQ, with broker-evaluated <a href="/blog/2026/04/23/rabbitmq-4.3-release#jms-message-selectors">selectors</a> and <a href="/blog/2026/04/23/rabbitmq-4.3-release#queue-browser">queue
+browsers</a>: the migration path off legacy enterprise brokers.</li>
+</ul>
+<h2 id="kafka-advantages">What Kafka does that RabbitMQ does not</h2>
+<p>These are real, they are not small, and if you need one of them then you need Kafka. We
+are aware of each and several are on our long-term roadmap; we are not going to attach
+dates to that here.</p>
+<ul>
+<li><strong>Tiered storage.</strong> Kafka can offload older log segments to object storage (<a href="https://cwiki.apache.org/confluence/spaces/KAFKA/pages/97554472/KIP-405+Kafka+Tiered+Storage">KIP-405</a>),
+decoupling retention from broker disk. One nuance worth knowing: Apache Kafka provides
+the framework but, in its own <a href="https://kafka.apache.org/43/operations/tiered-storage/#quick-start-example">words</a>, <em>"doesn't provide an out-of-the-box RemoteStorageManager implementation"</em> — the actual backend comes from a vendor or a
+third-party project. RabbitMQ streams are bounded by local disk.</li>
+<li><strong>Log compaction.</strong> Kafka can retain the last value per key indefinitely, turning a
+topic into a durable changelog you can rebuild state from — the backbone of change data
+capture. RabbitMQ streams retain by size and age only.</li>
+<li><strong>The stream processing ecosystem.</strong> Apache Flink, Apache Spark, Iceberg integrations, ksqlDB
+and a long tail of connectors treat Kafka as the default source and sink. Kafka Connect
+itself is part of Apache Kafka, though many production-grade connectors and the
+Schema Registry are vendor products rather than Apache Kafka components.
+RabbitMQ has a <a href="/blog/2026/04/23/rabbitmq-4.3-release#apache-spark-connector">Spark connector</a>
+in VMware Tanzu RabbitMQ, and <a href="/docs/4.3/shovel">Shovel</a> and <a href="/docs/4.3/federation">Federation</a> for
+broker-to-broker movement; additionally, components like <a href="https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-data-flow/2-1/tdf-tanzu/application-pre-packaged-applications.html#stream-applications">VMware Tanzu Data Flow’s pre-packaged application connectors</a>, <a href="https://techdocs.broadcom.com/us/en/vmware-tanzu/data-solutions/tanzu-greenplum-streaming-server/2-3/gp-streaming-server/overview.html">VMware Tanzu Greenplum Streaming Server</a>, and the <a href="https://docs.spring.io/spring-cloud-stream/docs/current/reference/html/spring-cloud-stream-schema-registry.html#_schema_registry_server">Spring Cloud Stream Schema Registry Server</a> form part of the VMware Tanzu ecosystem, utilizing RabbitMQ as an event streaming engine.</li>
+<li><strong>Kafka Streams.</strong> A Java stream processing library — joins, windows, aggregations, state
+stores, exactly-once — running in your Java application with no separate cluster.</li>
+</ul>
+<h2 id="use-cases">What's the best broker for my use case?</h2>
+<p>With the mechanics on the table, here is how they cash out per workload. Most people
+arrive at this page with a use case in mind, so this is the short answer — and every entry traces back to something
+explained above.</p>
+<table><thead><tr><th>Use case</th><th>Recommendation</th><th>Why</th></tr></thead><tbody><tr><td>Task and job queues, background workers</td><td><strong>RabbitMQ</strong></td><td>Exclusive assignment per message, <a href="/docs/4.3/quorum-queues#delayed-retry">retries with backoff</a>, <a href="/docs/4.3/dlx">dead-lettering</a>, <a href="/docs/4.3/quorum-queues#priorities">priorities</a>. Kafka has no native answer to "retry this one job in 90 seconds".</td></tr><tr><td>Priority handling, SLAs, expiry, delayed retries</td><td><strong>RabbitMQ</strong></td><td><a href="/docs/4.3/quorum-queues#priorities">32 strict priorities</a>, <a href="/docs/4.3/ttl">per-message TTL</a>, <a href="/docs/4.3/quorum-queues#delayed-retry">delayed retry</a>. Kafka has none of these.</td></tr><tr><td>Request/reply between services (RPC)</td><td><strong>RabbitMQ</strong></td><td>Efficient <a href="/docs/4.3/direct-reply-to">Direct reply-to</a>, <a href="/docs/4.3/queues#exclusive-queues">exclusive</a> queues, per-message correlation. Kafka needs response topics and correlation logic you write yourself.</td></tr><tr><td>Microservice event notifications</td><td><strong>RabbitMQ</strong></td><td><a href="/docs/4.3/exchanges#topic">Topic exchanges</a> route by pattern; a new subscriber is a <a href="/docs/4.3/exchanges#what-are-bindings">binding</a>. In Kafka, selective fan-out means new topics or client-side filtering.</td></tr><tr><td>Order processing, payments, anything you cannot lose</td><td><strong>RabbitMQ</strong></td><td><a href="/docs/4.3/quorum-queues">Quorum queues</a> replicate <em>and</em> fsync before confirming. Kafka's default is replication only.</td></tr><tr><td>IoT / device telemetry ingest</td><td><strong>RabbitMQ</strong></td><td><a href="/blog/2023/03/21/native-mqtt">Native MQTT</a> for millions of device connections, into the same cluster that serves your backends. Kafka needs a separate MQTT broker and a bridge.</td></tr><tr><td>Per-tenant / per-device / per-workflow isolation</td><td><strong>RabbitMQ</strong></td><td>Thousands of cheap independent queues. Every Kafka equivalent costs a partition.</td></tr><tr><td>Migrating off legacy JMS brokers</td><td><strong>RabbitMQ</strong></td><td><a href="/blog/2026/04/23/rabbitmq-4.3-release#jms-queue-type">JMS support</a>, with broker-side <a href="/blog/2026/04/23/rabbitmq-4.3-release#jms-message-selectors">selectors</a> and <a href="/blog/2026/04/23/rabbitmq-4.3-release#queue-browser">queue browsers</a> in VMware Tanzu RabbitMQ.</td></tr><tr><td>Deploying on Windows Server</td><td><strong>RabbitMQ</strong></td><td>A <a href="/docs/4.3/install-windows">first-class platform</a> on desktop and server editions. Kafka's own documentation says <a href="https://kafka.apache.org/43/operations/hardware-and-os/#os">Windows "is not currently a well supported platform"</a>.</td></tr><tr><td>Streaming with tens of thousands of logical subjects (event types, customers, SKUs)</td><td><strong>RabbitMQ</strong></td><td><a href="/docs/4.3/stream-filtering#stage-1-bloom-filter">Broker-side Bloom filters</a> let one stream serve many narrow subscriptions. A dedicated Kafka topic per logical subject does not scale well, and client-side filtering wastes network bandwidth reading everything to keep little.</td></tr><tr><td>Event streaming with replay and multiple independent readers</td><td><strong>Either</strong></td><td><a href="/docs/4.3/streams">Streams</a> and Kafka topics do the same job with the same techniques.</td></tr><tr><td>Exactly-once read-process-write pipelines</td><td><strong>Either</strong></td><td>Kafka's transactional producer commits the result and the consumer offset together. RabbitMQ streams <a href="/docs/4.3/stream-effectively-once-processing">achieve the same outcome</a>. Neither covers side effects on external systems.</td></tr><tr><td>Website activity tracking, metrics firehose, log aggregation</td><td><strong>Either</strong></td><td>Both handle millions of messages per second. Pick on ecosystem and operations, not throughput.</td></tr><tr><td>Stateful stream processing: joins, windows, aggregations</td><td><strong>Either</strong></td><td>RabbitMQ has an <a href="/blog/2026/04/23/rabbitmq-4.3-release#apache-spark-connector">Apache Spark connector</a>. However, Kafka has the broader ecosystem of integrations including Flink and Kafka Streams.</td></tr><tr><td>Retaining months or years of history cheaply</td><td><strong>Kafka</strong></td><td>Tiered storage to object storage. RabbitMQ streams are bounded by local disk.</td></tr><tr><td>Event sourcing with a keyed changelog you rebuild state from</td><td><strong>Kafka</strong></td><td>Log compaction. RabbitMQ streams retain by size and age only.</td></tr></tbody></table>
+<p>If your list of ticks is entirely in the <em>RabbitMQ</em> or <em>Either</em> column, you do not need Kafka, and
+running it anyway is a second distributed system to staff, secure and upgrade for no
+return.</p>
+<h2 id="myths">Mythbusters: A few old claims worth retiring</h2>
+<h4 id="claim-streaming-queueing">"Use Kafka for streaming and RabbitMQ for queueing."</h4>
+<p>True in 2019. Since RabbitMQ 3.9
+streams and Kafka 4.2 share groups, both systems do both. What survives is <a href="#where-they-differ">how much the
+broker knows about each message</a> — and there RabbitMQ is far ahead.</p>
+<h4 id="claim-throughput">"RabbitMQ can't handle high throughput."</h4>
+<p>A single stream provides a throughput of
+<a href="#performance">several million messages per second</a>. This folklore was
+formed long before streams existed and has not been true since.</p>
+<h4 id="claim-replay">"RabbitMQ deletes messages as soon as they are consumed, so you cannot replay them."</h4>
+<p>True for queues, false for streams. RabbitMQ <a href="/docs/4.3/streams">streams</a> are an append-only log that retain messages based on size or time limits, allowing consumers to rewind and replay history exactly as they do with Kafka topics.</p>
+<h4 id="claim-ram">"RabbitMQ needs a lot of RAM because it keeps messages in memory."</h4>
+<p>Not on modern
+RabbitMQ. Both <a href="/docs/4.3/classic-queues">classic queues</a> and <a href="/docs/4.3/quorum-queues#resource-use">quorum queues</a> do not keep message bodies
+in memory, streams rely on the page cache exactly as Kafka does. The following blog post
+explains this in detail:
+<a href="/blog/2025/01/17/how-are-the-messages-stored">How Are The Messages Stored? Not in Memory!</a>.</p>
+<h4 id="claim-queues-for-kafka">"Queues for Kafka means you don't need RabbitMQ any more."</h4>
+<p>Share groups add
+cooperative consumption, per-message acknowledgement and durable delivery counting on top
+of a log — genuinely useful, and enough for some work queues. What they do not add is
+the <a href="#per-message-toolkit">per-message toolkit</a>:
+per-message TTL, priorities, delayed retry, a routable failure
+path, broker-side routing and filtering, custom message interceptors, modification of message
+headers, or reclaiming disk when the work is done; and they still
+cannot fully avoid head-of-line blocking. Crucially, Kafka has weaker <a href="#durability">durability</a>
+guarantees. If none of that matters for your workload, Kafka's queue semantics will serve you well.
+If it does, the gap is not close.</p>
+<h4 id="claim-exactly-once">"Only Kafka can do exactly-once processing."</h4>
+<p>Both systems can make a
+read-process-write loop produce each result downstream once, and neither does it by
+executing the processing step only once. Kafka commits the result and the consumer offset
+in one producer transaction; RabbitMQ streams make the resume point <em>part</em> of the result,
+using the source offset as the <a href="/docs/4.3/streams#publishing-id">publishing ID</a> so that
+deduplication discards a replayed result. Different designs, same guarantee — which
+RabbitMQ calls <a href="/docs/4.3/stream-effectively-once-processing">effectively-once</a>, the more
+honest name.</p>
+<h4 id="claim-erlang">"Erlang is a liability — it's hard to troubleshoot."</h4>
+<p>The language a broker is written in
+is not something its users interact with. Applications use
+<a href="/client-libraries/devtools">client libraries</a> in Java, .NET, Python, Go and more; operators
+use the <a href="/docs/4.3/management">management UI</a>, <a href="/docs/4.3/cli">CLI tools</a> and
+<a href="/docs/4.3/prometheus">Prometheus metrics</a>. Diagnosing a production problem means reading logs,
+metrics and queue state — not broker source code. Erlang expertise is our job,
+not yours, and <a href="#runtime">the Erlang runtime is one of RabbitMQ's biggest advantages</a>.</p>
+<h4 id="claim-replication">"RabbitMQ's replication is bolted on."</h4>
+<p>Kafka's <a href="https://kafka.apache.org/43/design/design/#replication">design document</a> writes:</p>
+<blockquote>
+<p>Other messaging systems provide some replication-related features, but, in our (totally biased) opinion, this appears
+to be a tacked-on thing, not heavily used, and with large downsides: replicas are inactive, throughput is heavily impacted,
+it requires fiddly manual configuration, etc.</p>
+</blockquote>
+<p>That was a fair description of RabbitMQ's old <a href="/docs/3.13/ha">classic mirrored queues</a>, which is why we entirely
+removed them in RabbitMQ 4.0. Quorum queues — production-ready since 2019 — are <a href="#raft-per-message">Raft-based</a>, <a href="/blog/2020/06/23/quorum-queues-local-delivery">active</a>,
+replicated-by-default data structures, and <a href="https://jepsen.io/">Jepsen</a> tests run against quorum queues continuously.
+Quorum queues provide all three: scalability (thousands of queues), strong durability guarantees (replication and fsync), and high throughput —
+something Kafka cannot — <a href="#fsync-cost">by design</a>.</p>
+<h2 id="conclusion">Conclusion</h2>
+<p>Apache Kafka is a well-engineered event streaming platform, and there are jobs it does better than any other messaging solution in the market.
+If you need log compaction, tiered storage, or the Kafka Streams Java library, use Kafka.</p>
+<p>For everything else, our honest assessment is that <strong>RabbitMQ is the better default</strong>, and increasingly so.</p>
+<p>It does both halves of the job. Its streams <a href="#where-they-agree">match Kafka's log design</a> technique for
+technique — chunks, zero-copy reads, page cache, direct-to-leader publishing,
+deduplication — at several million messages per second, and they have been production
+technology since 2021. Its queues do things Kafka cannot: replicate
+per-message delivery state through Raft, route messages through exchanges,
+per-message TTL and priorities, hold a message until a chosen delivery time, retry one message in 3 minutes
+without pausing the others, park a message until an external condition occurs, and give the disk
+space back when the work is done.</p>
+<p>RabbitMQ is <a href="#durability">more durable</a> where durability counts: quorum queues replicate <em>and</em> fsync before
+confirming, so a data-centre power failure does not silently destroy messages your
+publishers were told were safe.</p>
+<p>RabbitMQ is <a href="#operations">easier to operate</a>. Prometheus metrics and a management UI in the box rather than a
+JMX agent per broker and a third-party console. Real virtual hosts instead of naming conventions.
+<a href="#protocols">Five protocols instead of one</a>, so IoT devices, browsers and JMS applications connect to the broker you
+already run rather than to three more components. First-class Windows support, which for
+a large number of enterprises is not a preference but a requirement.</p>
+<p>And RabbitMQ runs on a <a href="#runtime">virtual machine</a> built for systems that are not allowed to stop.</p>
+<p>Our recommendation: <strong>start with RabbitMQ, and add Kafka when you hit something only Kafka does</strong>.
+After all, one solution is cheaper to operate than two different solutions.</p>
+<h2 id="learn-more-streams">Learn more about RabbitMQ Streams</h2>
+<ul>
+<li>RabbitMQ Streams <a href="/docs/4.3/streams">documentation</a></li>
+<li>RabbitMQ Streams <a href="/blog/tags/streams">blog posts</a></li>
+<li><a href="https://www.youtube.com/watch?v=i3zB5VDMMV8&amp;list=PLvL2NEhYV4ZsALsESTtvpUSSnB-ut0SRJ&amp;index=5">Streams: past, present, and future</a> — RabbitMQ Summit 2023</li>
+<li><a href="https://www.youtube.com/watch?v=gbf1_aqVKL0">RabbitMQ Streams — extreme performance with unrivalled flexibility</a> — VMware Tanzu Webinar 2023</li>
+<li><a href="https://www.youtube.com/watch?v=lbhGFw1GKQ0">Spring for RabbitMQ Super Streams and SQL filters</a> — Spring I/O 2026</li>
+<li><a href="https://blogs.vmware.com/tanzu/rabbitmq-event-streaming-broker/">RabbitMQ vs Kafka: How to Choose an Event-Streaming Broker</a></li>
+</ul>
+<div class="admonition info"><div class="admonition-title">info</div><div><p>Found something on this page that is out of date or unfair to Kafka? Kafka moves quickly
+and so do we. Please
+<a href="https://github.com/rabbitmq/rabbitmq-website/discussions">start a discussion</a> — we
+would rather fix it than defend it.</p></div></div></main>

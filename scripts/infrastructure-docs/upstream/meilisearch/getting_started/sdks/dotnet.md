@@ -1,0 +1,158 @@
+# .NET quick start
+
+> Get started with Meilisearch using the .NET SDK in 5 minutes.
+
+This guide walks you through setting up Meilisearch with .NET (C#).
+
+## Prerequisites
+
+* .NET 6.0 or higher
+* A Meilisearch instance ([Cloud](https://cloud.meilisearch.com) or [self-hosted](https://www.meilisearch.com/docs/resources/self_hosting/getting_started/quick_start))
+
+## 1. Install the SDK
+
+> [tab] .NET CLI
+>
+> ```bash theme={null}
+> dotnet add package MeiliSearch
+> ```
+
+> [tab] Package Manager
+>
+> ```bash theme={null}
+> Install-Package MeiliSearch
+> ```
+
+## 2. Connect to Meilisearch
+
+```csharp
+using Meilisearch;
+
+var client = new MeilisearchClient(
+    Environment.GetEnvironmentVariable("MEILISEARCH_URL"),
+    Environment.GetEnvironmentVariable("MEILISEARCH_KEY")
+);
+```
+
+> [!NOTE]
+>
+> **Set your environment variables:**
+>
+> ```bash theme={null}
+> export MEILISEARCH_URL="https://your-instance.meilisearch.io"  # or http://localhost:7700
+> export MEILISEARCH_KEY="your_api_key"
+> ```
+>
+> [Get a free Cloud instance →](https://cloud.meilisearch.com)
+
+## 3. Add documents
+
+```csharp
+// Define your document class
+public class Movie
+{
+    public int Id { get; set; }
+    public string Title { get; set; }
+    public string[] Genres { get; set; }
+    public int Year { get; set; }
+}
+
+// Add documents
+var movies = new Movie[]
+{
+    new Movie { Id = 1, Title = "The Matrix", Genres = new[] { "Action", "Sci-Fi" }, Year = 1999 },
+    new Movie { Id = 2, Title = "Inception", Genres = new[] { "Action", "Thriller" }, Year = 2010 },
+    new Movie { Id = 3, Title = "Interstellar", Genres = new[] { "Drama", "Sci-Fi" }, Year = 2014 }
+};
+
+var index = client.Index("movies");
+var task = await index.AddDocumentsAsync(movies);
+
+// Wait for indexing to complete
+await client.WaitForTaskAsync(task.TaskUid);
+```
+
+## 4. Search
+
+```csharp
+var results = await index.SearchAsync<Movie>("matrix");
+
+foreach (var hit in results.Hits)
+{
+    Console.WriteLine($"{hit.Title} ({hit.Year})");
+}
+// The Matrix (1999)
+```
+
+## 5. Search with filters
+
+First, configure filterable attributes:
+
+```csharp
+await index.UpdateFilterableAttributesAsync(new[] { "genres", "year" });
+```
+
+Then search with filters:
+
+```csharp
+var results = await index.SearchAsync<Movie>("", new SearchQuery
+{
+    Filter = "genres = \"Sci-Fi\" AND year > 2000"
+});
+```
+
+## Full example
+
+```csharp
+using Meilisearch;
+
+var client = new MeilisearchClient(
+    Environment.GetEnvironmentVariable("MEILISEARCH_URL"),
+    Environment.GetEnvironmentVariable("MEILISEARCH_KEY")
+);
+
+// Add documents
+var movies = new[]
+{
+    new { Id = 1, Title = "The Matrix", Year = 1999 },
+    new { Id = 2, Title = "Inception", Year = 2010 },
+    new { Id = 3, Title = "Interstellar", Year = 2014 }
+};
+
+var index = client.Index("movies");
+var task = await index.AddDocumentsAsync(movies);
+await client.WaitForTaskAsync(task.TaskUid);
+
+// Search
+var results = await index.SearchAsync<dynamic>("inter");
+foreach (var hit in results.Hits)
+{
+    Console.WriteLine(hit);
+}
+```
+
+## Next steps
+
+> [card] [Full-text search](https://www.meilisearch.com/docs/capabilities/full_text_search/relevancy/relevancy)
+>
+> Configure ranking and relevancy
+
+> [card] [Filtering](https://www.meilisearch.com/docs/capabilities/filtering_sorting_faceting/getting_started)
+>
+> Add filters and facets
+
+> [card] [AI-powered search](https://www.meilisearch.com/docs/capabilities/hybrid_search/getting_started)
+>
+> Add semantic search
+
+> [card] [API reference](https://www.meilisearch.com/docs/reference/api/search/search-with-post)
+>
+> Explore all search parameters
+
+## Resources
+
+* [meilisearch-dotnet on GitHub](https://github.com/meilisearch/meilisearch-dotnet)
+* [SDK documentation](https://github.com/meilisearch/meilisearch-dotnet#readme)
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

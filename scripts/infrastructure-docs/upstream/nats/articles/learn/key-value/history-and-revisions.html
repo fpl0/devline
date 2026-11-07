@@ -1,0 +1,266 @@
+<main><header><h1>History and revisions</h1></header>
+<p>So far every write to a key has been a <code>put</code>: the new value replaces the old
+one, and you never had to think about who wrote last. That works
+until two writers touch the same key at the same time.</p>
+<p>This page adds the two ideas that make concurrent writes safe. The first
+is the revision: a number the bucket assigns to every write, in sequence,
+and <code>history</code> keeps a key's prior ones. The second is compare-and-swap
+(CAS): a write that only succeeds if the key still holds the revision you
+read. Together they let the inventory service decrement <code>widget-blue</code> from
+41 to 40 without ever losing a sale.</p>
+<p>You still have the <code>INVENTORY</code> bucket from the first page. After the live
+update on the watching page, <code>widget-blue</code> holds 41, and the warehouse
+dashboard from that page is still attached. This page builds on both of
+those.</p>
+<h2 id="revisions-and-history">Revisions and history</h2>
+<p>A <strong>revision</strong> is the number the server assigns to a write. The bucket
+keeps one counter across all of its keys, and every write — to any key —
+takes the next number. So a revision always increases when you write a key,
+but not by one each time: writes to other keys advance the counter in
+between. You don't set the revision; the server assigns it, and <code>get</code>
+returns it alongside the value as part of the <strong>entry</strong>.</p>
+<p>The entry you got back on the first page already carried it. Your put of
+<code>widget-blue 42</code> landed at revision 1, the first write to an empty bucket.
+The put of <code>41</code> over it on the watching page landed at revision 2. The
+puts to <code>widget-red</code> and <code>gadget-pro</code> that followed took their own numbers,
+so <code>widget-blue</code>'s next write won't be revision 3. What matters for a safe
+write is only that the revision you read names the exact version you saw,
+which you'll use in a moment.</p>
+<p>The bucket also keeps the <strong>history</strong>: the prior revisions of a key, up to
+the bucket's history depth. You set that depth when you created the bucket
+with <code>--history</code>, and <code>INVENTORY</code> was created with <code>--history 1</code>, which
+keeps only the latest value of each key. Raise it now so a key remembers
+where it's been:</p>
+<div><div><pre><code class="language-bash">nats kv edit INVENTORY --history 10</code></pre></div></div>
+<p>The depth caps at 64. Raising it keeps every future write to a key, up to
+ten revisions deep. The values written before the raise are already gone,
+because at depth 1 each new write dropped the one before it.</p>
+<h2 id="compare-and-swap-writing-without-locks">Compare-and-swap: writing without locks</h2>
+<p>Consider a problem <code>put</code> can't solve. Two copies of the inventory
+service both sell a <code>widget-blue</code>. Each reads the count as 41, computes
+40, and puts 40. Two sales happened, but the count only dropped by one.
+One write overwrote the other, and a unit of stock was lost from the
+count.</p>
+<p>The fix is <strong>optimistic concurrency</strong>, which uses no locks and no waiting. Instead, each
+writer reads the current revision, then writes <em>on the condition</em> that the
+revision hasn't changed since. If another writer got there first, the
+condition fails and the write is rejected; nothing is overwritten. The
+rejected writer reads the fresh value and tries again.</p>
+<p>The mechanism behind that condition is <strong>compare-and-swap (CAS)</strong>: you
+hand the server the revision you expect the key to be at, and the server
+swaps in your new value only if the key is still at that revision. NATS
+exposes CAS through two operations:</p>
+<ul>
+<li><strong>create</strong> writes a key only if it doesn't exist yet. It's CAS against
+the expectation "this key is at revision 0" (no value present).</li>
+<li><strong>update</strong> writes a key only if it's at the revision you name. It's
+CAS against "this key is still at the revision I read."</li>
+</ul>
+<p>To decrement <code>widget-blue</code> safely, the inventory service reads the entry,
+takes its revision, computes the new count, and calls update with that
+revision. If the key is still at the revision it read, the write lands. If
+not, the write is rejected and nothing is lost.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Decrement widget-blue from 41 to 40 safely with compare-and-swap.
+# Read the current entry, take its revision, then update on the condition
+# that the key is still at that revision. If another writer got there
+# first, the update is rejected and nothing is overwritten.
+
+# Read the current revision from a get. The get prints a header line
+# "... revision: N created @ ..." followed by the value, so pull N from it.
+REVISION=$(nats kv get INVENTORY widget-blue | sed -n 's/.*revision: \([0-9]*\).*/\1/p')
+
+# Update succeeds only if widget-blue is still at REVISION.
+nats kv update INVENTORY widget-blue 40 "$REVISION"</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Decrement widget-blue from 41 to 40 safely with compare-and-swap.
+kvEntry     *entry    = NULL;
+uint64_t    revision  = 0;
+uint64_t    newRev    = 0;
+
+// Read the current entry; it carries the value and its revision.
+s = kvStore_Get(&amp;entry, kv, "widget-blue");
+if (s == NATS_OK)
+{
+    revision = kvEntry_Revision(entry);
+    printf("widget-blue is %s at revision %" PRIu64 "\n",
+           kvEntry_ValueString(entry), revision);
+    kvEntry_Destroy(entry);
+
+    // Update succeeds only if widget-blue is still at that revision.
+    // If another writer got there first, the update is rejected and
+    // nothing is overwritten.
+    s = kvStore_UpdateString(&amp;newRev, kv, "widget-blue", "40", revision);
+}
+if (s == NATS_OK)
+    printf("decremented widget-blue to 40 at revision %" PRIu64 "\n", newRev);</code></pre></div></div>
+<p>This is the read-modify-write you use whenever the new value depends
+on the old one, such as a decrement, an increment, or a status transition. The
+revision is what makes the write safe.</p>
+<div></div>
+<p>The animation shows the conflict: the service gets <code>widget-blue</code> at
+revision 7 and calls update expecting 7, but a concurrent writer has
+already bumped the key to revision 8. The server rejects the update on the
+revision mismatch. The service re-gets (now revision 8) and retries with
+the fresh revision, which the server accepts. No write was lost, and the
+service never held a lock.</p>
+<h2 id="read-the-history-back">Read the history back</h2>
+<p>With the depth raised, the trail behind <code>widget-blue</code> is now visible. Read
+its history:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Read the kept history of a key. With history raised to 10 on this page,
+# the trail behind widget-blue is now visible. Each row is one revision:
+# the key, its revision number, the operation, when it was written, its
+# length, and the value.
+nats kv history INVENTORY widget-blue
+
+# Expected output after the CAS decrement — two revisions kept:
+#
+#   History for INVENTORY &gt; widget-blue
+#
+#   Key          Revision  Op   Created  Length  Value
+#   widget-blue  2         PUT  ...      2       41
+#   widget-blue  5         PUT  ...      2       40
+#
+# The revision numbers aren't consecutive — writes to widget-red and
+# gadget-pro took the numbers in between — because the revision counter is
+# bucket-wide, not per key. The value 42 written before the raise is gone;
+# at history 1 each write dropped the one before it.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the kept history of a key, oldest first. Each entry is one
+// revision: the key, its revision number, the operation, and the
+// value. The revision numbers aren't consecutive — the counter is
+// bucket-wide, not per key.
+kvEntryList list;
+int         i;
+
+s = kvStore_History(&amp;list, kv, "widget-blue", NULL);
+if (s == NATS_OK)
+{
+    printf("History for INVENTORY &gt; widget-blue\n");
+    for (i = 0; i &lt; list.Count; i++)
+    {
+        kvEntry *e = list.Entries[i];
+
+        printf("  %s rev %" PRIu64 " %s %s\n",
+               kvEntry_Key(e), kvEntry_Revision(e),
+               (kvEntry_Operation(e) == kvOp_Put) ? "PUT" : "MARKER",
+               (kvEntry_Value(e) != NULL) ? kvEntry_ValueString(e) : "");
+    }
+    kvEntryList_Destroy(&amp;list);
+}</code></pre></div></div>
+<p>You see two revisions: <code>41</code> from the watching page and <code>40</code> from the
+decrement you just made. Their revision numbers aren't consecutive — the
+puts to <code>widget-red</code> and <code>gadget-pro</code> took the numbers in between — which
+is the revision counter being bucket-wide, not per key. Each entry is one
+line: the key, its revision, the operation, when it was written, and the
+value. The <code>42</code> written before the raise isn't here; depth 1 had already
+dropped it.</p>
+<p>History holds the prior revisions of a single key, up to the depth. It
+isn't an audit log of the whole bucket, and it doesn't grow without bound:
+once a key has more revisions than the depth allows, the oldest one is
+removed. The full set of bucket configuration options is documented in
+<a href="/reference/jetstream/api/stream/create">Reference → Create Stream</a>.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Two mistakes are common the first time you rely on revisions. Both come
+from treating a CAS write like an unconditional one.</p>
+<p><strong>A rejected update is dropped rather than queued, and you must retry.</strong>
+Optimistic concurrency doesn't wait. When update finds the key
+at a different revision than you named, the server returns an error and
+your value is not written. If you fire-and-forget an update, a conflict silently
+loses the write. Don't assume an update succeeded; check the result, and
+on a revision mismatch, re-get the key and try again with the fresh
+revision. That re-get-and-retry loop is what CAS exists to support. Without
+that loop you have the same lost-write bug <code>put</code> had.</p>
+<p>Here's the handling: get the current revision, attempt the update, and on
+a mismatch re-get and retry once with the new revision.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# CAS retry loop. A rejected update is dropped, not queued, so on a
+# revision mismatch re-get the key and retry with the fresh revision.
+# Here the inventory service decrements widget-blue by one, safely.
+
+# Read the value AND its revision from a SINGLE get, so the pair is
+# consistent. Two separate gets could pair a stale value with a fresh
+# revision if a concurrent write landed in between. The get prints a header
+# line "... revision: N created @ ..." then a blank line then the value.
+ENTRY=$(nats kv get INVENTORY widget-blue)
+VALUE=$(printf '%s\n' "$ENTRY" | tail -n1)
+REVISION=$(printf '%s\n' "$ENTRY" | sed -n 's/.*revision: \([0-9]*\).*/\1/p')
+NEW_VALUE=$((VALUE - 1))
+
+# Try the update; if a concurrent writer bumped the revision, re-get and retry once.
+if nats kv update INVENTORY widget-blue "$NEW_VALUE" "$REVISION"; then
+  echo "decremented widget-blue to $NEW_VALUE"
+else
+  echo "revision conflict, re-getting and retrying"
+  ENTRY=$(nats kv get INVENTORY widget-blue)
+  VALUE=$(printf '%s\n' "$ENTRY" | tail -n1)
+  REVISION=$(printf '%s\n' "$ENTRY" | sed -n 's/.*revision: \([0-9]*\).*/\1/p')
+  NEW_VALUE=$((VALUE - 1))
+  nats kv update INVENTORY widget-blue "$NEW_VALUE" "$REVISION"
+fi</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// CAS retry loop. A rejected update is dropped, not queued, so on a
+// revision mismatch re-get the key and retry with the fresh revision.
+// Here the inventory service decrements widget-blue by one, safely.
+kvEntry     *entry    = NULL;
+uint64_t    revision  = 0;
+uint64_t    newRev    = 0;
+char        newValue[32];
+
+// Read the value AND its revision from a single get, so the pair is
+// consistent. Two separate gets could pair a stale value with a fresh
+// revision if a concurrent write landed in between.
+s = kvStore_Get(&amp;entry, kv, "widget-blue");
+if (s == NATS_OK)
+{
+    revision = kvEntry_Revision(entry);
+    snprintf(newValue, sizeof(newValue), "%d",
+             atoi(kvEntry_ValueString(entry)) - 1);
+    kvEntry_Destroy(entry);
+
+    // Try the update; if a concurrent writer bumped the revision,
+    // re-get and retry once.
+    s = kvStore_UpdateString(&amp;newRev, kv, "widget-blue", newValue, revision);
+    if (s != NATS_OK)
+    {
+        printf("revision conflict, re-getting and retrying\n");
+        s = kvStore_Get(&amp;entry, kv, "widget-blue");
+        if (s == NATS_OK)
+        {
+            revision = kvEntry_Revision(entry);
+            snprintf(newValue, sizeof(newValue), "%d",
+                     atoi(kvEntry_ValueString(entry)) - 1);
+            kvEntry_Destroy(entry);
+
+            s = kvStore_UpdateString(&amp;newRev, kv, "widget-blue",
+                                     newValue, revision);
+        }
+    }
+}
+if (s == NATS_OK)
+    printf("decremented widget-blue to %s\n", newValue);</code></pre></div></div>
+<p><strong>Do not use put for a read-modify-write.</strong> Put is unconditional: it
+writes no matter what the key holds now, so it will overwrite a
+value a concurrent writer just stored. Put is correct when the new value
+doesn't depend on the old one, such as setting a SKU's count to a known
+absolute number from an inventory recount. When the new value
+is computed <em>from</em> the current value, like a decrement on a sale, use
+update with the revision instead. Use put to set a key to a given value, and
+update to change it from the value it currently holds.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have:</p>
+<ul>
+<li>An <code>INVENTORY</code> bucket whose <code>widget-blue</code> key has been decremented from
+41 to 40 with a CAS update, not a blind put.</li>
+<li>The ability to read a key's history and reason about its revision.</li>
+<li>A working model of optimistic concurrency: read the revision, write on
+that condition, retry on mismatch.</li>
+</ul>
+<p>The warehouse dashboard from the watching page saw that decrement arrive
+live, the same as any other change.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The next page gives a key its own lifetime with a per-key <strong>TTL</strong>,
+and bounds the whole bucket with limits.</p>
+<p>Continue to <a href="/learn/key-value/ttl-and-limits">TTL and limits</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/api/stream/create">Reference → Create Stream</a> —
+every bucket configuration option, including history depth.</li>
+<li><a href="/learn/key-value/watching">Watching</a> — how a watcher receives the
+changes you make with update.</li>
+</ul></main>

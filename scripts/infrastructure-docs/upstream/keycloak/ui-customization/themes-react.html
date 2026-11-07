@@ -1,0 +1,93 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>A final approach to customization is to just take pieces of the Admin Console or Account Console and use it in your own React application.</p>
+</div>
+<div class="paragraph">
+<p>To fully customize these consoles, you can use the aformentioned React based npm packages.
+Two packages exist:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p><code>@keycloak/keycloak-admin-ui</code>: This is the base theme for the Admin Console.</p>
+</li>
+<li>
+<p><code>@keycloak/keycloak-account-ui</code>: This is the base theme for the Account Console.
+Both packages are available in the public npm repository.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_installing_the_packages"><a class="anchor" href="#_installing_the_packages"></a>Installing the packages</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To install the packages, run the following command:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">pnpm <span class="nb">install</span> @keycloak/keycloak-account-ui</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_using_the_packages"><a class="anchor" href="#_using_the_packages"></a>Using the packages</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To use these pages, you add KeycloakProvider in your component hierarchy to choose the client, realm, and URL that you need.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="javascript"><span class="k">import</span> <span class="p">{</span> <span class="nx">KeycloakProvider</span> <span class="p">}</span> <span class="k">from</span> <span class="dl">"</span><span class="s2">@keycloak/keycloak-ui-shared</span><span class="dl">"</span><span class="p">;</span>
+
+<span class="c1">//...</span>
+
+<span class="o">&lt;</span><span class="nx">KeycloakProvider</span> <span class="nx">environment</span><span class="o">=</span><span class="p">{{</span>
+      <span class="na">serverBaseUrl</span><span class="p">:</span> <span class="dl">"</span><span class="s2">http://localhost:8080</span><span class="dl">"</span><span class="p">,</span>
+      <span class="na">realm</span><span class="p">:</span> <span class="dl">"</span><span class="s2">master</span><span class="dl">"</span><span class="p">,</span>
+      <span class="na">clientId</span><span class="p">:</span> <span class="dl">"</span><span class="s2">security-admin-console</span><span class="dl">"</span>
+  <span class="p">}}</span><span class="o">&gt;</span>
+  <span class="p">{</span><span class="cm">/* rest of you application */</span><span class="p">}</span>
+<span class="o">&lt;</span><span class="sr">/KeycloakProvider&gt;</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_translating_the_pages"><a class="anchor" href="#_translating_the_pages"></a>Translating the pages</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The pages are translated using the <code>i18next</code> library.
+You can set it up as described on the <a href="https://react.i18next.com/">react-i18next Website</a>.
+If you want to use the translations that are provided, add i18next-http-backend to your project and add the following:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="javascript"><span class="nx">backend</span><span class="p">:</span> <span class="p">{</span>
+  <span class="nl">loadPath</span><span class="p">:</span> <span class="s2">`http://localhost:8080/resources/master/account/{lng}}`</span><span class="p">,</span>
+  <span class="nx">parse</span><span class="p">:</span> <span class="p">(</span><span class="nx">data</span><span class="p">:</span> <span class="nx">string</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">{</span>
+    <span class="kd">const</span> <span class="nx">messages</span> <span class="o">=</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">data</span><span class="p">);</span>
+
+    <span class="kd">const</span> <span class="na">result</span><span class="p">:</span> <span class="nx">Record</span><span class="o">&lt;</span><span class="nx">string</span><span class="p">,</span> <span class="nx">string</span><span class="o">&gt;</span> <span class="o">=</span> <span class="p">{};</span>
+    <span class="nx">messages</span><span class="p">.</span><span class="nx">forEach</span><span class="p">((</span><span class="nx">v</span><span class="p">)</span> <span class="o">=&gt;</span> <span class="p">(</span><span class="nx">result</span><span class="p">[</span><span class="nx">v</span><span class="p">.</span><span class="nx">key</span><span class="p">]</span> <span class="o">=</span> <span class="nx">v</span><span class="p">.</span><span class="nx">value</span><span class="p">));</span> <span class="c1">//need to convert to record</span>
+    <span class="k">return</span> <span class="nx">result</span><span class="p">;</span>
+  <span class="p">},</span>
+<span class="p">},</span></code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_using_the_pages"><a class="anchor" href="#_using_the_pages"></a>Using the pages</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>To see how to further integrate the pages, we recommend that you take a look at the output of the tool in the <a href="https://www.keycloak.org/ui-customization/creating-your-own-console">Creating your own Console</a> guide.</p>
+</div>
+</div>
+</div> </div>
+</main>

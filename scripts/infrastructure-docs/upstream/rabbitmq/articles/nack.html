@@ -1,0 +1,51 @@
+<main><header><h1>Negative Acknowledgements</h1></header>
+<h2 id="overview">Overview</h2>
+<p>Consumers in AMQP 0-9-1 can choose to use <a href="/docs/4.3/confirms">manual acknowledgements</a>
+of deliveries.</p>
+<p>The <a href="/docs/4.3/specification">AMQP 0-9-1 specification</a> defines the <code>basic.reject</code>
+method that allows clients to reject individual, delivered
+messages, instructing the broker to either discard them or
+requeue them. Unfortunately, <code>basic.reject</code>
+provides no support for negatively acknowledging messages in
+bulk.</p>
+<p>To solve this, RabbitMQ supports the <code>basic.nack</code>
+method that provides all the functionality of
+<code>basic.reject</code> whilst also allowing for bulk
+processing of messages.</p>
+<h2 id="reject-vs-nack"><code>basic.reject</code> vs. <code>basic.nack</code></h2>
+<p>While both methods can dead-letter/discard or requeue messages, they have a semantic difference
+related to <a href="/docs/4.3/quorum-queues#poison-message-handling">poison message handling</a>:</p>
+<ul>
+<li><code>basic.reject</code> signals that message processing <strong>failed</strong>. Using this method increments the message's
+<a href="https://docs.oasis-open.org/amqp/core/v1.0/os/amqp-core-messaging-v1.0-os.html#type-header">delivery-count header</a>.</li>
+<li><code>basic.nack</code> signals that the consumer did not process the message, but does <strong>not</strong> count this as failure.
+Using this method does <strong>not</strong> increment the delivery-count header.</li>
+</ul>
+<p>This distinction is important for <a href="/docs/4.3/quorum-queues">quorum queues</a>, which support poison message handling:
+when a message's delivery-count exceeds the queue's configured <a href="/docs/4.3/quorum-queues#poison-message-handling-configuring-limit">delivery-limit</a>
+(default: 20), the message is dead-lettered or discarded.</p>
+<h2 id="usage">Usage</h2>
+<p>To reject messages in bulk, clients set the <code>multiple</code> flag of the <code>basic.nack</code>
+method to <code>true</code>. The broker will then reject all
+unacknowledged, delivered messages up to and including the
+message specified in the <code>delivery_tag</code> field of the <code>basic.nack</code> method. In this respect,
+<code>basic.nack</code> complements the bulk acknowledgement semantics of <code>basic.ack</code>.</p>
+<p>Negative acknowledgements work for both <a href="/docs/4.3/consumers">long running consumers</a>
+and polling-based ones (that use <code>basic.get</code>).</p>
+<p>When a message is requeued, it will be placed to its original
+position in its queue, if possible. If not (due to concurrent
+deliveries and acknowledgements from other consumers when
+multiple consumers share a queue), the message will be requeued
+to a position closer to queue head.</p>
+<h2 id="examples">Examples</h2>
+<h3 id="java-examples">Java</h3>
+<p>This Java client example rejects a single message consumed via polling (<code>basic.get</code>),
+asking the broker to requeue it:</p>
+<div><div><pre><code class="language-java">GetResponse gr = channel.basicGet("some.queue", false);
+channel.basicNack(gr.getEnvelope().getDeliveryTag(), false, true);</code></pre></div></div>
+<p>This example rejects two messages with a single call to
+the broker (the second argument on
+<code>basicNack</code> is the <code>multiple</code> flag):</p>
+<div><div><pre><code class="language-java">GetResponse gr1 = channel.basicGet("some.queue", false);
+GetResponse gr2 = channel.basicGet("some.queue", false);
+channel.basicNack(gr2.getEnvelope().getDeliveryTag(), true, true);</code></pre></div></div></main>

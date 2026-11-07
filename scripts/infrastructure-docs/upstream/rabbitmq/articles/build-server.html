@@ -1,0 +1,68 @@
+<main><header><h1>Server Build Instructions</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This section describes the process for obtaining a copy of the
+RabbitMQ server source code, as well as instructions for building the
+server from source.</p>
+<h2 id="open-source-rabbitmq-build-infrastructure-is-open-source">Open Source RabbitMQ Build Infrastructure is Open Source</h2>
+<p>Except for the secrets, certificates and package distribution infrastructure (such as <code>deb*.rabbitmq.com</code> or <code>yum*.rabbitmq.com</code>),
+open source RabbitMQ's build infrastructure is developed in the open on GitHub:</p>
+<ul>
+<li><a href="https://github.com/rabbitmq/build-env-images"><code>rabbitmq/build-env-images</code></a> provides the OCI images used for producing releases</li>
+<li><a href="https://github.com/rabbitmq/server-packages"><code>rabbitmq/server-packages</code></a> provides the GitHub Actions workflows</li>
+</ul>
+<h2 id="git">Build from Source</h2>
+<p>First, get the source code from <a href="/github">our GitHub repositories</a>:</p>
+<div><div><pre><code class="language-bash">git clone https://github.com/rabbitmq/rabbitmq-server.git rabbitmq</code></pre></div></div>
+<p>Then, use GNU Make to pull down dependencies and build the server and all plugins
+that ship with the RabbitMQ distribution:</p>
+<div><div><pre><code class="language-bash">cd rabbitmq
+make</code></pre></div></div>
+<h2 id="prerequisites">Required Libraries and Tools</h2>
+<p>In order to build RabbitMQ, a few tools must be installed.</p>
+<h3 id="python">Python</h3>
+<p>RabbitMQ requires a reasonably recent version of <a href="http://www.python.org/download/">Python</a> and <a href="http://pypi.python.org/pypi/simplejson">simplejson</a>.</p>
+<p>simplejson.py is included as a standard json library in the Python distribution.</p>
+<h3 id="erlangotp-toolchain-and-headers">Erlang/OTP Toolchain and Headers</h3>
+<p>The <a href="http://www.erlang.org/./download">Erlang</a> development and runtime tools
+are needed to compile RabbitMQ server, tools and <a href="/docs/4.3/plugins">tier 1 plugins</a>.</p>
+<p>See <a href="/docs/4.3/which-erlang">Erlang Version Requirements</a> to learn about the range of supported Erlang release series.</p>
+<p>On a Debian-based system, the <code>erlang-nox</code>, <code>erlang-dev</code> and
+<code>erlang-src</code> packages must be installed.</p>
+<h3 id="elixir">Elixir</h3>
+<p>A recent version of <a href="https://elixir-lang.org/">Elixir</a> is needed
+to build <a href="/docs/4.3/cli">RabbitMQ CLI tools</a>.</p>
+<h3 id="gnu-make">GNU Make</h3>
+<p><a href="http://www.gnu.org/software/make/">GNU make</a> is the primary build tool
+used by RabbitMQ.</p>
+<h3 id="xsltproc-and-xmlto">xsltproc and xmlto</h3>
+<p>A recent version of <code>xsltproc</code>, which is part of <a href="http://xmlsoft.org/XSLT/">libxslt</a> and
+<code>xmlto</code> must be available.</p>
+<h3 id="zip-and-unzip">zip and unzip</h3>
+<p><a href="http://www.info-zip.org/Zip.html">zip</a> and <a href="http://www.info-zip.org/UnZip.html">unzip</a>
+would be necessary if source code is obtained via an archive instead of a git repository clone.</p>
+<h2 id="building-server">Building the Server</h2>
+<p>Change to the <code>rabbitmq</code> directory, and type <code>make</code>.</p>
+<p>Other interesting <code>Makefile</code> targets include</p>
+<table><thead><tr><th>Make Target</th><th>Description</th></tr></thead><tbody><tr><td>all</td><td><p>The default target. Builds the server.</p></td></tr><tr><td>shell</td><td><p>Builds the client libraries and starts an Erlang shell with the
+libraries loaded.</p></td></tr><tr><td>run-broker</td><td><p>Builds the server and starts an instance with an
+interactive Erlang shell. This will by default put
+data, including the node's data directory, under <code>/tmp/rabbitmq-test-instances</code>,
+but this location can be overridden by setting the
+Makefile variable <code>TEST_TMPDIR</code>:</p><div><div><pre><code class="language-bash">make run-broker TEST_TMPDIR="/some/other/location/for/rabbitmq-test-instances"</code></pre></div></div><p>The Erlang node name can also be changed by setting
+<code>RABBITMQ_NODENAME</code>:</p><div><div><pre><code class="language-bash">make run-broker RABBITMQ_NODENAME=rmq</code></pre></div></div><p>See <a href="./configure">Configuration guide</a> for other
+variables that may be useful.</p></td></tr><tr><td>clean</td><td>Removes temporary build products.</td></tr><tr><td>distclean</td><td>Removes all build products, including fetched dependencies.</td></tr><tr><td>tests</td><td><p>Runs multiple server test suites. This is very resource-intensive and will
+take up to a few hours. Many nodes and clusters will be started, modified and destroyed
+by various test suites.</p></td></tr></tbody></table>
+<h2 id="building-packages">Building Packages</h2>
+<p>In practice, building RabbitMQ server from source is of limited use
+unless an easy to deploy package (e.g. a generic binary build or Debian one) can be produced.</p>
+<p>Everything related to packaging the RabbitMQ server is in the <a href="https://github.com/rabbitmq/rabbitmq-server">main RabbitMQ repository</a>.</p>
+<p>There is a number of top-level packaging Make targets available, one for each package
+type (or family of packages, such as RPM):</p>
+<ul>
+<li><code>make package-generic-unix</code></li>
+<li><code>make package-deb</code></li>
+<li><code>make package-rpm</code></li>
+<li><code>make package-rpm-suse</code></li>
+<li><code>make package-windows</code></li>
+</ul></main>

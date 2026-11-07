@@ -850,19 +850,28 @@ pub(crate) fn publish_release(
 }
 
 pub fn install(ctx: &Context, reference: &str) -> Result<Value> {
+    install_release(ctx, reference, true)
+}
+
+fn install_release(ctx: &Context, reference: &str, prune: bool) -> Result<Value> {
     let _lock = lock_library(ctx)?;
     let entry = select(ctx, reference, false)?;
     let template = entry.template;
-    if let Some(path) = entry.installed {
+    let result = if let Some(path) = entry.installed {
         verify_release(&path)?;
-        return Ok(installation_result(&template, &path));
+        installation_result(&template, &path)
+    } else {
+        let source = source(ctx, &template.path)?;
+        let base = installed_base(ctx, &template.id, true)?;
+        let destination = base.join(&template.version);
+        let stage = Stage::new(&base)?;
+        copy_tree(&source, &stage.0, None)?;
+        publish_release(&stage, template.clone(), &destination, None)?
+    };
+    if prune {
+        prune_after_install(ctx, &[(&template.id, &template.version)])?;
     }
-    let source = source(ctx, &template.path)?;
-    let base = installed_base(ctx, &template.id, true)?;
-    let destination = base.join(&template.version);
-    let stage = Stage::new(&base)?;
-    copy_tree(&source, &stage.0, None)?;
-    publish_release(&stage, template, &destination, None)
+    Ok(result)
 }
 
 fn candidate_paths(tool: &str) -> Vec<PathBuf> {
@@ -1418,11 +1427,16 @@ pub fn remove(ctx: &Context, reference: &str) -> Result<Value> {
         .context("Select an exact starter release to remove")?;
     version(label)?;
     let _lock = lock_library(ctx)?;
+    let removed = remove_release(ctx, id, label)?;
+    Ok(json!({"id":id,"version":label,"removed":removed}))
+}
+
+fn remove_release(ctx: &Context, id: &str, label: &str) -> Result<bool> {
     let base = installed_base(ctx, id, false)?;
     let path = base.join(label);
     match fs::symlink_metadata(&path) {
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Ok(json!({"id":id,"version":label,"removed":false}));
+            return Ok(false);
         }
         Ok(metadata) if metadata.is_dir() => {}
         _ => bail!("Expected an installed starter directory"),
@@ -1432,7 +1446,41 @@ pub fn remove(ctx: &Context, reference: &str) -> Result<Value> {
     let (stack, name) = id_parts(id)?;
     let readiness = library(ctx, &Path::new("readiness").join(stack).join(name), false)?;
     let _ = fs::remove_file(readiness.join(format!("{label}.json")));
-    Ok(json!({"id":id,"version":label,"removed":true}))
+    Ok(true)
+}
+
+pub(crate) fn prune_after_install(ctx: &Context, installed: &[(&str, &str)]) -> Result<()> {
+    if crate::updates::keep_latest(ctx)? {
+        prune(ctx, Some(installed))
+            .context("Starter was installed, but old versions could not be purged")?;
+    }
+    Ok(())
+}
+
+// catalog_entries sorts each starter family from newest to oldest.
+pub(crate) fn prune(ctx: &Context, installed: Option<&[(&str, &str)]>) -> Result<usize> {
+    let entries = catalog_entries(ctx)?;
+    let mut removed = 0;
+    let mut releases = entries
+        .iter()
+        .filter(|entry| entry.installed.is_some())
+        .peekable();
+    while let Some(latest) = releases.next() {
+        let id = latest.template.id.as_str();
+        let purge =
+            installed.is_none_or(|releases| releases.contains(&(id, &latest.template.version)));
+        let same_family = |entry: &&Entry| entry.template.id == id;
+        if purge && installed.is_none() && releases.peek().is_some_and(same_family) {
+            verify_release(latest.installed.as_deref().unwrap())?;
+        }
+        while releases.peek().is_some_and(same_family) {
+            let entry = releases.next().unwrap();
+            if purge {
+                removed += usize::from(remove_release(ctx, id, &entry.template.version)?);
+            }
+        }
+    }
+    Ok(removed)
 }
 
 fn shell_word(path: &Path) -> Result<String> {
@@ -1750,7 +1798,7 @@ pub(crate) fn prepare(
     if let Some(job) = job.as_deref_mut() {
         job.stage("Installing starter release")?;
     }
-    let installed = install(ctx, reference)?;
+    let installed = install_release(ctx, reference, false)?;
     let label = format!(
         "{}@{}",
         text_arg(&installed, "id")?,
@@ -1768,6 +1816,10 @@ pub(crate) fn prepare(
         docs.push(crate::install_docs(ctx, id, version)?);
     }
     verify_offline(ctx, &label, job)?;
+    {
+        let _lock = lock_library(ctx)?;
+        prune_after_install(ctx, &[(&template.id, &template.version)])?;
+    }
     Ok(json!({"template":installed,"docs":docs,"doctor":doctor(ctx,&label)?}))
 }
 
@@ -1881,11 +1933,14 @@ pub(crate) fn build_latest_job(
     }
     let digest = tree_digest(&stage.0)?;
     record_verification(ctx, &template, digest, detail)?;
-    let result = publish_release(&stage, template.clone(), &output, Some(tasks::now()));
-    if result.is_err() {
-        let _ = fs::remove_file(readiness_file(ctx, &template, false)?);
-    }
-    result
+    let result = publish_release(&stage, template.clone(), &output, Some(tasks::now()))
+        .inspect_err(|_| {
+            if let Ok(path) = readiness_file(ctx, &template, false) {
+                let _ = fs::remove_file(path);
+            }
+        })?;
+    prune_after_install(ctx, &[(&template.id, &template.version)])?;
+    Ok(result)
 }
 
 #[cfg(test)]

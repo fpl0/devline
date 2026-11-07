@@ -1,0 +1,9 @@
+<main><header><h1>reject_unknown_cluster</h1></header>
+<div><span><span>Requires Restart</span></span></div>
+<p>If true, gateway will reject connections from cluster that are
+not configured in gateways. It does so by checking if the cluster
+name, provided by the incomming connection, exists as named gateway.
+This effectively disables gossiping of new cluster. It does not
+restrict a configured gateway, thus cluster, from dynamically growing.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>boolean</code></td><td>-</td><td><code>true</code>, <code>false</code></td></tr></tbody></table></main>

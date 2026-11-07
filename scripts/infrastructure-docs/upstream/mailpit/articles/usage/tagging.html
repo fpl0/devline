@@ -1,0 +1,77 @@
+<main>
+		
+		<h1>Tagging messages</h1>
+		<p>Mailpit allows you to add tags (labels) to messages. Message tags can be added, edited, and deleted via the web UI when viewing a message, as well as automatically applied when receiving new messages.</p>
+<p>Tags can then be seen in the web UI and filtered in <a href="../search-filters/">the search</a> using <code>tag:"Tag name"</code>, or you can simply click on a tag name.
+To filter by more than one tag at once, hold the <code>Ctrl</code>/<code>Cmd</code> button and click the tag names on the left-hand side, which will either append or remove the tag from the current search.</p>
+<p>Individual message tags can be edited inline when viewing a message in the web UI.</p>
+<p>Existing tags can also be renamed or deleted globally in the web UI (by clicking on <code>Tags</code> -&gt; <code>Edit tags</code> in the side navigation). Please note that renaming an existing tag will not prevent a tag with the original name from being created again via auto-tagging of new messages.</p>
+<h2 id="allowed-tag-names">Allowed tag names</h2>
+<p>Tags are limited to the following characters: <code>a-z</code>, <code>A-Z</code>, <code>0-9</code>, <code>-</code>, <code>.</code>, spaces, <code>_</code> and <code>@</code>, and must be between 1 and 100 characters long.</p>
+<h2 id="enforcing-titlecase">Enforcing TitleCase</h2>
+<p>TitleCasing will capitalize the first letter in each word in a tag (for new auto-generated tags only). This is not enabled by default and only applies to newly created tags generated from <a href="#plus-addressing">plus-addresses</a> and <a href="#x-tags-header">X-Tag</a> headers.</p>
+<p>To enable TitleCasing for new tags, you can set the <code>--tags-title-case</code> flag or set the <code>MP_TAGS_TITLE_CASE=true</code> environment variable.</p>
+<h2 id="automatically-tag-messages">Automatically tag messages</h2>
+<p>Messages can be automatically tagged using any combination of the following methods:</p>
+<ul>
+<li>Setting an <code>X-Tags</code> email header</li>
+<li>Using “plus addressing”</li>
+<li>Using word/phrase matches (filtering)</li>
+<li>Username auto-tagging</li>
+</ul>
+<h3 id="disable-auto-tagging">Disable auto-tagging</h3>
+<p>Auto-tagging using the X-Tags header and plus-addressing is enabled by default. You can disable either (or both) of these by setting the <code>--tags-disable &lt;types&gt;</code> (@env <code>MP_TAGS_DISABLE="&lt;types&gt;"</code>), where <code>&lt;types&gt;</code> is a comma-separated list of <code>plus-addresses</code> and <code>x-tags</code>.</p>
+<div><pre><code class="language-shell"><span><span>--tags-disable plus-addresses,x-tags
+</span></span></code></pre></div><h3 id="x-tags-header">X-Tags header</h3>
+<p>Mailpit will automatically apply tags from a comma-separated <code>X-Tags</code> message header (unless disabled via the <a href="#disable-auto-tagging">–tags-disable</a> option), for example:</p>
+<div><pre><code class="language-text"><span><span>X-Tags: Tag 1, Tag 2, hostname
+</span></span></code></pre></div><p>New tags will be automatically <a href="#enforcing-titlecase">TitleCased</a> if the option is set.</p>
+<h3 id="plus-addressing">Plus addressing</h3>
+<p>Plus addressing (also known as “sub-addressing”) uses the email syntax <code>&lt;name&gt;+&lt;tag&gt;@&lt;domain&gt;</code>, for example <code>user+debug@example.com</code> would get the <code>debug</code> tag applied.
+Any email received having a “plus address” in the From, To, Cc or Bcc fields will automatically get the tag(s) detected applied to the message (unless disabled via the <a href="#disable-auto-tagging">–tags-disable</a> option).</p>
+<p>To apply multiple tags you can use the <code>&lt;name&gt;+&lt;tag1&gt;+&lt;tag2&gt;@&lt;domain&gt;</code> format.</p>
+<p>New tags will be automatically <a href="#enforcing-titlecase">TitleCased</a> if the option is set.</p>
+<h3 id="tag-filters">Tag filters</h3>
+<p>New messages can be automatically tagged using filters. Tag matches can also include the same search filters as <a href="../search-filters/">regular search</a>, with the exception of <code>is:tagged</code> or <code>tag:</code> (it isn’t been tagged yet), or <code>is:read</code> (it’s always unread when received) filters.</p>
+<p>Unlike regular searching though, tag filters also try match a 1:1 on any part of the message, including all headers (for instance if you wanted to match by a particular hostname), whereas search only searches in certain header fields and body content. Messages can have multiple tags, and duplicate tags are ignored.</p>
+
+<div>
+	When providing multiple words to a rule, Mailpit will try match all words in any order. If you want an exact phrase match, you must quote the search as you would in the web UI. See below for examples.
+</div>
+
+<p>Tag filters can be set in Mailpit via two different methods:</p>
+<h4 id="set-filters-using-a-config">Set filters using a config</h4>
+<p>You can set your tag filters using a yaml configuration file using <code>--tags-config &lt;file&gt;</code> (@env <code>MP_TAGS_CONFIG=&lt;file&gt;</code>).</p>
+<p>The structure of the yaml file should be as follows:</p>
+<div><pre><code class="language-yaml"><span><span><span>filters</span><span>:</span><span>
+</span></span></span><span><span><span>    </span><span># match all words (in any order)</span><span>
+</span></span></span><span><span><span>    </span>- <span>match</span><span>:</span><span> </span><span>search all words</span><span>
+</span></span></span><span><span><span>      </span><span>tags</span><span>:</span><span> </span><span>Tag 1</span><span>
+</span></span></span><span><span><span>    </span><span># match to test@example.com</span><span>
+</span></span></span><span><span><span>    </span>- <span>match</span><span>:</span><span> </span><span>addressed:test@example.com</span><span>
+</span></span></span><span><span><span>      </span><span>tags</span><span>:</span><span> </span><span>Tag 2</span><span>
+</span></span></span><span><span><span>    </span><span># match from@example.com and apply two tags</span><span>
+</span></span></span><span><span><span>    </span>- <span>match</span><span>:</span><span> </span><span>from:from@example.com</span><span>
+</span></span></span><span><span><span>      </span><span>tags</span><span>:</span><span> </span><span>Tag 1, Tag 2</span><span>
+</span></span></span><span><span><span>    </span><span># match exact phrase - note double quoting!</span><span>
+</span></span></span><span><span><span>    </span>- <span>match</span><span>:</span><span> </span><span>'"match this phrase"'</span><span>
+</span></span></span><span><span><span>      </span><span>tags</span><span>:</span><span> </span><span>Exact phrase</span><span>
+</span></span></span></code></pre></div><p>Tags are comma-separated, so multiple tags can optionally be assigned per match.</p>
+<h4 id="set-filters-using---tag">Set filters using <code>--tag</code></h4>
+<p>The <code>--tag "&lt;syntax&gt;"</code> (@env <code>MP_TAG="&lt;syntax&gt;"</code>) accepts a space-separated string format: <code>&lt;tag&gt;=&lt;match&gt; &lt;tag&gt;=&lt;match&gt;</code>, where <code>&lt;tag&gt;</code> is the name of the tag you wish to apply matching messages, and <code>&lt;match&gt;</code> is what to match on.</p>
+<div><pre><code class="language-shell"><span><span>--tag <span>'user=user@example.com user2=from:user2@example.com "Scanned with antivirus"="X-Antivirus: " "Exact phrase"='</span><span>"the quoted phrase'"</span><span>'</span>
+</span></span></code></pre></div><p>In the above example all messages containing <code>user@example.com</code> are tagged with <code>user</code>, all messages <strong>from</strong> <code>user2@example.com</code> are tagged with <code>user2</code>, and all messages containing <code>X-Antivirus: </code> are tagged with <code>Scanned with antivirus</code>.</p>
+<p>Tags are split by a comma, so multiple tags can be assigned for a match using the following format: <code>"Tag 1, Tag2"="this is the match"</code>.</p>
+<h3 id="username-auto-tagging">Username auto-tagging</h3>
+<p>Mailpit can automatically tag messages with the authenticated username (SMTP or HTTP) when the <code>--tags-username</code> flag or <code>MP_TAGS_USERNAME</code> environment variable is enabled. This is especially useful in multi-user environments, allowing you to easily filter and identify messages by user.</p>
+<ul>
+<li>When enabled, a tag matching the username will be added to each message sent by an authenticated user.</li>
+<li>Username tags appear alongside other tags in the web UI and can be used in search filters (e.g., <code>tag:"alice"</code>).</li>
+<li>This feature works for both SMTP and HTTP authenticated users.</li>
+</ul>
+
+
+		
+		
+		
+	</main>

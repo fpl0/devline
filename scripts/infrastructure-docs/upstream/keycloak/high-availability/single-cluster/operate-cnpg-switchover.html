@@ -1,0 +1,301 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div id="preamble">
+<div class="sectionbody">
+<div class="paragraph">
+<p>These instructions are intended for use with the setup described in the <a href="https://www.keycloak.org/high-availability/single-cluster/concepts">Concepts for single-cluster deployments</a> guide.
+Use it together with the other building blocks outlined in the <a href="https://www.keycloak.org/high-availability/single-cluster/building-blocks">Building blocks single-cluster deployments</a> guide.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+We provide these blueprints to show a minimal functionally complete example with a good baseline performance for regular installations.
+You would still need to adapt it to your environment and your organization’s standards and security best practices.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_when_to_use_this_procedure"><a class="anchor" href="#_when_to_use_this_procedure"></a>When to use this procedure</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The CloudNativePG operator is designed to perform an automated switchover in situations such as changing a cluster configuration that requires a rolling update (for example <code>imageName</code>, <code>resources</code>, or certain <code>postgresql.paramaters</code>), an operator upgrade, or a Kubernetes node maintenance (Pod eviction).</p>
+</div>
+<div class="paragraph">
+<p>This procedure can be used to perform a switchover manually, outside of these situations, for example to test how Keycloak behaves during switchovers.</p>
+</div>
+<div class="paragraph">
+<p>In order to minimize service disruptions it is recommended to perform this procedure during a period of minimal load.
+As long as the primary database node is shut down gracefully, no committed data should be lost.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>Initiating a switchover terminates existing connections to the primary instance. Keycloak will available again once the new primary instance is promoted and new connections can be established.
+This should take less than one minute.</p>
+</div>
+<div class="paragraph">
+<p>Shutdown of the primary instance may take some time, depending on how long it takes to finish its replication and possible archiving tasks. The maximum duration of this process can be controlled with the <code>.spec.switchoverDelay</code> setting. See the <a href="https://cloudnative-pg.io/docs/1.29/instance_manager#shutdown-of-the-primary-during-a-switchover">CloudNativePG documentation</a> for details.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_prerequisities"><a class="anchor" href="#_prerequisities"></a>Prerequisities</h2>
+<div class="sectionbody">
+<div class="ulist">
+<ul>
+<li>
+<p>A CloudNativePG cluster deployed according to steps described in the <a href="https://www.keycloak.org/high-availability/single-cluster/deploy-cnpg">Deploying CloudNativePG in multiple availability zones</a> guide.</p>
+</li>
+<li>
+<p>The <code>kubectl</code> command-line utility.</p>
+</li>
+<li>
+<p>The <code>kubectl cnpg</code> plugin. Please follow the <a href="https://cloudnative-pg.io/docs/1.29/kubectl-plugin">CloudNativePG documentation</a> for installation steps.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_procedure"><a class="anchor" href="#_procedure"></a>Procedure</h2>
+<div class="sectionbody">
+<div class="olist arabic">
+<ol class="arabic">
+<li>
+<p>Review the status of the CloudNativePG cluster using the <code>kubectl cnpg status</code> command.</p>
+<div class="listingblock">
+<div class="title">Command:</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl cnpg status <span class="nt">-n</span> cnpg-keycloak cnpg-keycloak</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Output:</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">Cluster Summary
+Name                     cnpg-keycloak/cnpg-keycloak
+System ID:               <span class="k">*******************</span>
+PostgreSQL Image:        ghcr.io/cloudnative-pg/postgresql:18.1-system-trixie
+Primary instance:        cnpg-keycloak-1 <i class="conum" data-value="1"></i><b>(1)</b>
+Primary promotion <span class="nb">time</span>:  <span class="k">****</span>-<span class="k">**</span>-<span class="k">**</span> <span class="k">**</span>:<span class="k">**</span>:<span class="k">**</span> +0000 UTC <span class="o">(</span><span class="k">*****</span><span class="o">)</span>
+Status:                  Cluster <span class="k">in </span>healthy state
+Instances:               3
+Ready instances:         3
+Size:                    <span class="k">****</span>
+Current Write LSN:       0/8000000 <span class="o">(</span>Timeline: 1 - WAL File: 000000010000000000000008<span class="o">)</span>
+
+Continuous Backup not configured
+
+Streaming Replication status  <i class="conum" data-value="2"></i><b>(2)</b>
+Replication Slots Enabled
+Name             ⋯  Replay LSN  ⋯  Replay Lag  State      Sync State  Sync Priority  ⋯
+<span class="nt">----</span>             ⋯  <span class="nt">----------</span>  ⋯  <span class="nt">----------</span>  <span class="nt">-----</span>      <span class="nt">----------</span>  <span class="nt">-------------</span>  ⋯
+cnpg-keycloak-2  ⋯  0/8000000   ⋯  00:00:00    streaming  quorum      1              ⋯
+cnpg-keycloak-3  ⋯  0/8000000   ⋯  00:00:00    streaming  quorum      1              ⋯
+
+Instances status <i class="conum" data-value="3"></i><b>(3)</b>
+Name             Current LSN  Replication role  Status  QoS         Manager Version  Node
+<span class="nt">----</span>             <span class="nt">-----------</span>  <span class="nt">----------------</span>  <span class="nt">------</span>  <span class="nt">---</span>         <span class="nt">---------------</span>  <span class="nt">----</span>
+cnpg-keycloak-1  0/8000000    Primary           OK      BestEffort  1.28.0           ⋯
+cnpg-keycloak-2  0/8000000    Standby <span class="o">(</span><span class="nb">sync</span><span class="o">)</span>    OK      BestEffort  1.28.0           ⋯
+cnpg-keycloak-3  0/8000000    Standby <span class="o">(</span><span class="nb">sync</span><span class="o">)</span>    OK      BestEffort  1.28.0           ⋯</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>The current primary instance of the cluster.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>This section shows the status of the cluster’s replica instances.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>General status of individual instances and their roles in the cluster.</td>
+</tr>
+</table>
+</div>
+</li>
+<li>
+<p>Find a candidate for a new primary instance.</p>
+<div class="paragraph">
+<p>In the <em>Streaming Replication status</em> table note the values in the columns: <code>State</code> and <code>Sync State</code>.</p>
+</div>
+<div class="paragraph">
+<p>Before performing the switchover it is important to ensure that the candidate instance is in the <code>streaming</code> state, which means that it is actively receiving data from the primary, and that its Sync State is either <code>quorum</code> or <code>sync</code>.</p>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+<div class="paragraph">
+<p>For replicas with the Sync State value of <code>potential</code> or <code>async</code> the replication is <em>asynchronous,</em> which means that there is no guarantee that the particular replica has all the changes confirmed by the primary instance as committed. When selecting a new primary instance these replicas should be avoided.</p>
+</div>
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>In case the cluster is configured for a <em>quorum-based synchronous replication</em> as described in the <a href="https://www.keycloak.org/high-availability/single-cluster/deploy-cnpg">Deploying CloudNativePG in multiple availability zones</a> guide, it is possible to promote any of the available replicas.</p>
+</div>
+<div class="paragraph">
+<p>In case the cluster is configured for a <em>priority-based synchronous replication</em>, select the replica with the Sync State value of <code>sync</code>.</p>
+</div>
+<table class="tableblock frame-all grid-all fit-content">
+<caption class="title">Table 1. Sync State</caption>
+<colgroup>
+<col/>
+<col/>
+<col/>
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Sync State</th>
+<th class="tableblock halign-left valign-top">Replication</th>
+<th class="tableblock halign-left valign-top">Safe to promote</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>quorum</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Quorum Synchronous</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Safe</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sync</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Synchronous</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Safe</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>potential</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Asynchronous <sup>1</sup></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unsafe</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>async</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Asynchronous</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unsafe</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<div class="title">Table footnotes:</div>
+<p><sup>1</sup> May be promoted to a synchronous standby if the current synchronous standby fails.</p>
+</div>
+</li>
+<li>
+<p>Promote a new primary instance.</p>
+<div class="paragraph">
+<p>Once a candidate for the new primary instance is identified, for example <code>cnpg-keycloak-2</code> from the above example, use the following command to promote it.</p>
+</div>
+<div class="listingblock">
+<div class="title">Command:</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl cnpg promote <span class="nt">-n</span> cnpg-keycloak cnpg-keycloak cnpg-keycloak-2</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Output:</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash"><span class="o">{</span><span class="s2">"level"</span>:<span class="s2">"info"</span>,<span class="s2">"ts"</span>:<span class="s2">"****-**-*****:**:**.*********+**:**"</span>,<span class="s2">"msg"</span>:<span class="s2">"Cluster has become unhealthy"</span><span class="o">}</span>
+Node cnpg-keycloak-2 <span class="k">in </span>cluster cnpg-keycloak will be promoted</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Wait for the cluster to return to the Ready state.</p>
+<div class="listingblock">
+<div class="title">Command:</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl <span class="nt">-n</span> cnpg-keycloak <span class="nb">wait</span> <span class="nt">--for</span> <span class="nv">condition</span><span class="o">=</span>Ready <span class="nt">--timeout</span><span class="o">=</span>30s cluster cnpg-keycloak</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Output:</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">cluster.postgresql.cnpg.io/cnpg-keycloak condition met</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Verify the switchover by checking the cluster status again.</p>
+<div class="listingblock">
+<div class="title">Command:</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">kubectl cnpg status <span class="nt">-n</span> cnpg-keycloak cnpg-keycloak</code></pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">Output:</div>
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">Cluster Summary
+Name                     cnpg-keycloak/cnpg-keycloak
+System ID:               <span class="k">*******************</span>
+PostgreSQL Image:        ghcr.io/cloudnative-pg/postgresql:18.1-system-trixie
+Primary instance:        cnpg-keycloak-2 <i class="conum" data-value="1"></i><b>(1)</b>
+Primary promotion <span class="nb">time</span>:  <span class="k">****</span>-<span class="k">**</span>-<span class="k">**</span> <span class="k">**</span>:<span class="k">**</span>:<span class="k">**</span> +0000 UTC <span class="o">(</span><span class="k">*****</span><span class="o">)</span>
+Status:                  Cluster <span class="k">in </span>healthy state
+Instances:               3
+Ready instances:         3
+Size:                    <span class="k">****</span>
+Current Write LSN:       1/2B011FB0 <span class="o">(</span>Timeline: 2 - WAL File: 00000002000000010000002B<span class="o">)</span>
+
+Continuous Backup not configured
+
+Streaming Replication status <i class="conum" data-value="2"></i><b>(2)</b>
+Replication Slots Enabled
+Name             ⋯  Replay LSN  ⋯  Replay Lag  State      Sync State  Sync Priority  ⋯
+<span class="nt">----</span>             ⋯  <span class="nt">----------</span>  ⋯  <span class="nt">----------</span>  <span class="nt">-----</span>      <span class="nt">----------</span>  <span class="nt">-------------</span>  ⋯
+cnpg-keycloak-1  ⋯  1/2B011FB0  ⋯  00:00:00    streaming  quorum      1              ⋯
+cnpg-keycloak-3  ⋯  1/2B011FB0  ⋯  00:00:00    streaming  quorum      1              ⋯
+
+Instances status
+Name             Current LSN  Replication role  Status  QoS         Manager Version  Node
+<span class="nt">----</span>             <span class="nt">-----------</span>  <span class="nt">----------------</span>  <span class="nt">------</span>  <span class="nt">---</span>         <span class="nt">---------------</span>  <span class="nt">----</span>
+cnpg-keycloak-2  1/2B011FB0   Primary           OK      BestEffort  1.28.0           ⋯
+cnpg-keycloak-1  1/2B011FB0   Standby <span class="o">(</span><span class="nb">sync</span><span class="o">)</span>    OK      BestEffort  1.28.0           ⋯
+cnpg-keycloak-3  1/2B011FB0   Standby <span class="o">(</span><span class="nb">sync</span><span class="o">)</span>    OK      BestEffort  1.28.0           ⋯</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Note that the role of the <em>primary instance</em> has been switched over to <code>cnpg-keycloak-2</code>.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Note that the role of the original primary instance <code>cnpg-keycloak-1</code> has changed to replica.</td>
+</tr>
+</table>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>For possible troubleshooting scenarios refer to the <a href="https://cloudnative-pg.io/docs/1.29/troubleshooting">CloudNativePG documentation</a>.</p>
+</div>
+</div>
+</div> </div>
+</main>

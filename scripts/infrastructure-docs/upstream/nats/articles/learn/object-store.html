@@ -1,0 +1,83 @@
+<main><header><h1>Object Store</h1></header>
+<p>NATS gives you a place to store files, and it isn't a separate service. An
+<strong>object</strong> is a stored file: an invoice PDF, a shipping label, a packing
+slip, anything too large or too binary to ride on a plain message. A
+<strong>bucket</strong> is the named store you put those objects into. Both live inside a
+single JetStream stream named <code>OBJ_&lt;bucket&gt;</code>, the same persistence layer the
+<a href="/learn/jetstream">JetStream Deep Dive</a> already taught you.</p>
+<p>Keep that framing in mind from the start. When you
+<code>put</code> an object the store splits its bytes into chunks, writes each chunk as
+a message, and follows them with one metadata message describing the whole
+object. When you <code>get</code> an object the store reads that metadata, replays the
+chunks in order, and verifies them before handing you the bytes. The
+friendly API (<code>put</code>, <code>get</code>, <code>list</code>, <code>watch</code>, <code>link</code>) is what you use day
+to day, and the stream underneath is what makes it work.</p>
+<div></div>
+<p>This chapter teaches the object abstraction first and reveals the stream
+last. The first four pages teach you the object store API on its own terms, so
+you can be productive without re-deriving JetStream internals.
+<a href="/learn/object-store/under-the-hood">Under the hood</a> shows you the <code>OBJ_INVOICES</code> stream that
+was present the whole time.</p>
+<p>Place this alongside its sibling store. The
+<a href="/learn/key-value">Key-Value Store</a> keeps small structured values and a full
+revision history per key, so it retains every change. The Object Store keeps
+large chunked files and only the latest metadata per object, so it retains
+the current version rather than the history. Use key-value when you want
+many small values that you read, overwrite, and audit; use the object
+store when you want whole files that you put and fetch. That contrast holds for
+the rest of the chapter, so we state it once here and move on.</p>
+<h2 id="by-the-end-you-will-have">By the end you will have</h2>
+<ul>
+<li>An <code>INVOICES</code> bucket (described as "Invoice PDFs") that the <code>order-svc</code>
+service puts invoices into after a payment is confirmed.</li>
+<li>The invoice <code>invoice-ord_8w2k.pdf</code> stored and fetched back, with the store
+computing and checking a SHA-256 <strong>digest</strong> so you know the bytes you get
+are the bytes you put.</li>
+<li>A 3 MB invoice, <code>invoice-ord_9x3m.pdf</code>, stored across many <strong>chunks</strong> and
+reassembled on the way out, with a feel for the chunk size that bounds each
+message.</li>
+<li>An invoice that carries a <strong>description</strong>, a <code>content-type</code> header, and a
+free-form metadata map, plus a <code>label-ord_8w2k.png</code> object <strong>linked</strong> to
+it and traversed transparently on get.</li>
+<li>An <code>analytics</code> service that <strong>lists</strong> the bucket as a snapshot and
+<strong>watches</strong> it for new objects in real time.</li>
+<li>A clear picture of the <code>OBJ_INVOICES</code> stream underneath: the chunk and
+metadata subjects, the rollup that keeps only the latest metadata, and what
+a soft delete really does.</li>
+</ul>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You've read the <a href="/learn/jetstream">JetStream Deep Dive</a> or the
+<a href="/concepts/jetstream">Core Concepts → JetStream</a> primer, so the sentence
+"a stream stores messages" already means something to you. This chapter
+doesn't re-teach what a stream is, how a consumer tracks its position, or how
+acknowledgment works. Where you'd want those, it names the gap and links
+back to <a href="/learn/jetstream">JetStream</a>.</p>
+<p>You don't need to know anything about the object store specifically. We
+start from "what is a bucket and why would you want one" and grow from there.</p>
+<h2 id="how-to-read-it">How to read it</h2>
+<p>Each page introduces at most two new concepts, and each builds on the last:
+you use the same <code>INVOICES</code> bucket throughout, and you can keep one
+terminal open through the whole chapter without resetting state. You create
+the bucket and store your first invoice in
+<a href="/learn/object-store/your-first-object">Your first object</a>, store a large multi-chunk invoice
+in <a href="/learn/object-store/chunking">Chunking</a>, attach metadata and a link in
+<a href="/learn/object-store/metadata-and-links">Metadata and links</a>, list and watch the bucket in
+<a href="/learn/object-store/watching-and-listing">Watching and listing</a>, and inspect the stream
+underneath in <a href="/learn/object-store/under-the-hood">Under the hood</a>.</p>
+<p>The object store has many knobs: chunk size, replicas, compression, every
+field on the wire. Where a feature has a long list, the page covers only
+what you need to understand the concept. The full set of configuration
+options lives in <a href="/reference/">Reference</a>; here we only need the behavior.</p>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/object-store/your-first-object">Your first object</a></td><td>Create <code>INVOICES</code>, put <code>invoice-ord_8w2k.pdf</code>, and get it back with its digest verified</td></tr><tr><td><a href="/learn/object-store/chunking">Chunking</a></td><td>Store a 3 MB invoice across many chunks and read the chunk count</td></tr><tr><td><a href="/learn/object-store/metadata-and-links">Metadata and links</a></td><td>Attach a description, headers, and a metadata map, then link one object to another</td></tr><tr><td><a href="/learn/object-store/watching-and-listing">Watching and listing</a></td><td>List the bucket as a snapshot, then watch it for new objects live</td></tr><tr><td><a href="/learn/object-store/under-the-hood">Under the hood</a></td><td>See the <code>OBJ_INVOICES</code> stream, the chunk and metadata subjects, and rollup versus soft delete</td></tr><tr><td><a href="/learn/object-store/where-next">Where to go next</a></td><td>A map of what's beyond objects, and one pre-production checklist</td></tr></tbody></table>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need:</p>
+<ul>
+<li>A working <code>nats-server</code> with JetStream enabled. The object store is built
+on JetStream, so JetStream must be on. The simplest way is
+<code>nats-server -js</code>.</li>
+<li>The <code>nats</code> CLI installed and pointed at your server. This chapter uses
+the <code>nats</code> CLI for most operations; a few, like creating a link, are
+client-library only.</li>
+</ul>
+<p>Open a terminal, run <code>nats-server -js</code>, and turn the page.</p></main>

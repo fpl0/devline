@@ -1,0 +1,100 @@
+<main><header><h1>Deployment &amp; Upgrades Deep Dive</h1></header>
+<p>The <a href="/learn/topologies">Topologies deep dive</a> designed a shape: a
+three-node NATS cluster, <code>east</code>, carrying the <code>ORDERS</code> stream. This
+chapter takes that exact cluster and runs it in production.</p>
+<p>Topologies covered the <em>shapes</em>: one server, a cluster, a super-cluster,
+leaf nodes. This chapter covers the <em>operations</em> that turn a shape into
+a running system. Those operations are the resources a node needs, the
+manifests that stand it up, the SIGHUP that reloads its config without
+dropping a connection, the lame-duck mode that upgrades it without losing
+the stream, and the systemd flags that restrict its access.</p>
+<p>This is the runbook rather than the theory. Each page names the
+mechanism, gives the exact command or manifest you run, and links the
+<em>why</em> out to the chapter that covers it.</p>
+<div></div>
+<h2 id="by-the-end-youll-have">By the end you'll have</h2>
+<p>A production runbook for the same Acme ORDERS cluster you've followed
+through every other Learn chapter:</p>
+<ul>
+<li>A <strong>sizing baseline</strong> for the workload: the four resources a node
+spends (CPU, memory, disk, file descriptors), and how an R3 stream
+counts against the <code>ORDERS</code> account limits.</li>
+<li>The cluster <strong>running on Kubernetes</strong> as a three-replica StatefulSet
+with pods <code>nats-0</code>, <code>nats-1</code>, <code>nats-2</code> (the same <code>n1-east</code>, <code>n2-east</code>,
+<code>n3-east</code> cluster you designed in Topologies; the Kubernetes page
+spells out that mapping), with the <code>ORDERS</code> stream and the <code>shipping</code>
+and <code>analytics</code> consumers declared as CRDs.</li>
+<li>The ability to <strong>change config live</strong>: split into per-account and
+per-region includes, reloaded with a SIGHUP, with zero downtime and no
+client reconnect.</li>
+<li>A safe <strong>rolling upgrade</strong> procedure that walks a new server version
+through <code>nats-0..2</code> while the R3 ORDERS stream stays available and
+clients stay connected.</li>
+<li>A <strong>hardened</strong> cluster: TLS on every link, the <code>ACME</code> credentials
+mounted, a locked-down systemd unit, and the monitor port closed to the
+internet.</li>
+</ul>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You're an operator standing the cluster up for real. You've read the
+<a href="/learn/topologies">Topologies deep dive</a> and know the shapes, and you've
+skimmed the <a href="/learn/jetstream">JetStream</a> and
+<a href="/learn/security">Security</a> deep dives. This chapter reuses the <code>ORDERS</code>
+stream and the <code>ACME</code> operator rather than re-introducing them.</p>
+<p>This chapter is deliberately the runbook half. It divides the work with
+four sibling chapters, and each owns part of it:</p>
+<ul>
+<li><strong>Which shape to deploy</strong> is <a href="/learn/topologies">Topologies</a>. This
+chapter assumes the three-node ORDERS cluster shape is already decided.</li>
+<li><strong>How Raft and replication work underneath</strong> is
+<a href="/learn/clustering">Clustering</a>. This chapter <em>triggers</em> a leadership
+transfer during an upgrade; it doesn't explain how Raft elects a
+leader.</li>
+<li><strong>The auth model</strong> (operators, accounts, users, JWTs) is
+<a href="/learn/security">Security</a>. This chapter <em>mounts</em> the credentials and
+<em>turns on</em> TLS; the model is taught there.</li>
+<li><strong>What to watch once it's live</strong> is <a href="/learn/monitoring">Monitoring</a>.
+This chapter <em>sets up</em> the cluster; monitoring watches it.</li>
+</ul>
+<p>If a sentence here would be at home verbatim in one of those four, it
+belongs there, and this chapter links to it instead.</p>
+<h2 id="how-to-read-it">How to read it</h2>
+<p>Each page introduces at most two new concepts and carries the same
+cluster forward. You <a href="/learn/deployment/sizing-and-resources">size it</a>,
+<a href="/learn/deployment/kubernetes">deploy it</a>, <a href="/learn/deployment/config-management">edit its config
+live</a>, <a href="/learn/deployment/rolling-upgrades">upgrade
+it</a>, and
+<a href="/learn/deployment/hardening">harden it</a>. The
+node names (<code>n1-east</code>/<code>n2-east</code>/<code>n3-east</code>), the <code>ORDERS</code> stream, the
+<code>order-svc</code> publisher, and the <code>ACME</code> operator stay fixed throughout, so
+you keep a
+mental picture of one Acme system getting production-ready rather than a
+new example each time.</p>
+<p>Every page covers only the configuration keys this deployment needs. The
+full set of server configuration options lives in
+<a href="/reference/config">Reference → Configuration</a>; each page points there
+for the exhaustive knob list.</p>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/deployment">Deployment &amp; Upgrades</a></td><td>What this chapter operates and the order of the runbook</td></tr><tr><td><a href="/learn/deployment/sizing-and-resources">Sizing &amp; resources</a></td><td>The four resources a node spends, and how an R3 stream counts against account limits</td></tr><tr><td><a href="/learn/deployment/kubernetes">Kubernetes</a></td><td>Stand the cluster up as a StatefulSet with the NATS Helm chart, and declare streams as CRDs</td></tr><tr><td><a href="/learn/deployment/config-management">Config management</a></td><td>Split config into includes and reload it live with a SIGHUP: no downtime, no reconnect</td></tr><tr><td><a href="/learn/deployment/rolling-upgrades">Rolling upgrades</a></td><td>Use lame-duck mode and the right upgrade order to roll a new version through the cluster</td></tr><tr><td><a href="/learn/deployment/hardening">Hardening</a></td><td>TLS on every link, mounted credentials, and a locked-down systemd unit</td></tr><tr><td><a href="/learn/deployment/where-next">Where to go next</a></td><td>The production checklist and a map of what's beyond running the cluster</td></tr></tbody></table>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need:</p>
+<ul>
+<li>A running three-node ORDERS cluster, or the willingness to stand one up
+while you read. The <a href="/learn/topologies">Topologies deep dive</a> builds it
+step by step.</li>
+<li>The <code>nats</code> CLI installed and pointed at the cluster, for the inspection
+commands (<code>nats account info</code>, <code>nats server info</code>, <code>nats stream info</code>)
+that anchor each page.</li>
+<li>For the Kubernetes pages, a cluster you can <code>kubectl</code> against and <code>helm</code>
+installed. The <a href="/learn/deployment/kubernetes">NATS Helm chart</a> and the
+NACK controller are the canonical path this chapter follows.</li>
+</ul>
+<p>Open a terminal and turn to
+<a href="/learn/deployment/sizing-and-resources">Sizing &amp; resources</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/topologies">Topologies deep dive</a> — the shape this chapter runs.</li>
+<li><a href="/learn/clustering">Clustering &amp; Replication</a> — the Raft mechanics this
+chapter triggers but doesn't teach.</li>
+<li><a href="/learn/security">Security deep dive</a> — the auth model behind the
+credentials this chapter mounts.</li>
+</ul></main>

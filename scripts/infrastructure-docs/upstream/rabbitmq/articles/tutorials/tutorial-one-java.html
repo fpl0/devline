@@ -1,0 +1,213 @@
+<main><header><h1>RabbitMQ tutorial - "Hello World!"</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<p>RabbitMQ is a message broker: it accepts and forwards messages. You can think
+about it as a post office: when you put the mail that you want posting in a
+post box, you can be sure that the letter carrier will eventually deliver the
+mail to your recipient. In this analogy, RabbitMQ is a post box, a post
+office, and a letter carrier.</p>
+<p>The major difference between RabbitMQ and the post office is that it doesn't
+deal with paper, instead it accepts, stores, and forwards binary blobs of data
+‒ <em>messages</em>.</p>
+<p>RabbitMQ, and messaging in general, uses some jargon.</p>
+<ul>
+<li>
+<p><em>Producing</em> means nothing more than sending. A program that sends messages
+is a <em>producer</em> :</p>
+<!-- -->
+</li>
+<li>
+<p><em>A queue</em> is the name for the post box in RabbitMQ. Although messages flow
+through RabbitMQ and your applications, they can only be stored inside a
+<em>queue</em>. A <em>queue</em> is only bound by the host's memory &amp; disk limits, it's
+essentially a large message buffer.</p>
+<p>Many <em>producers</em> can send messages that go to one queue, and many
+<em>consumers</em> can try to receive data from one <em>queue</em>.</p>
+<p>This is how we represent a queue:</p>
+<!-- -->
+</li>
+<li>
+<p><em>Consuming</em> has a similar meaning to receiving. A <em>consumer</em> is a program
+that mostly waits to receive messages:</p>
+<!-- -->
+</li>
+</ul>
+<p>Note that the producer, consumer, and broker do not have to reside on the same
+host; indeed in most applications they don't. An application can be both a
+producer and consumer, too.</p>
+<h2 id="hello-world">"Hello World"</h2>
+<h3 id="using-the-java-client">(using the Java Client)</h3>
+<p>In this part of the tutorial we'll write two programs in Java; a
+producer that sends a single message, and a consumer that receives
+messages and prints them out.  We'll gloss over some of the detail in
+the Java API, concentrating on this very simple thing just to get
+started. It's the "Hello World" of messaging.</p>
+<p>In the diagram below, "P" is our producer and "C" is our consumer. The
+box in the middle is a queue - a message buffer that RabbitMQ keeps
+on behalf of the consumer.</p>
+<!-- -->
+<blockquote>
+<h4 id="the-java-client-library">The Java client library</h4>
+<p>RabbitMQ speaks multiple protocols. This tutorial uses AMQP 0-9-1, which is an open,
+general-purpose protocol for messaging. There are a number of clients
+for RabbitMQ in <a href="/client-libraries/devtools">many different
+languages</a>. We'll
+use the Java client provided by RabbitMQ.</p>
+<p>Download the <a href="https://repo1.maven.org/maven2/com/rabbitmq/amqp-client/5.16.0/amqp-client-5.16.0.jar">client library</a>
+and its dependencies (<a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.36/slf4j-api-1.7.36.jar">SLF4J API</a> and
+<a href="https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/1.7.36/slf4j-simple-1.7.36.jar">SLF4J Simple</a>).
+Copy those files in your working directory, along the tutorials Java files.</p>
+<p>Please note SLF4J Simple is enough for tutorials but you should use a full-blown
+logging library like <a href="https://logback.qos.ch/">Logback</a> in production.</p>
+<p>(The RabbitMQ Java client is also <a href="https://mvnrepository.com/artifact/com.rabbitmq/amqp-client">in the central Maven repository</a>,
+with the groupId <code>com.rabbitmq</code> and the artifactId <code>amqp-client</code>.)</p>
+</blockquote>
+<p>Now we have the Java client and its dependencies, we can write some
+code.</p>
+<h3 id="sending">Sending</h3>
+<!-- -->
+<p>We'll call our message publisher (sender) <code>Send</code> and our message consumer (receiver)
+<code>Recv</code>.  The publisher will connect to RabbitMQ, send a single message,
+then exit.</p>
+<p>In
+<a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/java/Send.java"><code>Send.java</code></a>,
+we need some classes imported:</p>
+<div><div><pre><code class="language-java">import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.Channel;
+
+import java.util.Map;</code></pre></div></div>
+<p>Set up the class and name the queue:</p>
+<div><div><pre><code class="language-java">public class Send {
+  private final static String QUEUE_NAME = "hello";
+  public static void main(String[] argv) throws Exception {
+      ...
+  }
+}</code></pre></div></div>
+<p>then we can create a connection to the server:</p>
+<div><div><pre><code class="language-java">ConnectionFactory factory = new ConnectionFactory();
+factory.setHost("localhost");
+try (Connection connection = factory.newConnection();
+     Channel channel = connection.createChannel()) {
+
+}</code></pre></div></div>
+<p>The connection abstracts the socket connection, and takes care of
+protocol version negotiation and authentication and so on for us. Here
+we connect to a RabbitMQ node on the local machine - hence the
+<em>localhost</em>. If we wanted to connect to a node on a different
+machine we'd simply specify its hostname or IP address here.</p>
+<p>Next we create a channel, which is where most of the API for getting
+things done resides. Note we can use a try-with-resources statement
+because both <code>Connection</code> and <code>Channel</code> implement <code>java.lang.AutoCloseable</code>.
+This way we don't need to close them explicitly in our code.</p>
+<p>To send, we must declare a queue for us to send to; then we can publish a message
+to the queue, all of this in the try-with-resources statement:</p>
+<div><div><pre><code class="language-java">Map&lt;String, Object&gt; args = Map.of("x-queue-type", "quorum");
+channel.queueDeclare(QUEUE_NAME, true, false, false, args);
+String message = "Hello World!";
+channel.basicPublish("", QUEUE_NAME, null, message.getBytes());
+System.out.println(" [x] Sent '" + message + "'");</code></pre></div></div>
+<p>Declaring a queue is idempotent - it will only be created if it doesn't
+exist already. The message content is a byte array, so you can encode
+whatever you like there.</p>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/java/Send.java">Here's the whole Send.java
+class</a>.</p>
+<blockquote>
+<h4 id="sending-doesnt-work">Sending doesn't work!</h4>
+<p>If this is your first time using RabbitMQ and you don't see the "Sent"
+message then you may be left scratching your head wondering what could
+be wrong. Maybe the broker was started without enough free disk space
+(by default it needs at least 50 MB free) and is therefore refusing to
+accept messages. Check the broker <a href="https://www.rabbitmq.com/docs/4.3/logging">log file</a> to see if there
+is a <a href="https://www.rabbitmq.com/docs/4.3/alarms">resource alarm</a> logged and reduce the
+free disk space threshold if necessary.
+The <a href="https://www.rabbitmq.com/docs/4.3/configure#config-items">Configuration guide</a>
+will show you how to set <code>disk_free_limit</code>.</p>
+</blockquote>
+<h3 id="receiving">Receiving</h3>
+<p>That's it for our publisher.  Our consumer listens for messages from
+RabbitMQ, so unlike the publisher which publishes a single message, we'll
+keep the consumer running to listen for messages and print them out.</p>
+<!-- -->
+<p>The code (in <a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/java/Recv.java"><code>Recv.java</code></a>) has almost the same imports as <code>Send</code>:</p>
+<div><div><pre><code class="language-java">import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
+
+import java.util.Map;</code></pre></div></div>
+<p>The extra <code>DeliverCallback</code> interface we'll use to buffer the messages pushed to us by the server.</p>
+<p>Setting up is the same as the publisher; we open a connection and a
+channel, and declare the queue from which we're going to consume.
+Note this matches up with the queue that <code>send</code> publishes to.</p>
+<div><div><pre><code class="language-java">public class Recv {
+
+  private final static String QUEUE_NAME = "hello";
+
+  public static void main(String[] argv) throws Exception {
+    ConnectionFactory factory = new ConnectionFactory();
+    factory.setHost("localhost");
+    Connection connection = factory.newConnection();
+    Channel channel = connection.createChannel();
+
+    Map&lt;String, Object&gt; args = Map.of("x-queue-type", "quorum");
+    channel.queueDeclare(QUEUE_NAME, true, false, false, args);
+    System.out.println(" [*] Waiting for messages. To exit press CTRL+C");
+
+  }
+}
+</code></pre></div></div>
+<p>Note that we declare the queue here, as well. Because we might start
+the consumer before the publisher, we want to make sure the queue exists
+before we try to consume messages from it.</p>
+<p>Why don't we use a try-with-resource statement to automatically close
+the channel and the connection? By doing so we would simply make the program
+move on, close everything, and exit! This would be awkward because
+we want the process to stay alive while the consumer is listening
+asynchronously for messages to arrive.</p>
+<p>We're about to tell the server to deliver us the messages from the
+queue. Since it will push us messages asynchronously, we provide a
+callback in the form of an object that will buffer the messages until
+we're ready to use them. That is what a <code>DeliverCallback</code> subclass does.</p>
+<div><div><pre><code class="language-java">DeliverCallback deliverCallback = (consumerTag, delivery) -&gt; {
+    String message = new String(delivery.getBody(), "UTF-8");
+    System.out.println(" [x] Received '" + message + "'");
+};
+channel.basicConsume(QUEUE_NAME, true, deliverCallback, consumerTag -&gt; { });</code></pre></div></div>
+<p><a href="https://github.com/rabbitmq/rabbitmq-tutorials/blob/main/java/Recv.java">Here's the whole Recv.java
+class</a>.</p>
+<h3 id="putting-it-all-together">Putting it all together</h3>
+<p>You can compile both of these with just the RabbitMQ java client on
+the classpath:</p>
+<div><div><pre><code class="language-bash">javac -cp amqp-client-5.16.0.jar Send.java Recv.java</code></pre></div></div>
+<p>To run them, you'll need <code>rabbitmq-client.jar</code> and its dependencies on
+the classpath.  In a terminal, run the consumer (receiver):</p>
+<div><div><pre><code class="language-bash">java -cp .:amqp-client-5.16.0.jar:slf4j-api-1.7.36.jar:slf4j-simple-1.7.36.jar Recv</code></pre></div></div>
+<p>then, run the publisher (sender):</p>
+<div><div><pre><code class="language-bash">java -cp .:amqp-client-5.16.0.jar:slf4j-api-1.7.36.jar:slf4j-simple-1.7.36.jar Send</code></pre></div></div>
+<p>On Windows, use a semicolon instead of a colon to separate items in the classpath.</p>
+<p>The consumer will print the message it gets from the publisher via
+RabbitMQ. The consumer will keep running, waiting for messages (Use Ctrl-C to stop it), so try running
+the publisher from another terminal.</p>
+<blockquote>
+<h4 id="listing-queues">Listing queues</h4>
+<p>You may wish to see what queues RabbitMQ has and how many
+messages are in them. You can do it (as a privileged user) using the <code>rabbitmqctl</code> tool:</p>
+<div><div><pre><code class="language-bash">sudo rabbitmqctl list_queues</code></pre></div></div>
+<p>On Windows, omit the sudo:</p>
+<div><div><pre><code class="language-powershell">rabbitmqctl.bat list_queues</code></pre></div></div>
+</blockquote>
+<p>Time to move on to <a href="/tutorials/tutorial-two-java">part 2</a> and build a simple <em>work queue</em>.</p>
+<blockquote>
+<h4 id="hint">Hint</h4>
+<p>To save typing, you can set an environment variable for the classpath e.g.</p>
+<div><div><pre><code class="language-bash">export CP=.:amqp-client-5.16.0.jar:slf4j-api-1.7.36.jar:slf4j-simple-1.7.36.jar
+java -cp $CP Send</code></pre></div></div>
+<p>or on Windows:</p>
+<div><div><pre><code class="language-powershell">set CP=.;amqp-client-5.16.0.jar;slf4j-api-1.7.36.jar;slf4j-simple-1.7.36.jar
+java -cp %CP% Send</code></pre></div></div>
+</blockquote></main>

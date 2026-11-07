@@ -1,0 +1,486 @@
+<main><header><h1>Filtering what you consume</h1></header>
+<p>The <code>billing</code> consumer from the previous page reads every message in
+the <code>ORDERS</code> stream — no filter, the whole log.</p>
+<p>A reporting job needs only one thing: when an order ships. It has no use for
+<code>orders.created</code> or <code>orders.canceled</code>, so delivering those messages to it
+would be wasted work on both sides.</p>
+<p>This page adds a second consumer that reads only <code>orders.shipped</code>, and shows
+why one consumer doesn't interfere with another.</p>
+<h2 id="what-a-filter-does">What a filter does</h2>
+<p>A <strong>filter</strong> is a subject pattern attached to a consumer. The consumer
+receives only the messages whose subject matches the filter; the rest of
+the stream is skipped.</p>
+<p>The pattern can be a literal subject like <code>orders.shipped</code>, or a wildcard: a
+filter of <code>orders.*</code> matches every order event, while <code>orders.shipped</code> matches
+only the ships. The <code>*</code> and <code>&gt;</code> wildcards behave exactly as they do for a
+<a href="/learn/core-nats/subjects-and-wildcards">core subscription</a>.</p>
+<p>The stream still captures all of <code>orders.&gt;</code>; nothing about the stream
+changes. The filter lives on the consumer and decides which of the
+stored messages this consumer receives.</p>
+<p>Create the <code>analytics</code> consumer with a filter of <code>orders.shipped</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# Add a second consumer to the ORDERS stream that reads only orders.shipped.
+# The --filter flag pins the consumer to a single subject.
+nats consumer add ORDERS analytics \
+  --filter "orders.shipped" \
+  --pull \
+  --ack explicit \
+  --defaults
+
+# Inspect it — the config now shows a Filter Subject line.
+nats consumer info ORDERS analytics
+
+# Pull from analytics: only orders.shipped messages come back.
+# orders.created and orders.canceled are skipped for this consumer.
+nats consumer next ORDERS analytics --count 5</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// ORDERS already holds orders.created and orders.shipped messages. Create a
+// durable pull consumer that only sees one of those subjects: filter_subject
+// "orders.shipped" tells the server to skip everything else. ack_policy Explicit
+// means a reader acks each delivered message. add() is idempotent.
+const jsm = await jetstreamManager(nc);
+await jsm.consumers.add("ORDERS", {
+  durable_name: "analytics",
+  ack_policy: AckPolicy.Explicit,
+  filter_subject: "orders.shipped",
+});
+console.log("Created filtered consumer: analytics (orders.shipped)");
+
+// Bind to it and pull a small batch. Only orders.shipped come back — the filter
+// drops orders.created before it ever reaches this consumer.
+const js = jetstream(nc);
+const c = await js.consumers.get("ORDERS", "analytics");
+const msgs = await c.fetch({ max_messages: 5, expires: 2000 });
+for await (const m of msgs) {
+  console.log(m.subject);
+  await m.ack();
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Create a durable pull consumer named "analytics" on the ORDERS stream.
+// FilterSubject narrows delivery to "orders.shipped", so the consumer never
+// sees "orders.created" messages even though the stream stores both.
+cons, err := js.CreateOrUpdateConsumer(ctx, "ORDERS", jetstream.ConsumerConfig{
+	Durable:       "analytics",
+	FilterSubject: "orders.shipped",
+	DeliverPolicy: jetstream.DeliverAllPolicy,
+	AckPolicy:     jetstream.AckExplicitPolicy,
+})
+if err != nil {
+	panic(err)
+}
+
+fmt.Printf("Created consumer: %s\n", cons.CachedInfo().Name)
+fmt.Printf("Filter: %s\n", cons.CachedInfo().Config.FilterSubject)
+
+// Fetch up to 5 messages with a short expiry. Only "orders.shipped"
+// messages come back; the filter excludes everything else.
+msgs, err := cons.Fetch(5, jetstream.FetchMaxWait(2*time.Second))
+if err != nil {
+	panic(err)
+}
+for msg := range msgs.Messages() {
+	fmt.Printf("Received on %s\n", msg.Subject())
+	msg.Ack()
+}
+if err := msgs.Error(); err != nil {
+	panic(err)
+}</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Create a durable pull consumer that only sees orders.shipped.
+# The filter is applied server-side: orders.created never reaches this consumer.
+await js.add_consumer(
+    "ORDERS",
+    ConsumerConfig(
+        durable_name="analytics",
+        ack_policy=AckPolicy.EXPLICIT,
+        filter_subject="orders.shipped",
+    ),
+)
+print("Created filtered consumer analytics on stream ORDERS")
+
+# Fetch a small batch. Only orders.shipped messages come back.
+psub = await js.pull_subscribe_bind("analytics", stream="ORDERS")
+msgs = await psub.fetch(batch=5, timeout=2)
+for msg in msgs:
+    print(f"got {msg.subject}")
+    await msg.ack()</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Create a durable pull consumer that only sees orders.shipped.
+// The filter subject narrows the stream's subjects down to one.
+ConsumerContext cc = sc.createOrUpdateConsumer(
+    ConsumerConfiguration.builder()
+        .durable("analytics")
+        .filterSubject("orders.shipped")
+        .ackPolicy(AckPolicy.Explicit)
+        .build());
+
+System.out.println("Created filtered consumer: " + cc.getConsumerName());
+
+// Fetch a small batch. Only orders.shipped messages come back;
+// orders.created is filtered out before it reaches this consumer.
+try (FetchConsumer fc = cc.fetch(
+        FetchConsumeOptions.builder().maxMessages(5).expiresIn(2000).build())) {
+    Message m;
+    while ((m = fc.nextMessage()) != null) {
+        System.out.println("subject=" + m.getSubject());
+        m.ack();
+    }
+}</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Create a durable pull consumer that only sees orders.shipped messages.
+// The filter subject restricts delivery to one subject in the stream.
+let stream = js.get_stream("ORDERS").await?;
+let consumer = stream
+    .create_consumer(pull::Config {
+        durable_name: Some("analytics".to_string()),
+        filter_subject: "orders.shipped".to_string(),
+        ack_policy: AckPolicy::Explicit,
+        ..Default::default()
+    })
+    .await?;
+
+println!("Created filtered consumer: {}", consumer.cached_info().name);
+
+// Fetch a small batch with a short expiry. Only orders.shipped come back.
+let mut messages = consumer
+    .fetch()
+    .max_messages(5)
+    .expires(std::time::Duration::from_secs(2))
+    .messages()
+    .await?;
+while let Some(msg) = messages.next().await {
+    let msg = msg?;
+    println!("got: {}", msg.subject);
+    msg.ack().await?;
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Create a durable pull consumer that only sees orders.shipped
+var consumer = await js.CreateOrUpdateConsumerAsync("ORDERS", new ConsumerConfig("analytics")
+{
+    AckPolicy = ConsumerConfigAckPolicy.Explicit,
+    FilterSubject = "orders.shipped",
+});
+
+output.WriteLine($"Created durable consumer {consumer.Info.Config.Name} filtered on orders.shipped");
+
+// Fetch a small batch; only orders.shipped comes back
+await foreach (var msg in consumer.FetchAsync&lt;Order&gt;(opts: new NatsJSFetchOpts { MaxMsgs = 5, Expires = TimeSpan.FromSeconds(2) }))
+{
+    output.WriteLine($"{msg.Subject}: {msg.Data}");
+    subjects.Add(msg.Subject);
+    await msg.AckAsync();
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Create a durable pull consumer named "analytics" on the ORDERS
+// stream. FilterSubject narrows delivery to "orders.shipped", so
+// the consumer never sees "orders.created" messages even though
+// the stream stores both.
+jsConsumerConfig cc;
+jsSubOptions     so;
+natsMsgList      list = {NULL, 0};
+int              i;
+
+jsConsumerConfig_Init(&amp;cc);
+cc.Durable       = "analytics";
+cc.FilterSubject = "orders.shipped";
+cc.DeliverPolicy = js_DeliverAll;
+cc.AckPolicy     = js_AckExplicit;
+s = js_AddConsumer(&amp;ci, js, "ORDERS", &amp;cc, NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    printf("Created consumer: %s\n", ci-&gt;Name);
+    printf("Filter: %s\n", ci-&gt;Config-&gt;FilterSubject);
+}
+
+// Bind to the consumer and fetch up to 5 messages with a short
+// expiry. Only "orders.shipped" messages come back; the filter
+// excludes everything else.
+jsSubOptions_Init(&amp;so);
+so.Stream   = "ORDERS";
+so.Consumer = "analytics";
+if (s == NATS_OK)
+    s = js_PullSubscribe(&amp;sub, js, NULL, NULL, NULL, &amp;so, &amp;jerr);
+if (s == NATS_OK)
+    s = natsSubscription_Fetch(&amp;list, sub, 5, 2000, &amp;jerr);
+for (i = 0; (s == NATS_OK) &amp;&amp; (i &lt; list.Count); i++)
+{
+    printf("Received on %s\n", natsMsg_GetSubject(list.Msgs[i]));
+    natsMsg_Ack(list.Msgs[i], NULL);
+}
+natsMsgList_Destroy(&amp;list);</code></pre></div></div>
+<p>The new flag is <code>--filter</code>. It ties the consumer to a single filter subject.
+A message on <code>orders.shipped</code> reaches <code>analytics</code>; a message on
+<code>orders.created</code> or <code>orders.canceled</code> does not.</p>
+<p>Ask the server to describe the consumer:</p>
+<div><div><pre><code class="language-bash">nats consumer info ORDERS analytics</code></pre></div></div>
+<p>The configuration block now carries a line the <code>billing</code> consumer
+didn't have:</p>
+<div><div><pre><code class="language-text">Configuration:
+
+                Name: analytics
+           Pull Mode: true
+      Filter Subject: orders.shipped
+      Deliver Policy: All
+          Ack Policy: Explicit
+            Ack Wait: 30.00s
+       Replay Policy: Instant
+     Max Ack Pending: 1,000
+   Max Waiting Pulls: 512</code></pre></div></div>
+<p><code>Filter Subject: orders.shipped</code> is the line that matters. The
+<code>billing</code> consumer has no filter, so its info output omits this line.
+No filter line means every subject in the stream.</p>
+<h2 id="two-consumers-with-separate-positions">Two consumers with separate positions</h2>
+<p>The <code>analytics</code> consumer and the <code>billing</code> consumer read the same
+stream, but each tracks its own position in it.</p>
+<p>From the previous page, a consumer keeps a cursor: the sequence number
+of the last message it delivered and saw acknowledged. That cursor
+belongs to the consumer, not to the stream. Two consumers on one stream
+have two separate cursors.</p>
+<p>The server stores the cursor alongside the consumer's config and ack
+state, separate from the stream's messages. When <code>analytics</code> advances
+its cursor past sequence <code>3</code>, <code>billing</code>'s position does not change.
+Both consumers read the same stored messages from their own cursor.</p>
+<div></div>
+<p><code>billing</code> reads every order and advances through all of them; <code>analytics</code>
+delivers only the <code>orders.shipped</code> messages and skips the rest, so the two
+cursors come to rest at different positions. Neither one moves the other.</p>
+<p>Pull from <code>analytics</code> and see what comes back:</p>
+<div><div><pre><code class="language-bash">nats consumer next ORDERS analytics --count 5</code></pre></div></div>
+<p><code>analytics</code> sees only the <code>orders.shipped</code> message stored on the
+publishing page, sequence <code>3</code>. The <code>orders.created</code> messages at
+sequences <code>1</code> and <code>2</code> don't appear for this consumer. They're still in the
+stream; the filter just hides them from <code>analytics</code>.</p>
+<p><code>billing</code> stays wherever you left it. Reading from <code>analytics</code> did not
+move <code>billing</code>'s cursor, and it did not consume or delete any message
+from the stream.</p>
+<h2 id="a-consumer-is-a-view">A consumer is a view</h2>
+<p>A consumer is an independent <strong>view</strong> over the stored messages, with its
+own filter, cursor, and ack state. The stream holds the one shared copy
+of every message, and each consumer reads it from its own position.</p>
+<p>Because consumers are independent, a filter is a cheap way to send the
+same messages to more than one reader. Adding <code>analytics</code> cost one
+command. It did not copy any data, it did not slow down <code>billing</code>, and
+it can start, stop, or fall behind without affecting any other consumer.
+The server keeps one copy of each message and serves every consumer from
+it.</p>
+<p>This differs from the core NATS <a href="/learn/core-nats/queue-groups">queue group</a>
+you met in core NATS. A queue group splits one subject's live traffic across
+workers that share the load. Here, each consumer gets its own full view of the
+stored stream, filtered to what it asked for. Sharing load within one consumer
+— the <a href="/learn/jetstream/worker-pool">worker-pool pattern</a> — comes later in the
+chapter.</p>
+<h2 id="other-filtering-options">Other filtering options</h2>
+<p>The <code>analytics</code> consumer filters on a single subject. A consumer can also
+filter on several subjects at once. That goes beyond what this scenario
+needs.</p>
+<p>For the full set of consumer filtering options, including multiple filter
+subjects, see
+<a href="/reference/jetstream/api/consumer/create">Reference → Create Consumer</a>. We
+use only a single <code>Filter Subject</code> here.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A filter is a small piece of config, but a wrong one fails quietly.</p>
+<p><strong>A filter that matches nothing.</strong> The server accepts any filter subject,
+even one that matches no message in the stream. A typo like
+<code>orders.shiped</code> creates a valid consumer that never receives anything.
+There's no error and no warning, just an empty pull. Don't assume an
+empty pull means the stream is empty; first confirm the filter matches a
+subject the stream actually stores.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+
+# A filter that matches no subject in the stream is accepted without error.
+# Here the typo "orders.shiped" matches nothing in ORDERS (orders.&gt;).
+nats consumer add ORDERS analytics-typo \
+  --filter "orders.shiped" \
+  --pull \
+  --ack explicit \
+  --defaults
+
+# The consumer exists and its config looks fine.
+nats consumer info ORDERS analytics-typo
+
+# But pulling delivers nothing — the request just times out.
+# No error tells you the filter was wrong; the consumer is simply silent.
+nats consumer next ORDERS analytics-typo --count 5 --timeout 2s
+
+# Confirm the filter never matched: Delivered shows 0 of the stored orders.
+nats consumer info ORDERS analytics-typo | grep -A1 "Delivery counts"</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// The filter_subject here has a typo: "orders.shiped" matches no subject ORDERS
+// actually stores. The server still accepts the consumer — a filter that matches
+// nothing is valid, just empty.
+const jsm = await jetstreamManager(nc);
+await jsm.consumers.add("ORDERS", {
+  durable_name: "analytics-typo",
+  ack_policy: AckPolicy.Explicit,
+  filter_subject: "orders.shiped",
+});
+console.log("Created filtered consumer: analytics-typo (orders.shiped)");
+
+// Try to pull. The fetch waits out its short expiry and returns nothing — no
+// error, no message. A wrong filter fails silently: the pull just times out
+// empty because no stored subject matches.
+const js = jetstream(nc);
+const c = await js.consumers.get("ORDERS", "analytics-typo");
+const msgs = await c.fetch({ max_messages: 5, expires: 2000 });
+let count = 0;
+for await (const m of msgs) {
+  count++;
+  await m.ack();
+}
+if (count === 0) {
+  console.log("pull returned nothing: filter matched no stored subject");
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Create a durable pull consumer named "analytics-typo" on the ORDERS
+// stream. The filter "orders.shiped" has a typo (one "p"), so it matches
+// no subject the stream actually stores.
+cons, err := js.CreateOrUpdateConsumer(ctx, "ORDERS", jetstream.ConsumerConfig{
+	Durable:       "analytics-typo",
+	FilterSubject: "orders.shiped",
+	DeliverPolicy: jetstream.DeliverAllPolicy,
+	AckPolicy:     jetstream.AckExplicitPolicy,
+})
+if err != nil {
+	panic(err)
+}
+
+// Fetch with a short expiry. The fetch succeeds with no error, but the
+// channel yields zero messages because the filter matched no stored subject.
+msgs, err := cons.Fetch(5, jetstream.FetchMaxWait(2*time.Second))
+if err != nil {
+	panic(err)
+}
+count := 0
+for range msgs.Messages() {
+	count++
+}
+if err := msgs.Error(); err != nil {
+	panic(err)
+}
+
+// A wrong filter fails silently: the pull returned nothing, and no error
+// was raised. The consumer is healthy, it just never matches a message.
+fmt.Printf("Received %d messages: the filter matched no stored subject, so the pull returned nothing (no error).\n", count)</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Note the typo: "orders.shiped" matches no subject in the stream.  # codespell:ignore shiped
+# JetStream accepts the consumer anyway. The wrong filter fails silently.
+await js.add_consumer(
+    "ORDERS",
+    ConsumerConfig(
+        durable_name="analytics-typo",
+        ack_policy=AckPolicy.EXPLICIT,
+        filter_subject="orders.shiped",  # codespell:ignore shiped
+    ),
+)
+
+psub = await js.pull_subscribe_bind("analytics-typo", stream="ORDERS")
+try:
+    await psub.fetch(batch=5, timeout=2)
+except nats.errors.TimeoutError:
+    # No error from the server. The pull simply returned nothing because the
+    # filter matched no stored subject. A wrong filter looks like an empty stream.
+    print("Fetch timed out: the filter matched no stored subject")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// The filter subject has a typo: "orders.shiped" matches no stored
+// subject. The consumer is still created without error.
+ConsumerContext cc = sc.createOrUpdateConsumer(
+    ConsumerConfiguration.builder()
+        .durable("analytics-typo")
+        .filterSubject("orders.shiped")
+        .ackPolicy(AckPolicy.Explicit)
+        .build());
+
+// The fetch blocks until the expiry, then returns nothing. A wrong
+// filter fails silently: no messages, no error.
+try (FetchConsumer fc = cc.fetch(
+        FetchConsumeOptions.builder().maxMessages(5).expiresIn(2000).build())) {
+    Message m = fc.nextMessage();
+    if (m == null) {
+        System.out.println("Pull returned nothing: filter matched no stored subject.");
+    }
+}</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Create a durable pull consumer whose filter has a typo: "orders.shiped"
+// matches no stored subject, so the consumer is valid but empty.
+let stream = js.get_stream("ORDERS").await?;
+let consumer = stream
+    .create_consumer(pull::Config {
+        durable_name: Some("analytics-typo".to_string()),
+        filter_subject: "orders.shiped".to_string(),
+        ack_policy: AckPolicy::Explicit,
+        ..Default::default()
+    })
+    .await?;
+
+// The fetch waits up to the expiry, then returns with no messages and no
+// error. A wrong filter fails silently: nothing matches, nothing arrives.
+let mut messages = consumer
+    .fetch()
+    .max_messages(5)
+    .expires(std::time::Duration::from_secs(2))
+    .messages()
+    .await?;
+let mut count = 0;
+while let Some(msg) = messages.next().await {
+    msg?;
+    count += 1;
+}
+if count == 0 {
+    println!("Pull returned nothing: the filter matched no stored subject.");
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// The filter has a typo: "orders.shiped" matches no subject the stream stores
+var consumer = await js.CreateOrUpdateConsumerAsync("ORDERS", new ConsumerConfig("analytics-typo")
+{
+    AckPolicy = ConsumerConfigAckPolicy.Explicit,
+    FilterSubject = "orders.shiped",
+});
+
+// The fetch waits out its expiry and returns nothing, with no error
+await foreach (var msg in consumer.FetchAsync&lt;Order&gt;(opts: new NatsJSFetchOpts { MaxMsgs = 5, Expires = TimeSpan.FromSeconds(2) }))
+{
+    received++;
+    await msg.AckAsync();
+}
+
+output.WriteLine($"Pull returned {received} messages: the filter matched no stored subject, so a wrong filter fails silently");</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Create a durable pull consumer named "analytics-typo" on the ORDERS
+// stream. The filter "orders.shiped" has a typo (one "p"), so it matches
+// no subject the stream actually stores.
+if (s == NATS_OK)
+{
+    jsSubOptions_Init(&amp;so);
+    so.Stream = "ORDERS";
+    s = js_PullSubscribe(&amp;sub, js, "orders.shiped", "analytics-typo", NULL, &amp;so, &amp;jerr);
+}
+
+// Fetch with a short wait. The fetch times out with zero messages
+// because the filter matched no stored subject; that is not an error.
+if (s == NATS_OK)
+{
+    s = natsSubscription_Fetch(&amp;list, sub, 5, 2000, &amp;jerr);
+    if (s == NATS_TIMEOUT)
+        s = NATS_OK;
+}
+
+// A wrong filter fails silently: the pull returned nothing, and no error
+// was raised. The consumer is healthy, it just never matches a message.
+if (s == NATS_OK)
+    printf("Received %d messages: the filter matched no stored subject, so the pull returned nothing (no error).\n",
+           list.Count);</code></pre></div></div>
+<p>When a pull comes back empty, run <code>nats consumer info</code> and check the
+<code>Filter Subject</code> line against the stream's subjects. A filter outside
+<code>orders.&gt;</code> can never match.</p>
+<p><strong>Expecting a filter to delete from the stream.</strong> A filter narrows one
+consumer's view; it never removes messages. After <code>analytics</code> reads
+<code>orders.shipped</code>, every <code>orders.created</code> and <code>orders.canceled</code> message is
+still stored and still readable by <code>billing</code>. Don't use a filter to
+prune a stream. What stays and what ages out is controlled by the
+stream's limits, covered in <a href="/learn/jetstream/shaping-the-stream">Shaping the stream</a>,
+not by any consumer.</p>
+<p><strong>Overlapping filters within one consumer.</strong> Overlap <em>between</em> consumers
+is fine on limits and interest streams: two separate consumers whose
+filters match the same subject each get their own full copy of those
+messages. That's the kind of sharing this page relies on. The exception
+is work-queue retention, where consumers' filters must not overlap each
+other. See <a href="/learn/jetstream/retention-policies">Retention policies</a>.</p>
+<p>Overlap <em>inside</em> one consumer is different. You can give a single
+consumer several filter subjects, but if one of those subjects already
+covers another, like <code>orders.&gt;</code> next to <code>orders.shipped</code>, the create call
+fails with <code>consumer subject filters cannot overlap</code>. Filters that only
+partly overlap, where neither covers the other, are accepted.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The <code>ORDERS</code> stream now has two consumers reading it:</p>
+<ul>
+<li><code>billing</code>: no filter, reads every order; the reader from the previous
+page</li>
+<li><code>analytics</code>: filtered to <code>orders.shipped</code>, sees only ships</li>
+</ul>
+<p>Both read the same stored messages. Neither consumer's progress affects
+the other, and the stream itself is untouched by either read.</p>
+<h2 id="whats-next">What's next</h2>
+<p>Both <code>billing</code> and <code>analytics</code> read on the happy path: pull a message,
+ack it, move on. The next page is about what that acknowledgment actually
+does — how a message is held in flight until it's confirmed, what a double
+ack adds, and how an unacked message is redelivered.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/api/consumer/create">Reference → Create Consumer</a> —
+every consumer config field, including multiple filter subjects.</li>
+<li><a href="/learn/jetstream/reading-back">Reading back the stream</a> — where you met
+the consumer cursor this page builds on.</li>
+</ul></main>

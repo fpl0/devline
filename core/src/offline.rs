@@ -734,6 +734,16 @@ pub(crate) fn import_job(
     stage(&mut job, "Installing verified bundle")?;
     let _lock = lock_library(ctx)?;
     checkpoint(&job)?;
+    let starter_releases: Vec<_> = manifest
+        .starters
+        .iter()
+        .map(|starter| {
+            (
+                starter.template.id.clone(),
+                starter.template.version.clone(),
+            )
+        })
+        .collect();
     let mut published = Vec::new();
     let result = (|| -> Result<Value> {
         for (pack, path) in &docs {
@@ -781,7 +791,18 @@ pub(crate) fn import_job(
             fs::remove_dir_all(path)?;
         }
     }
-    result
+    let result = result?;
+    let doc_releases: Vec<_> = docs
+        .iter()
+        .map(|(pack, _)| (pack.id.as_str(), pack.version.as_str()))
+        .collect();
+    let starter_releases: Vec<_> = starter_releases
+        .iter()
+        .map(|(id, version)| (id.as_str(), version.as_str()))
+        .collect();
+    doc_updates::prune_after_install(ctx, &doc_releases)?;
+    templates::prune_after_install(ctx, &starter_releases)?;
+    Ok(result)
 }
 
 #[derive(Deserialize, Serialize, PartialEq, Eq)]

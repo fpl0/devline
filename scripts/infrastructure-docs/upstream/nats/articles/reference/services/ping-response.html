@@ -1,0 +1,12 @@
+<main><header><h1>Ping Response</h1></header>
+<p>Service health check response.</p>
+<!-- -->
+<h2 id="request-subject">Request Subject</h2>
+<p><code>$SRV.PING</code></p>
+<p>Services respond to ping requests on their specific subjects:</p>
+<ul>
+<li><code>$SRV.PING.{service}</code> - Ping all instances of a service</li>
+<li><code>$SRV.PING.{service}.{id}</code> - Ping a specific service instance</li>
+</ul>
+<h2 id="response-schema">Response Schema</h2>
+<div><p>A response from the NATS Micro $SRV.PING API</p><div></div><div><div><div><span>type</span><span>const: "io.nats.micro.v1.ping_response"</span><span>required</span></div></div><div><div><span>name</span><span>string</span><span>required</span></div><div>The kind of the service. Shared by all the services that have the same name</div><div><span>Pattern:</span><code>^[a-zA-Z0-9_-]+$</code></div><div><span>Min length:</span><code>1</code></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>A unique ID for this instance of a service</div><div><span>Min length:</span><code>1</code></div></div><div><div><span>version</span><span>string</span><span>required</span></div><div>The version of the service</div><div><span>Pattern:</span><code>^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$</code></div><div><span>Min length:</span><code>5</code></div></div><div><div><span>metadata</span><span>oneOf</span></div></div></div></div></main>

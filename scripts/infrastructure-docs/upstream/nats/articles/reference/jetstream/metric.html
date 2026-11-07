@@ -1,0 +1,31 @@
+<main><header><h1>JetStream Metrics</h1></header>
+<p>Metrics are operational measurements published by JetStream to provide observability into message processing performance and behavior.</p>
+<h2 id="overview">Overview</h2>
+<p>JetStream publishes metrics as system events on specific subjects. These metrics help operators:</p>
+<ul>
+<li>Monitor message processing latency</li>
+<li>Track consumer performance</li>
+<li>Identify bottlenecks</li>
+<li>Optimize system configuration</li>
+<li>Set up alerting thresholds</li>
+</ul>
+<h2 id="metric-events">Metric Events</h2>
+<table><thead><tr><th>Name</th><th>Subject</th><th>Description</th></tr></thead><tbody><tr><td><a href="/reference/jetstream/metric/consumer-ack">Consumer Acknowledgement</a></td><td><code>$JS.EVENT.METRIC.CONSUMER.ACK.{stream}.{consumer}</code></td><td>Message acknowledgement metrics including latency</td></tr></tbody></table>
+<h2 id="usage">Usage</h2>
+<p>To subscribe to metrics, clients need appropriate permissions to access the <code>$JS.EVENT.METRIC.&gt;</code> subject hierarchy. Metrics are published as JSON messages containing:</p>
+<ul>
+<li>Timestamp information</li>
+<li>Stream and consumer identifiers</li>
+<li>Performance measurements</li>
+<li>Delivery counts and redelivery information</li>
+</ul>
+<h2 id="configuration">Configuration</h2>
+<p>Metrics can be enabled or disabled at the stream or consumer level. Some metrics may impact performance when enabled due to the additional processing required to collect and publish measurements.</p>
+<h2 id="best-practices">Best Practices</h2>
+<ul>
+<li>Subscribe to metrics with queue groups to distribute processing load</li>
+<li>Use wildcard subscriptions to monitor multiple streams/consumers</li>
+<li>Store metrics in time-series databases for historical analysis</li>
+<li>Set up alerts based on latency thresholds</li>
+<li>Regularly review metrics to optimize configuration</li>
+</ul></main>

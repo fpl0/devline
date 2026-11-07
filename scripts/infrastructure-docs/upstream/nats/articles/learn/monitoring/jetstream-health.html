@@ -1,0 +1,251 @@
+<main><header><h1>JetStream health</h1></header>
+<p>The previous page showed you the monitoring port and named <code>/jsz</code> as the
+JetStream endpoint. That endpoint counts streams and consumers, but a count
+doesn't tell you whether the <code>shipping</code> consumer is keeping up. To answer
+that you read <em>state</em>, the live numbers JetStream keeps for the stream
+and for each consumer, and you turn a few of them into one number: lag.</p>
+<p>This page introduces two ideas. The first is <strong>stream and consumer
+state</strong>: what the server reports about an <code>ORDERS</code> stream and its
+<code>shipping</code> consumer right now. The second is <strong>lag</strong>: a single number,
+computed from two of those fields, that says how far behind the consumer
+has fallen.</p>
+<p>This page reads state. It doesn't re-explain what a stream, a consumer,
+or an ack is; the <a href="/learn/jetstream">JetStream deep dive</a> owns those
+definitions, and this page assumes them.</p>
+<p><strong>Entering:</strong> the <code>east</code> cluster is up, the <code>ORDERS</code> stream has been
+taking orders, and the <code>shipping</code> consumer has fallen behind. You can hit
+<code>/jsz</code> on any node. Now you want the numbers underneath it.</p>
+<h2 id="stream-state-what-is-stored-right-now">Stream state: what is stored right now</h2>
+<p>Every stream keeps a small block of <strong>state</strong> separate from its
+configuration. The configuration is what you asked for when you created
+the stream. The state is what's actually in it at this moment, and it
+changes with every published order.</p>
+<p>Read it with <code>nats stream info</code>, or fetch the same fields from any client:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Read the live state of the ORDERS stream.
+# LastSeq is the sequence of the newest stored order; you need it to
+# compute how far behind any consumer is.
+nats stream info ORDERS
+
+# The same state as JSON, narrowed to the fields that matter for lag.
+nats stream info ORDERS --json | \
+  jq '.state | {messages, last_seq, first_seq, num_subjects}'</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the live state of the ORDERS stream. The configuration is
+// what you asked for; the state is what is stored right now, and
+// it moves with every published order.
+s = js_GetStreamInfo(&amp;si, js, "ORDERS", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    // last_seq is the sequence of the newest stored order; you
+    // need it to compute how far behind any consumer is.
+    printf("Messages:       %" PRIu64 "\n", si-&gt;State.Msgs);
+    printf("Bytes:          %" PRIu64 "\n", si-&gt;State.Bytes);
+    printf("First Sequence: %" PRIu64 "\n", si-&gt;State.FirstSeq);
+    printf("Last Sequence:  %" PRIu64 "\n", si-&gt;State.LastSeq);
+    printf("Num Subjects:   %" PRId64 "\n", si-&gt;State.NumSubjects);
+}</code></pre></div></div>
+<p>The output has a configuration half and a state half. Only the state half
+moves. For the <code>ORDERS</code> stream it looks like this:</p>
+<div><div><pre><code class="language-text">State:
+
+             Messages: 1,000
+                Bytes: 412 KiB
+        First Sequence: 1
+         Last Sequence: 1,000
+          Num Subjects: 4
+        Active Consumers: 2</code></pre></div></div>
+<p>Three of these fields matter most here.</p>
+<p><strong>Messages</strong> (<code>messages</code>) is how many orders the stream holds. <strong>Last
+Sequence</strong> (<code>last_seq</code>) is the sequence number assigned to the newest
+order, <code>1000</code> in our snapshot. Every published order gets the next
+sequence, so <code>last_seq</code> only ever climbs. You'll use it in a moment to
+measure how far any consumer is behind. <strong>Num Subjects</strong> (<code>num_subjects</code>)
+is how many distinct subjects the stream has seen: <code>orders.created</code>,
+<code>orders.shipped</code>, <code>orders.canceled</code>, and one regional subject make four.</p>
+<p>The full set of stream state fields is documented in
+<a href="/reference/system/monitor/jsz">Reference → jsz</a> and
+<a href="/reference/jetstream/api/stream">Reference → stream API</a>. We only need
+<code>last_seq</code> here.</p>
+<h2 id="consumer-state-position-and-gap">Consumer state: position and gap</h2>
+<p>A consumer keeps its own state. Where the stream state describes what's
+<em>stored</em>, the consumer state describes how far one reader has <em>gotten</em>.
+Read it with <code>nats consumer info</code>, or with <code>consumer_info</code> from any
+client:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Read the live state of the shipping consumer on the ORDERS stream.
+# The state numbers tell you lag, in-flight, and redelivery at a glance.
+nats consumer info ORDERS shipping
+
+# For a machine-readable copy of the same fields, ask for JSON and pick
+# out the ones that describe how far behind the consumer is.
+nats consumer info ORDERS shipping --json | \
+  jq '{num_pending, num_ack_pending, num_redelivered, delivered, ack_floor}'</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the live state of the shipping consumer on the ORDERS
+// stream. The state numbers tell you lag, in-flight, and
+// redelivery at a glance.
+s = js_GetConsumerInfo(&amp;ci, js, "ORDERS", "shipping", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    // NumPending is the lag: stored orders shipping has not
+    // taken yet. NumAckPending is in-flight, not lag. A rising
+    // NumPending with NumWaiting at 0 and Delivered.Stream
+    // stalled means no worker is fetching.
+    printf("Last Delivered: consumer=%" PRIu64 " stream=%" PRIu64 "\n",
+           ci-&gt;Delivered.Consumer, ci-&gt;Delivered.Stream);
+    printf("Ack Floor:      consumer=%" PRIu64 " stream=%" PRIu64 "\n",
+           ci-&gt;AckFloor.Consumer, ci-&gt;AckFloor.Stream);
+    printf("Outstanding Acks:     %" PRId64 "\n", ci-&gt;NumAckPending);
+    printf("Redelivered Messages: %" PRId64 "\n", ci-&gt;NumRedelivered);
+    printf("Waiting Pulls:        %" PRId64 "\n", ci-&gt;NumWaiting);
+    printf("Unprocessed Messages: %" PRIu64 "\n", ci-&gt;NumPending);
+}</code></pre></div></div>
+<p>For the <code>shipping</code> consumer the state half reads:</p>
+<div><div><pre><code class="language-text">State:
+
+  Last Delivered Message: Consumer sequence: 980  Stream sequence: 980
+        Acknowledgment Floor: Consumer sequence: 975  Stream sequence: 975
+        Outstanding Acks: 5 out of maximum 1,000
+            Redelivered Messages: 3
+            Unprocessed Messages: 20
+                  Waiting Pulls: 0 of maximum 512</code></pre></div></div>
+<p>Four fields describe the consumer's progress, and each one has a precise
+meaning.</p>
+<p><strong>Last Delivered Message</strong> carries <code>delivered.stream_seq</code>: the stream
+sequence of the last order the server handed to a <code>shipping</code> worker. In
+the snapshot it's <code>980</code>. The stream's <code>last_seq</code> is <code>1000</code>. The gap
+between them is what this page is about.</p>
+<p><strong>Acknowledgment Floor</strong> (<code>ack_floor.stream_seq</code>) is the sequence below
+which every order has been acked. Orders <code>981</code> through <code>1000</code> haven't
+been delivered yet; orders <code>976</code> through <code>980</code> were delivered but aren't
+all acked. That second group is the next field.</p>
+<p><strong>Outstanding Acks</strong> counts orders delivered but not yet acked, also
+called <strong>in-flight</strong> (<code>num_ack_pending</code>). Five <code>shipping</code> workers are
+holding five orders, working on them, and haven't confirmed them back.
+In-flight measures work in progress, which is a different thing from lag.</p>
+<p><strong>Redelivered Messages</strong> (<code>num_redelivered</code>) is how many orders the server
+is currently tracking as delivered more than once: three right now. It's
+not a lifetime tally — when one of those orders is finally acked the server
+stops tracking it and the count drops back down. A redelivery happens when
+a worker takes an order and never acks it, or negative-acks it with a
+<code>nak</code>, so the server hands it to another worker.</p>
+<p>The full set of consumer state fields is documented in
+<a href="/reference/jetstream/api/consumer">Reference → consumer API</a>. We only
+need the four above.</p>
+<h2 id="lag-is-a-number-you-compute">Lag is a number you compute</h2>
+<p>The most important health signal for a consumer is <strong>lag</strong>: the number of
+orders the stream holds that haven't been delivered to this consumer yet.
+It's the gap you saw a moment ago, written as one number:</p>
+<div><div><pre><code class="language-text">lag = stream.last_seq − consumer.delivered.stream_seq</code></pre></div></div>
+<p>For the pinned snapshot:</p>
+<div><div><pre><code class="language-text">lag = 1000 − 980 = 20</code></pre></div></div>
+<p>Twenty orders are waiting for a <code>shipping</code> worker to fetch them. That's
+what "the shipping consumer is behind" means as a number. A pull consumer
+also reports this same value directly as <strong>Unprocessed Messages</strong>
+(<code>num_pending</code>), so most of the time you read it off <code>nats consumer info</code>
+rather than subtracting by hand. Computing it from the two source fields
+yourself is worth doing once, to see exactly what <code>num_pending</code> measures.</p>
+<p>Three numbers now describe the full state of the <code>shipping</code> consumer:</p>
+<ul>
+<li><strong>lag = 20</strong>: orders waiting, never delivered (<code>num_pending</code>)</li>
+<li><strong>in-flight = 5</strong>: orders delivered, not yet acked (<code>num_ack_pending</code>)</li>
+<li><strong>redelivered = 3</strong>: orders the server had to hand out again
+(<code>num_redelivered</code>)</li>
+</ul>
+<p>A healthy consumer keeps lag near zero and <code>num_redelivered</code> near zero. Lag
+climbing while <code>last_seq</code> climbs means orders arrive faster than <code>shipping</code>
+processes them. A <code>num_redelivered</code> that stays high or keeps growing means
+workers keep taking orders and failing to ack them. Each symptom has a
+different cause, and naming which number moved is the first step every time.</p>
+<p>This animation shows the three numbers as positions on the stream log:
+orders append and push <code>last_seq</code> up, the consumer cursor advances as
+workers fetch and ack, the gap between them is lag, and a failed order
+pulses back as a redelivery.</p>
+<div></div>
+<p>Watching lag is the task here. Deciding what to do about a lag that won't
+come down (adding <code>shipping</code> workers, or sizing the deployment) belongs to
+the <a href="/learn/jetstream/worker-pool">worker pool</a> page and the
+<a href="/learn/deployment">deployment</a> chapter. This page names the symptom, and
+the fix is covered there.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>These traps are scoped to this page's two concepts: reading consumer
+state, and reading lag from it. Each one is a number that misleads if you
+read it without context.</p>
+<p><strong>Crashed workers show up as rising lag with nobody fetching.</strong> When every
+<code>shipping</code> worker has crashed, <code>num_pending</code> keeps climbing: the server
+updates it on every new matching order, whether or not any client is
+fetching. So a high <code>num_pending</code> on its own is ambiguous — a healthy
+consumer draining a backlog looks the same for a moment. The signature of
+crashed workers is the combination: lag rising while <strong>Waiting Pulls</strong>
+(<code>num_waiting</code>) sits at <code>0</code> and <code>delivered.stream_seq</code> stops advancing.
+Read all three together:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Read the live state of the shipping consumer on the ORDERS stream.
+# The state numbers tell you lag, in-flight, and redelivery at a glance.
+nats consumer info ORDERS shipping
+
+# For a machine-readable copy of the same fields, ask for JSON and pick
+# out the ones that describe how far behind the consumer is.
+nats consumer info ORDERS shipping --json | \
+  jq '{num_pending, num_ack_pending, num_redelivered, delivered, ack_floor}'</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Read the live state of the shipping consumer on the ORDERS
+// stream. The state numbers tell you lag, in-flight, and
+// redelivery at a glance.
+s = js_GetConsumerInfo(&amp;ci, js, "ORDERS", "shipping", NULL, &amp;jerr);
+if (s == NATS_OK)
+{
+    // NumPending is the lag: stored orders shipping has not
+    // taken yet. NumAckPending is in-flight, not lag. A rising
+    // NumPending with NumWaiting at 0 and Delivered.Stream
+    // stalled means no worker is fetching.
+    printf("Last Delivered: consumer=%" PRIu64 " stream=%" PRIu64 "\n",
+           ci-&gt;Delivered.Consumer, ci-&gt;Delivered.Stream);
+    printf("Ack Floor:      consumer=%" PRIu64 " stream=%" PRIu64 "\n",
+           ci-&gt;AckFloor.Consumer, ci-&gt;AckFloor.Stream);
+    printf("Outstanding Acks:     %" PRId64 "\n", ci-&gt;NumAckPending);
+    printf("Redelivered Messages: %" PRId64 "\n", ci-&gt;NumRedelivered);
+    printf("Waiting Pulls:        %" PRId64 "\n", ci-&gt;NumWaiting);
+    printf("Unprocessed Messages: %" PRIu64 "\n", ci-&gt;NumPending);
+}</code></pre></div></div>
+<p>If <code>num_pending</code> is large and climbing while <code>num_waiting</code> is <code>0</code> and
+<code>delivered.stream_seq</code> hasn't moved, no worker is fetching and the pool is
+gone.</p>
+<p><strong>In-flight is not lag.</strong> <code>num_ack_pending</code> counts orders a worker
+already holds; <code>num_pending</code> counts orders no worker has taken yet.
+Reading one for the other hides a real problem: a handler that fetches
+orders and then hangs shows a steady, non-zero in-flight count while lag
+quietly grows behind it. Don't collapse the two into one "behind"
+number. Read both, every time: rising in-flight means a stuck handler,
+rising lag means not enough handlers.</p>
+<p><strong>A filtered consumer's lag counts only its subjects.</strong> The <code>analytics</code>
+consumer filters <code>orders.shipped</code>. Its <code>num_pending</code> counts only the
+shipped orders it hasn't seen, not the whole stream. An empty pending on
+a filtered consumer doesn't mean the <code>ORDERS</code> stream is empty; it means
+nothing on <em>that filter</em> is waiting. Don't read a filtered consumer's
+lag as a stream-wide number. Compare it against the stream's per-subject
+counts, not against <code>last_seq</code>.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You can now read the live state of the <code>ORDERS</code> stream and its <code>shipping</code>
+consumer, and you can turn it into the three numbers that matter:</p>
+<ul>
+<li><strong>lag = 20</strong>: orders waiting, from
+<code>last_seq − delivered.stream_seq</code>, also reported as <code>num_pending</code></li>
+<li><strong>in-flight = 5</strong>: orders delivered but not acked (<code>num_ack_pending</code>)</li>
+<li><strong>redelivered = 3</strong>: orders handed out more than once
+(<code>num_redelivered</code>)</li>
+</ul>
+<p>You know which field is which, and you know lag and in-flight are
+different measurements that move for different reasons.</p>
+<h2 id="whats-next">What's next</h2>
+<p>State is something you have to ask for: you poll <code>/jsz</code> or run
+<code>nats consumer info</code> and read the answer. Some events never show up in a
+poll. When a poison order exhausts its deliveries, the server announces
+it once, on a subject, and if you're not listening you never learn it
+happened.</p>
+<p>The next page covers subscribing to those announcements.</p>
+<p>Continue to <a href="/learn/monitoring/advisories-and-events">Advisories &amp; events</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/api/consumer">Reference → consumer API</a> — every
+consumer state field and its type</li>
+<li><a href="/learn/jetstream/worker-pool">Worker pool</a> — how a pool of <code>shipping</code>
+workers shares the lag</li>
+<li><a href="/learn/monitoring/monitoring-endpoints">Monitoring endpoints</a> — the
+<code>/jsz</code> endpoint these numbers come from</li>
+</ul></main>

@@ -1,0 +1,186 @@
+<main><header><h1>Installing on Windows</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide covers RabbitMQ installation on Windows. It focuses on the two recommended installation
+options:</p>
+<ul>
+<li><a href="#chocolatey">Using Chocolatey</a></li>
+<li><a href="#installer">Using the official installer</a> as an administrative user</li>
+</ul>
+<p>The guide also covers a few post-installation topics in the context of Windows:</p>
+<ul>
+<li>The basics of <a href="#configure">node configuration</a></li>
+<li><a href="#cli">CLI tool authentication</a></li>
+<li><a href="#service">RabbitMQ Windows Service</a></li>
+<li><a href="#managing">Managing the node</a></li>
+<li><a href="#firewall">Firewall and security tools</a> effects</li>
+<li>File and socket handle monitoring dependency: <a href="#handle-exe"><code>handle.exe</code></a></li>
+<li><a href="#server-logs">Log file location</a></li>
+<li><a href="#default-user-access">Default user limitations</a></li>
+</ul>
+<p>and more. These topics are covered in more details in the <a href="/docs/4.3">rest of documentation guides</a>.</p>
+<p>A separate companion guide covers known <a href="/docs/4.3/windows-configuration">Windows Configuration</a>
+and ways to mitigate them.</p>
+<h2 id="chocolatey">Using chocolatey</h2>
+<p>RabbitMQ packages are <a href="https://chocolatey.org/packages/rabbitmq">distributed via Chocolatey</a>.
+New releases can take a while (sometimes weeks) to get through approvals,
+so this option is not guaranteed to provide the latest release.
+It does, however, manage the required dependencies.</p>
+<p>To install RabbitMQ using Chocolatey, run the following command from the command line or from PowerShell:</p>
+<div><div><pre><code class="language-powershell">choco install rabbitmq</code></pre></div></div>
+<p>For many use cases, Chocolatey is the optimal installation method.</p>
+<p>The Chocolatey RabbitMQ package is open source and can be <a href="https://github.com/rabbitmq/chocolatey-package">found on GitHub</a>.</p>
+<h2 id="installer">Using the Installer</h2>
+<p>The official RabbitMQ installer is produced for <a href="/release-information">every RabbitMQ release</a>.</p>
+<p>Compared to <a href="#chocolatey">installation via Chocolatey</a>, this option gives Windows users
+the most flexibility but also requires them to be
+aware of certain assumptions and requirements in the installer:</p>
+<ul>
+<li>There must be only one Erlang version installed at a time</li>
+<li>Erlang must be installed <strong>using an administrative account</strong></li>
+<li>It is <strong>highly recommended</strong> that RabbitMQ is also installed as an administrative account</li>
+<li>Installation path must only contain ASCII characters. It is <strong>highly recommended</strong> that the path does not contain spaces in any directory names.</li>
+<li>It may be necessary to manually copy the <a href="/docs/4.3/cli#erlang-cookie">shared secret</a> file used by CLI tools</li>
+<li>CLI tools require Windows console to operate in UTF-8 mode</li>
+</ul>
+<p>When these conditions are not met, Windows service and CLI tools may require
+reinstallation or other manual steps to get them to function as expected.</p>
+<p>This is covered in more detail in the <a href="/docs/4.3/windows-configuration">Windows Configuration</a> guide.</p>
+<h3 id="dependencies">Dependencies</h3>
+<p>RabbitMQ requires a 64-bit <a href="/docs/4.3/which-erlang">supported version of Erlang</a> for Windows to be installed.</p>
+<p>Binary builds of recent versions of Erlang for Windows can be obtained from the <a href="https://erlang.org/download/otp_versions_tree.html">Erlang/OTP Version Tree</a> page.</p>
+<p>Erlang <strong>must be installed using an administrative account</strong> or it won't be discoverable to the RabbitMQ Windows service.
+Once a supported version of Erlang is installed, download the RabbitMQ installer, <code>rabbitmq-server-{version}.exe</code>
+and run it. It installs RabbitMQ as a Windows service and starts it using the default configuration.</p>
+<h3 id="downloads">Direct Downloads</h3>
+<table><thead><tr><th>Description</th><th>Download</th><th>Signature</th></tr></thead><tbody><tr><td>Installer for Windows systems (from <a href="https://github.com/rabbitmq/rabbitmq-server/releases">GitHub</a>)</td><td><a href="https://github.com/rabbitmq/rabbitmq-server/releases/download/v4.3.6/rabbitmq-server-4.3.6.exe">rabbitmq-server-4.3.6.exe</a></td><td><a href="https://github.com/rabbitmq/rabbitmq-server/releases/download/v4.3.6/rabbitmq-server-4.3.6.exe.asc">Signature</a></td></tr></tbody></table>
+<h2 id="service">Run RabbitMQ Windows Service</h2>
+<p>Once both Erlang and RabbitMQ have been installed, a RabbitMQ node can be started as a Windows service.
+The RabbitMQ service starts automatically. RabbitMQ Windows service
+can be managed from the Start menu.</p>
+<h2 id="cli">CLI Tools</h2>
+<p>RabbitMQ nodes are often managed, inspected and operated using <a href="/docs/4.3/cli">CLI Tools</a>
+in <a href="https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/PowerShell">PowerShell</a>.</p>
+<p>On Windows, CLI tools have a <code>.bat</code> suffix compared to other platforms. For example,
+<code>rabbitmqctl</code> on Windows is invoked as <code>rabbitmqctl.bat</code>.</p>
+<p>In order for these tools to work they must be able to <a href="/docs/4.3/cli#erlang-cookie">authenticate with RabbitMQ nodes</a>
+using a shared secret file called the Erlang cookie.</p>
+<p>The main <a href="/docs/4.3/cli">CLI tools guide</a> covers most topics related to command line tool usage.</p>
+<p>In order to explore what commands various RabbitMQ CLI tools provide, use the <code>help</code> command:</p>
+<div><div><pre><code class="language-powershell"># lists commands provided by rabbitmqctl.bat
+rabbitmqctl.bat help
+
+# lists commands provided by rabbitmq-diagnostics.bat
+rabbitmq-diagnostics.bat help
+
+# ...you guessed it!
+rabbitmq-plugins.bat help</code></pre></div></div>
+<p>To learn about a specific command, pass its name as an argument to <code>help</code>:</p>
+<div><div><pre><code class="language-powershell">rabbitmqctl.bat help add_user</code></pre></div></div>
+<h2 id="cli-cookie-file-location">Cookie File Location</h2>
+<p>On Windows, the <a href="/docs/4.3/cli#cookie-file-locations">cookie file location</a> depends on
+whether the <code>HOMEDRIVE</code> and <code>HOMEPATH</code> environment variables are set.</p>
+<p>If RabbitMQ is installed using a non-administrative account, a <a href="/docs/4.3/cli#erlang-cookie">shared secret</a> file
+used by nodes and CLI tools will not be placed into a correct location,
+leading to <a href="/docs/4.3/cli#cli-authentication-failures">authentication failures</a> when <code>rabbitmqctl.bat</code>
+and other CLI tools are used.</p>
+<p>One of these options can be used to mitigate:</p>
+<ul>
+<li>Re-install RabbitMQ using an administrative user</li>
+<li>Copy the file <code>.erlang.cookie</code> manually from <code>%SystemRoot%</code> or <code>%SystemRoot%\system32\config\systemprofile</code>
+to <code>%HOMEDRIVE%%HOMEPATH%</code>.</li>
+</ul>
+<h2 id="configure">Node Configuration</h2>
+<p>The service starts using its default <a href="/docs/4.3/configure">settings</a>, listening
+for connections on <a href="/docs/4.3/networking#interfaces">default interfaces</a> and <a href="#ports">ports</a>.</p>
+<p>Node configuration is primarily done using a <a href="/docs/4.3/configure#configuration-files">configuration file</a>.
+A number of available <a href="/docs/4.3/configure#rabbitmq-env-file-windows">environment variables</a> can be used
+to control node's <a href="/docs/4.3/relocate">data location</a>, configuration file path and so on.</p>
+<p>This is covered in more detail in the <a href="/docs/4.3/configure">Configuration guide</a></p>
+<h3 id="environment-variable-changes-on-windows">Environment Variable Changes on Windows</h3>
+<p><strong>Important</strong>: after setting environment variables, it is necessary to <a href="/docs/4.3/configure#rabbitmq-env-file-windows"><strong>re-install</strong> the Windows service</a>. Restarting the service will not be sufficient.</p>
+<h2 id="managing">Managing a RabbitMQ Node</h2>
+<h3 id="managing-service">Managing the Service</h3>
+<p>Links to RabbitMQ directories can be found in the Start Menu.</p>
+<p>There is also a link to a command prompt window that
+will start in the sbin dir, in the Start Menu. This is
+the most convenient way to run the <a href="#cli">command line tools</a>.</p>
+<p>Note that CLI tools will have to <a href="#cli">authenticate to the target RabbitMQ node</a>.</p>
+<h3 id="stop-service">Stopping a Node</h3>
+<p>To stop the broker or check its status, use
+<code>rabbitmqctl.bat</code> in <code>sbin</code> (as an administrator).</p>
+<div><div><pre><code class="language-powershell">rabbitmqctl.bat stop</code></pre></div></div>
+<h3 id="status">Checking Node Status</h3>
+<p>The following <a href="#cli">CLI command</a> runs a basic <a href="/docs/4.3/monitoring#health-checks">health check</a>
+and displays some information about the node if it is running.</p>
+<div><div><pre><code class="language-powershell"># A basic health check of both the node and CLI tool connectivity/authentication
+rabbitmqctl.bat status</code></pre></div></div>
+<p>For it to work,
+two conditions must be true:</p>
+<ul>
+<li>The node must be running</li>
+<li><code>rabbitmqctl.bat</code> must be able to authenticate with the node</li>
+</ul>
+<p>See the <a href="#cli">CLI tools section</a> and the <a href="/docs/4.3/monitoring">Monitoring and Health Checks guide</a>
+to learn more.</p>
+<h3 id="server-logs">Log Files and Management</h3>
+<p>Server logs are critically important in troubleshooting and root cause analysis.
+See <a href="/docs/4.3/logging">Logging</a> and <a href="/docs/4.3/relocate">File and Directory Location</a> guides
+to learn about log file location, log rotation and more.</p>
+<h2 id="firewall">Firewalls and Security Tools</h2>
+<p>Firewalls and security tools can prevent RabbitMQ Windows service and CLI tools from operating
+correctly.</p>
+<p>Such tools should be configured to whitelist access to <a href="#ports">ports used by RabbitMQ</a>.</p>
+<h2 id="handle-exe">Optional: Install handle.exe for File Handle Monitoring</h2>
+<p>One of the <a href="/docs/4.3/monitoring">metrics</a> RabbitMQ nodes collect and provide is the number of
+file and socket handles used by the node.</p>
+<p>On Windows, these metrics are collected from an external command line tool,
+<a href="https://learn.microsoft.com/en-us/sysinternals/downloads/handle"><code>handle.exe</code></a>.</p>
+<p>Version 5 is required on Windows Server 2025, and is highly recommended in most cases.</p>
+<h2 id="default-user-access">Default User Access</h2>
+<p>The broker creates a user <code>guest</code> with password
+<code>guest</code>. Unconfigured clients will in general use these
+credentials. <strong>By default, these credentials can only be
+used when connecting to the broker as localhost</strong> so you
+will need to take action before connecting from any other
+machine.</p>
+<p>See the documentation on <a href="/docs/4.3/access-control">access control</a> for information on how to create more users and delete
+the <code>guest</code> user.</p>
+<h2 id="ports">Port Access</h2>
+<p>RabbitMQ nodes bind to ports (open server TCP sockets) in order to accept client and CLI tool connections.
+Other processes and tools such as anti-virus software may prevent RabbitMQ from binding to a port. When that happens,
+the node will fail to start.</p>
+<p>CLI tools, client libraries and RabbitMQ nodes also open connections (client TCP sockets).
+Firewalls can prevent nodes and CLI tools from communicating with each other.
+Make sure the following ports are accessible:</p>
+<ul>
+<li>4369: <a href="http://erlang.org/doc/man/epmd.html">epmd</a>, a peer discovery service used by RabbitMQ nodes and CLI tools</li>
+<li>5672, 5671: used by AMQP 0-9-1 and 1.0 clients without and with TLS</li>
+<li>25672: used for inter-node and CLI tools communication (Erlang distribution server port)
+and is allocated from a dynamic range (limited to a single port by default,
+computed as AMQP port + 20000). Unless external connections on these ports are really necessary (e.g.
+the cluster uses <a href="/docs/4.3/federation">federation</a> or CLI tools are used on machines outside the subnet),
+these ports should not be publicly exposed. See <a href="/docs/4.3/networking">networking guide</a> for details.</li>
+<li>35672-35682: used by CLI tools (Erlang distribution client ports) for communication with nodes
+and is allocated from a dynamic range (computed as server distribution port + 10000 through
+server distribution port + 10010). See <a href="/docs/4.3/networking">networking guide</a> for details.</li>
+<li>15672: <a href="/docs/4.3/management">HTTP API</a> clients, <a href="/docs/4.3/management">management UI</a> and <a href="/docs/4.3/management-cli">rabbitmqadmin</a>
+(only if the <a href="/docs/4.3/management">management plugin</a> is enabled)</li>
+<li>61613, 61614: <a href="https://stomp.github.io/stomp-specification-1.2.html">STOMP clients</a> without and with TLS (only if the <a href="/docs/4.3/stomp">STOMP plugin</a> is enabled)</li>
+<li>1883, 8883: <a href="http://mqtt.org/">MQTT clients</a> without and with TLS, if the <a href="/docs/4.3/mqtt">MQTT plugin</a> is enabled</li>
+<li>15674: STOMP-over-WebSockets clients (only if the <a href="/docs/4.3/web-stomp">Web STOMP plugin</a> is enabled)</li>
+<li>15675: MQTT-over-WebSockets clients (only if the <a href="/docs/4.3/web-mqtt">Web MQTT plugin</a> is enabled)</li>
+</ul>
+<p>It is possible to <a href="/docs/4.3/configure">configure RabbitMQ</a>
+to use <a href="/docs/4.3/networking">different ports and specific network interfaces</a>.</p>
+<h2 id="upgrading-erlang">Upgrading Erlang VM</h2>
+<p>If you have an existing installation and are planning to upgrade
+the Erlang VM from a 32-bit to a 64-bit version then you must uninstall
+the broker before upgrading the VM. The installer will not be able to stop
+or remove a service that was installed with an Erlang VM of a different
+architecture.</p>
+<h2 id="dump-file">Dump File Location When Running as a Service</h2>
+<p>In the event that the Erlang VM terminates when RabbitMQ is running
+as a service, rather than writing the crash dump to the current
+directory (which doesn't make sense for a service) it is written
+to an <code>erl_crash.dump</code> file in the <a href="/docs/4.3/relocate">base directory</a> of
+the RabbitMQ server, defaulting to <code>%APPDATA%\%RABBITMQ_SERVICENAME%</code> - typically <code>%APPDATA%\RabbitMQ</code> otherwise.</p></main>

@@ -1,0 +1,150 @@
+<main><header><h1>5. A consumer that survives restarts</h1></header>
+<p>In the <a href="/tutorials/first-stream">previous tutorial</a> you stored messages in a
+<strong>stream</strong>. Now you'll read them with a durable <strong>consumer</strong>: pull each
+message, acknowledge it, then stop and start again and watch the consumer
+pick up exactly where it left off — no message read twice, none skipped.</p>
+<div></div>
+<h2 id="what-youll-need">What you'll need</h2>
+<ul>
+<li>The <code>nats</code> CLI installed.</li>
+<li>A <code>nats-server</code> running with JetStream enabled, and the <code>EVENTS</code> stream with a
+few messages in it, which is what you set up in
+<a href="/tutorials/first-stream">Tutorial 4: Persist messages with JetStream</a>. Keep
+that server running.</li>
+</ul>
+<h2 id="step-1-start-from-a-clean-set-of-three-messages">Step 1: Start from a clean set of three messages</h2>
+<p>So the sequence numbers in this tutorial line up, reset the <code>EVENTS</code> stream to
+a known state. Purging a stream keeps counting sequences from where it left
+off, so instead delete the stream you created in Tutorial 4 and re-create it,
+which starts sequences again at 1:</p>
+<div><div><pre><code class="language-bash">nats stream rm EVENTS --force
+nats stream add EVENTS --subjects "events.&gt;" --defaults</code></pre></div></div>
+<p>The delete prints nothing; the re-create prints the new stream's configuration,
+ending with:</p>
+<div><div><pre><code class="language-text">Stream EVENTS was created</code></pre></div></div>
+<p>Now publish three fresh messages for the consumer to work through:</p>
+<div><div><pre><code class="language-bash">nats pub events.page_loaded '{"page":"/home"}' --jetstream
+nats pub events.input_changed '{"field":"email"}' --jetstream
+nats pub events.page_loaded '{"page":"/pricing"}' --jetstream</code></pre></div></div>
+<p>You should see each publish confirmed by the server, along with the sequence
+the stream assigned it:</p>
+<div><div><pre><code class="language-text">14:22:01 Published 16 bytes to "events.page_loaded"
+14:22:01 Stored in Stream: EVENTS Sequence: 1
+14:22:01 Published 17 bytes to "events.input_changed"
+14:22:01 Stored in Stream: EVENTS Sequence: 2
+14:22:01 Published 19 bytes to "events.page_loaded"
+14:22:01 Stored in Stream: EVENTS Sequence: 3</code></pre></div></div>
+<p>Confirm the stream now holds exactly your three messages:</p>
+<div><div><pre><code class="language-bash">nats stream info EVENTS</code></pre></div></div>
+<p>You should see a <code>Messages</code> count of <code>3</code> in the <code>State</code> block.</p>
+<h2 id="step-2-add-a-durable-consumer">Step 2: Add a durable consumer</h2>
+<p>Create a durable pull consumer named <code>worker</code> on the <code>EVENTS</code> stream. A pull
+consumer hands you messages when you ask for them, and acknowledges them one at
+a time.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Add a durable pull consumer named `worker` to the EVENTS stream.
+# --pull: the reader fetches messages on demand (a pull consumer)
+# --ack explicit: every delivered message must be individually acknowledged
+# --defaults: accept the default values for everything else
+nats consumer add EVENTS worker --pull --ack explicit --defaults</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Add a durable pull consumer named "worker" to the EVENTS stream.
+// Naming it makes it durable: the server keeps its place in the
+// stream by name after you stop pulling. js_AckExplicit means every
+// delivered message must be individually acknowledged.
+jsConsumerConfig cfg;
+
+jsConsumerConfig_Init(&amp;cfg);
+cfg.Durable   = "worker";
+cfg.AckPolicy = js_AckExplicit;
+
+s = js_AddConsumer(&amp;ci, js, "EVENTS", &amp;cfg, NULL, &amp;jerr);
+if (s == NATS_OK)
+    printf("created consumer %s on stream EVENTS\n", ci-&gt;Name);</code></pre></div></div>
+<p>You should see the consumer created and its configuration printed:</p>
+<div><div><pre><code class="language-text">Information for Consumer EVENTS &gt; worker
+
+Configuration:
+
+                    Name: worker
+               Pull Mode: true
+          Deliver Policy: All
+              Ack Policy: Explicit</code></pre></div></div>
+<p>Naming the consumer <code>worker</code> makes it <strong>durable</strong>: the server keeps it (and its
+place in the stream) by name after you stop pulling.</p>
+<h2 id="step-3-pull-and-acknowledge-a-message">Step 3: Pull and acknowledge a message</h2>
+<p>Ask the consumer for its next message and acknowledge it:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Pull the next message from the `worker` consumer and acknowledge it.
+# Acknowledging advances the durable consumer so this message is never resent.
+nats consumer next EVENTS worker --ack</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Bind to the durable "worker" consumer on the EVENTS stream.
+jsSubOptions so;
+
+jsSubOptions_Init(&amp;so);
+so.Stream   = "EVENTS";
+so.Consumer = "worker";
+
+s = js_PullSubscribe(&amp;sub, js, NULL, NULL, NULL, &amp;so, &amp;jerr);
+
+// Pull the next message, then acknowledge it. Acknowledging
+// advances the consumer so this message is never resent.
+if (s == NATS_OK)
+    s = natsSubscription_Fetch(&amp;list, sub, 1, 5000, &amp;jerr);
+if (s == NATS_OK)
+{
+    natsMsg *msg = list.Msgs[0];
+
+    printf("received on %s: %.*s\n",
+           natsMsg_GetSubject(msg),
+           natsMsg_GetDataLength(msg),
+           natsMsg_GetData(msg));
+
+    s = natsMsg_Ack(msg, NULL);
+}</code></pre></div></div>
+<p>You should see the first message, followed by the acknowledgment:</p>
+<div><div><pre><code class="language-text">[14:23:10] subj: events.page_loaded / tries: 1 / cons seq: 1 / str seq: 1 / pending: 2
+
+{"page":"/home"}
+
+Acknowledged message</code></pre></div></div>
+<p><code>{"page":"/home"}</code> is the message body, the first one you published. <code>pending: 2</code>
+tells you two more messages are waiting, and the <code>Acknowledged message</code> line
+confirms the server recorded that you're done with this one.</p>
+<p>Run the same command once more to read and acknowledge the second message:</p>
+<div><div><pre><code class="language-bash">nats consumer next EVENTS worker --ack</code></pre></div></div>
+<p>You should see <code>{"field":"email"}</code>, with <code>cons seq: 2</code> and <code>pending: 1</code>.</p>
+<h2 id="step-4-check-how-far-youve-read">Step 4: Check how far you've read</h2>
+<p>Look at how far the consumer has progressed:</p>
+<div><div><pre><code class="language-bash">nats consumer info EVENTS worker</code></pre></div></div>
+<p>In the <code>State</code> block you should see it sitting after the two messages you acked:</p>
+<div><div><pre><code class="language-text">State:
+
+   Last Delivered Message: Consumer sequence: 2 Stream sequence: 2
+     Acknowledgment Floor: Consumer sequence: 2 Stream sequence: 2
+         Outstanding Acks: 0 out of maximum 1,000</code></pre></div></div>
+<p><code>Acknowledgment Floor</code> shows you've acknowledged through message 2, so the next
+pull will hand you message 3.</p>
+<h2 id="step-5-restart-and-resume">Step 5: Restart and resume</h2>
+<p>Now simulate a restart. Stop the server with <code>Ctrl+C</code> in its terminal, then
+start it again the same way you did in Tutorial 4 so it reads the stream and
+consumer back from where it stored them:</p>
+<div><div><pre><code class="language-bash">nats-server -js</code></pre></div></div>
+<p>The stream and the consumer come back exactly as they were. Pull the next
+message:</p>
+<div><div><pre><code class="language-bash">nats consumer next EVENTS worker --ack</code></pre></div></div>
+<p>You should see the third message, not the first:</p>
+<div><div><pre><code class="language-text">[14:25:40] subj: events.page_loaded / tries: 1 / cons seq: 3 / str seq: 3 / pending: 0
+
+{"page":"/pricing"}
+
+Acknowledged message</code></pre></div></div>
+<p>The consumer picked up right where it left off. <code>pending: 0</code> means you've now
+read every message. Nothing was redelivered, and nothing was missed.</p>
+<h2 id="what-you-built">What you built</h2>
+<p>A durable consumer that pulls messages from a stream, acknowledges each one, and
+resumes after a restart, so your reader always picks up exactly where it left
+off, with nothing read twice and nothing skipped.</p>
+<h2 id="next">Next</h2>
+<ul>
+<li>Next tutorial: <a href="/tutorials/key-value">Build a tiny state store with Key-Value</a>.</li>
+<li>Now understand the why (acknowledgment, redelivery, and how the cursor
+works): <a href="/learn/jetstream/delivery-and-acknowledgment">JetStream deep dive: Delivery and acknowledgment</a>.</li>
+</ul></main>

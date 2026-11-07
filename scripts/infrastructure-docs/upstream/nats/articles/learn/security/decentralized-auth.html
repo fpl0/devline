@@ -1,0 +1,410 @@
+<main><header><h1>Decentralized authentication</h1></header>
+<p>On the <a href="/learn/security/operator-mode">previous page</a> you built the <code>ACME</code>
+operator, pushed the <code>ORDERS</code> and <code>ANALYTICS</code> accounts to the resolver, and
+connected <code>order-svc</code> with a credentials file. The commands worked; this
+page explains what the server actually verified when that connection came
+in. It then closes the one gap the build left open: <code>order-svc</code> is still
+unrestricted, while in config mode it was limited to <code>orders.&gt;</code>. By the end
+it's re-issued from a scoped signing key that carries those permissions,
+with an expiring credentials file and a way to revoke it.</p>
+<h2 id="the-problem-with-one-big-user-list">The problem with one big user list</h2>
+<p>Why go through the operator setup at all? Suppose Acme is a year older:
+the <code>ORDERS</code> account holds 15 services, <code>ANALYTICS</code> holds eight, and a
+third team wants its own account. With centralized authentication (the
+model from the first half of this chapter), every one of those identities
+lives in the server config, and only the team holding that config can add
+one.</p>
+<p>You want each team to manage its own users without touching the server.
+The server shouldn't need to know every user in advance, only a way to
+tell a real user from a forged one. A signature check does that: on the
+previous page you created <code>order-svc</code> without adding any user config to
+the server.</p>
+<h2 id="the-three-identities-in-the-trust-chain">The three identities in the trust chain</h2>
+<p>Decentralized authentication arranges identities into a chain with three
+links.</p>
+<p>The <strong>operator</strong> is the root of trust. There's one per deployment —
+<code>ACME</code> in our setup. It's the single identity the server is told to
+trust.</p>
+<p>An <strong>account</strong> is the tenant you met on the
+<a href="/learn/security/accounts-and-multitenancy">Accounts and multitenancy</a> page:
+<code>ORDERS</code> and <code>ANALYTICS</code> in our scenario. In this model each account is
+its own identity, and the operator vouches for it.</p>
+<p>A <strong>user</strong> is the auth identity a client connects as: <code>order-svc</code> and
+<code>analytics-reader</code>. Each user belongs to an account, and the account
+vouches for it.</p>
+<p>"Vouches for" has a precise meaning here: it means signs. The operator
+signs the account. The account signs the user. The result is a chain you
+can verify from any link back up to the root.</p>
+<div></div>
+<h2 id="how-an-identity-signs-the-next">How an identity signs the next</h2>
+<p>Each identity holds a key it signs and verifies with. In NATS these are
+<strong>NKeys</strong>, built on Ed25519, the same elliptic-curve signature scheme used
+for SSH and modern code signing. An NKey comes in two forms: a public NKey
+others verify against, and a private seed the signer keeps. The signer
+signs with the seed; everyone else needs only the public NKey to check the
+signature. The server only ever handles public NKeys and signatures, never
+anyone's seed.</p>
+<p>An NKey is easy to recognize because its first letter names its role: an
+operator NKey starts with <code>O</code>, an account NKey with <code>A</code>, a user NKey with
+<code>U</code>, and any seed also prepends <code>S</code>.
+So <code>OD2A...</code> is an operator's public NKey and <code>SUAH...</code> is a user's seed.</p>
+<p>An identity isn't limited to its one built-in key pair. An account can
+hold extra <strong>signing keys</strong> that also count as valid issuers for its
+users — you'll use one shortly — and the operator can hold signing keys
+for accounts the same way. A user signed by an account signing key carries
+an <code>issuer_account</code> field in its JWT naming the account it belongs to.
+(There's always an issuer, it's just that the default is implicit and is the
+signing key inherent in the account rather than an added key.)</p>
+<h2 id="the-user-jwt">The user JWT</h2>
+<p>A user connection proves who it is by presenting a <strong>JSON Web Token (JWT)</strong>,
+which provably carries in it the public key corresponding to the private key
+which signed the server's challenge.
+A JWT is a small, signed document that states a set of claims and carries the
+signature proving those claims haven't been altered.</p>
+<p>A user JWT isn't the "token" from
+<a href="/learn/security/authentication-basics">Authentication basics</a>: that token
+is a password-style secret the server compares against its config, while
+a user JWT is a signed document anyone can inspect but only the right account
+(signing) key can produce.
+The credentials file from the previous page holds the user JWT in
+its first block; the second block is the user's seed, and the next section
+shows why the client needs both.</p>
+<p>A user JWT names the user and the account that issued it. When
+<code>order-svc</code> connects, it presents its user JWT. The server reads from it which
+account issued it, fetches that account's own JWT from the resolver, and
+checks that the account JWT was signed by the operator. Each JWT
+references the next one up the chain.</p>
+<h2 id="what-the-server-actually-checks">What the server actually checks</h2>
+<p>The server's config replaces the user list with a single embedded
+operator JWT: the long <code>operator: eyJ...</code> line in the <code>server.conf</code> you
+generated. That JWT contains the operator's public key, and it can
+list extra operator signing keys; any of those keys can vouch for an
+account.</p>
+<p>One more input arrives at connect time. The server sends the client a
+<strong>nonce</strong>, a random value generated fresh for this connection. The client
+signs the nonce with the user seed and sends the signature back along with
+the user JWT.</p>
+<p>Given all that, the server checks:</p>
+<ol>
+<li>The nonce signature verifies against the user's public key named in
+the user JWT. This proves the client holds the seed right now, not
+just a copy of the JWT.</li>
+<li>The user JWT was signed by the account that issued it. The server
+verifies that signature against the account's identity key or one of
+its signing keys.</li>
+<li>The account JWT, fetched from the resolver, was signed by the
+operator. The server verifies it against the keys in the operator JWT
+it was configured with.</li>
+</ol>
+<p>If all three hold, the user is genuine: the server admits it and applies
+whatever permissions and limits the JWTs carry.</p>
+<p>The numbered checks also show why each kind of forgery fails. A copied user
+JWT without the seed can't sign the nonce and fails check 1 — that's why a
+stolen JWT alone is useless, and why the creds file has two sections. A
+homemade user JWT fails check 2, because the attacker holds no key of
+<code>ORDERS</code>. A homemade account JWT fails check 3, because only the
+operator's seed can produce a signature the server's operator JWT vouches
+for.</p>
+<p>(But see below, re Bearer Tokens, for an exception to this.)</p>
+<h2 id="why-removing-the-user-list-matters">Why removing the user list matters</h2>
+<p>Centralized authentication checks the user against a list. Decentralized
+authentication checks that the user's JWT traces back to the operator,
+and that scales because a signature check works for a user the server has
+never seen — no config entry has to exist before the user connects.</p>
+<p>This is what lets each team run its own account and create its own users.
+The <code>ORDERS</code> team signs <code>order-svc</code> with keys of the <code>ORDERS</code> account. The
+<code>ANALYTICS</code> team signs <code>analytics-reader</code> with keys of <code>ANALYTICS</code>.
+Neither team touches the server, and the server trusts both because the
+operator vouched for both accounts.</p>
+<h2 id="scoped-permissions-with-a-signing-key">Scoped permissions with a signing key</h2>
+<p>One thing is still missing from parity with config mode. On the
+<a href="/learn/security/authorization">Authorization</a> page, <code>order-svc</code> could
+publish only to <code>orders.&gt;</code>; the user you created on the previous page can
+publish anywhere in the account. In this model permissions travel inside
+the signed JWTs, and the clean way to assign them is a <strong>scoped signing
+key</strong>: an account signing key with a role name and a fixed permission set.
+Every user issued by that key gets exactly those permissions. Re-issue
+<code>order-svc</code> from a scoped key named <code>order-writer</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# Re-issue order-svc from a scoped signing key instead of the ORDERS
+# account's identity key. The scoped key carries a fixed permission set,
+# so every user it issues gets exactly those permissions.
+
+# Add a scoped signing key with the role name "order-writer" to ORDERS.
+nats auth account keys add ORDERS order-writer \
+  --pub-allow 'orders.&gt;' --sub-allow '_INBOX.&gt;'
+# Expected output (your key will differ):
+# Scoped Signing Key ACQFRPTMQBCYT7QB2PRHW3XEMBZYXLOXT5V7IBYTZP3CBPV6VCW2ME5E
+#                Role: order-writer
+
+# Remove the unrestricted order-svc from the previous page. --revoke
+# records its key in the ORDERS account JWT, so the old creds stop
+# working once the account is pushed again.
+nats auth user rm order-svc ORDERS --revoke -f
+# Removed user order-svc
+
+# Re-issue order-svc signed by the scoped key. --key takes the role
+# name; -f overwrites the creds file from the previous page.
+nats auth user add order-svc ORDERS --key order-writer \
+  --defaults --credential order-svc.creds -f
+# User order-svc (UASBX5L3X7MSAAAPVRKNAQFRMAFKP4VOKB6O3ZZ72QYD2DQCL2W4TP5K)
+#    Issuer: ACQFRPTM... (the scoped key)
+#    Scoped: true
+
+# Re-mint the creds file with a 720-hour expiry. Expiry lives on the
+# minted credential; the stored user is untouched.
+nats auth user credential order-svc.creds order-svc ORDERS --expire 720h -f
+# Wrote credential for order-svc to order-svc.creds
+
+# Confirm the issuer and the permissions applied from the scope.
+nats auth user info order-svc ORDERS</code></pre></div></div>
+<div><div><pre><code class="language-text">Scoped Signing Key ACQFRPTMQBCYT7QB2PRHW3XEMBZYXLOXT5V7IBYTZP3CBPV6VCW2ME5E
+...
+Removed user order-svc
+...
+User order-svc (UASBX5L3X7MSAAAPVRKNAQFRMAFKP4VOKB6O3ZZ72QYD2DQCL2W4TP5K)
+
+Configuration:
+
+            Account: ORDERS (AC6S25M37MU5PJGKYF5QPJPJ6XDQZXJPIPTMCR5MK7ZALYQGX6MH4IRU)
+             Issuer: ACQFRPTMQBCYT7QB2PRHW3XEMBZYXLOXT5V7IBYTZP3CBPV6VCW2ME5E
+             Scoped: true
+...
+Permissions:
+
+  Publish:
+
+                Allow: orders.&gt;
+
+  Subscribe:
+
+                Allow: _INBOX.&gt;</code></pre></div></div>
+<p>The <code>Issuer</code> line is the point: <code>order-svc</code> is now issued by
+<code>ACQFRPTM...</code>, the scoped key, not the <code>ORDERS</code> identity key, and
+<code>Scoped: true</code> confirms its permissions come from the key's template. The
+permission set shown is the role's — the same <code>orders.&gt;</code> publish and
+<code>_INBOX.&gt;</code> subscribe it had in config mode.</p>
+<p>The scoped key lives inside the <code>ORDERS</code> account JWT, so the server
+doesn't know it yet. Until you push, the new credentials are rejected:</p>
+<div><div><pre><code class="language-sh">nats pub orders.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200}' --creds order-svc.creds</code></pre></div></div>
+<div><div><pre><code class="language-text">nats: error: nats: Authorization Violation</code></pre></div></div>
+<p>Push the account as you did on the previous page
+(<code>nats auth account push ORDERS -s nats://127.0.0.1:4222 --creds sys.creds</code>)
+and try again:</p>
+<div><div><pre><code class="language-text">14:24:53 Published 63 bytes to "orders.created"</code></pre></div></div>
+<p>Anything outside the scope now fails, and this time it's a permission
+error rather than an authentication one:</p>
+<div><div><pre><code class="language-sh">nats pub billing.charge 'x' --creds order-svc.creds</code></pre></div></div>
+<div><div><pre><code class="language-text">nats: error: nats: permissions violation: Permissions Violation for Publish to "billing.charge"</code></pre></div></div>
+<p>The scoped user's own JWT carries an empty permission set (<code>"pub": {}, "sub": {}</code>). The server applies the key's
+template at connect time, so a change to the template reaches every user
+signed by that key on the next account push, with no creds re-issued. The
+v0.4.0 CLI can't yet edit a scope in place, though — see the Pitfalls.</p>
+<p>The snippet also re-minted the creds file with <code>--expire 720h</code>, so the
+user JWT inside it lapses after 30 days. Expiry belongs to the minted
+credential, not the stored user: re-run <code>nats auth user credential</code>
+whenever you need a fresh one.</p>
+<h2 id="revoking-a-user">Revoking a user</h2>
+<p>The snippet passed <code>--revoke</code> when it removed the old, unrestricted
+<code>order-svc</code>. <code>nats auth user rm</code> without it
+only deletes the user from your local store; credentials already handed
+out keep working, because the server never consults your store. With
+<code>--revoke</code>, the command writes an entry into the <code>ORDERS</code> account JWT: a
+<code>revocations</code> map from the user's public key to a timestamp. Any user JWT
+for that key issued at or before that time is rejected. Like every account
+change, it takes effect on the next <code>nats auth account push ORDERS</code>, and
+the push also disconnects clients currently connected as the revoked
+user. Run the lifecycle end to end to see when the revocation takes
+effect:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# Revoke order-svc and watch when the revocation actually bites. The
+# creds keep working until the updated account JWT reaches the server.
+
+# Baseline: the scoped creds connect fine.
+nats pub orders.created '{"order_id":"ord_9x3m","customer":"acme-co","total_cents":1850}' --creds order-svc.creds
+# 18:04:03 Published 63 bytes to "orders.created"
+
+# Remove and revoke. This writes the revocation entry into your local
+# copy of the ORDERS account JWT; the server hasn't seen it yet.
+nats auth user rm order-svc ORDERS --revoke -f
+# Removed user order-svc
+
+# The window: the same creds still connect and publish.
+nats pub orders.created '{"order_id":"ord_9x3m","customer":"acme-co","total_cents":1850}' --creds order-svc.creds
+# 18:04:03 Published 63 bytes to "orders.created"
+
+# Close the window: push the account. A client connected with the
+# revoked creds is dropped as the push lands.
+nats auth account push ORDERS -s nats://127.0.0.1:4222 --creds sys.creds
+# ✓ Update completed on acme-1
+# (in the revoked client's terminal:)
+# 18:04:04 &gt;&gt;&gt; Disconnected due to: EOF, will attempt reconnect
+
+# A fresh connection with the revoked creds now fails.
+nats pub orders.created 'x' --creds order-svc.creds
+# nats: error: nats: Authorization Violation
+
+# Revocation pins the old user key, not the name. Re-issuing order-svc
+# creates a new key, so the new creds work after the next push.
+nats auth user add order-svc ORDERS --key order-writer --defaults \
+  --credential order-svc.creds -f
+nats auth user credential order-svc.creds order-svc ORDERS --expire 720h -f
+nats auth account push ORDERS -s nats://127.0.0.1:4222 --creds sys.creds
+nats pub orders.created '{"order_id":"ord_9x3m","customer":"acme-co","total_cents":1850}' --creds order-svc.creds
+# 18:04:19 Published 63 bytes to "orders.created"</code></pre></div></div>
+<div><div><pre><code class="language-text">18:04:03 Published 63 bytes to "orders.created"
+Removed user order-svc
+18:04:03 Published 63 bytes to "orders.created"
+...
+✓ Update completed on acme-1
+...
+18:04:04 &gt;&gt;&gt; Disconnected due to: EOF, will attempt reconnect
+...
+nats: error: nats: Authorization Violation
+...
+18:04:19 Published 63 bytes to "orders.created"</code></pre></div></div>
+<p>The second publish is the point: between <code>user rm --revoke</code> and the
+push, the revocation exists only in your local store, so the revoked
+creds still connect and publish. The final publish shows the other half
+of the mechanic: revocation pins the old user's public key, so the
+re-issued <code>order-svc</code> — a new key under the same name — connects fine
+after the next push.</p>
+<h2 id="bearer-tokens">Bearer tokens</h2>
+<p>Check 1, the nonce signature, has one exception. A user can be
+marked as a <strong>bearer</strong> user; its JWT then connects with no seed and no
+nonce signature, so anyone holding the JWT can connect. Accounts disallow
+this by default (<code>Bearer Tokens Allowed: false</code> in the account listing).
+To use it, allow bearer tokens on the account (<code>--bearer</code> on
+<code>nats auth account add</code> or <code>account edit</code>) and mark the user (<code>--bearer</code>
+on <code>nats auth user add</code>). It's a convenience for browser and websocket
+clients that have nowhere safe to keep a seed, and it reduces the
+credential to a single document that must never leak. A non-bearer JWT
+presented alone is still rejected with <code>Authorization Violation</code>. Try
+both with the creds you already have:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# Connect with a user JWT alone, no seed. The JWT is the first block of
+# a creds file; v0.4.0 has no command that prints it by itself, so cut
+# it out with sed.
+JWT="$(sed -n '/BEGIN NATS USER JWT/,/END NATS USER JWT/{/---/d;p;}' order-svc.creds)"
+
+# A normal user's JWT alone is rejected: with no seed, the client
+# can't sign the server's nonce.
+nats pub orders.created 'x' --jwt "$JWT"
+# nats: error: nats: Authorization Violation
+
+# Create a bearer user for a browser dashboard and push it.
+nats auth user add orders-dashboard ORDERS --bearer --defaults \
+  --credential orders-dashboard.creds
+#        Bearer Token: true
+nats auth account push ORDERS -s nats://127.0.0.1:4222 --creds sys.creds
+
+# Marking the user isn't enough: ORDERS still has Bearer Tokens
+# Allowed: false, so its JWT alone gets the same rejection.
+JWT="$(sed -n '/BEGIN NATS USER JWT/,/END NATS USER JWT/{/---/d;p;}' orders-dashboard.creds)"
+nats pub orders.created 'x' --jwt "$JWT"
+# nats: error: nats: Authorization Violation
+
+# Allow bearer tokens on the account and push again.
+nats auth account edit ORDERS --bearer
+#   Bearer Tokens Allowed: true
+nats auth account push ORDERS -s nats://127.0.0.1:4222 --creds sys.creds
+
+# Now the JWT connects on its own: no seed, no nonce signature.
+nats pub orders.created '{"order_id":"ord_2f7q","customer":"acme-co","total_cents":990}' --jwt "$JWT"
+# 18:05:09 Published 62 bytes to "orders.created"</code></pre></div></div>
+<div><div><pre><code class="language-text">nats: error: nats: Authorization Violation
+...
+       Bearer Token: true
+...
+nats: error: nats: Authorization Violation
+...
+  Bearer Tokens Allowed: true
+...
+18:05:09 Published 62 bytes to "orders.created"</code></pre></div></div>
+<p>Both rejections print the same <code>Authorization Violation</code>: the first
+because a non-bearer JWT arrives with no nonce signature, the second
+because the account still disallows bearer tokens. Only after the
+account-level allow is pushed does the JWT connect on its own.</p>
+<h2 id="multiple-operators">Multiple Operators</h2>
+<p>The nats-server supports having multiple operators configured.  They are
+equivalent, and the namespace of accounts is flat across all operators.
+If you need to rotate operators (operator key compromised) then it is
+technically possible to rotate by adopting existing accounts into the new
+operator and migrating gradually.</p>
+<p>It is not easy and there are no current affordances in the tooling to assist
+with such a migration.</p>
+<p>Use operator signing keys and keep at least one off-line, and only keep one
+operator signing key exposed to risk.  Then you can manage a migration between
+the signing keys of the existing operator instead of between operators.  There
+still aren't many helpers for this, at this time.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>Four things commonly catch teams new to decentralized authentication.</p>
+<p><strong>Losing the operator seed.</strong> The operator's seed is the only thing that
+can sign accounts. Lose it and you can't add or re-sign an account; the
+tooling has nothing to sign with. Back the operator up before you build
+anything on top of it: <code>nats auth operator backup ACME acme-operator.backup</code>
+writes a portable backup file — a JSON document holding the operator's
+keys and JWTs, so an unencrypted backup contains the operator seed in
+cleartext — and <code>--key</code> encrypts it with a curve NKey (pass a file
+containing the key). Restore it with
+<code>nats auth operator restore ACME acme-operator.backup</code>. Store the file
+offline.</p>
+<p><strong>Pasting a seed where a public key belongs.</strong> Server config and JWT
+fields only ever take public NKeys (<code>O...</code>, <code>A...</code>, <code>U...</code>). If you paste
+a seed (<code>S...</code>) into a config, a chat message, or a log, you've handed out
+the one secret that must stay private, and the only fix is to rotate the
+key. Treat every <code>S</code>-prefixed string like a password.</p>
+<p><strong>Signing users with the account's identity key.</strong> This is what plain
+<code>nats auth user add</code> does, and it works — but permissions then live on
+each user, and whoever holds the account's seed can issue a user with any
+permissions. A scoped key pins the permissions up front, so a leaked
+signing key can only issue users with the scope you already chose (see
+<a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-14.md">ADR-14</a>).
+One operational limit to know: the CLI has no command to edit a scope
+in place, so the only way to change one is to remove its key
+(<code>nats auth account keys rm --key</code> takes the role name or the public
+key) and re-add the role. That creates a new key,
+and every user signed by the old one is locked out at the next push with
+<code>nats: Authorization Violation</code>. Treat key removal as mass revocation, not
+as an edit.</p>
+<p><strong>Not planning for credential expiry.</strong> A user JWT minted by
+<code>nats auth user add</code> never expires, so a leaked creds file is valid until
+you revoke it. The only expiry control in v0.4.0 is on the credentials
+file: <code>nats auth user credential order-svc.creds order-svc ORDERS --expire 720h -f</code>
+mints a fresh user JWT that lapses after 720 hours; there's no expiry flag
+on <code>user add</code> or <code>user edit</code>. Pair a short expiry with a renewal step,
+because a lapsed client is rejected with plain <code>Authorization Violation</code>.
+The server's default log records only an <code>authentication error</code>; the
+underlying reason, <code>claim is expired</code>, appears in its debug log.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>The <code>ACME</code> setup from the previous page is unchanged; this page layered
+the model onto it and tightened <code>order-svc</code>:</p>
+<ul>
+<li>The server trusts one operator JWT and verifies three signatures per
+connection: the nonce, the user JWT, and the account JWT.</li>
+<li><code>order-svc</code> is re-issued from the <code>order-writer</code> scoped key: publish
+limited to <code>orders.&gt;</code>, subscribe to <code>_INBOX.&gt;</code>, matching its config-mode
+permissions.</li>
+<li>Its creds file expires in 720 hours, and the old unrestricted user key
+is revoked.</li>
+<li><code>analytics-reader</code> is still a plain user of <code>ANALYTICS</code>, not signed by
+a scoped key.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>Both authentication styles so far have the server decide from something
+it holds: a user list in its config, or a trust chain in JWTs. Sometimes
+the data that decides who may connect lives in a system NATS can't read,
+and the next page hands the decision to a service you run.</p>
+<p>Continue to <a href="/learn/security/auth-callout">Auth callout</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/operator">Reference → operator</a> — the config field
+that embeds the operator JWT.</li>
+<li><a href="/concepts/security">Core Concepts → Security</a> — the five-minute
+overview of the same trust model.</li>
+<li><a href="/learn/security/operator-mode">Operator mode</a> — the hands-on build
+this page explains.</li>
+<li><a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-14.md">ADR-14</a>
+— issuing user JWTs under scoped signing keys, and why scoped keys
+limit the blast radius of a leaked key.</li>
+</ul></main>

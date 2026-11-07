@@ -1,0 +1,48 @@
+<main><header><h1>JetStream</h1></header>
+<p>JetStream is the persistence layer of NATS, providing message streaming, replay, and at-least-once delivery semantics.</p>
+<h2 id="components">Components</h2>
+<h3 id="api"><a href="/reference/jetstream/api/">API</a></h3>
+<p>Programmatic interface for managing JetStream resources:</p>
+<ul>
+<li><a href="/reference/jetstream/api/account/">Account</a> - Account-level management</li>
+<li><a href="/reference/jetstream/api/stream/">Stream</a> - Stream operations and data management</li>
+<li><a href="/reference/jetstream/api/consumer/">Consumer</a> - Consumer configuration and control</li>
+<li><a href="/reference/jetstream/api/meta/">Meta</a> - Cluster metadata operations</li>
+</ul>
+<h3 id="advisory"><a href="/reference/jetstream/advisory/">Advisory</a></h3>
+<p>System events for monitoring and observability:</p>
+<ul>
+<li>Stream lifecycle events (created, updated, deleted)</li>
+<li>Consumer state changes and leadership elections</li>
+<li>Cluster quorum and storage notifications</li>
+<li>API audit trails and rate limiting</li>
+</ul>
+<h3 id="metrics"><a href="/reference/jetstream/metric/">Metrics</a></h3>
+<p>Performance and usage measurements:</p>
+<ul>
+<li><a href="/reference/jetstream/metric/consumer-ack">Consumer Acknowledgement</a> - Message acknowledgement latency</li>
+</ul>
+<h3 id="errors"><a href="/reference/jetstream/errors">Errors</a></h3>
+<p>Comprehensive error reference:</p>
+<ul>
+<li>Error codes and HTTP status mappings</li>
+<li>Detailed error descriptions</li>
+<li>Troubleshooting guidance</li>
+</ul>
+<h3 id="cross-account-subjects"><a href="/reference/jetstream/cross-account-subjects">Cross-account subjects</a></h3>
+<p>Subjects that cross an account or domain boundary:</p>
+<ul>
+<li>Exports and imports for sourcing and mirroring with ephemeral and durable consumers</li>
+<li>Acknowledgement and delivery subjects for consumers driven from another account</li>
+<li>Leafnode subject permissions in both directions</li>
+<li>The v1 and v2 formats of <code>$JS.ACK</code>, <code>$JS.FC</code>, and <code>$JSC.R</code></li>
+</ul>
+<h2 id="key-concepts">Key Concepts</h2>
+<p>JetStream extends NATS with:</p>
+<ul>
+<li>Streams - Message storage and replay</li>
+<li>Consumers - Subscription state and delivery management</li>
+<li>Persistence - File or memory-based storage</li>
+<li>Replication - Multi-node redundancy</li>
+<li>Exactly-once - Message delivery guarantees</li>
+</ul></main>

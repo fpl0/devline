@@ -1,0 +1,86 @@
+# FCALL_RO
+
+Invokes a read-only function.
+
+## Syntax
+
+```text
+FCALL_RO function numkeys [key [key ...]] [arg [arg ...]]
+```
+
+
+**Available since** 7.0.0
+
+**Group** scripting
+
+**Time complexity** Depends on the function that is executed.
+
+**Arity** -3
+
+**ACL categories** SCRIPTING
+
+**Command flags** NOSCRIPT, SKIP_MONITOR, NO_MANDATORY_KEYS, STALE, SCRIPT_RUNNER, READONLY
+
+## Arguments
+
+```json
+[
+  {
+    "name": "function",
+    "type": "string"
+  },
+  {
+    "name": "numkeys",
+    "type": "integer"
+  },
+  {
+    "name": "key",
+    "type": "key",
+    "key_spec_index": 0,
+    "optional": true,
+    "multiple": true
+  },
+  {
+    "name": "arg",
+    "type": "string",
+    "optional": true,
+    "multiple": true
+  }
+]
+```
+
+
+## Reply schema
+
+```json
+{
+  "description": "Return value depends on the function that is executed"
+}
+```
+
+
+## Key specifications
+
+```json
+[
+  {
+    "notes": "We cannot tell how the keys will be used so we assume the worst, RO and ACCESS",
+    "flags": [
+      "RO",
+      "ACCESS"
+    ],
+    "begin_search": {
+      "index": {
+        "pos": 2
+      }
+    },
+    "find_keys": {
+      "keynum": {
+        "keynumidx": 0,
+        "firstkey": 1,
+        "step": 1
+      }
+    }
+  }
+]
+```

@@ -1,0 +1,348 @@
+<main><header><h1>Publish-subscribe</h1></header>
+<p>Core NATS has one fundamental operation: a client publishes a message to a
+subject, and every client subscribed to that subject right now gets a
+copy. This page shows how that behaves on the wire: where the copies come
+from, what happens when nobody is listening, and what core NATS promises
+about delivery.</p>
+<h2 id="the-scenario">The scenario</h2>
+<p>Acme runs an order platform. Three things happen to an order, and each
+one is a message on its own subject:</p>
+<div><div><pre><code class="language-text">orders.created
+orders.shipped
+orders.canceled</code></pre></div></div>
+<p>Every message in this chapter carries the same small JSON payload:</p>
+<div><div><pre><code class="language-json">{
+  "order_id": "ord_8w2k",
+  "customer": "acme-co",
+  "total_cents": 4200,
+  "ts": "2026-05-22T10:14:22Z"
+}</code></pre></div></div>
+<p>Three services care about these messages. The <code>warehouse</code> service
+packs the box when an order is created. The <code>notifications</code> service
+emails the customer. The <code>analytics</code> service counts everything. None
+of them knows the others exist.</p>
+<p><a href="/learn/core-nats/connecting">Connecting</a> already started one local
+<code>nats-server</code>. Leave it running for the rest of this chapter. If you
+landed here directly, start one now:</p>
+<div><div><pre><code class="language-bash">nats-server</code></pre></div></div>
+<p>That's the whole deployment, with no flags, no persistence, and no
+cluster. Add services to it as the chapter grows.</p>
+<h2 id="publishing-a-message">Publishing a message</h2>
+<p>A <strong>publisher</strong> is a client that sends a message to a subject. The
+warehouse doesn't subscribe to anything yet, so start by publishing
+one <code>orders.created</code> message:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Publish one order to the orders.created subject. The publish is
+# fire-and-forget: nats pub hands the message to the server and exits.
+# It does not wait for, or report, any subscriber.
+nats pub orders.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Publish one order to the orders.created subject. Publishing is
+// fire-and-forget: the call hands the message to the server and returns.
+const order =
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}';
+nc.publish("orders.created", order);</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Publish one order to the orders.created subject. Publishing is
+// fire-and-forget: the call hands the message to the server and returns.
+order := `{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}`
+nc.Publish("orders.created", []byte(order))</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Publish one order to the orders.created subject. Publishing is
+# fire-and-forget: the call hands the message to the server and returns.
+order = '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+await client.publish("orders.created", order.encode())</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Publish one order to the orders.created subject. Publishing is
+// fire-and-forget: the call hands the message to the server and returns.
+byte[] order = ("{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+    + "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}").getBytes(StandardCharsets.UTF_8);
+nc.publish("orders.created", order);</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Publish one order to the orders.created subject. Publishing is
+// fire-and-forget: the call hands the message to the server and returns.
+let order = r#"{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}"#;
+client.publish("orders.created", order.into()).await?;</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Publish one order to the orders.created subject. Publishing is
+// fire-and-forget: the call hands the message to the server and returns.
+// The client serializes the Order record to JSON by default.
+var order = new Order(
+    OrderId: "ord_8w2k",
+    Customer: "acme-co",
+    TotalCents: 4200,
+    Timestamp: DateTimeOffset.Parse("2026-05-22T10:14:22Z", CultureInfo.InvariantCulture));
+await client.PublishAsync&lt;Order&gt;("orders.created", order);</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Publish one order to the orders.created subject. Publishing is
+// fire-and-forget: the call hands the message to the client and
+// returns. It does not wait for, or report, any subscriber.
+if (s == NATS_OK)
+    s = natsConnection_PublishString(conn, "orders.created",
+            "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+            "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}");</code></pre></div></div>
+<p>The publish call returns immediately. It doesn't wait for a
+subscriber, and it doesn't tell you how many subscribers received the
+message, or whether any did. This is
+<strong>fire-and-forget</strong>: the publisher hands the message to the server and
+moves on.</p>
+<p>A publisher always names a fully-qualified subject. <code>orders.created</code>
+is a concrete subject, not a pattern. Wildcards belong to subscribers,
+and we cover them on the <a href="/learn/core-nats/subjects-and-wildcards">next page</a>.</p>
+<h2 id="subscribing-to-a-subject">Subscribing to a subject</h2>
+<p>A <strong>subscriber</strong> is a client that registers interest in a subject and
+receives a copy of every matching message. Start the warehouse service
+as a subscriber on <code>orders.created</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Subscribe as the warehouse service to orders.created. Each matching
+# message is printed as it arrives; Ctrl-C to stop. To receive every
+# order subject at once instead, subscribe to the wildcard orders.&gt;
+nats sub orders.created</code></pre></div></div><h4>JavaScript/TypeScript</h4><div><div><pre><code class="language-javascript">// Subscribe as the warehouse service to orders.created. Each matching
+// message is delivered to this subscription as it is published.
+const sub = nc.subscribe("orders.created");
+for await (const msg of sub) {
+  console.log(`warehouse received: ${msg.string()}`);
+}</code></pre></div></div><h4>Go</h4><div><div><pre><code class="language-go">// Subscribe as the warehouse service to orders.created. The callback runs
+// for each matching message as it is published.
+nc.Subscribe("orders.created", func(m *nats.Msg) {
+	fmt.Printf("warehouse received: %s\n", string(m.Data))
+})</code></pre></div></div><h4>Python</h4><div><div><pre><code class="language-python"># Subscribe as the warehouse service to orders.created. Each matching
+# message is delivered to this subscription as it is published.
+async with await client.subscribe("orders.created") as subscription:
+    async for message in subscription:
+        print(f"warehouse received: {message.data.decode()}")</code></pre></div></div><h4>Java</h4><div><div><pre><code class="language-java">// Subscribe as the warehouse service to orders.created. Each matching
+// message is delivered to this dispatcher as it is published.
+nc.createDispatcher(msg -&gt;
+    System.out.println("warehouse received: " + new String(msg.getData(), StandardCharsets.UTF_8))
+).subscribe("orders.created");</code></pre></div></div><h4>Rust</h4><div><div><pre><code class="language-rust">// Subscribe as the warehouse service to orders.created. Each matching
+// message is delivered to this subscription as it is published.
+let mut sub = client.subscribe("orders.created").await?;
+while let Some(msg) = sub.next().await {
+    println!(
+        "warehouse received: {}",
+        String::from_utf8_lossy(&amp;msg.payload)
+    );
+}</code></pre></div></div><h4>C#/.NET</h4><div><div><pre><code class="language-csharp">// Subscribe as the warehouse service to orders.created. Each matching
+// message is delivered to this subscription as it is published and
+// deserialized from JSON into an Order record.
+await foreach (var msg in client.SubscribeAsync&lt;Order&gt;("orders.created"))
+{
+    output.WriteLine($"warehouse received: {msg.Data}");
+}</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// The callback runs for each matching message as it is published.
+static void
+onMsg(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    printf("warehouse received: %.*s\n",
+           natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+    natsMsg_Destroy(msg);
+}
+    // Subscribe as the warehouse service to orders.created.
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "orders.created", onMsg, NULL);</code></pre></div></div>
+<p>Now publish again with the snippet above. The warehouse receives the
+message. Run a second subscriber for <code>notifications</code> and a third for
+<code>analytics</code>, each on <code>orders.created</code>, and every one of them receives
+its own copy of the next publish.</p>
+<p>Each subscriber gets an independent copy; subscribing isn't taking from
+a queue, and one subscriber receiving a message takes nothing from another.</p>
+<p>If you want one subscriber to see <em>all</em> order subjects at once, it can
+subscribe to <code>orders.&gt;</code> instead of a single subject. That <code>&gt;</code> is a
+wildcard, and the <a href="/learn/core-nats/subjects-and-wildcards">next page</a>
+is where we explain it.</p>
+<h2 id="unsubscribing">Unsubscribing</h2>
+<p>When a subscriber unsubscribes, the server removes its interest in that
+subject as soon as it processes the request. Any message published
+after that doesn't reach it, and there's nothing to clean up on the
+server side.</p>
+<p>You can also have a subscription end itself after a fixed number of
+messages, without tracking the count yourself. This is
+<strong>auto-unsubscribe</strong>: a client calls its auto-unsubscribe method
+(<code>AutoUnsubscribe(N)</code> in Go), which tells the server to end the
+subscription once it has delivered N messages. The CLI's <code>nats sub --count N</code> gets the same result by counting messages itself and
+unsubscribing when it hits the limit. It fits a take-exactly-N flow,
+such as reading the next three orders and stopping.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Subscribe to orders.created and stop automatically after three messages.
+# --count makes nats sub quit once it has received that many, giving a
+# take-exactly-N read instead of an open-ended subscription you Ctrl-C.
+nats sub orders.created --count 3</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Subscribe to orders.created and stop automatically after three
+// messages. AutoUnsubscribe tells the client to remove the
+// subscription once that many have been delivered, giving a
+// take-exactly-N read instead of an open-ended subscription.
+if (s == NATS_OK)
+    s = natsConnection_SubscribeSync(&amp;sub, conn, "orders.created");
+if (s == NATS_OK)
+    s = natsSubscription_AutoUnsubscribe(sub, 3);
+
+// Read the three orders, waiting up to 10 seconds for each.
+if (s == NATS_OK)
+{
+    int i;
+
+    for (i = 0; (s == NATS_OK) &amp;&amp; (i &lt; 3); i++)
+    {
+        natsMsg *msg = NULL;
+
+        s = natsSubscription_NextMsg(&amp;msg, sub, 10000);
+        if (s == NATS_OK)
+        {
+            printf("warehouse received: %.*s\n",
+                   natsMsg_GetDataLength(msg), natsMsg_GetData(msg));
+            natsMsg_Destroy(msg);
+        }
+    }
+}</code></pre></div></div>
+<h2 id="the-interest-graph">The interest graph</h2>
+<p>The server tracks who's subscribed to what in an in-memory structure
+called the <strong>interest graph</strong>. Each subscription adds an entry; each
+unsubscribe or disconnect removes it.</p>
+<div></div>
+<p>When a message arrives, the server looks up the subject in the
+interest graph, finds the matching subscribers, and sends each one a
+copy. With three services subscribed to <code>orders.created</code>, one publish
+produces three deliveries. The publisher did nothing different; the
+fan-out happened entirely on the server.</p>
+<p>The interest graph is the source of the decoupling. The publisher
+holds no list of subscribers. It publishes to a subject, and the
+server resolves interest at the moment the message arrives.</p>
+<p>This is also why services can come and go freely. Start a fourth
+subscriber and it joins the graph; the next publish reaches it. Stop
+one and its entry is gone; the next publish skips it. Nobody
+coordinates, and the publisher never changes.</p>
+<h2 id="when-nobody-is-listening">When nobody is listening</h2>
+<p>Publish to <code>orders.created</code> while no service is subscribed. The
+publish still succeeds, and the message is dropped. The server
+finds no matching entry in the interest graph, so there's nothing to
+deliver to, and the message is discarded.</p>
+<p>A publish with no interest is a silent no-op: no error, no stored
+backlog. The publisher
+can't tell "delivered to three subscribers" from "delivered to nobody" —
+both look like a successful publish. If the warehouse is restarting when
+an <code>orders.created</code> message is published, that message is gone.</p>
+<h2 id="at-most-once-delivery">At-most-once delivery</h2>
+<p>Core NATS delivers each message <strong>at-most-once</strong>. A subscriber that's
+connected and interested when the message is published gets it once. A
+subscriber that's absent, slow, or disconnected at that instant gets
+it zero times. There's no second attempt.</p>
+<p>Core NATS doesn't retry a missed message, doesn't detect or suppress
+duplicates, and doesn't guarantee that two subscribers see messages in
+the same order under load. Each is a property you add with
+<a href="/learn/jetstream">JetStream</a>, not something core provides.</p>
+<p>At-most-once is the right guarantee for a large class of messages:
+telemetry you sample, cache invalidations, a live dashboard feed. For
+those, a missed message costs nothing because another is already on
+the way. For an order that must be packed exactly once, it isn't
+enough. That's the boundary of core NATS.</p>
+<h2 id="the-1-mb-payload-limit">The 1 MB payload limit</h2>
+<p>A message payload has a maximum size. By default the server caps it at
+<strong>1 MB</strong> (<code>max_payload</code>, <code>1048576</code> bytes). The server announces this
+limit to every client when the connection opens, so the client knows
+the ceiling before it ever publishes.</p>
+<p>Because the client knows the ceiling, it checks the payload before
+sending. An official client fails the publish call with <code>nats: maximum payload exceeded</code> and leaves the connection up, so the message never
+leaves the client. The server is the backstop for a client that sends
+an oversized message anyway: it replies <code>-ERR 'Maximum Payload Violation'</code> and closes the connection. The Acme order payload is a few
+hundred bytes, well under the ceiling, but a service that tries to ship
+a large blob inside a message will hit it.</p>
+<p>For large data, publish a reference (an object-store key or a URL) and
+let the receiver fetch the bytes out of band.</p>
+<h2 id="try-it-in-two-terminals">Try it in two terminals</h2>
+<p>Observe fire-and-forget and at-most-once directly. Open two
+terminals against the running server.</p>
+<div><div><pre><code class="language-bash"># Terminal 1 — the warehouse subscribes
+nats sub orders.created</code></pre></div></div>
+<div><div><pre><code class="language-bash"># Terminal 2 — publish three orders
+nats pub orders.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+nats pub orders.created '{"order_id":"ord_2zr9","customer":"globex","total_cents":7800,"ts":"2026-05-22T10:14:25Z"}'
+nats pub orders.created '{"order_id":"ord_5kq1","customer":"initech","total_cents":1500,"ts":"2026-05-22T10:14:29Z"}'</code></pre></div></div>
+<p>Terminal 1 prints each message the instant it's published. Now stop
+the subscriber in Terminal 1 with Ctrl-C, publish a fourth message,
+and restart the subscriber. The fourth message never appears. It was
+published into an empty interest graph and discarded, which is
+at-most-once delivery in action.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p><strong>Publishing over the limit fails the publish.</strong> An official client
+checks the payload against <code>max_payload</code> and fails the call with <code>nats: maximum payload exceeded</code> before anything goes out; the connection
+stays up. Keep payloads under the limit and pass a reference for
+anything large.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Ask your connection for its limits before sizing a message. The
+# "Maximum Payload" row comes from the INFO the server sends at connect
+# (1 MB by default), so a plain no-auth connection can read it. An
+# official client checks this ceiling and fails an oversized publish
+# locally; the server rejects and closes the connection of any client
+# that sends a larger PUB anyway.
+nats account info
+
+# A safe order publish stays far under the ceiling.
+nats pub orders.created '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+
+# Publishing over the ceiling fails immediately, client-side, before the
+# message reaches the server. Try a 2 MB payload:
+#
+#   head -c 2000000 /dev/zero | tr '\0' x | nats pub orders.created --force-stdin
+#   nats: error: nats: maximum payload exceeded
+#
+# So keep payloads small and pass a reference (an object-store key or a URL)
+# for anything large, rather than discovering the limit the hard way.</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Ask the connection for its limit before sizing a message. The value
+// comes from the INFO the server sent at connect (1 MB by default).
+if (s == NATS_OK)
+    printf("maximum payload: %d bytes\n",
+           (int) natsConnection_GetMaxPayload(conn));
+
+// A safe order publish stays far under the ceiling.
+if (s == NATS_OK)
+    s = natsConnection_PublishString(conn, "orders.created",
+            "{\"order_id\":\"ord_8w2k\",\"customer\":\"acme-co\","
+            "\"total_cents\":4200,\"ts\":\"2026-05-22T10:14:22Z\"}");
+
+// Publishing over the ceiling fails immediately, client-side, before
+// the message reaches the server. Try a 2 MB payload:
+if (s == NATS_OK)
+{
+    int   bigLen = 2 * 1024 * 1024;
+    char  *big   = malloc(bigLen);
+
+    memset(big, 'x', bigLen);
+    s = natsConnection_Publish(conn, "orders.created", big, bigLen);
+    if (s == NATS_MAX_PAYLOAD)
+    {
+        printf("oversized publish rejected: %s\n", natsStatus_GetText(s));
+        s = NATS_OK;
+    }
+    free(big);
+}</code></pre></div></div>
+<p><strong>Exiting before the publish leaves the client drops it.</strong> The publish
+call returns immediately because the client buffers the message and
+sends it in the background. A short-lived publisher that exits right
+after the call can quit before that buffered message reaches the server,
+and the message is gone. Flush (or drain) before you exit. The client
+waits for a round trip to the server, so everything buffered before it
+has arrived:</p>
+<div><div><pre><code class="language-go">nc.Publish("orders.created", payload)
+nc.Flush() // wait until the server has the message, then exit
+nc.Close()</code></pre></div></div>
+<p><strong>A connection receives the messages it publishes.</strong> When one
+connection both publishes and subscribes to the same subject, it
+gets a copy of its own messages, because echo is on by default for
+every connection. A service that publishes status updates and also
+subscribes to them can process its own updates in a loop.
+<a href="/learn/core-nats/connecting">Connecting</a> covers turning it off.</p>
+<p><strong>A slow subscriber gets cut off.</strong> A subscriber that can't keep up
+with the rate of matching messages builds a backlog on the server. Past
+a threshold the server stops protecting it, logs <code>Slow Consumer Detected</code>, and closes its connection. The other subscribers are
+unaffected. The fix lives in the client: process messages fast enough,
+or hand them to a worker. <a href="/learn/resilient-clients/slow-consumers">Resilient clients →
+Slow consumers</a> covers the
+tuning and recovery.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You have one local <code>nats-server</code> running, and the Acme order services
+talking over core publish-subscribe:</p>
+<ul>
+<li>A publisher sends <code>orders.created</code> messages fire-and-forget.</li>
+<li>The <code>warehouse</code>, <code>notifications</code>, and <code>analytics</code> subscribers each
+receive their own copy.</li>
+<li>A message published with no interest is discarded, and delivery is
+at-most-once.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p>Right now every service subscribes to one exact subject. The next page,
+<a href="/learn/core-nats/subjects-and-wildcards">Subjects &amp; wildcards</a>, shows
+how subjects form a hierarchy and how a subscriber uses <code>*</code> and <code>&gt;</code> to
+match many subjects at once, including regional orders like
+<code>orders.us.created</code>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/concepts/pub-sub-basics">Core Concepts → Publish-subscribe</a> — the
+five-minute overview of this pattern.</li>
+<li><a href="/learn/jetstream/your-first-stream#why-a-stream">Learn → JetStream → Why a stream</a> —
+the layer that keeps the messages core NATS discards.</li>
+<li><a href="/reference/protocols/client">Reference → Client protocol</a> — the
+wire-level <code>PUB</code>/<code>SUB</code>/<code>MSG</code> details.</li>
+</ul></main>

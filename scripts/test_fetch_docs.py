@@ -16,6 +16,11 @@ spec.loader.exec_module(ingest)
 
 
 class ReferenceIngestionTests(unittest.TestCase):
+    def test_infrastructure_links_keep_upstream_github_filenames(self):
+        base = "https://github.com/example/service/blob/v1/docs/setup.md"
+        target = ingest.link_destination("./backup.md#restore", base, "infrastructure", {})
+        self.assertEqual(target, "https://github.com/example/service/blob/v1/docs/backup.md#restore")
+
     def test_empty_and_nested_examples_keep_valid_offline_markup(self):
         upstream = ('<main><pre><code></code></pre><pre id="kept"><code> </code></pre>'
                     '<pre><details><summary>Example note</summary><pre><code>call()</code></pre></details></pre></main>')

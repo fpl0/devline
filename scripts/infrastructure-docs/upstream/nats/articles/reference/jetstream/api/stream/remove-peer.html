@@ -1,0 +1,10 @@
+<main><header><h1>Remove Peer</h1></header>
+<p>Removes a peer from a stream cluster.</p>
+<!-- -->
+<h2 id="subject">Subject</h2>
+<p><code>$JS.API.STREAM.PEER.REMOVE.{stream}</code></p>
+<p>Where <code>{stream}</code> is the name of the stream.</p>
+<h2 id="request">Request</h2>
+<div><p>A request to the JetStream $JS.API.STREAM.PEER.REMOVE API</p><div><div><div><span>peer</span><span>string</span><span>required</span></div><div>Server name of the peer to remove</div><div><span>Min length:</span><code>1</code></div></div></div></div>
+<h2 id="response">Response</h2>
+<div><p>A response from the JetStream $JS.API.STREAM.PEER.REMOVE API</p><div></div><div><div><div>One of the following:</div><div><div>Option <!-- -->1<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>error</span><span>object</span><span>required</span></div></div></div><div><div>Option <!-- -->2<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>success</span><span>boolean</span><span>required</span></div><div>If the peer was successfully removed</div><div><span>Default:</span><code>false</code></div></div></div></div><div><div><span>type</span><span>const: "io.nats.jetstream.api.v1.stream_remove_peer_response"</span></div></div></div></div></main>

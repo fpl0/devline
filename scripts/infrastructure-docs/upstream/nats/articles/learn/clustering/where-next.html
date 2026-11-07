@@ -1,0 +1,137 @@
+<main><header><h1>Where to go next</h1></header>
+<p>You started this chapter with nothing running, and by the end you have three
+servers (<code>n1-east</code>, <code>n2-east</code>, <code>n3-east</code>) that found each other from a
+single seed route, elected leaders for every RAFT group, and hold the
+<code>ORDERS</code> stream at <code>R=3</code>. A write from <code>order-svc</code> now lands on the
+leader, commits once a quorum has it, and survives one server dying.
+That covers the full arc of the chapter.</p>
+<p>This page collects the mechanism you built into one place and points you at
+the chapters and Reference that take it further.</p>
+<h2 id="the-five-core-ideas">The five core ideas</h2>
+<p>Every page in this chapter turned on the same five ideas.</p>
+<p><strong>Routes</strong> are the server-to-server connections that form the cluster. You
+configure one explicit seed route, and gossip does the rest: each server
+shares the peers it knows in its INFO, so one seed grows into a full mesh
+without you listing every server.</p>
+<p><strong>RAFT groups</strong> are how the cluster agrees. There's one meta group across
+the whole cluster plus one group per stream, and each group runs an
+election to pick a single leader. The leader is the only member that
+accepts writes; the followers replicate from it.</p>
+<p>A <strong>quorum</strong> is a majority of a group's peers: for <code>R=3</code>, two of three.
+The leader appends a write to its log and commits it the moment a quorum
+has the entry. Quorum is what lets the group make progress while a
+minority is down, and lose nothing when it returns.</p>
+<p><strong>Placement</strong> decides where the replicas live. You constrain a stream to a
+cluster and to servers carrying matching tags, and the meta leader assigns
+the peers from the servers that qualify.</p>
+<p><strong>Peer management</strong> grows or shrinks the set. You raise the replica count
+and wait for the new peer's catchup to bring its lag to zero before you lean
+on it; you move a replica off a server one change at a time so the group
+never drops below a majority.</p>
+<p>Those five ideas are routes, RAFT, quorum, placement, and peers. Everything
+else in this chapter (terms, elections, append entries, apply, preferred
+leader, migration) is a refinement of those five.</p>
+<h2 id="where-the-details-live-now">Where the details live now</h2>
+<p>The chapter is unversioned and concept-first. The exact election timers,
+the WAL format, the full <code>cluster {}</code> field list, and every
+<code>StreamConfig</code> option live in <strong>Reference</strong>, which is versioned and
+exhaustive. When you need the precise type of a config field or the wire
+format of a route, that's where to look.</p>
+<p>The <a href="/reference/">Reference root</a> is the entry point. The handoff phrases
+throughout this chapter ("the full set of options is documented in
+Reference") all point into it. The pages you'll reach for most:</p>
+<ul>
+<li><a href="/reference/config/cluster"><code>cluster {}</code> config</a> and the
+<a href="/reference/protocols/route">route protocol</a>: every field behind
+forming a cluster</li>
+<li><a href="/reference/jetstream/api/stream">Stream API</a> and
+<a href="/reference/config/server_tags">server tags</a>: replicas and placement</li>
+<li><a href="/reference/system/monitor/jsz"><code>/jsz</code></a> and
+<a href="/reference/system/monitor/raftz"><code>/raftz</code></a>: the monitoring endpoints
+behind every cluster field you read with the CLI</li>
+</ul>
+<h2 id="sibling-deep-dives">Sibling deep dives</h2>
+<p>This chapter is the mechanism beneath two others, so it depends on them and
+they depend on it.</p>
+<p>The <a href="/learn/topologies">Topologies deep dive</a> covers the shapes:
+when to run a single server, when to grow into a cluster, when to reach
+for a super-cluster or leaf nodes. This chapter ran beneath its <code>east</code>
+cluster; Topologies decides <em>what shape</em> to build, and this chapter
+explains <em>how</em> the shape agrees and replicates once it's built.</p>
+<p>The <a href="/learn/jetstream">JetStream deep dive</a> created the <code>ORDERS</code> stream
+this chapter replicated. Its page on
+<a href="/learn/jetstream/surviving-node-loss">surviving node loss</a> is the
+one-page operator intro to <code>R=3</code>; this chapter went deeper, into the
+election and the quorum commit that make "lose a node, keep serving"
+actually work. For copies <em>across</em> clusters, JetStream's
+<a href="/learn/jetstream/mirrors-and-sources">mirrors and sources</a> page covers
+the DR story this chapter leaves to it.</p>
+<p>The <a href="/learn/deployment">Deployment deep dive</a> covers running this on real
+infrastructure: Kubernetes, rolling upgrades, and sizing the servers you
+formed a cluster from here.</p>
+<p>The <a href="/learn/backup-recovery">Backup &amp; Recovery deep dive</a> covers the
+operational protection: snapshotting a stream before a risky peer change,
+and restoring it if a migration goes wrong.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>This is the end of the chapter. The arc is complete, and this page adds
+no new scenario state. The <code>east</code> cluster, its elected leaders, and the
+<code>ORDERS</code> stream at <code>R=3</code> are still running in your session exactly as you
+left them on the previous page. You can keep experimenting (kill a server
+and watch a re-election, add a fifth peer, move placement) or tear it all
+down with <code>nats stream rm ORDERS</code> and stop the three servers when you're
+done.</p>
+<p>You hold the core model: routes form the mesh, RAFT groups agree, a quorum
+commits each write, placement decides where the replicas live, and peer
+management grows the set without losing agreement. That model is the minimum
+you need for operating any NATS cluster in production.</p>
+<h2 id="production-checklist">Production checklist</h2>
+<p>Every page in this chapter closed with a Pitfalls section. This collects
+the action items from all of them in one place: a last pass before you
+trust a cluster with real orders. Each group links back to the page that
+explains the why.</p>
+<h3 id="forming-a-cluster--see-pitfalls">Forming a cluster — see <a href="/learn/clustering/forming-a-cluster#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Give every server the same <code>cluster.name</code>; a mismatch silently forms two clusters that look like one until a message fails to cross.</li>
+<li><input/> <!-- -->Point <code>routes</code> at the route port (6222), not the client port (4222); aiming at the client listener never establishes the route.</li>
+<li><input/> <!-- -->List two or three seed routes so the cluster still forms if one seed server is down at boot; gossip needs only one to reach, but only if that one is up.</li>
+</ul>
+<h3 id="raft-and-leaders--see-pitfalls">Raft and leaders — see <a href="/learn/clustering/raft-and-leaders#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Treat a brief "no leader" window during failover as normal; the election timer is 4–9s, so let the client retry instead of failing the write.</li>
+<li><input/> <!-- -->Use <code>nats stream cluster step-down</code> to move leadership off a server, not to pick its successor; the next election is still quorum-based, so read <code>nats stream info</code> to learn who won.</li>
+<li><input/> <!-- -->Track the meta leader and a stream leader as different RAFT groups; check <code>nats server report jetstream</code> for one and <code>nats stream info ORDERS</code> for the other, because losing one is not losing the other.</li>
+</ul>
+<h3 id="replication-and-r3--see-pitfalls">Replication and R=3 — see <a href="/learn/clustering/replication-and-r3#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Run real orders at <code>R≥3</code>, never <code>R=1</code>; a single copy is gone with its server's disk, with no failover and no recovery.</li>
+<li><input/> <!-- -->Read from the leader when you need read-after-write; a follower can lag, so a Direct Get from one returns data that's correct but not the newest.</li>
+<li><input/> <!-- -->Read a <code>PubAck</code> as quorum held, not full replication; before deliberately taking a server down, verify each replica shows <code>current</code> in <code>nats stream info</code>.</li>
+</ul>
+<h3 id="placement--see-pitfalls">Placement — see <a href="/learn/clustering/placement#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Read a server's tags back before placing against them; tags are an intersection and a missing one fails with <code>no suitable peers for placement</code> rather than falling back to any server.</li>
+<li><input/> <!-- -->Spell tags exactly; matching folds case (<code>ssd</code> equals <code>SSD</code>) but <code>sdd</code> matches nothing.</li>
+<li><input/> <!-- -->Remember placement can't name a leader — a <code>preferred</code> server in placement is rejected; to move leadership to a specific server use <code>nats stream cluster step-down --preferred</code> (NATS Server 2.11+), and treat it as a request the quorum election can still overrule.</li>
+</ul>
+<h3 id="scaling-and-peer-management--see-pitfalls">Scaling and peer management — see <a href="/learn/clustering/scaling-and-peers#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Wait for a freshly added peer to show <code>current</code> with zero lag before trusting it; while it catches up it can't win an election or serve a read, so don't kill another server mid-catchup.</li>
+<li><input/> <!-- -->Treat <code>peer remap failed</code> from <code>nats stream cluster evacuate</code> as a refusal that moved nothing, not something to force; it means no server qualifies to take the replica, so fix the placement or add capacity and run it again.</li>
+<li><input/> <!-- -->Change the replica count with <code>nats stream edit --replicas</code>, not by evacuating; evacuating moves a replica between servers, <code>--replicas</code> sets how many there are.</li>
+</ul>
+<h3 id="desired-state-and-evacuation--see-pitfalls">Desired state and evacuation — see <a href="/learn/clustering/desired-state#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Compare <code>Desired Peers</code> against the <code>Replica</code> lines before cancelling a move; a rollback is itself a reconfiguration, so cancelling one that's nearly done costs more catchup than letting it land.</li>
+<li><input/> <!-- -->Run <code>nats stream cluster cancel-move</code> without <code>--force</code> first; the unforced checks are what tell you the move already completed (<code>stream is not busy moving</code>) rather than silently running against nothing.</li>
+<li><input/> <!-- -->Hold off on scales and moves until every node is on 2.15, and upgrade from 2.14.7 or later; a 2.14 server persists desired state but won't run it to completion, so the reconfiguration stalls mid-upgrade.</li>
+<li><input/> <!-- -->Check <code>nats stream info</code> on the streams you care about after a <code>nats server cluster evacuate</code>; replacement there is best effort, so a drain with no spare capacity leaves assets under-replicated rather than refusing.</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/">Reference</a>: every config field, flag, default, and error
+code behind this chapter, versioned and exhaustive</li>
+<li><a href="/learn/topologies">Topologies deep dive</a>: the shapes this chapter runs
+beneath, including the <code>east</code> cluster it reuses</li>
+<li><a href="/learn/jetstream/surviving-node-loss">JetStream → surviving node loss</a>:
+the one-page replica intro this chapter goes deeper than</li>
+</ul></main>

@@ -1,0 +1,787 @@
+<main><header><h1>Client</h1></header>
+<p>The protocol used to communicate between the NATS server and clients is a simple, text-based protocol. The default transport is a TCP/IP socket, however WebSockets are supported as well as a UNIX domain socket if the server is embedded within a Go process.</p>
+<h2 id="overview">Overview</h2>
+<p>The following table briefly describes the NATS protocol messages. NATS protocol operation names are case insensitive, thus <code>SUB foo 1␍␊</code> and <code>sub foo 1␍␊</code> are equivalent.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Message</th><th>Sent By</th><th>Description</th></tr></thead><tbody><tr><td><a href="#info"><code>INFO</code></a></td><td>Server</td><td>Sent to client after initial TCP/IP connection</td></tr><tr><td><a href="#connect"><code>CONNECT</code></a></td><td>Client</td><td>Sent to server to specify connection information</td></tr><tr><td><a href="#pub"><code>PUB</code></a></td><td>Client</td><td>Publish a message to a subject, with optional reply subject</td></tr><tr><td><a href="#hpub"><code>HPUB</code></a></td><td>Client</td><td>Publish a message to a subject including NATS headers, with optional reply subject</td></tr><tr><td><a href="#sub"><code>SUB</code></a></td><td>Client</td><td>Subscribe to a subject (or subject wildcard)</td></tr><tr><td><a href="#unsub"><code>UNSUB</code></a></td><td>Client</td><td>Unsubscribe (or auto-unsubscribe) from subject</td></tr><tr><td><a href="#msg"><code>MSG</code></a></td><td>Server</td><td>Delivers a message payload to a subscriber</td></tr><tr><td><a href="#hmsg"><code>HMSG</code></a></td><td>Server</td><td>Delivers a message payload to a subscriber with NATS headers</td></tr><tr><td><a href="#ping-pong"><code>PING</code></a></td><td>Both</td><td>PING keep-alive message</td></tr><tr><td><a href="#ping-pong"><code>PONG</code></a></td><td>Both</td><td>PONG keep-alive response</td></tr><tr><td><a href="#ok-err"><code>+OK</code></a></td><td>Server</td><td>Acknowledges well-formed protocol message in <code>verbose</code> mode</td></tr><tr><td><a href="#ok-err"><code>-ERR</code></a></td><td>Server</td><td>Indicates a protocol error. May cause client disconnect.</td></tr></tbody></table>
+<p>The following sections explain each protocol message.</p>
+<h2 id="info">INFO</h2>
+<p>A client will need to start as a plain TCP connection, then when the server accepts a connection from the client, it will send information about itself, the configuration and security requirements necessary for the client to successfully authenticate with the server and exchange messages.</p>
+<p>When using the updated client protocol (see <a href="#connect"><code>CONNECT</code></a> below), <code>INFO</code> messages can be sent anytime by the server. This means clients with that protocol level need to be able to asynchronously handle <code>INFO</code> messages.</p>
+<h3 id="syntax">Syntax</h3>
+<div><div><pre><code class="language-text">INFO {"option_name":option_value,...}␍␊</code></pre></div></div>
+<p>The valid options are as follows, encoded as JSON:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Presence</th></tr></thead><tbody><tr><td><code>server_id</code></td><td>The unique identifier of the NATS server.</td><td>string</td><td>always</td></tr><tr><td><code>server_name</code></td><td>The name of the NATS server.</td><td>string</td><td>always</td></tr><tr><td><code>version</code></td><td>The version of NATS.</td><td>string</td><td>always</td></tr><tr><td><code>go</code></td><td>The version of golang the NATS server was built with.</td><td>string</td><td>always</td></tr><tr><td><code>host</code></td><td>The IP address used to start the NATS server, by default this will be <code>0.0.0.0</code> and can be configured with <code>-client_advertise host:port</code>.</td><td>string</td><td>always</td></tr><tr><td><code>port</code></td><td>The port number the NATS server is configured to listen on.</td><td>int</td><td>always</td></tr><tr><td><code>headers</code></td><td>Whether the server supports headers.</td><td>bool</td><td>always</td></tr><tr><td><code>max_payload</code></td><td>Maximum payload size, in bytes, that the server will accept from the client.</td><td>int</td><td>always</td></tr><tr><td><code>proto</code></td><td>An integer indicating the protocol version of the server. The server version 1.2.0 sets this to <code>1</code> to indicate that it supports the "Echo" feature.</td><td>int</td><td>always</td></tr><tr><td><code>client_id</code></td><td>The internal client identifier in the server. This can be used to filter client connections in monitoring, correlate with error logs, etc...</td><td>uint64</td><td>optional</td></tr><tr><td><code>auth_required</code></td><td>If this is true, then the client should try to authenticate upon connect.</td><td>bool</td><td>optional</td></tr><tr><td><code>tls_required</code></td><td>If this is true, then the client must perform the TLS/1.2 handshake. Note, this used to be <code>ssl_required</code> and has been updated along with the protocol from SSL to TLS.</td><td>bool</td><td>optional</td></tr><tr><td><code>tls_verify</code></td><td>If this is true, the client must provide a valid certificate during the TLS handshake.</td><td>bool</td><td>optional</td></tr><tr><td><code>tls_available</code></td><td>If this is true, the client can provide a valid certificate during the TLS handshake.</td><td>bool</td><td>optional</td></tr><tr><td><code>connect_urls</code></td><td>List of server urls that a client can connect to.</td><td>[string]</td><td>optional</td></tr><tr><td><code>ws_connect_urls</code></td><td>List of server urls that a websocket client can connect to.</td><td>[string]</td><td>optional</td></tr><tr><td><code>ldm</code></td><td>If the server supports <em>Lame Duck Mode</em> notifications, and the current server has transitioned to lame duck, <code>ldm</code> will be set to <code>true</code>.</td><td>bool</td><td>optional</td></tr><tr><td><code>git_commit</code></td><td>The git hash at which the NATS server was built.</td><td>string</td><td>optional</td></tr><tr><td><code>jetstream</code></td><td>Whether the server supports JetStream.</td><td>bool</td><td>optional</td></tr><tr><td><code>ip</code></td><td>The IP of the server.</td><td>string</td><td>optional</td></tr><tr><td><code>client_id</code></td><td>The ID of the client.</td><td>string</td><td>optional</td></tr><tr><td><code>client_ip</code></td><td>The IP of the client.</td><td>string</td><td>optional</td></tr><tr><td><code>nonce</code></td><td>The nonce for use in CONNECT.</td><td>string</td><td>optional</td></tr><tr><td><code>cluster</code></td><td>The name of the cluster.</td><td>string</td><td>optional</td></tr><tr><td><code>domain</code></td><td>The configured NATS domain of the server.</td><td>string</td><td>optional</td></tr></tbody></table>
+<h4 id="connect_urls">connect_urls</h4>
+<p>The <code>connect_urls</code> field is a list of urls the server may send when a client first connects, and when there are changes to server cluster topology. This field is considered optional, and may be omitted based on server configuration and client protocol level.</p>
+<p>When a NATS server cluster expands, an <code>INFO</code> message is sent to the client with an updated <code>connect_urls</code> list. This cloud-friendly feature asynchronously notifies a client of known servers, allowing it to connect to servers not originally configured.</p>
+<p>The <code>connect_urls</code> will contain a list of strings with an IP and port, looking like this: <code>"connect_urls":["10.0.0.184:4333","192.168.129.1:4333","192.168.192.1:4333"]</code></p>
+<h3 id="example">Example</h3>
+<p>Below you can see a sample connection string from a telnet connection to the <code>demo.nats.io</code> site.</p>
+<div><div><pre><code class="language-bash">telnet demo.nats.io 4222</code></pre></div></div>
+<div><div><pre><code class="language-text">Trying 107.170.221.32...
+Connected to demo.nats.io.
+Escape character is '^]'.
+INFO {"server_id":"Zk0GQ3JBSrg3oyxCRRlE09","version":"1.2.0","proto":1,"go":"go1.10.3","host":"0.0.0.0","port":4222,"max_payload":1048576,"client_id":2392}</code></pre></div></div>
+<h2 id="connect">CONNECT</h2>
+<p>The <code>CONNECT</code> message is the client version of the <a href="#info"><code>INFO</code></a> message. Once the client has established a TCP/IP socket connection with the NATS server, and an <a href="#info"><code>INFO</code></a> message has been received from the server, the client may send a <code>CONNECT</code> message to the NATS server to provide more information about the current connection as well as security information.</p>
+<h3 id="syntax-1">Syntax</h3>
+<div><div><pre><code class="language-text">CONNECT {"option_name":option_value,...}␍␊</code></pre></div></div>
+<p>The valid options are as follows, encoded as JSON:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><code>verbose</code></td><td>Turns on <a href="#ok-err"><code>+OK</code></a> protocol acknowledgements.</td><td>bool</td><td>true</td></tr><tr><td><code>pedantic</code></td><td>Turns on additional strict format checking, e.g. for properly formed subjects.</td><td>bool</td><td>true</td></tr><tr><td><code>tls_required</code></td><td>Indicates whether the client requires an SSL connection.</td><td>bool</td><td>true</td></tr><tr><td><code>auth_token</code></td><td>Client authorization token.</td><td>string</td><td>if <code>auth_required</code> is <code>true</code></td></tr><tr><td><code>user</code></td><td>Connection username.</td><td>string</td><td>if <code>auth_required</code> is <code>true</code></td></tr><tr><td><code>pass</code></td><td>Connection password.</td><td>string</td><td>if <code>auth_required</code> is <code>true</code></td></tr><tr><td><code>name</code></td><td>Client name.</td><td>string</td><td>false</td></tr><tr><td><code>lang</code></td><td>The implementation language of the client.</td><td>string</td><td>true</td></tr><tr><td><code>version</code></td><td>The version of the client.</td><td>string</td><td>true</td></tr><tr><td><code>protocol</code></td><td>Sending <code>0</code> (or absent) indicates client supports original protocol. Sending <code>1</code> indicates that the client supports dynamic reconfiguration of cluster topology changes by asynchronously receiving <a href="#info"><code>INFO</code></a> messages with known servers it can reconnect to.</td><td>int</td><td>false</td></tr><tr><td><code>echo</code></td><td>If set to <code>false</code>, the server (version 1.2.0+) will not send originating messages from this connection to its own subscriptions. Clients should set this to <code>false</code> only for server supporting this feature, which is when <code>proto</code> in the <code>INFO</code> protocol is set to at least <code>1</code>.</td><td>bool</td><td>false</td></tr><tr><td><code>sig</code></td><td>In case the server has responded with a <code>nonce</code> on <code>INFO</code>, then a NATS client must use this field to reply with the signed <code>nonce</code>.</td><td>string</td><td>if <code>nonce</code> received</td></tr><tr><td><code>jwt</code></td><td>The JWT that identifies a user permissions and account.</td><td>string</td><td>false</td></tr><tr><td><code>no_responders</code></td><td>Enable quick replies for cases where a request is sent to a topic with no responders.</td><td>bool</td><td>false</td></tr><tr><td><code>headers</code></td><td>Whether the client supports headers.</td><td>bool</td><td>false</td></tr><tr><td><code>nkey</code></td><td>The public NKey to authenticate the client. This will be used to verify the signature (<code>sig</code>) against the <code>nonce</code> provided in the <code>INFO</code> message.</td><td>string</td><td>false</td></tr></tbody></table>
+<h3 id="example-1">Example</h3>
+<p>Here is an example from the default string of the Go client:</p>
+<div><div><pre><code class="language-text">CONNECT {"verbose":false,"pedantic":false,"tls_required":false,"name":"","lang":"go","version":"1.2.2","protocol":1}␍␊</code></pre></div></div>
+<p>Most clients set <code>verbose</code> to <code>false</code> by default. This means that the server should not confirm each message it receives on this connection with a <a href="#ok-err"><code>+OK</code></a> back to the client.</p>
+<h2 id="pub">PUB</h2>
+<p>The <code>PUB</code> message publishes the message payload to the given subject name, optionally supplying a reply subject. If a reply subject is supplied, it will be delivered to eligible subscribers along with the supplied payload. Note that the payload itself is optional. To omit the payload, set the payload size to 0, but the second CRLF is still required.</p>
+<h3 id="syntax-2">Syntax</h3>
+<div><div><pre><code class="language-text">PUB &lt;subject&gt; [reply-to] &lt;#bytes&gt;␍␊[payload]␍␊</code></pre></div></div>
+<p>where:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><code>subject</code></td><td>The destination subject to publish to.</td><td>string</td><td>true</td></tr><tr><td><code>reply-to</code></td><td>The reply subject that subscribers can use to send a response back to the publisher/requestor.</td><td>string</td><td>false</td></tr><tr><td><code>#bytes</code></td><td>The payload size in bytes.</td><td>int</td><td>true</td></tr><tr><td><code>payload</code></td><td>The message payload data.</td><td>string</td><td>false</td></tr></tbody></table>
+<h3 id="example-2">Example</h3>
+<p>To publish the ASCII string message payload "Hello NATS!" to subject FOO:</p>
+<div><div><pre><code class="language-text">PUB FOO 11␍␊Hello NATS!␍␊</code></pre></div></div>
+<p>To publish a request message "Knock Knock" to subject FRONT.DOOR with reply subject JOKE.22:</p>
+<div><div><pre><code class="language-text">PUB FRONT.DOOR JOKE.22 11␍␊Knock Knock␍␊</code></pre></div></div>
+<p>To publish an empty message to subject NOTIFY:</p>
+<div><div><pre><code class="language-text">PUB NOTIFY 0␍␊␍␊</code></pre></div></div>
+<h2 id="hpub">HPUB</h2>
+<p>The <code>HPUB</code> message is the same as <code>PUB</code> but extends the message payload to include NATS headers. Note that the payload itself is optional. To omit the payload, set the total message size equal to the size of the headers. Note that the trailing CR+LF is still required.</p>
+<p>NATS headers are similar, in structure and semantics, to HTTP headers as <code>name: value</code> pairs including supporting multi-value headers. Headers can be mixed case and NATS will preserve case between message publisher and message receiver(s). See also <a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-4.md">ADR-4 NATS Message Headers</a>.</p>
+<h3 id="syntax-3">Syntax</h3>
+<div><div><pre><code class="language-text">HPUB &lt;subject&gt; [reply-to] &lt;#header bytes&gt; &lt;#total bytes&gt;␍␊[headers]␍␊␍␊[payload]␍␊</code></pre></div></div>
+<p>where:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><code>subject</code></td><td>The destination subject to publish to.</td><td>string</td><td>true</td></tr><tr><td><code>reply-to</code></td><td>The reply subject that subscribers can use to send a response back to the publisher/requestor.</td><td>string</td><td>false</td></tr><tr><td><code>#header bytes</code></td><td>The size of the headers section in bytes including the <code>␍␊␍␊</code> delimiter before the payload.</td><td>int</td><td>true</td></tr><tr><td><code>#total bytes</code></td><td>The total size of headers and payload sections in bytes.</td><td>int</td><td>true</td></tr><tr><td><code>headers</code></td><td>Header version <code>NATS/1.0␍␊</code> followed by one or more <code>name: value</code> pairs, each separated by <code>␍␊</code>.</td><td>string</td><td>false</td></tr><tr><td><code>payload</code></td><td>The message payload data.</td><td>string</td><td>false</td></tr></tbody></table>
+<h3 id="example-3">Example</h3>
+<p>To publish the ASCII string message payload "Hello NATS!" to subject FOO with one header Bar with value Baz:</p>
+<div><div><pre><code class="language-text">HPUB FOO 22 33␍␊NATS/1.0␍␊Bar: Baz␍␊␍␊Hello NATS!␍␊</code></pre></div></div>
+<p>To publish a request message "Knock Knock" to subject FRONT.DOOR with reply subject JOKE.22 and two headers:</p>
+<div><div><pre><code class="language-text">HPUB FRONT.DOOR JOKE.22 45 56␍␊NATS/1.0␍␊BREAKFAST: donut␍␊LUNCH: burger␍␊␍␊Knock Knock␍␊</code></pre></div></div>
+<p>To publish an empty message to subject NOTIFY with one header Bar with value Baz:</p>
+<div><div><pre><code class="language-text">HPUB NOTIFY 22 22␍␊NATS/1.0␍␊Bar: Baz␍␊␍␊␍␊</code></pre></div></div>
+<p>To publish a message to subject MORNING MENU with one header BREAKFAST having two values and payload "Yum!"</p>
+<div><div><pre><code class="language-text">HPUB MORNING.MENU 47 51␍␊NATS/1.0␍␊BREAKFAST: donut␍␊BREAKFAST: eggs␍␊␍␊Yum!␍␊</code></pre></div></div>
+<h2 id="sub">SUB</h2>
+<p><code>SUB</code> initiates a subscription to a subject, optionally joining a distributed queue group.</p>
+<h3 id="syntax-4">Syntax</h3>
+<div><div><pre><code class="language-text">SUB &lt;subject&gt; [queue group] &lt;sid&gt;␍␊</code></pre></div></div>
+<p>where:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><code>subject</code></td><td>The subject name to subscribe to.</td><td>string</td><td>true</td></tr><tr><td><code>queue group</code></td><td>If specified, the subscriber will join this queue group.</td><td>string</td><td>false</td></tr><tr><td><code>sid</code></td><td>A unique alphanumeric subscription ID, generated by the client.</td><td>string</td><td>true</td></tr></tbody></table>
+<h3 id="example-4">Example</h3>
+<p>To subscribe to the subject <code>FOO</code> with the connection-unique subscription identifier (sid) <code>1</code>:</p>
+<div><div><pre><code class="language-text">SUB FOO 1␍␊</code></pre></div></div>
+<p>To subscribe the current connection to the subject <code>BAR</code> as part of distribution queue group <code>G1</code> with sid <code>44</code>:</p>
+<div><div><pre><code class="language-text">SUB BAR G1 44␍␊</code></pre></div></div>
+<h2 id="unsub">UNSUB</h2>
+<p><code>UNSUB</code> unsubscribes the connection from the specified subject, or auto-unsubscribes after the specified number of messages has been received.</p>
+<h3 id="syntax-5">Syntax</h3>
+<div><div><pre><code class="language-text">UNSUB &lt;sid&gt; [max_msgs]␍␊</code></pre></div></div>
+<p>where:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Required</th></tr></thead><tbody><tr><td><code>sid</code></td><td>The unique alphanumeric subscription ID of the subject to unsubscribe from.</td><td>string</td><td>true</td></tr><tr><td><code>max_msgs</code></td><td>A number of messages to wait for before automatically unsubscribing.</td><td>int</td><td>false</td></tr></tbody></table>
+<h3 id="example-5">Example</h3>
+<p>The following examples concern subject <code>FOO</code> which has been assigned sid <code>1</code>. To unsubscribe from <code>FOO</code>:</p>
+<div><div><pre><code class="language-text">UNSUB 1␍␊</code></pre></div></div>
+<p>To auto-unsubscribe from <code>FOO</code> after 5 messages have been received:</p>
+<div><div><pre><code class="language-text">UNSUB 1 5␍␊</code></pre></div></div>
+<h2 id="msg">MSG</h2>
+<p>The <code>MSG</code> protocol message is used to deliver an application message to the client.</p>
+<h3 id="syntax-6">Syntax</h3>
+<div><div><pre><code class="language-text">MSG &lt;subject&gt; &lt;sid&gt; [reply-to] &lt;#bytes&gt;␍␊[payload]␍␊</code></pre></div></div>
+<p>where:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Presence</th></tr></thead><tbody><tr><td><code>subject</code></td><td>Subject name this message was received on.</td><td>string</td><td>always</td></tr><tr><td><code>sid</code></td><td>The unique alphanumeric subscription ID of the subject.</td><td>string</td><td>always</td></tr><tr><td><code>reply-to</code></td><td>The subject on which the publisher is listening for responses.</td><td>string</td><td>optional</td></tr><tr><td><code>#bytes</code></td><td>Size of the payload in bytes.</td><td>int</td><td>always</td></tr><tr><td><code>payload</code></td><td>The message payload data.</td><td>string</td><td>optional</td></tr></tbody></table>
+<h3 id="example-6">Example</h3>
+<p>The following message delivers an application message from subject <code>FOO.BAR</code>:</p>
+<div><div><pre><code class="language-text">MSG FOO.BAR 9 11␍␊Hello World␍␊</code></pre></div></div>
+<p>To deliver the same message along with a reply subject:</p>
+<div><div><pre><code class="language-text">MSG FOO.BAR 9 GREETING.34 11␍␊Hello World␍␊</code></pre></div></div>
+<h2 id="hmsg">HMSG</h2>
+<p>The <code>HMSG</code> message is the same as <code>MSG</code>, but extends the message payload with headers. See also <a href="https://github.com/nats-io/nats-architecture-and-design/blob/main/adr/ADR-4.md">ADR-4 NATS Message Headers</a>.</p>
+<h3 id="syntax-7">Syntax</h3>
+<div><div><pre><code class="language-text">HMSG &lt;subject&gt; &lt;sid&gt; [reply-to] &lt;#header bytes&gt; &lt;#total bytes&gt;␍␊[headers]␍␊␍␊[payload]␍␊</code></pre></div></div>
+<p>where:</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Name</th><th>Description</th><th>Type</th><th>Presence</th></tr></thead><tbody><tr><td><code>subject</code></td><td>Subject name this message was received on.</td><td>string</td><td>always</td></tr><tr><td><code>sid</code></td><td>The unique alphanumeric subscription ID of the subject.</td><td>string</td><td>always</td></tr><tr><td><code>reply-to</code></td><td>The subject on which the publisher is listening for responses.</td><td>string</td><td>optional</td></tr><tr><td><code>#header bytes</code></td><td>The size of the headers section in bytes including the <code>␍␊␍␊</code> delimiter before the payload.</td><td>int</td><td>always</td></tr><tr><td><code>#total bytes</code></td><td>The total size of headers and payload sections in bytes.</td><td>int</td><td>always</td></tr><tr><td><code>headers</code></td><td>Header version <code>NATS/1.0␍␊</code> followed by one or more <code>name: value</code> pairs, each separated by <code>␍␊</code>.</td><td>string</td><td>optional</td></tr><tr><td><code>payload</code></td><td>The message payload data.</td><td>string</td><td>optional</td></tr></tbody></table>
+<h3 id="example-7">Example</h3>
+<p>The following message delivers an application message from subject <code>FOO.BAR</code> with a header:</p>
+<div><div><pre><code class="language-text">HMSG FOO.BAR 34 45␍␊NATS/1.0␍␊FoodGroup: vegetable␍␊␍␊Hello World␍␊</code></pre></div></div>
+<p>To deliver the same message along with a reply subject:</p>
+<div><div><pre><code class="language-text">HMSG FOO.BAR 9 BAZ.69 34 45␍␊NATS/1.0␍␊FoodGroup: vegetable␍␊␍␊Hello World␍␊</code></pre></div></div>
+<h2 id="ping-pong">PING/PONG</h2>
+<p><code>PING</code> and <code>PONG</code> implement a simple keep-alive mechanism between client and server. Once a client establishes a connection to the NATS server, the server will continuously send <code>PING</code> messages to the client at a configurable interval. If the client fails to respond with a <code>PONG</code> message within the configured response interval, the server will terminate its connection. If your connection stays idle for too long, it is cut off.</p>
+<p>If the server sends a ping request, you can reply with a pong message to notify the server that you are still interested. You can also ping the server and will receive a pong reply. The ping/pong interval is configurable.</p>
+<p>The server uses normal traffic as a ping/pong proxy, so a client that has messages flowing may not receive a ping from the server.</p>
+<h3 id="syntax-8">Syntax</h3>
+<p><code>PING␍␊</code></p>
+<p><code>PONG␍␊</code></p>
+<h3 id="example-8">Example</h3>
+<p>The following example shows the demo server pinging the client and finally shutting it down.</p>
+<div><div><pre><code class="language-text">telnet demo.nats.io 4222
+
+Trying 107.170.221.32...
+Connected to demo.nats.io.
+Escape character is '^]'.
+INFO {"server_id":"Zk0GQ3JBSrg3oyxCRRlE09","version":"1.2.0","proto":1,"go":"go1.10.3","host":"0.0.0.0","port":4222,"max_payload":1048576,"client_id":2392}
+PING
+PING
+-ERR 'Stale Connection'
+Connection closed by foreign host.</code></pre></div></div>
+<h2 id="ok-err">+OK/ERR</h2>
+<p>When the <code>verbose</code> connection option is set to <code>true</code> (the default value), the server acknowledges each well-formed protocol message from the client with a <code>+OK</code> message. Most NATS clients set the <code>verbose</code> option to <code>false</code> using the <a href="#connect"><code>CONNECT</code></a> message</p>
+<p>The <code>-ERR</code> message is used by the server indicate a protocol, authorization, or other runtime connection error to the client. Most of these errors result in the server closing the connection.</p>
+<p>Handling of these errors usually has to be done asynchronously.</p>
+<h3 id="syntax-9">Syntax</h3>
+<div><div><pre><code class="language-text">+OK␍␊</code></pre></div></div>
+<div><div><pre><code class="language-text">-ERR &lt;error message&gt;␍␊</code></pre></div></div>
+<h3 id="errors">Errors</h3>
+<p>The table below lists the possible errors that can occur. Some protocol errors result in the server closing the connection. Upon receiving these errors, the connection is no longer valid and the client should clean up relevant resources. This is denoted by the <code>Recoverable</code> column.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Error</th><th>Description</th><th>Recoverable</th></tr></thead><tbody><tr><td><code>Unknown Protocol Operation</code></td><td>Unknown protocol error</td><td>No</td></tr><tr><td><code>Attempted To Connect To Route Port</code></td><td>Client attempted to connect to a route port instead of the client port</td><td>No</td></tr><tr><td><code>Authorization Violation</code></td><td>Client failed to authenticate to the server with credentials specified in the <a href="#connect"><code>CONNECT</code></a> message</td><td>No</td></tr><tr><td><code>Authorization Timeout</code></td><td>Client took too long to authenticate to the server after establishing a connection (default 1 second)</td><td>No</td></tr><tr><td><code>Invalid Client Protocol</code></td><td>Client specified an invalid protocol version in the <a href="#connect"><code>CONNECT</code></a> message</td><td>No</td></tr><tr><td><code>Maximum Control Line Exceeded</code></td><td>Message destination subject and reply subject length exceeded the maximum control line value specified by the <code>max_control_line</code> server option. The default is 1024 bytes.</td><td>No</td></tr><tr><td><code>Parser Error</code></td><td>Cannot parse the protocol message sent by the client</td><td>No</td></tr><tr><td><code>Secure Connection - TLS Required</code></td><td>The server requires TLS and the client does not have TLS enabled.</td><td>No</td></tr><tr><td><code>Stale Connection</code></td><td>The server hasn't received a message from the client, including a <code>PONG</code> in too long.</td><td>No</td></tr><tr><td><code>Maximum Connections Exceeded</code></td><td>This error is sent by the server when creating a new connection and the server has exceeded the maximum number of connections specified by the <code>max_connections</code> server option. The default is 64k.</td><td>No</td></tr><tr><td><code>Slow Consumer</code></td><td>The server pending data size for the connection has reached the maximum size (default 10MB).</td><td>No</td></tr><tr><td><code>Maximum Payload Violation</code></td><td>Client attempted to publish a message with a payload size that exceeds the <code>max_payload</code> size configured on the server. This value is supplied to the client upon connection in the initial <a href="#info"><code>INFO</code></a> message. The client is expected to do proper accounting of byte size to be sent to the server in order to handle this error synchronously.</td><td>No</td></tr><tr><td><code>Invalid Subject</code></td><td>Client sent a malformed subject (e.g. <code>SUB foo. 90</code>)</td><td>Yes</td></tr><tr><td><code>Permissions Violation for Subscription to &lt;subject&gt;</code></td><td>The user specified in the <a href="#connect"><code>CONNECT</code></a> message does not have permission to subscribe to the subject.</td><td>Yes</td></tr><tr><td><code>Permissions Violation for Publish to &lt;subject&gt;</code></td><td>The user specified in the <a href="#connect"><code>CONNECT</code></a> message does not have permissions to publish to the subject.</td><td>Yes</td></tr></tbody></table></main>

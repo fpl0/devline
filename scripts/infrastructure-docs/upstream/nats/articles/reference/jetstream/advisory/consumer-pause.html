@@ -1,0 +1,12 @@
+<main><header><h1>Consumer Pause</h1></header>
+<p>Consumer paused or resumed.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$JS.EVENT.ADVISORY.CONSUMER.PAUSE.{stream}.{consumer}</code></p>
+<p>Where:</p>
+<ul>
+<li><code>{stream}</code> is the stream name</li>
+<li><code>{consumer}</code> is the consumer name</li>
+</ul>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>An Advisory sent when consumer is paused or resumed</p><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.consumer_pause"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>stream</span><span>string</span><span>required</span></div><div>The name of the Stream the Consumer belongs to</div></div><div><div><span>consumer</span><span>string</span><span>required</span></div><div>The name of the Consumer that elected a new leader</div></div><div><div><span>paused</span><span>boolean</span><span>required</span></div><div>Indicates the consumer is paused</div></div><div><div><span>pause_until</span><span>string</span></div><div>When paused the time the consumer will be unpaused, RFC3339 format</div></div><div><div><span>domain</span><span>string</span></div><div>The domain hosting the Stream and Consumer if configured</div></div></div></div></main>

@@ -1,0 +1,10 @@
+<main><header><h1>proxy_required</h1></header>
+<div>Available since NATS Server <code>2.12</code></div>
+<div><span><span>Hot Reloadable</span></span><div>Read when a leaf node authenticates, so the new value applies to connections made after the reload. Existing connections keep the setting they connected under.</div></div>
+<p>Reject this user's leaf node connections if they did not
+arrive through a PROXY protocol header. Setting
+<code>proxy_required</code> on the surrounding <code>authorization</code> block
+applies the requirement to every user regardless of what
+they set here.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>boolean</code></td><td>-</td><td><code>true</code>, <code>false</code></td></tr></tbody></table></main>

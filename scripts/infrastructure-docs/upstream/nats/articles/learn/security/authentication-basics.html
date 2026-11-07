@@ -1,0 +1,309 @@
+<main><header><h1>Authentication basics</h1></header>
+<p>The index page left you with a bare <code>nats-server</code>: it admits every
+connection, and anyone who can reach the port can publish and
+subscribe. This page adds the first user list.</p>
+<p>That's <strong>authentication</strong>: the server deciding which user a connection
+is. This page covers the simplest way to do it, where the list of
+valid users lives in the server's own config file.</p>
+<h2 id="centralized-authentication">Centralized authentication</h2>
+<p>In <strong>centralized authentication</strong>, the server holds the full list of
+users in its own config file, <code>nats.conf</code>.</p>
+<p>When a connection presents credentials, the server walks its config
+list, finds the matching user, and admits the connection. It never
+consults an external service.</p>
+<div></div>
+<p>Centralized authentication is the right tool when one team owns the
+server config and the user list is small and slow to change. It lives
+entirely in one file, so it's the easiest model to read and reason
+about.</p>
+<p>As your deployment grows beyond a good fit here, you may be able to
+buy yourself a tiny bit of operational headroom by using the NATS
+configuration file's <code>include</code> directive, splitting authentication
+data into one or more separate files. If you find yourself doing this,
+then treat it only as buying time before you move away from centralized
+configuration.</p>
+<h2 id="giving-order-svc-a-credential">Giving order-svc a credential</h2>
+<p>The chapter's order platform needs a user for its order service,
+<code>order-svc</code>, and one for its reporting side, <code>analytics-reader</code>.</p>
+<p>A centralized user lives in the <code>users</code> array of the server's
+<code>authorization</code> block. Each entry names a user with a <code>user</code> field and
+carries that user's credential:</p>
+<div><div><pre><code class="language-conf">authorization {
+  users: [
+    { user: order-svc, password: s3cr3t }
+    { user: analytics-reader, password: an4lytics }
+  ]
+}</code></pre></div></div>
+<p>The <code>user</code> and <code>password</code> fields are the credential. A connection that
+presents <code>order-svc</code> / <code>s3cr3t</code> is authenticated as <code>order-svc</code>. Both
+users share the global account, called <code>$G</code>; the
+<a href="/learn/security/accounts-and-multitenancy">Accounts and multitenancy</a>
+page later gives each its own space.</p>
+<p>For a server with exactly one user, you can skip the array and put a
+single <code>user</code> and <code>password</code> pair directly in the <code>authorization</code>
+block.</p>
+<p>The <code>authorization</code> block also takes a
+<a href="/reference/config/authorization/timeout"><code>timeout</code></a> field: how long the
+server gives a client to finish authenticating, 2 seconds by default.
+Plain numbers are seconds; duration strings need quotes
+(<code>timeout: "500ms"</code> — an unquoted <code>1m</code> parses as a number, not a
+minute). The full field list is in
+<a href="/reference/config/authorization">Reference</a>.</p>
+<p>Start the server with that config:</p>
+<div><div><pre><code class="language-bash">nats-server -c nats.conf</code></pre></div></div>
+<p>The <code>-c</code> flag points the server at the config file. Once it's
+running, <code>order-svc</code> can connect.</p>
+<h2 id="connecting-as-order-svc">Connecting as order-svc</h2>
+<p>A client authenticates by sending its credentials at connect time. On
+the CLI that's two flags; in a client library it's two fields on the
+connect call. The user publishes the canonical order message to
+<code>orders.created</code>:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Connect as the centralized user `order-svc` and publish the canonical
+# order message to orders.created.
+#
+# --user / --password send the credentials at connect time. The server
+# matches them against its config user list and accepts the publish.
+# Wrong credentials are rejected at connect time, before any publish,
+# with: nats: error: nats: Authorization Violation
+nats pub orders.created \
+  --user order-svc \
+  --password "s3cr3t" \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+# Expected output:
+# 14:18:38 Published 91 bytes to "orders.created"</code></pre></div></div>
+<div><div><pre><code class="language-text">14:18:38 Published 91 bytes to "orders.created"</code></pre></div></div>
+<p>The server matched the credentials and accepted the 91-byte order
+payload. A wrong password fails at connect time, before any publish:</p>
+<div><div><pre><code class="language-bash">nats pub orders.created "test" --user order-svc --password wrong</code></pre></div></div>
+<div><div><pre><code class="language-text">nats: error: nats: Authorization Violation</code></pre></div></div>
+<p>An unauthenticated connect — no flags at all — fails with the same
+<code>Authorization Violation</code> error. The server gives the same answer for
+a wrong password and an unknown user, so a failed login doesn't reveal
+which half was wrong.</p>
+<p>A client offers credentials once per connection, when it connects.
+Authentication decides the user for the whole life of that connection.
+What the user may then publish or subscribe to is a separate question:
+authorization, covered on the
+<a href="/learn/security/authorization">Authorization</a> page.</p>
+<p>A given client may need to reconnect and this usually happens transparently.
+The authentication happens again, midway through a session, to authenticate
+this new connection.</p>
+<h3 id="other-ways-a-user-entry-can-authenticate">Other ways a user entry can authenticate</h3>
+<p><code>order-svc</code> used a password, but config auth offers three credential
+styles in all: user/password, NKey, and token. The model doesn't
+change; only the field differs.</p>
+<p><strong>user/password</strong> is the pair you just used: the client sends a
+username and a password, and the server compares the password against
+the stored value.</p>
+<p><strong>NKey</strong> is a public-key credential: the user entry holds only a
+public NKey — it replaces the whole user/password pair, and the server
+rejects an entry that mixes them. The client holds the matching
+private seed and proves ownership by signing a server-issued nonce, so
+nothing secret crosses the wire:</p>
+<div><div><pre><code class="language-conf">users: [
+  { nkey: UAPZQH4MNJCOVEJFERB3NFSIROQ5RE7CGBEPKAZSB6QB7IQHBKXHZPVP }
+]</code></pre></div></div>
+<p>Generate the keypair, add the printed <em>public</em> key to the user list, and
+connect with the seed file:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# Generate a user nkey and authenticate with it. The server config
+# holds only the public key; the private seed stays with the client.
+
+# Generate the keypair. The private seed goes to user.nk and nothing
+# is printed; `show` prints the matching public key for the config.
+nats auth nkey gen user --output user.nk
+nats auth nkey show user.nk
+# UAPZQH4MNJCOVEJFERB3NFSIROQ5RE7CGBEPKAZSB6QB7IQHBKXHZPVP
+
+# Put that public key in the server's user list:
+# authorization { users: [ { nkey: UAPZQH4MNJCOVEJFERB3NFSIROQ5RE7CGBEPKAZSB6QB7IQHBKXHZPVP } ] }
+
+# Connect with the seed file. The client signs the server's nonce with
+# the seed, so the secret never crosses the wire. A seed the server
+# doesn't know fails with: nats: error: nats: Authorization Violation
+nats pub orders.created \
+  --nkey user.nk \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+# Expected output:
+# 18:02:29 Published 91 bytes to "orders.created"</code></pre></div></div>
+<div><div><pre><code class="language-text">UAPZQH4MNJCOVEJFERB3NFSIROQ5RE7CGBEPKAZSB6QB7IQHBKXHZPVP
+18:02:29 Published 91 bytes to "orders.created"</code></pre></div></div>
+<p><code>nats auth nkey gen</code> writes the private seed to <code>user.nk</code> and prints nothing,
+<code>nats auth nkey show</code> prints the public key the config entry above holds,
+and the <code>nats pub</code> publishing authenticated with only the seed file — a seed
+for which the server doesn't know a public key fails with the same
+<code>Authorization Violation</code> as a wrong password. We come back to NKeys on the
+<a href="/learn/security/decentralized-auth">Decentralized authentication</a>
+page; here they're just one more way to authenticate a config user.</p>
+<p><strong>token</strong> is a single shared secret with no username, set on the
+server's top-level <code>authorization</code> block:
+<code>authorization { token: "shared-secret-rotate-me" }</code>. Any client
+presenting the right token is admitted. It's the one style that can't
+be per-user, which makes it a server-wide secret — usable for quick
+internal setups but little else. (When this chapter says "token" it
+always means this, never a JWT.)</p>
+<p>One CLI trap to know: the <code>--user</code> flag doubles as a token field — its
+help text reads "Username or Token". A lone <code>--user</code> with no
+<code>--password</code> is sent as a token, so it can appear to work against a
+token-configured server and mask a misconfiguration.</p>
+<h2 id="storing-passwords">Storing passwords</h2>
+<p>The config above stored <code>order-svc</code>'s password in plaintext. That's
+fine for a laptop, but not for a config file others can read.</p>
+<p>The server flags this itself: on startup it scans the user list, and
+if any password is plaintext then it logs a warning:</p>
+<div><div><pre><code class="language-text">[WRN] Plaintext passwords detected, use nkeys or bcrypt</code></pre></div></div>
+<p>The fix is to store a <strong>bcrypt</strong> hash instead of the raw password.
+bcrypt is a one-way hash: the server keeps the hash, the client still
+sends the plaintext password, and the server hashes the input to
+compare. The stored value reveals nothing usable if the config leaks.</p>
+<p>Generate a hash with the CLI; here we use a leading-space because
+many shell setups will skip writing such lines to the shell history,
+but in general be cautious with supplying secrets in command flag values:</p>
+<div><div><pre><code class="language-sh"> nats server passwd --pass "s3cr3t-rotate-me-later"</code></pre></div></div>
+<div><div><pre><code class="language-text">$2a$11$4I9tIK1JVbttZYtn.F.Jse5iY5ves4EtYWIpjlwyvgVYHJc8yTvk.</code></pre></div></div>
+<p>Without <code>--pass</code> it prompts interactively; <code>--generate</code> invents a
+strong passphrase and hashes it in one step, and <code>--cost</code> raises the
+hashing cost above the default 11. The command refuses passwords
+shorter than 10 characters (<code>password should be at least 10 characters long</code>), which is why this example hashes the longer
+<code>s3cr3t-rotate-me-later</code>.</p>
+<p>The printed hash starts with <code>$2a$11$</code> — Go's bcrypt prefix at cost
+11. The server recognizes some variant prefixes as bcrypt indicators,
+to match industry practices, but don't rely upon those.  The server
+will match everything else as plaintext, and reserves the right to use
+any string starting <code>$</code> as a hash indicator, so don't use plaintext
+starting with a dollar sign.</p>
+<p>Paste the hash into the config in place of the plaintext password;
+quotes around it are optional; note that a trailing full stop,
+if present, is part of the value:</p>
+<div><div><pre><code class="language-conf">authorization {
+  users: [
+    { user: order-svc, password: "$2a$11$4I9tIK1JVbttZYtn.F.Jse5iY5ves4EtYWIpjlwyvgVYHJc8yTvk." }
+    { user: analytics-reader, password: an4lytics }
+  ]
+}</code></pre></div></div>
+<p><code>order-svc</code> now authenticates with <code>s3cr3t-rotate-me-later</code> — the
+password the hash was generated from. The client still sends the
+plaintext; only the stored form is hashed. Once every password in the
+list is a hash, the startup warning goes away. (The rest of the
+chapter returns to the short plaintext <code>s3cr3t</code> so the listings stay
+readable.)</p>
+<p>Tokens can be stored the same way — a bcrypt hash in the <code>token</code> field
+goes through the same comparison, and the client sends the clear
+token.</p>
+<p>Because the client still sends the plaintext over the wire, bcrypt
+protects only the config file at rest. Pair it with TLS, which the
+<a href="/learn/security/encryption">Encryption &amp; TLS</a> page sets up.</p>
+<h2 id="what-this-page-does-not-cover">What this page does not cover</h2>
+<p>A client certificate can also be a credential: the server can map a
+certificate identity straight to a user with mTLS, so the cert <em>is</em>
+the credential. That ties into TLS, so the
+<a href="/learn/security/encryption">Encryption &amp; TLS</a> page covers it.</p>
+<p>The other open question is scale. Centralized auth keeps every user in
+one config file, which is exactly what breaks down when many tenants
+manage their own users or the set of users needs to be dynamic.
+The <a href="/learn/security/operator-mode">Operator mode</a> page introduces the model
+built for those scenarios.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>A few things catch people when credentials live in a config file.</p>
+<p><strong>Running with no authentication in production.</strong> A server with no
+<code>authorization</code> block admits every connection. That's convenient on a
+laptop, but on a shared network anyone who can reach the port can
+publish and subscribe, so don't ship it. Give every server at least
+one user list, so an unauthenticated connect fails with
+<code>nats: error: nats: Authorization Violation</code> instead of silently
+succeeding. One setting can undo that lockdown:
+<a href="/reference/config/no_auth_user"><code>no_auth_user</code></a> admits unauthenticated
+connects as a named user even when a user list exists. Set it only on
+purpose; the
+<a href="/learn/security/accounts-and-multitenancy">Accounts and multitenancy</a>
+page covers its traps.</p>
+<p><strong>Leaving plaintext passwords in a deployed config.</strong> The server logs
+<code>Plaintext passwords detected, use nkeys or bcrypt</code> on startup, and
+the fix — a <code>nats server passwd</code> hash in place of the raw value — is
+covered above. The pitfall is treating that warning as noise. On any
+server someone else can read, store the bcrypt hash, not the plaintext.</p>
+<p><strong>Committing credentials to git.</strong> A <code>nats.conf</code> with a password (even a
+bcrypt hash) is a secret. Once it lands in history, rotating the
+password is the only real fix, because the old value lives in every
+clone. Keep the credential out of the committed file: reference an
+environment variable or a secret store, and add the real config to
+<code>.gitignore</code>.</p>
+<p><strong>Putting the password in the connection URL.</strong> A URL like
+<code>nats://order-svc:s3cr3t@localhost:4222</code> puts the credential into
+shell history, process listings, and any log that records the
+connection string. Store it in a named context instead — passing the
+password as <code>"$NATS_PASSWORD"</code> so your shell history records only the
+variable name — then connect by context name with no credential on the
+command line:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/sh
+# Keep order-svc's credential out of the connection URL (and out of shell
+# history and server logs) by storing it in a named context.
+#
+# A URL like nats://order-svc:s3cr3t@localhost:4222 leaks the password
+# into every log line and your shell history. A context holds the
+# credential separately and is selected by name.
+
+# Save the credential once, in a named context.
+# Beware that this does still expose the secret to process listings,
+# which may affect systems with untrusted users, but only does so once
+# (at context creation, not at context use).
+# The assignment to the variable will still appear in shell history!
+# (Some shells can be configured to skip recording lines which start
+# with whitespace).
+ NATS_PASSWORD='s3cr3t'
+nats context add orders \
+  --server localhost:4222 \
+  --user order-svc \
+  --password "$NATS_PASSWORD" \
+  --description "ORDERS platform, order-svc user"
+
+# Unset the variable once the context is saved.
+unset NATS_PASSWORD
+
+# Make it the active context.
+nats context select orders
+
+# Now connect with no credential on the command line at all. The publish
+# uses the stored credential from the `orders` context.
+nats pub orders.created \
+  '{"order_id":"ord_8w2k","customer":"acme-co","total_cents":4200,"ts":"2026-05-22T10:14:22Z"}'
+# Expected output:
+# 14:19:37 Published 91 bytes to "orders.created"</code></pre></div></div>
+<div><div><pre><code class="language-text">14:19:37 Published 91 bytes to "orders.created"</code></pre></div></div>
+<p>The context holds <code>order-svc</code>'s password; the publish command carries
+none. If <code>NATS_PASSWORD</code> is exported then CLI prints
+<code>WARNING: Shell environment overrides in place using NATS_PASSWORD</code>,
+so either don't export it or unset it once the context is saved.</p>
+<p>Note that the way a Unix shell works, the <code>"$NATS_PASSWORD"</code> is handled by the
+shell, and is replaced with the real value before the <code>nats</code> command is
+invoked.  The value will still show up in process listings by other users!
+(Modern Unix will typically not make process environments visible to other
+users.)</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You have:</p>
+<ul>
+<li>A server started with <code>nats-server -c nats.conf</code>.</li>
+<li>Two users in a top-level <code>authorization</code> block, both in the global
+account <code>$G</code>: <code>order-svc</code> and <code>analytics-reader</code>,
+password-authenticated — and you know how to swap any stored
+password for a <code>nats server passwd</code> bcrypt hash.</li>
+<li>Proof the passwords work: <code>order-svc</code> published the canonical order
+message to <code>orders.created</code>, and a wrong password was rejected with
+<code>Authorization Violation</code>.</li>
+</ul>
+<h2 id="whats-next">What's next</h2>
+<p><code>order-svc</code> can prove who it is, but nothing yet limits what it may
+do: it can publish and subscribe anywhere on the server. The next page
+adds those limits.</p>
+<p>Continue to <a href="/learn/security/authorization">Authorization</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/authorization">Reference → authorization</a> — every
+field of the <code>authorization</code> block, including <code>timeout</code> and
+per-user options.</li>
+<li><a href="/learn/security/authorization">Authorization</a> — what an
+authenticated user is then allowed to do.</li>
+<li><a href="/concepts/security">Core Concepts → Security</a> — the five-minute
+overview of the same material.</li>
+</ul></main>

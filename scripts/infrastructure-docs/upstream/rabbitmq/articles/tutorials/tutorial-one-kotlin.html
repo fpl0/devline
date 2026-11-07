@@ -1,0 +1,279 @@
+<main><header><h1>RabbitMQ tutorial - "Hello World!"</h1></header>
+<h2 id="introduction">Introduction</h2>
+<div class="admonition info"><div class="admonition-title">info</div><div><h3 id="prerequisites">Prerequisites</h3><p>This tutorial assumes RabbitMQ is <a href="https://www.rabbitmq.com/docs/4.3/download">installed</a> and running on
+<code>localhost</code> on the <a href="https://www.rabbitmq.com/docs/4.3/networking#ports">standard port</a> (5672). In case you
+use a different host, port or credentials, connections settings would require
+adjusting.</p><h3 id="where-to-get-help">Where to get help</h3><p>If you're having trouble going through this tutorial you can contact us
+through <a href="https://github.com/rabbitmq/rabbitmq-server/discussions">GitHub Discussions</a> or <a href="https://www.rabbitmq.com/discord">RabbitMQ community Discord</a>.</p></div></div>
+<p>RabbitMQ is a message broker: it accepts and forwards messages. You can think
+about it as a post office: when you put the mail that you want posting in a
+post box, you can be sure that the letter carrier will eventually deliver the
+mail to your recipient. In this analogy, RabbitMQ is a post box, a post
+office, and a letter carrier.</p>
+<p>The major difference between RabbitMQ and the post office is that it doesn't
+deal with paper, instead it accepts, stores, and forwards binary blobs of data
+‒ <em>messages</em>.</p>
+<p>RabbitMQ, and messaging in general, uses some jargon.</p>
+<ul>
+<li>
+<p><em>Producing</em> means nothing more than sending. A program that sends messages
+is a <em>producer</em> :</p>
+<!-- -->
+</li>
+<li>
+<p><em>A queue</em> is the name for the post box in RabbitMQ. Although messages flow
+through RabbitMQ and your applications, they can only be stored inside a
+<em>queue</em>. A <em>queue</em> is only bound by the host's memory &amp; disk limits, it's
+essentially a large message buffer.</p>
+<p>Many <em>producers</em> can send messages that go to one queue, and many
+<em>consumers</em> can try to receive data from one <em>queue</em>.</p>
+<p>This is how we represent a queue:</p>
+<!-- -->
+</li>
+<li>
+<p><em>Consuming</em> has a similar meaning to receiving. A <em>consumer</em> is a program
+that mostly waits to receive messages:</p>
+<!-- -->
+</li>
+</ul>
+<p>Note that the producer, consumer, and broker do not have to reside on the same
+host; indeed in most applications they don't. An application can be both a
+producer and consumer, too.</p>
+<h2 id="hello-world">"Hello World"</h2>
+<h3 id="using-the-kotlin-client">(using the Kotlin Client)</h3>
+<p>In this part of the tutorial we'll write two programs in Kotlin; a
+producer that sends a single message, and a consumer that receives
+messages and prints them out. We'll gloss over some of the detail in
+the Kotlin API, concentrating on this very simple thing just to get
+started. It's the "Hello World" of messaging.</p>
+<p>In the diagram below, "P" is our producer and "C" is our consumer. The
+box in the middle is a queue - a message buffer that RabbitMQ keeps
+on behalf of the consumer.</p>
+<!-- -->
+<blockquote>
+<h4 id="the-kotlin-client-library">The Kotlin client library</h4>
+<p>RabbitMQ speaks multiple protocols. This tutorial uses AMQP 0-9-1, which is an open,
+general-purpose protocol for messaging. There are a number of clients
+for RabbitMQ in <a href="/client-libraries/devtools">many different languages</a>. We'll
+use the <a href="https://github.com/kourier-amqp/kourier">Kourier</a> client library for Kotlin.</p>
+<p>Kourier is a modern, coroutine-based AMQP 0-9-1 client for Kotlin. To use it in your project,
+add the following dependency:</p>
+<p><strong>Gradle (Kotlin DSL):</strong></p>
+<div><div><pre><code class="language-kotlin">dependencies {
+    implementation("dev.kourier:amqp-client:x.x.x")
+}</code></pre></div></div>
+<p><strong>Gradle (Groovy DSL):</strong></p>
+<div><div><pre><code class="language-groovy">dependencies {
+    implementation 'dev.kourier:amqp-client:x.x.x'
+}</code></pre></div></div>
+<p><strong>Maven:</strong></p>
+<div><div><pre><code class="language-xml">&lt;dependency&gt;
+    &lt;groupId&gt;dev.kourier&lt;/groupId&gt;
+    &lt;artifactId&gt;amqp-client-jvm&lt;/artifactId&gt;
+    &lt;version&gt;x.x.x&lt;/version&gt;
+&lt;/dependency&gt;</code></pre></div></div>
+<p>We recommend checking the <a href="https://github.com/kourier-amqp/kourier/releases">Kourier release page</a>
+for the latest version number, replacing <code>x.x.x</code> above with the latest stable release.</p>
+</blockquote>
+<p>Now we have the Kotlin client library set up, we can write some code.</p>
+<h3 id="sending">Sending</h3>
+<!-- -->
+<p>We'll call our message publisher (sender) <code>send</code> and our message consumer (receiver)
+<code>receive</code>. The publisher will connect to RabbitMQ, send a single message,
+then exit.</p>
+<p>We need some imports:</p>
+<div><div><pre><code class="language-kotlin">import dev.kourier.amqp.Field
+import dev.kourier.amqp.Properties
+import dev.kourier.amqp.connection.amqpConfig
+import dev.kourier.amqp.connection.createAMQPConnection
+import kotlinx.coroutines.CoroutineScope</code></pre></div></div>
+<p>Set up the send function and the queue name:</p>
+<div><div><pre><code class="language-kotlin">val queueName = "hello"
+
+suspend fun send(coroutineScope: CoroutineScope) {
+    // ...
+}</code></pre></div></div>
+<p>Then we can create a connection to the server:</p>
+<div><div><pre><code class="language-kotlin">suspend fun send(coroutineScope: CoroutineScope) {
+    val config = amqpConfig {
+        server {
+            host = "localhost"
+        }
+    }
+    val connection = createAMQPConnection(coroutineScope, config)
+    val channel = connection.openChannel()
+
+    // Publishing code will go here...
+
+    channel.close()
+    connection.close()
+}</code></pre></div></div>
+<p>The connection abstracts the socket connection, and takes care of
+protocol version negotiation and authentication and so on for us. Here
+we connect to a RabbitMQ node on the local machine - hence the
+<em>localhost</em>. If we wanted to connect to a node on a different
+machine we'd simply specify its hostname or IP address here.</p>
+<p>Next we create a channel, which is where most of the API for getting
+things done resides.</p>
+<p>To send, we must declare a queue for us to send to; then we can publish a message
+to the queue:</p>
+<div><div><pre><code class="language-kotlin">channel.queueDeclare(
+    queueName,
+    durable = true,
+    exclusive = false,
+    autoDelete = false,
+    arguments = mapOf("x-queue-type" to Field.LongString("quorum"))
+)
+val message = "Hello World!"
+channel.basicPublish(
+    message.toByteArray(),
+    exchange = "",
+    routingKey = queueName,
+    properties = Properties()
+)
+println(" [x] Sent '$message'")</code></pre></div></div>
+<p>Declaring a queue is idempotent - it will only be created if it doesn't
+exist already. The message content is a byte array, so you can encode
+whatever you like there.</p>
+<blockquote>
+<h4 id="sending-doesnt-work">Sending doesn't work!</h4>
+<p>If this is your first time using RabbitMQ and you don't see the "Sent"
+message then you may be left scratching your head wondering what could
+be wrong. Maybe the broker was started without enough free disk space
+(by default it needs at least 50 MB free) and is therefore refusing to
+accept messages. Check the broker <a href="https://www.rabbitmq.com/docs/4.3/logging">log file</a> to see if there
+is a <a href="https://www.rabbitmq.com/docs/4.3/alarms">resource alarm</a> logged and reduce the
+free disk space threshold if necessary.
+The <a href="https://www.rabbitmq.com/docs/4.3/configure#config-items">Configuration guide</a>
+will show you how to set <code>disk_free_limit</code>.</p>
+</blockquote>
+<h3 id="receiving">Receiving</h3>
+<p>That's it for our publisher. Our consumer listens for messages from
+RabbitMQ, so unlike the publisher which publishes a single message, we'll
+keep the consumer running to listen for messages and print them out.</p>
+<!-- -->
+<p>Setting up is the same as the publisher; we open a connection and a
+channel, and declare the queue from which we're going to consume.
+Note this matches up with the queue that <code>send</code> publishes to.</p>
+<div><div><pre><code class="language-kotlin">suspend fun receive(coroutineScope: CoroutineScope) {
+    val config = amqpConfig {
+        server {
+            host = "localhost"
+        }
+    }
+    val connection = createAMQPConnection(coroutineScope, config)
+    val channel = connection.openChannel()
+
+    channel.queueDeclare(
+        queueName,
+        durable = true,
+        exclusive = false,
+        autoDelete = false,
+        arguments = mapOf("x-queue-type" to Field.LongString("quorum"))
+    )
+    println(" [*] Waiting for messages. To exit press CTRL+C")
+
+    // Consuming code will go here...
+
+    channel.close()
+    connection.close()
+}</code></pre></div></div>
+<p>Note that we declare the queue here, as well. Because we might start
+the consumer before the publisher, we want to make sure the queue exists
+before we try to consume messages from it.</p>
+<p>We're about to tell the server to deliver us the messages from the
+queue. Since Kourier is built on Kotlin coroutines, consuming messages
+is as simple as iterating over a channel:</p>
+<div><div><pre><code class="language-kotlin">val consumer = channel.basicConsume(queueName, noAck = true)
+
+for (delivery in consumer) {
+    val message = delivery.message.body.decodeToString()
+    println(" [x] Received '$message'")
+}</code></pre></div></div>
+<h3 id="putting-it-all-together">Putting it all together</h3>
+<p>You can wrap both functions in a <code>main</code> function with a <code>runBlocking</code> block:</p>
+<div><div><pre><code class="language-kotlin">import dev.kourier.amqp.Field
+import dev.kourier.amqp.Properties
+import dev.kourier.amqp.connection.amqpConfig
+import dev.kourier.amqp.connection.createAMQPConnection
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+
+val queueName = "hello"
+
+suspend fun send(coroutineScope: CoroutineScope) {
+    val config = amqpConfig {
+        server {
+            host = "localhost"
+        }
+    }
+    val connection = createAMQPConnection(coroutineScope, config)
+    val channel = connection.openChannel()
+
+    channel.queueDeclare(
+        queueName,
+        durable = true,
+        exclusive = false,
+        autoDelete = false,
+        arguments = mapOf("x-queue-type" to Field.LongString("quorum"))
+    )
+    val message = "Hello World!"
+    channel.basicPublish(
+        message.toByteArray(),
+        exchange = "",
+        routingKey = queueName,
+        properties = Properties()
+    )
+    println(" [x] Sent '$message'")
+
+    channel.close()
+    connection.close()
+}
+
+suspend fun receive(coroutineScope: CoroutineScope) {
+    val config = amqpConfig {
+        server {
+            host = "localhost"
+        }
+    }
+    val connection = createAMQPConnection(coroutineScope, config)
+    val channel = connection.openChannel()
+
+    channel.queueDeclare(
+        queueName,
+        durable = true,
+        exclusive = false,
+        autoDelete = false,
+        arguments = mapOf("x-queue-type" to Field.LongString("quorum"))
+    )
+    println(" [*] Waiting for messages. To exit press CTRL+C")
+
+    val consumer = channel.basicConsume(queueName, noAck = true)
+
+    for (delivery in consumer) {
+        val message = delivery.message.body.decodeToString()
+        println(" [x] Received '$message'")
+    }
+
+    channel.close()
+    connection.close()
+}
+
+fun main() = runBlocking {
+    launch { send(this) }
+    launch { receive(this) }
+
+    delay(Long.MAX_VALUE) // Keep the main thread alive
+}</code></pre></div></div>
+<p>The consumer will print the message it gets from the publisher via
+RabbitMQ. The consumer will keep running, waiting for messages (Use Ctrl-C to stop it).</p>
+<blockquote>
+<h4 id="listing-queues">Listing queues</h4>
+<p>You may wish to see what queues RabbitMQ has and how many
+messages are in them. You can do it (as a privileged user) using the <code>rabbitmqctl</code> tool:</p>
+<div><div><pre><code class="language-bash">sudo rabbitmqctl list_queues</code></pre></div></div>
+<p>On Windows, omit the sudo:</p>
+<div><div><pre><code class="language-powershell">rabbitmqctl.bat list_queues</code></pre></div></div>
+</blockquote>
+<p>Time to move on to <a href="/tutorials/tutorial-two-kotlin">part 2</a> and build a simple <em>work queue</em>.</p></main>

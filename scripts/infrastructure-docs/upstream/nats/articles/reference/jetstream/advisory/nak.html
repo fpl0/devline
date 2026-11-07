@@ -1,0 +1,12 @@
+<main><header><h1>Message Negative Acknowledgement</h1></header>
+<p>Message negatively acknowledged.</p>
+<!-- -->
+<h2 id="subscription-subject">Subscription Subject</h2>
+<p><code>$JS.EVENT.ADVISORY.CONSUMER.MSG_NAKED.{stream}.{consumer}</code></p>
+<p>Where:</p>
+<ul>
+<li><code>{stream}</code> is the stream name</li>
+<li><code>{consumer}</code> is the consumer name</li>
+</ul>
+<h2 id="event-schema">Event Schema</h2>
+<div><p>Advisory published when a message was naked using a AckNak acknowledgement</p><div><div><div><span>type</span><span>const: "io.nats.jetstream.advisory.v1.nak"</span><span>required</span></div></div><div><div><span>id</span><span>string</span><span>required</span></div><div>Unique correlation ID for this event</div></div><div><div><span>timestamp</span><span>string</span><span>required</span></div><div>The time this event was created in RFC3339 format</div></div><div><div><span>stream</span><span>string</span><span>required</span></div><div>The name of the stream where the message is stored</div></div><div><div><span>consumer</span><span>string</span><span>required</span></div><div>The name of the consumer where the message was naked</div></div><div><div><span>consumer_seq</span><span>string</span><span>required</span></div><div>The sequence of the message in the consumer that was naked</div><div><span>Minimum:</span><code>1</code></div></div><div><div><span>stream_seq</span><span>integer</span><span>required</span></div><div>The sequence of the message in the stream that was naked</div><div><span>Minimum:</span><code>1</code></div><div><span>Maximum:</span><code>18446744073709552000</code></div></div><div><div><span>deliveries</span><span>integer</span><span>required</span></div><div>The number of deliveries that were attempted</div><div><span>Minimum:</span><code>1</code></div></div><div><div><span>domain</span><span>string</span></div><div>The domain of the JetStreamServer</div><div><span>Minimum:</span><code>1</code></div></div></div></div></main>

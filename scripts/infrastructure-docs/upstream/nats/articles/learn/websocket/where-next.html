@@ -1,0 +1,103 @@
+<main><header><h1>Where to go next</h1></header>
+<p>You started with a server that only accepted connections on port 4222.
+You end with a browser dashboard showing <code>orders.&gt;</code> live behind an
+origin check and a cookie-borne JWT, TLS either on the listener or at
+the ingress in front of it, and a retail branch joined to the <code>east</code>
+cluster through that same endpoint.</p>
+<p>This page doesn't teach anything new. It collects the model into one
+place and points at what takes each piece further.</p>
+<h2 id="the-core-idea">The core idea</h2>
+<p>Three ideas carry the chapter.</p>
+<p><strong>It's the same protocol over a different transport.</strong> A WebSocket
+connection is a NATS connection. The same clients, subjects, queue
+groups, request-reply and JetStream work across it unchanged. The URL
+scheme is the difference, and it's most of the difference.</p>
+<p><strong>A browser is a different security situation, not a different NATS.</strong>
+It has no filesystem for a credentials file, and any page on the
+internet can try to open a connection in a user's browser. That's what
+origin checking and the cookie settings address. Neither is a
+replacement for authorization, which is still what protects the port.</p>
+<p><strong>One listener serves clients and servers alike.</strong> Reaching for
+WebSocket is often nothing to do with browsers — where an HTTP ingress
+or load balancer is the only path into the network, the WebSocket
+listener is what gets published through it. A leaf node uses that endpoint exactly as a
+client does, which is how an edge site joins a cluster that isn't
+otherwise exposed.</p>
+<h2 id="where-the-reference-details-live">Where the reference details live</h2>
+<p>This chapter is concept-first and unversioned. The exact fields of the
+<code>websocket {}</code> block, their types, defaults, reload behaviour, and which
+server version each appeared in, are in <strong><a href="/reference/config/websocket/">Reference →
+websocket</a></strong>, which is versioned and
+exhaustive.</p>
+<p>That's where to look for the precise semantics of <code>handshake_timeout</code>,
+the full TLS sub-block, or which of the four cookie settings exist in
+the version you run.</p>
+<h2 id="what-to-read-next">What to read next</h2>
+<p>Two chapters continue directly from here.</p>
+<p><strong><a href="/learn/security">Security</a></strong> is the real next step. This chapter
+restricted a user to <code>WEBSOCKET</code>, handed a browser a bearer JWT through
+a cookie, and stopped there. The model underneath — accounts as subject
+isolation, how permissions are evaluated, and
+<a href="/learn/security/operator-mode">operator mode</a> end to end — is what a
+dashboard exposed to real users needs.</p>
+<p><strong><a href="/learn/topologies">Topologies</a></strong> covers leaf nodes properly: what
+they are for, how subject interest propagates, and what happens when the
+link drops. The last page of this chapter changed only the transport.</p>
+<p>Two more are worth knowing about rather than reading now.
+<a href="/learn/deployment">Deployment</a> covers the Kubernetes ingress that
+terminates TLS in front of a WebSocket listener.
+<a href="/learn/resilient-clients">Resilient Clients</a> covers reconnection and
+drain, which behave the same over WebSocket as over TCP — a browser page
+that reconnects is using the same machinery.</p>
+<h2 id="production-checklist">Production checklist</h2>
+<p>Every content page closed with a Pitfalls section. This collects their
+action items into one pass to make before a WebSocket listener carries
+real traffic. Each group links back to the page that explains why.</p>
+<h3 id="your-first-websocket-connection--see-pitfalls">Your first WebSocket connection — see <a href="/learn/websocket/your-first-websocket-connection#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Set <code>port</code> or <code>listen</code> in the <code>websocket {}</code> block; there is no default, and without one the server starts with no WebSocket listener and says nothing about it.</li>
+<li><input/> <!-- -->Confirm <code>Listening for websocket clients</code> appears in the log before debugging anything on the client side.</li>
+<li><input/> <!-- -->Point WebSocket clients at the WebSocket port and everything else at the client port; the listeners are separate.</li>
+<li><input/> <!-- -->Give every client URL an explicit port. nats.js fills in 443 for a bare host and 80 for a <code>ws://</code> URL without one.</li>
+<li><input/> <!-- -->If you run a FIPS-140 build, confirm it was built with Go 1.26 or later; earlier toolchains refuse the WebSocket listener outright.</li>
+</ul>
+<h3 id="browsers-and-origins--see-pitfalls">Browsers and origins — see <a href="/learn/websocket/browsers-and-origins#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Set <code>allowed_origins</code> to the exact scheme, host and port the page is served from — all three have to match — or set <code>same_origin: true</code> when the page and the NATS endpoint share one hostname.</li>
+<li><input/> <!-- -->Treat origin checking as protection against other web pages, not as access control — it's skipped entirely when no <code>Origin</code> header is present.</li>
+<li><input/> <!-- -->Keep seeds and credentials files out of front-end code; use a bearer JWT or an <code>HttpOnly</code> cookie the page can't read.</li>
+<li><input/> <!-- -->Give the browser user subscribe permission on the subjects it displays and no publish rights it doesn't need.</li>
+<li><input/> <!-- -->Restrict browser credentials with <code>allowed_connection_types: ["WEBSOCKET"]</code> so they don't also work on 4222.</li>
+</ul>
+<h3 id="tls-and-proxies--see-pitfalls">TLS and proxies — see <a href="/learn/websocket/tls-and-proxies#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Use <code>no_tls: true</code> only behind a proxy that terminates TLS on a network you trust; there's no warning that distinguishes that from exposing it.</li>
+<li><input/> <!-- -->Make the proxy forward <code>Upgrade</code> and <code>Connection</code>; without them the handshake fails as a generic connection error.</li>
+<li><input/> <!-- -->Set the proxy's idle timeout longer than the server's WebSocket ping interval, or working connections drop on a timer.</li>
+<li><input/> <!-- -->Set <code>advertise</code> when the server sits behind NAT or a proxy, so clients are given an address they can reach.</li>
+<li><input/> <!-- -->Size <code>handshake_timeout</code> against the proxy's latency under load, not against a direct connection on a laptop.</li>
+<li><input/> <!-- -->Configure TLS on the listener with a <code>tls {}</code> block or terminate it at the proxy; <code>wss://</code> in a client URL only says what the client will do, and a mismatch fails at the handshake.</li>
+</ul>
+<h3 id="leaf-nodes-over-websocket--see-pitfalls">Leaf nodes over WebSocket — see <a href="/learn/websocket/leaf-nodes-over-websocket#pitfalls">Pitfalls</a></h3>
+<ul>
+<li><input/> <!-- -->Write <code>wss://</code> when the link is encrypted. Either the scheme or a <code>tls {}</code> block turns TLS on, so <code>ws://</code> beside a <code>tls {}</code> block is encrypted too — the scheme alone doesn't tell a reader which.</li>
+<li><input/> <!-- -->Add a <code>tls {}</code> block with <code>ca_file</code> only when the hub's certificate isn't publicly trusted.</li>
+<li><input/> <!-- -->Keep every URL in a remote on the same kind of scheme; a mix stops the server at startup.</li>
+<li><input/> <!-- -->Point the remote at the hub's WebSocket listener, not the leafnode port.</li>
+<li><input/> <!-- -->Keep a <code>leafnodes { port: … }</code> block on the hub even when every leaf arrives over WebSocket; without it the hub accepts the connection and closes it. That port still listens, so firewall it like any other server port.</li>
+<li><input/> <!-- -->Give the hub a <code>websocket {}</code> listener as well; a hub with only a leafnode port has nothing for a <code>wss://</code> remote to connect to.</li>
+<li><input/> <!-- -->Grant <code>LEAFNODE_WS</code>, not <code>LEAFNODE</code>, to a leaf that arrives over WebSocket.</li>
+<li><input/> <!-- -->Write an explicit port on every leafnode remote URL; without one the server appends <code>:7422</code> whatever the scheme, so <code>wss://host</code> dials the leafnode port.</li>
+<li><input/> <!-- -->If a proxy routes on path, make sure it forwards <code>/leafnode</code> — the server appends that to the remote URL's path to mark the connection as a leaf.</li>
+</ul>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/config/websocket/">Reference → websocket</a> — every field of
+the <code>websocket {}</code> block, versioned and exhaustive</li>
+<li><a href="/learn/security">Security deep dive</a> — accounts, permissions, and
+bearer credentials for browser clients</li>
+<li><a href="/learn/topologies">Topologies deep dive</a> — the leaf-node model behind
+the branch office</li>
+<li><a href="/learn/mqtt">MQTT deep dive</a> — the other protocol listener on the
+same binary</li>
+</ul></main>

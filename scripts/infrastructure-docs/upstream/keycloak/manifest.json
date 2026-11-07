@@ -1,0 +1,2177 @@
+{
+  "publisher": "Keycloak contributors",
+  "version": "26.8.2",
+  "provenance": "The exact 26.8.2 release archives at https://github.com/keycloak/keycloak/releases/tag/26.8.2 supply the rendered books and the Admin REST API. Individual publisher HTML guides at https://www.keycloak.org/guides were captured on 2026-11-07 and verified against the displayed 26.8.2 version and tagged source at https://github.com/keycloak/keycloak/tree/26.8.2/docs/guides. Devline extracted article markup and tables of contents, preserved original headings and examples, and embedded selected small upstream illustrations. Devline corrected outdated internal heading links and retained generated API primitive names as text where the upstream generator linked to nonexistent definitions.",
+  "license": "Apache-2.0",
+  "notices": [
+    "LICENSE"
+  ],
+  "coverage": "Docker and local setup, server and provider configuration, realm and client administration, OIDC/SAML and authorization, developer guides, importing and exporting realms, deployment, high availability, observability, troubleshooting, upgrades, and the Admin REST API.",
+  "omissions": "Java API Javadoc, third-party adapter manuals, unlinked site pages, larger illustrations, and hosted interactive tools remain online.",
+  "entry": "getting-started/getting-started-docker",
+  "documents": [
+    {
+      "id": "admin-api/admin-api-v2",
+      "path": "admin-api/admin-api-v2.html",
+      "source_url": "https://www.keycloak.org/admin-api/admin-api-v2",
+      "title": "Admin API v2: Reference",
+      "aliases": [
+        "keycloak admin api v2: reference"
+      ]
+    },
+    {
+      "id": "admin-api/protocol-mappers",
+      "path": "admin-api/protocol-mappers.html",
+      "source_url": "https://www.keycloak.org/admin-api/protocol-mappers",
+      "title": "Protocol Mappers",
+      "aliases": [
+        "keycloak protocol mappers"
+      ]
+    },
+    {
+      "id": "admin-api/querying",
+      "path": "admin-api/querying.html",
+      "source_url": "https://www.keycloak.org/admin-api/querying",
+      "title": "Admin API v2: Filtering and Projection",
+      "aliases": [
+        "keycloak admin api v2: filtering and projection"
+      ]
+    },
+    {
+      "id": "admin-rest-api",
+      "path": "admin-rest-api.html",
+      "source_url": "https://www.keycloak.org/docs-api/26.8.2/rest-api/index.html",
+      "title": "Keycloak Admin REST API",
+      "aliases": [
+        "keycloak keycloak admin rest api",
+        "keycloak admin api",
+        "keycloak rest",
+        "DELETE /admin/realms/{realm}/attack-detection/brute-force/users",
+        "DELETE /admin/realms/{realm}/attack-detection/brute-force/users/{userId}",
+        "GET /admin/realms/{realm}/attack-detection/brute-force/users/{userId}",
+        "GET /admin/realms/{realm}/authentication/authenticator-providers",
+        "GET /admin/realms/{realm}/authentication/client-authenticator-providers",
+        "GET /admin/realms/{realm}/authentication/config-description/{providerId}",
+        "DELETE /admin/realms/{realm}/authentication/config/{id}",
+        "GET /admin/realms/{realm}/authentication/config/{id}",
+        "PUT /admin/realms/{realm}/authentication/config/{id}",
+        "POST /admin/realms/{realm}/authentication/config",
+        "GET /admin/realms/{realm}/authentication/executions/{executionId}/config/{id}",
+        "POST /admin/realms/{realm}/authentication/executions/{executionId}/config",
+        "DELETE /admin/realms/{realm}/authentication/executions/{executionId}",
+        "GET /admin/realms/{realm}/authentication/executions/{executionId}",
+        "POST /admin/realms/{realm}/authentication/executions/{executionId}/lower-priority",
+        "POST /admin/realms/{realm}/authentication/executions/{executionId}/raise-priority",
+        "POST /admin/realms/{realm}/authentication/executions",
+        "POST /admin/realms/{realm}/authentication/flows/{flowAlias}/copy",
+        "POST /admin/realms/{realm}/authentication/flows/{flowAlias}/executions/execution",
+        "POST /admin/realms/{realm}/authentication/flows/{flowAlias}/executions/flow",
+        "GET /admin/realms/{realm}/authentication/flows/{flowAlias}/executions",
+        "PUT /admin/realms/{realm}/authentication/flows/{flowAlias}/executions",
+        "GET /admin/realms/{realm}/authentication/flows",
+        "DELETE /admin/realms/{realm}/authentication/flows/{id}",
+        "GET /admin/realms/{realm}/authentication/flows/{id}",
+        "PUT /admin/realms/{realm}/authentication/flows/{id}",
+        "POST /admin/realms/{realm}/authentication/flows",
+        "GET /admin/realms/{realm}/authentication/form-action-providers",
+        "GET /admin/realms/{realm}/authentication/form-providers",
+        "GET /admin/realms/{realm}/authentication/per-client-config-description",
+        "POST /admin/realms/{realm}/authentication/register-required-action",
+        "DELETE /admin/realms/{realm}/authentication/required-actions/{alias}/config",
+        "GET /admin/realms/{realm}/authentication/required-actions/{alias}/config-description",
+        "GET /admin/realms/{realm}/authentication/required-actions/{alias}/config",
+        "PUT /admin/realms/{realm}/authentication/required-actions/{alias}/config",
+        "DELETE /admin/realms/{realm}/authentication/required-actions/{alias}",
+        "GET /admin/realms/{realm}/authentication/required-actions/{alias}",
+        "POST /admin/realms/{realm}/authentication/required-actions/{alias}/lower-priority",
+        "PUT /admin/realms/{realm}/authentication/required-actions/{alias}",
+        "POST /admin/realms/{realm}/authentication/required-actions/{alias}/raise-priority",
+        "GET /admin/realms/{realm}/authentication/required-actions",
+        "GET /admin/realms/{realm}/authentication/unregistered-required-actions",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/certificates/{attr}/download",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/certificates/{attr}/generate-and-download",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/certificates/{attr}/generate",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/certificates/{attr}",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/certificates/{attr}/upload-certificate",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/certificates/{attr}/upload",
+        "POST /admin/realms/{realm}/identity-provider/upload-certificate",
+        "GET /admin/realms/{realm}/clients-initial-access",
+        "DELETE /admin/realms/{realm}/clients-initial-access/{id}",
+        "POST /admin/realms/{realm}/clients-initial-access",
+        "GET /admin/realms/{realm}/client-registration-policy/providers",
+        "GET /admin/realms/{realm}/groups/{group-id}/role-mappings/clients/{client-id}/available",
+        "GET /admin/realms/{realm}/groups/{group-id}/role-mappings/clients/{client-id}/composite",
+        "DELETE /admin/realms/{realm}/groups/{group-id}/role-mappings/clients/{client-id}",
+        "GET /admin/realms/{realm}/groups/{group-id}/role-mappings/clients/{client-id}",
+        "POST /admin/realms/{realm}/groups/{group-id}/role-mappings/clients/{client-id}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/clients/{client-id}/available",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/clients/{client-id}/composite",
+        "DELETE /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/clients/{client-id}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/clients/{client-id}",
+        "POST /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/clients/{client-id}",
+        "GET /admin/realms/{realm}/users/{user-id}/role-mappings/clients/{client-id}/available",
+        "GET /admin/realms/{realm}/users/{user-id}/role-mappings/clients/{client-id}/composite",
+        "DELETE /admin/realms/{realm}/users/{user-id}/role-mappings/clients/{client-id}",
+        "GET /admin/realms/{realm}/users/{user-id}/role-mappings/clients/{client-id}",
+        "POST /admin/realms/{realm}/users/{user-id}/role-mappings/clients/{client-id}",
+        "DELETE /admin/realms/{realm}/client-scopes/{client-scope-id}",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}",
+        "PUT /admin/realms/{realm}/client-scopes/{client-scope-id}",
+        "GET /admin/realms/{realm}/client-scopes",
+        "POST /admin/realms/{realm}/client-scopes",
+        "DELETE /admin/realms/{realm}/client-templates/{client-scope-id}",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}",
+        "PUT /admin/realms/{realm}/client-templates/{client-scope-id}",
+        "GET /admin/realms/{realm}/client-templates",
+        "POST /admin/realms/{realm}/client-templates",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/client-secret",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/client-secret",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/client-secret/rotated",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/client-secret/rotated",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/default-client-scopes/{clientScopeId}",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}/default-client-scopes/{clientScopeId}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/default-client-scopes",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/evaluate-scopes/generate-example-access-token",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/evaluate-scopes/generate-example-id-token",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/evaluate-scopes/generate-example-saml-response",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/evaluate-scopes/generate-example-userinfo",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/evaluate-scopes/protocol-mappers",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/evaluate-scopes/scope-mappings/{roleContainerId}/granted",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/evaluate-scopes/scope-mappings/{roleContainerId}/not-granted",
+        "GET /admin/realms/{realm}/clients/{client-uuid}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/installation/providers/{providerId}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/management/permissions",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}/management/permissions",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/nodes/{node}",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/nodes",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/offline-session-count",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/offline-sessions",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/optional-client-scopes/{clientScopeId}",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}/optional-client-scopes/{clientScopeId}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/optional-client-scopes",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/push-revocation",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/registration-access-token",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/service-account-user",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/session-count",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/test-nodes-available",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/user-sessions",
+        "GET /admin/realms/{realm}/clients",
+        "POST /admin/realms/{realm}/clients",
+        "GET /admin/realms/{realm}/components",
+        "DELETE /admin/realms/{realm}/components/{id}",
+        "GET /admin/realms/{realm}/components/{id}",
+        "PUT /admin/realms/{realm}/components/{id}",
+        "GET /admin/realms/{realm}/components/{id}/sub-component-types",
+        "POST /admin/realms/{realm}/components",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/import",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/permission/evaluate",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/permission",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/permission",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/permission/providers",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/permission/search",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/policy/evaluate",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/policy",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/policy",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/policy/providers",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/policy/search",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/resource",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/resource",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/resource/{resource-id}/attributes",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/resource/{resource-id}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/resource/{resource-id}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/resource/{resource-id}/permissions",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/resource/{resource-id}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/resource/{resource-id}/scopes",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/resource/search",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/scope",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/scope",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/scope/{scope-id}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/scope/{scope-id}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/scope/{scope-id}/permissions",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/scope/{scope-id}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/scope/{scope-id}/resources",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/scope/search",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/authz/resource-server/settings",
+        "GET /admin/realms/{realm}/groups/count",
+        "GET /admin/realms/{realm}/groups",
+        "GET /admin/realms/{realm}/groups/{group-id}/children",
+        "POST /admin/realms/{realm}/groups/{group-id}/children",
+        "DELETE /admin/realms/{realm}/groups/{group-id}",
+        "GET /admin/realms/{realm}/groups/{group-id}",
+        "GET /admin/realms/{realm}/groups/{group-id}/management/permissions",
+        "PUT /admin/realms/{realm}/groups/{group-id}/management/permissions",
+        "GET /admin/realms/{realm}/groups/{group-id}/members",
+        "PUT /admin/realms/{realm}/groups/{group-id}",
+        "POST /admin/realms/{realm}/groups",
+        "POST /admin/realms/{realm}/identity-provider/import-config",
+        "DELETE /admin/realms/{realm}/identity-provider/instances/{alias}",
+        "GET /admin/realms/{realm}/identity-provider/instances/{alias}/export",
+        "GET /admin/realms/{realm}/identity-provider/instances/{alias}",
+        "GET /admin/realms/{realm}/identity-provider/instances/{alias}/management/permissions",
+        "PUT /admin/realms/{realm}/identity-provider/instances/{alias}/management/permissions",
+        "GET /admin/realms/{realm}/identity-provider/instances/{alias}/mapper-types",
+        "GET /admin/realms/{realm}/identity-provider/instances/{alias}/mappers",
+        "DELETE /admin/realms/{realm}/identity-provider/instances/{alias}/mappers/{id}",
+        "GET /admin/realms/{realm}/identity-provider/instances/{alias}/mappers/{id}",
+        "PUT /admin/realms/{realm}/identity-provider/instances/{alias}/mappers/{id}",
+        "POST /admin/realms/{realm}/identity-provider/instances/{alias}/mappers",
+        "PUT /admin/realms/{realm}/identity-provider/instances/{alias}",
+        "GET /admin/realms/{realm}/identity-provider/instances/{alias}/reload-keys",
+        "GET /admin/realms/{realm}/identity-provider/instances",
+        "POST /admin/realms/{realm}/identity-provider/instances",
+        "GET /admin/realms/{realm}/identity-provider/providers/{provider_id}",
+        "GET /admin/realms/{realm}/keys",
+        "GET /admin/realms/{realm}/organizations/count",
+        "GET /admin/realms/{realm}/organizations",
+        "GET /admin/realms/{realm}/organizations/members/{member-id}/organizations",
+        "DELETE /admin/realms/{realm}/organizations/{org-id}",
+        "GET /admin/realms/{realm}/organizations/{org-id}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/group-by-path/{path}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/children",
+        "POST /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/children",
+        "DELETE /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/members",
+        "DELETE /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/members/{userId}",
+        "PUT /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/members/{userId}",
+        "PUT /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}",
+        "POST /admin/realms/{realm}/organizations/{org-id}/groups",
+        "DELETE /admin/realms/{realm}/organizations/{org-id}/identity-providers/{alias}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/identity-providers/{alias}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/identity-providers/{alias}/groups",
+        "PUT /admin/realms/{realm}/organizations/{org-id}/identity-providers/{alias}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/identity-providers",
+        "POST /admin/realms/{realm}/organizations/{org-id}/identity-providers",
+        "GET /admin/realms/{realm}/organizations/{org-id}/invitations",
+        "DELETE /admin/realms/{realm}/organizations/{org-id}/invitations/{id}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/invitations/{id}",
+        "POST /admin/realms/{realm}/organizations/{org-id}/invitations/{id}/resend",
+        "GET /admin/realms/{realm}/organizations/{org-id}/members/count",
+        "GET /admin/realms/{realm}/organizations/{org-id}/members",
+        "POST /admin/realms/{realm}/organizations/{org-id}/members/invite-existing-user",
+        "POST /admin/realms/{realm}/organizations/{org-id}/members/invite-user",
+        "DELETE /admin/realms/{realm}/organizations/{org-id}/members/{member-id}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/members/{member-id}",
+        "GET /admin/realms/{realm}/organizations/{org-id}/members/{member-id}/groups",
+        "PUT /admin/realms/{realm}/organizations/{org-id}/members/{member-id}/membership-type",
+        "GET /admin/realms/{realm}/organizations/{org-id}/members/{member-id}/organizations",
+        "POST /admin/realms/{realm}/organizations/{org-id}/members",
+        "PUT /admin/realms/{realm}/organizations/{org-id}",
+        "POST /admin/realms/{realm}/organizations",
+        "POST /admin/realms/{realm}/client-scopes/{client-scope-id}/protocol-mappers/add-models",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/protocol-mappers/models",
+        "DELETE /admin/realms/{realm}/client-scopes/{client-scope-id}/protocol-mappers/models/{id}",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/protocol-mappers/models/{id}",
+        "PUT /admin/realms/{realm}/client-scopes/{client-scope-id}/protocol-mappers/models/{id}",
+        "POST /admin/realms/{realm}/client-scopes/{client-scope-id}/protocol-mappers/models",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/protocol-mappers/protocol/{protocol}",
+        "POST /admin/realms/{realm}/client-templates/{client-scope-id}/protocol-mappers/add-models",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/protocol-mappers/models",
+        "DELETE /admin/realms/{realm}/client-templates/{client-scope-id}/protocol-mappers/models/{id}",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/protocol-mappers/models/{id}",
+        "PUT /admin/realms/{realm}/client-templates/{client-scope-id}/protocol-mappers/models/{id}",
+        "POST /admin/realms/{realm}/client-templates/{client-scope-id}/protocol-mappers/models",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/protocol-mappers/protocol/{protocol}",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/protocol-mappers/add-models",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/protocol-mappers/models",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/protocol-mappers/models/{id}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/protocol-mappers/models/{id}",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}/protocol-mappers/models/{id}",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/protocol-mappers/models",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/protocol-mappers/protocol/{protocol}",
+        "GET /admin/realms",
+        "POST /admin/realms",
+        "DELETE /admin/realms/{realm}/admin-events",
+        "GET /admin/realms/{realm}/admin-events",
+        "POST /admin/realms/{realm}/client-description-converter",
+        "GET /admin/realms/{realm}/client-policies/policies",
+        "PUT /admin/realms/{realm}/client-policies/policies",
+        "GET /admin/realms/{realm}/client-policies/profiles",
+        "PUT /admin/realms/{realm}/client-policies/profiles",
+        "GET /admin/realms/{realm}/client-session-stats",
+        "GET /admin/realms/{realm}/client-types",
+        "PUT /admin/realms/{realm}/client-types",
+        "GET /admin/realms/{realm}/credential-registrators",
+        "DELETE /admin/realms/{realm}/default-default-client-scopes/{clientScopeId}",
+        "PUT /admin/realms/{realm}/default-default-client-scopes/{clientScopeId}",
+        "GET /admin/realms/{realm}/default-default-client-scopes",
+        "GET /admin/realms/{realm}/default-groups",
+        "DELETE /admin/realms/{realm}/default-groups/{groupId}",
+        "PUT /admin/realms/{realm}/default-groups/{groupId}",
+        "DELETE /admin/realms/{realm}/default-optional-client-scopes/{clientScopeId}",
+        "PUT /admin/realms/{realm}/default-optional-client-scopes/{clientScopeId}",
+        "GET /admin/realms/{realm}/default-optional-client-scopes",
+        "DELETE /admin/realms/{realm}",
+        "GET /admin/realms/{realm}/events/config",
+        "PUT /admin/realms/{realm}/events/config",
+        "DELETE /admin/realms/{realm}/events",
+        "GET /admin/realms/{realm}/events",
+        "GET /admin/realms/{realm}",
+        "GET /admin/realms/{realm}/group-by-path/{path}",
+        "GET /admin/realms/{realm}/localization",
+        "DELETE /admin/realms/{realm}/localization/{locale}",
+        "GET /admin/realms/{realm}/localization/{locale}",
+        "DELETE /admin/realms/{realm}/localization/{locale}/{key}",
+        "GET /admin/realms/{realm}/localization/{locale}/{key}",
+        "PUT /admin/realms/{realm}/localization/{locale}/{key}",
+        "POST /admin/realms/{realm}/localization/{locale}",
+        "POST /admin/realms/{realm}/logout-all",
+        "POST /admin/realms/{realm}/partial-export",
+        "POST /admin/realms/{realm}/partialImport",
+        "POST /admin/realms/{realm}/push-revocation",
+        "PUT /admin/realms/{realm}",
+        "DELETE /admin/realms/{realm}/sessions/{session}",
+        "POST /admin/realms/{realm}/testSMTPConnection",
+        "GET /admin/realms/{realm}/users-management-permissions",
+        "PUT /admin/realms/{realm}/users-management-permissions",
+        "GET /admin/realms/{realm}/groups/{group-id}/role-mappings",
+        "GET /admin/realms/{realm}/groups/{group-id}/role-mappings/realm/available",
+        "GET /admin/realms/{realm}/groups/{group-id}/role-mappings/realm/composite",
+        "DELETE /admin/realms/{realm}/groups/{group-id}/role-mappings/realm",
+        "GET /admin/realms/{realm}/groups/{group-id}/role-mappings/realm",
+        "POST /admin/realms/{realm}/groups/{group-id}/role-mappings/realm",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/realm/available",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/realm/composite",
+        "DELETE /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/realm",
+        "GET /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/realm",
+        "POST /admin/realms/{realm}/organizations/{org-id}/groups/{group-id}/role-mappings/realm",
+        "GET /admin/realms/{realm}/users/{user-id}/role-mappings",
+        "GET /admin/realms/{realm}/users/{user-id}/role-mappings/realm/available",
+        "GET /admin/realms/{realm}/users/{user-id}/role-mappings/realm/composite",
+        "DELETE /admin/realms/{realm}/users/{user-id}/role-mappings/realm",
+        "GET /admin/realms/{realm}/users/{user-id}/role-mappings/realm",
+        "POST /admin/realms/{realm}/users/{user-id}/role-mappings/realm",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/roles",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/roles",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}/composites/clients/{targetClientUuid}",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}/composites",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}/composites",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}/composites",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}/composites/realm",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}/groups",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}/management/permissions",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}/management/permissions",
+        "PUT /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/roles/{role-name}/users",
+        "GET /admin/realms/{realm}/roles",
+        "POST /admin/realms/{realm}/roles",
+        "GET /admin/realms/{realm}/roles/{role-name}/composites/clients/{targetClientUuid}",
+        "DELETE /admin/realms/{realm}/roles/{role-name}/composites",
+        "GET /admin/realms/{realm}/roles/{role-name}/composites",
+        "POST /admin/realms/{realm}/roles/{role-name}/composites",
+        "GET /admin/realms/{realm}/roles/{role-name}/composites/realm",
+        "DELETE /admin/realms/{realm}/roles/{role-name}",
+        "GET /admin/realms/{realm}/roles/{role-name}",
+        "GET /admin/realms/{realm}/roles/{role-name}/groups",
+        "GET /admin/realms/{realm}/roles/{role-name}/management/permissions",
+        "PUT /admin/realms/{realm}/roles/{role-name}/management/permissions",
+        "PUT /admin/realms/{realm}/roles/{role-name}",
+        "GET /admin/realms/{realm}/roles/{role-name}/users",
+        "GET /admin/realms/{realm}/roles-by-id/{role-id}/composites/clients/{clientUuid}",
+        "DELETE /admin/realms/{realm}/roles-by-id/{role-id}/composites",
+        "GET /admin/realms/{realm}/roles-by-id/{role-id}/composites",
+        "POST /admin/realms/{realm}/roles-by-id/{role-id}/composites",
+        "GET /admin/realms/{realm}/roles-by-id/{role-id}/composites/realm",
+        "DELETE /admin/realms/{realm}/roles-by-id/{role-id}",
+        "GET /admin/realms/{realm}/roles-by-id/{role-id}",
+        "GET /admin/realms/{realm}/roles-by-id/{role-id}/management/permissions",
+        "PUT /admin/realms/{realm}/roles-by-id/{role-id}/management/permissions",
+        "PUT /admin/realms/{realm}/roles-by-id/{role-id}",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/clients/{client}/available",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/clients/{client}/composite",
+        "DELETE /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/clients/{client}",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/clients/{client}",
+        "POST /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/clients/{client}",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/realm/available",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/realm/composite",
+        "DELETE /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/realm",
+        "GET /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/realm",
+        "POST /admin/realms/{realm}/client-scopes/{client-scope-id}/scope-mappings/realm",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/clients/{client}/available",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/clients/{client}/composite",
+        "DELETE /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/clients/{client}",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/clients/{client}",
+        "POST /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/clients/{client}",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/realm/available",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/realm/composite",
+        "DELETE /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/realm",
+        "GET /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/realm",
+        "POST /admin/realms/{realm}/client-templates/{client-scope-id}/scope-mappings/realm",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/clients/{client}/available",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/clients/{client}/composite",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/clients/{client}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/clients/{client}",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/clients/{client}",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/scope-mappings",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/realm/available",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/realm/composite",
+        "DELETE /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/realm",
+        "GET /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/realm",
+        "POST /admin/realms/{realm}/clients/{client-uuid}/scope-mappings/realm",
+        "GET /admin/realms/{realm}/users/count",
+        "GET /admin/realms/{realm}/users",
+        "POST /admin/realms/{realm}/users",
+        "GET /admin/realms/{realm}/users/profile",
+        "GET /admin/realms/{realm}/users/profile/metadata",
+        "PUT /admin/realms/{realm}/users/profile",
+        "GET /admin/realms/{realm}/users/{user-id}/configured-user-storage-credential-types",
+        "DELETE /admin/realms/{realm}/users/{user-id}/consents/{client}",
+        "GET /admin/realms/{realm}/users/{user-id}/consents",
+        "DELETE /admin/realms/{realm}/users/{user-id}/credentials/{credentialId}",
+        "POST /admin/realms/{realm}/users/{user-id}/credentials/{credentialId}/moveAfter/{newPreviousCredentialId}",
+        "POST /admin/realms/{realm}/users/{user-id}/credentials/{credentialId}/moveToFirst",
+        "PUT /admin/realms/{realm}/users/{user-id}/credentials/{credentialId}/userLabel",
+        "GET /admin/realms/{realm}/users/{user-id}/credentials",
+        "DELETE /admin/realms/{realm}/users/{user-id}",
+        "PUT /admin/realms/{realm}/users/{user-id}/disable-credential-types",
+        "PUT /admin/realms/{realm}/users/{user-id}/execute-actions-email",
+        "GET /admin/realms/{realm}/users/{user-id}/federated-identity",
+        "DELETE /admin/realms/{realm}/users/{user-id}/federated-identity/{provider}",
+        "POST /admin/realms/{realm}/users/{user-id}/federated-identity/{provider}",
+        "GET /admin/realms/{realm}/users/{user-id}",
+        "GET /admin/realms/{realm}/users/{user-id}/groups/count",
+        "GET /admin/realms/{realm}/users/{user-id}/groups",
+        "DELETE /admin/realms/{realm}/users/{user-id}/groups/{groupId}",
+        "PUT /admin/realms/{realm}/users/{user-id}/groups/{groupId}",
+        "POST /admin/realms/{realm}/users/{user-id}/impersonation",
+        "POST /admin/realms/{realm}/users/{user-id}/logout",
+        "GET /admin/realms/{realm}/users/{user-id}/offline-sessions/{clientUuid}",
+        "PUT /admin/realms/{realm}/users/{user-id}",
+        "PUT /admin/realms/{realm}/users/{user-id}/reset-password-email",
+        "PUT /admin/realms/{realm}/users/{user-id}/reset-password",
+        "PUT /admin/realms/{realm}/users/{user-id}/send-verify-email",
+        "GET /admin/realms/{realm}/users/{user-id}/sessions",
+        "GET /admin/realms/{realm}/users/{user-id}/unmanagedAttributes",
+        "GET /admin/realms/{realm}/workflows",
+        "POST /admin/realms/{realm}/workflows/{id}/activate/{type}/{resourceId}",
+        "POST /admin/realms/{realm}/workflows/{id}/deactivate/{type}/{resourceId}",
+        "DELETE /admin/realms/{realm}/workflows/{id}",
+        "GET /admin/realms/{realm}/workflows/{id}",
+        "PUT /admin/realms/{realm}/workflows/{id}",
+        "POST /admin/realms/{realm}/workflows/migrate",
+        "POST /admin/realms/{realm}/workflows",
+        "GET /admin/realms/{realm}/workflows/scheduled/{resource-id}"
+      ]
+    },
+    {
+      "id": "books/api-documentation",
+      "path": "books/api-documentation.html",
+      "source_url": "https://www.keycloak.org/docs/26.8.2/api_documentation/",
+      "title": "API Documentation",
+      "aliases": [
+        "keycloak api documentation",
+        "Keycloak API Documentation",
+        "JavaDocs Documentation",
+        "Admin REST API Documentation"
+      ]
+    },
+    {
+      "id": "books/authorization-services",
+      "path": "books/authorization-services.html",
+      "source_url": "https://www.keycloak.org/docs/26.8.2/authorization_services/",
+      "title": "Authorization Services Guide",
+      "aliases": [
+        "keycloak authorization services guide",
+        "Authorization services overview",
+        "Architecture",
+        "Terminology",
+        "Getting Started",
+        "Managing resource servers",
+        "Creating a client application",
+        "Enabling authorization services",
+        "Export and import authorization configuration",
+        "Managing resources and scopes",
+        "Viewing resources",
+        "Creating resources",
+        "Managing policies",
+        "User-based policy",
+        "Role-based policy",
+        "JavaScript-based policy",
+        "Time-based policy",
+        "Aggregated policy",
+        "Client-based policy",
+        "Group-based policy",
+        "Client scope-based policy",
+        "Regex-Based Policy",
+        "Positive and negative logic",
+        "Policy evaluation API",
+        "Managing permissions",
+        "Creating resource-based permission",
+        "Creating scope-based permissions",
+        "Policy decision strategies",
+        "Evaluating and testing policies",
+        "Providing identity information",
+        "Providing contextual information",
+        "Providing the permissions",
+        "Authorization services",
+        "Discovering authorization services endpoints and metadata",
+        "Obtaining permissions",
+        "User-managed access",
+        "Protection API",
+        "Requesting party token",
+        "Policy enforcers",
+        "JavaScript integration for Policy Enforcer"
+      ]
+    },
+    {
+      "id": "books/release-notes",
+      "path": "books/release-notes.html",
+      "source_url": "https://www.keycloak.org/docs/26.8.2/release_notes/",
+      "title": "Release Notes",
+      "aliases": [
+        "keycloak release notes",
+        "Keycloak 26.8.0",
+        "Security and Standards",
+        "Administration",
+        "Configuring and Running",
+        "Organizations",
+        "Themes",
+        "Keycloak 26.7.0",
+        "Keycloak 26.6.0",
+        "Observability",
+        "Extension Development",
+        "Keycloak 26.5.0",
+        "Keycloak 26.4.6",
+        "Keycloak 26.4.0",
+        "Integration",
+        "Keycloak 26.3.0",
+        "Recovering your account if you lose your 2FA credentials",
+        "Performance improvements to import, export and migration",
+        "Simplified registration for WebAuthn and Passkeys",
+        "Simplified linking of the user account to an identity provider",
+        "Brokering with OAuth v2 compliant authorization servers",
+        "Trusted email verification when brokering OpenID Connect Providers",
+        "Asynchronous logging for higher throughput and lower latency",
+        "Rolling updates for patch releases for minimized downtime (preview)",
+        "Passkeys integrated in the default username forms",
+        "Keycloak 26.2.0",
+        "Supported Standard Token Exchange",
+        "Fine-grained admin permissions supported",
+        "Guides for metrics and Grafana dashboards",
+        "Zero-configuration secure cluster communication",
+        "Rolling updates for optimized and customized images",
+        "Metrics on user activities",
+        "Additional query parameters in Admin Events API",
+        "Logs support ECS format",
+        "New cache for CRLs loaded for the X.509 authenticator",
+        "Operator creates NetworkPolicies to restrict traffic",
+        "Option to reload trust and key material for the management interface",
+        "Dynamic Authentication Flow selection using Client Policies",
+        "JWT Client authentication aligned with the latest OIDC specification",
+        "Federated credentials are available now when fetching user credentials",
+        "Token based authentication for SMTP (XOAUTH2)",
+        "New client configuration for access token header type",
+        "OpenID for Verifiable Credential Issuance documentation",
+        "Keycloak 26.1.3",
+        "Send Reset Email force login again for federated users after reset credentials",
+        "Keycloak 26.1.1",
+        "New option in X.509 authenticator to abort authentication if CRL is outdated",
+        "New option in Send Reset Email to force a login after reset credentials",
+        "Keycloak 26.1.0",
+        "Transport stack jdbc-ping as new default",
+        "Virtual Threads enabled for Infinispan and JGroups thread pools",
+        "OpenTelemetry Tracing supported",
+        "Infinispan default XML configuration location",
+        "Individual options for category-specific log levels",
+        "OpenID for Verifiable Credential Issuance",
+        "Minimum ACR Value for the client",
+        "Support for prompt=create",
+        "Option to create certificates for generated EC keys",
+        "Authorization Code Binding to a DPoP Key",
+        "Maximum count and length for additional parameters sent to OIDC authentication request",
+        "Network Policy support added to the Keycloak Operator",
+        "LDAP users are created as enabled by default when using Microsoft Active Directory",
+        "New conditional authenticators Condition - sub-flow executed and Condition - client scope",
+        "Defining dependencies between provider factories",
+        "Dark mode enabled for the welcome theme",
+        "Metrics on password hashing",
+        "Sign out all active sessions in admin console now effectively removes all sessions",
+        "Dedicated release cycle for the Node.js adapter and JavaScript adapter",
+        "Updates in quickstarts",
+        "Updated format of KEYCLOAK_SESSION cookie and AUTH_SESSION_ID cookie",
+        "Removal of robots.txt file",
+        "Imported key providers check and passivate keys with an expired cetificate",
+        "Admin events might include now additional details about the context when the event is fired",
+        "OpenShift v3 identity brokering removed",
+        "Keycloak 26.0.0",
+        "Organizations supported",
+        "Client libraries updates",
+        "User sessions persisted by default",
+        "New default login theme",
+        "Highly available multi-site deployments",
+        "Admin Bootstrapping and Recovery",
+        "OpenTelemetry Tracing preview",
+        "DPoP improvements",
+        "Removal of GELF logging handler",
+        "Lightweight access tokens for Admin REST API",
+        "Keycloak JavaScript adapter now standalone",
+        "Hostname v1 feature removed",
+        "Automatic redirect from root to relative path",
+        "Persisting revoked access tokens across restarts",
+        "Client Attribute condition in Client Policies",
+        "Specify different log levels for log handlers",
+        "Proxy option removed",
+        "Option proxy-trusted-addresses added",
+        "Option proxy-protocol-enabled added",
+        "Option to reload trust and key material added",
+        "Options to configure cache max-count added",
+        "The https-trust-store-* options have been undeprecated",
+        "The java-keystore key provider supports more algorithms and vault secrets",
+        "Adding support for ECDH-ES encryption key management algorithms",
+        "Support for multiple instances of a social broker in a realm",
+        "New generalized event types for credentials",
+        "Customizable Footer in login Themes",
+        "Keycloak CR supports standard scheduling options",
+        "KeycloakRealmImport CR supports placeholder replacement",
+        "Configuring the LDAP Connection Pool",
+        "Infinispan marshalling changes to Infinispan Protostream",
+        "Removal of OSGi metadata",
+        "Group-related events no longer fired when removing a realm",
+        "Identity Providers no longer available from the realm representation",
+        "Securing Applications documentation converted into the guide format",
+        "Removal of legacy cookies",
+        "Property origin in the UserRepresentation is deprecated",
+        "Keycloak 25.0.0",
+        "Account Console v2 theme removed",
+        "Java 21 support",
+        "Java 17 support is deprecated",
+        "Most of Java adapters removed",
+        "Upgrade to PatternFly 5",
+        "Argon2 password hashing",
+        "New Hostname options",
+        "Persistent user sessions",
+        "Cookies updates",
+        "Deprecated cookie methods removed",
+        "Addressed 'You are already logged in' for expired authentication sessions",
+        "Lightweight access token to be even more lightweight",
+        "Support for application/jwt media-type in token introspection endpoint",
+        "Password policy for check if password contains Username",
+        "Required actions improvements",
+        "Passkeys improvements",
+        "Default client profile for SAML",
+        "Authenticator for override existing IDP link during first-broker-login",
+        "OpenID for Verifiable Credential Issuance - experimental support",
+        "Searching by user attribute no longer case insensitive",
+        "Breaking fix in authorization client library",
+        "IDs are no longer set when exporting authorization settings for a client",
+        "Management port for metrics and health endpoints"
+      ]
+    },
+    {
+      "id": "books/server-admin",
+      "path": "books/server-admin.html",
+      "source_url": "https://www.keycloak.org/docs/26.8.2/server_admin/",
+      "title": "Server Administration Guide",
+      "aliases": [
+        "keycloak server administration guide",
+        "Keycloak features and concepts",
+        "Features",
+        "Basic Keycloak operations",
+        "Core concepts and terms",
+        "Creating the first administrator",
+        "Creating the account on the local host",
+        "Creating the account remotely",
+        "Configuring realms",
+        "Using the Admin Console",
+        "The master realm",
+        "Creating a realm",
+        "Configuring SSL for a realm",
+        "Configuring email for a realm",
+        "Configuring themes",
+        "Enabling internationalization",
+        "Controlling login options",
+        "Configuring realm keys",
+        "Using external storage",
+        "Adding a provider",
+        "Dealing with provider failures",
+        "Lightweight Directory Access Protocol (LDAP) and Active Directory",
+        "SSSD and FreeIPA Identity Management integration",
+        "Custom providers",
+        "Managing users",
+        "Creating users",
+        "Managing user attributes",
+        "Defining user credentials",
+        "Allowing users to self-register",
+        "Defining actions required at login",
+        "Application initiated actions",
+        "Searching for a user",
+        "Deleting a user",
+        "Enabling account deletion by users",
+        "Impersonating a user",
+        "Enabling reCAPTCHA",
+        "Personal data collected by Keycloak",
+        "Managing user sessions",
+        "Administering sessions",
+        "Revoking active sessions",
+        "Session and token timeouts",
+        "Offline access",
+        "Transient sessions",
+        "Assigning permissions using roles and groups",
+        "Creating a realm role",
+        "Client roles",
+        "Converting a role to a composite role",
+        "Assigning role mappings",
+        "Using default roles",
+        "Role scope mappings",
+        "Groups",
+        "Configuring authentication",
+        "Password policies",
+        "One Time Password (OTP) policies",
+        "Authentication flows",
+        "User session limits",
+        "Script Authenticator",
+        "Kerberos",
+        "X.509 client certificate user authentication",
+        "W3C Web Authentication (WebAuthn)",
+        "Passkeys",
+        "Conditions in conditional flows",
+        "Authentication sessions",
+        "Integrating identity providers",
+        "Brokering overview",
+        "Default Identity Provider",
+        "General configuration",
+        "Social Identity Providers",
+        "OpenID Connect v1.0 identity providers",
+        "OAuth v2 identity providers",
+        "SAML v2.0 Identity Providers",
+        "SPIFFE identity providers",
+        "Kubernetes identity providers",
+        "Client-suggested Identity Provider",
+        "Mapping claims and assertions",
+        "Available user session data",
+        "First login flow",
+        "Post login flow",
+        "Retrieving external IDP tokens",
+        "Link existing user to the identity provider",
+        "Identity broker logout",
+        "SSO protocols",
+        "OpenID Connect",
+        "SAML",
+        "OpenID Connect compared to SAML",
+        "Distribution Registry v2 authentication",
+        "Managing access to realm resources",
+        "Master realm access control",
+        "Dedicated realm admin consoles",
+        "Delegating realm administration using permissions",
+        "Accessing the Admin REST API with your own clients",
+        "Fine grained admin permissions V1",
+        "Managing organizations",
+        "Enabling organizations in Keycloak",
+        "Managing an organization",
+        "Managing organization domains",
+        "Managing attributes",
+        "Managing members",
+        "Managing groups",
+        "Managing identity providers",
+        "Authenticating members",
+        "Common setup recipes",
+        "Mapping organization claims",
+        "Managing workflows",
+        "Understanding workflows",
+        "Understanding the workflow definition",
+        "Understanding the workflow expression language",
+        "Triggering workflows on events",
+        "Scheduling workflows",
+        "Defining conditions",
+        "Defining steps",
+        "Understanding the workflows engine",
+        "Handling failures",
+        "Listening to workflow provider events",
+        "Troubleshooting workflows",
+        "Security considerations",
+        "Understanding common use cases",
+        "Managing users and groups through SCIM",
+        "Enabling SCIM for a realm",
+        "Accessing the SCIM endpoints",
+        "Protection of administrative resources",
+        "Understanding the SCIM endpoints",
+        "Accessing the SCIM service provider configuration",
+        "Filtering resources",
+        "Mapping user attributes to SCIM schemas",
+        "Managing schema extensions",
+        "Managing OpenID Connect and SAML Clients",
+        "Managing OpenID Connect clients",
+        "Creating a SAML client",
+        "Client links",
+        "OIDC token and SAML assertion mappings",
+        "Generating client adapter config",
+        "Client scopes",
+        "Client Policies",
+        "Configuring Keycloak as a Verifiable Credential Issuer",
+        "What are Verifiable Credentials?",
+        "The Issuer-Holder-Verifier Model",
+        "Why Use OpenID4VCI",
+        "Real-World Applications",
+        "How Credential Issuance Works: Two Core Flows",
+        "What This Chapter Covers",
+        "Prerequisites",
+        "Configuring Credential Issuance in Keycloak",
+        "Authentication",
+        "Configuration Steps",
+        "Configuring OpenID4VCI at the Realm Level",
+        "Creating a User Account",
+        "Create Client Scopes with Mappers"
+      ]
+    },
+    {
+      "id": "books/server-development",
+      "path": "books/server-development.html",
+      "source_url": "https://www.keycloak.org/docs/26.8.2/server_development/",
+      "title": "Server Developer Guide",
+      "aliases": [
+        "keycloak server developer guide",
+        "Preface",
+        "Container Images",
+        "Example Listings",
+        "Admin REST API",
+        "Examples of using CURL",
+        "Additional resources",
+        "Identity Brokering APIs",
+        "Retrieving external IDP tokens",
+        "Client initiated account linking",
+        "Service Provider Interfaces (SPI)",
+        "Implementing an SPI",
+        "Use available providers",
+        "Registering provider implementations",
+        "JavaScript providers",
+        "Available SPIs",
+        "Extending the server",
+        "Add custom REST endpoints",
+        "Add your own custom SPI",
+        "Add custom JPA entities to the Keycloak data model",
+        "Authentication SPI",
+        "Terms",
+        "Algorithm overview",
+        "Authenticator SPI walk through",
+        "Required action walkthrough",
+        "Modifying or extending the registration form",
+        "Modifying forgot password/credential flow",
+        "Modifying first broker login flow",
+        "Authentication of clients",
+        "Password Policy SPI",
+        "Implementing a password policy provider",
+        "Policies with multiple configuration parameters",
+        "Returning localized error messages",
+        "Providing help text for the Admin Console",
+        "Registering the provider",
+        "Action Token Handler SPI",
+        "Anatomy of action token",
+        "Action token processing",
+        "Implement your own action token and its handler",
+        "Event Listener SPI",
+        "SAML role mappings SPI",
+        "Implementing a custom role mappings provider",
+        "User Storage SPI",
+        "Accessing the new entity manager",
+        "Provider interfaces",
+        "Provider capability interfaces",
+        "Model interfaces",
+        "Packaging and deployment",
+        "Simple read-only, lookup example",
+        "Configuration techniques",
+        "Add/Remove user and query capability interfaces",
+        "Augmenting external storage",
+        "Import implementation strategy",
+        "User caches",
+        "Leveraging Jakarta EE",
+        "REST management API",
+        "Migrating from an earlier user federation SPI",
+        "Stream-based interfaces",
+        "Vault SPI",
+        "Vault provider",
+        "Consuming values from vault"
+      ]
+    },
+    {
+      "id": "books/upgrading",
+      "path": "books/upgrading.html",
+      "source_url": "https://www.keycloak.org/docs/26.8.2/upgrading/",
+      "title": "Upgrading Guide",
+      "aliases": [
+        "keycloak upgrading guide",
+        "Upgrading Keycloak",
+        "Migration Changes",
+        "Migrating to 26.8.2",
+        "Migrating to 26.8.1",
+        "Migrating to 26.8.0",
+        "Migrating to 26.7.5",
+        "Migrating to 26.7.4",
+        "Migrating to 26.7.3",
+        "Migrating to 26.7.2",
+        "Migrating to 26.7.1",
+        "Migrating to 26.7.0",
+        "Migrating to 26.6.5",
+        "Migrating to 26.6.4",
+        "Migrating to 26.6.3",
+        "Migrating to 26.6.2",
+        "Migrating to 26.6.1",
+        "Migrating to 26.6.0",
+        "Migrating to 26.5.7",
+        "Migrating to 26.5.5",
+        "Migrating to 26.5.4",
+        "Migrating to 26.5.2",
+        "Migrating to 26.5.1",
+        "Migrating to 26.5.0",
+        "Migrating to 26.4.6",
+        "Migrating to 26.4.3",
+        "Migrating to 26.4.2",
+        "Migrating to 26.4.1",
+        "Migrating to 26.4.0",
+        "Migrating to 26.3.0",
+        "Migrating to 26.2.0",
+        "Migrating to 26.1.3",
+        "Migrating to 26.1.0",
+        "Migrating to 26.0.6",
+        "Migrating to 26.0.0",
+        "Migrating to 25.0.3",
+        "Migrating to 25.0.2",
+        "Migrating to 25.0.0",
+        "Migrating to 24.0.4",
+        "Migrating to 24.0.3",
+        "Migrating to 24.0.2",
+        "Migrating to 24.0.0",
+        "Migrating to 23.0.5",
+        "Migrating to 23.0.4",
+        "Migrating to 23.0.2",
+        "Migrating to 23.0.0",
+        "Migrating to 22.0.4",
+        "Migrating to 22.0.2",
+        "Migrating to 22.0.0",
+        "Migrating to 21.1.0",
+        "Migrating to 21.0.2",
+        "Migrating to 21.0.0",
+        "Migrating to 20.0.0",
+        "Migrating to 19.0.2",
+        "Migrating to 19.0.0",
+        "Migrating to 18.0.0",
+        "Migrating to 17.0.0",
+        "Migrating to 16.0.0",
+        "Migrating to 14.0.0",
+        "Migrating to 13.0.0",
+        "Migrating to 12.0.2",
+        "Migrating to 12.0.0",
+        "Migrating to 11.0.0",
+        "Migrating to 9.0.1",
+        "Migrating to 9.0.0",
+        "Migrating to 8.0.2",
+        "Migrating to 8.0.0",
+        "Migrating to 7.0.0",
+        "Migrating to 6.0.0",
+        "Migrating to 5.0.0",
+        "Migrating to 4.8.2",
+        "Migrating to 4.6.0",
+        "Migrating to 4.4.0",
+        "Migration to 4.3.0",
+        "Migrating to 4.0.0",
+        "Migrating to 3.4.2",
+        "Migrating to 3.2.0",
+        "Migrating to 2.5.1",
+        "Migrating to 2.5.0",
+        "Migrating to 2.4.0",
+        "Migrating to 2.3.0",
+        "Migrating to 2.2.0",
+        "Migrating to 2.0.0",
+        "Migrating to 1.9.5",
+        "Migrating to 1.9.3",
+        "Migrating to 1.9.2",
+        "Migrating to 1.9.0",
+        "Migrating to 1.8.0",
+        "Migrating to 1.7.0.CR1",
+        "Migrating to 1.6.0.Final",
+        "Migrating to 1.5.0.Final",
+        "Migrating to 1.3.0.Final",
+        "Migrating from 1.2.0.Beta1 to 1.2.0.RC1",
+        "Migrating from 1.1.0.Final to 1.2.0.Beta1",
+        "Migrating from 1.1.0.Beta1 to 1.1.0.Beta2",
+        "Migrating from 1.0.x.Final to 1.1.0.Beta1",
+        "Migrating from 1.0 RC-1 to RC-2",
+        "Migrating from 1.0 Beta 4 to RC-1",
+        "Migrating from 1.0 Beta 1 to Beta 4",
+        "Migrating from 1.0 Alpha 4 to Beta 1",
+        "Migrating from 1.0 Alpha 2 to Alpha 3",
+        "Migrating from 1.0 Alpha 1 to Alpha 2",
+        "Upgrading the Keycloak server",
+        "Preparing for an upgrade",
+        "Downloading the Keycloak server",
+        "Migrating the database",
+        "Migrating themes",
+        "Upgrading Keycloak adapters",
+        "Compatibility with older adapters",
+        "Upgrading the EAP adapter",
+        "Upgrading the JavaScript adapter",
+        "Upgrading the Node.js adapter"
+      ]
+    },
+    {
+      "id": "getting-started/getting-started-docker",
+      "path": "getting-started/getting-started-docker.html",
+      "source_url": "https://www.keycloak.org/getting-started/getting-started-docker",
+      "title": "Docker",
+      "aliases": [
+        "keycloak docker"
+      ]
+    },
+    {
+      "id": "getting-started/getting-started-kube",
+      "path": "getting-started/getting-started-kube.html",
+      "source_url": "https://www.keycloak.org/getting-started/getting-started-kube",
+      "title": "Kubernetes",
+      "aliases": [
+        "keycloak kubernetes"
+      ]
+    },
+    {
+      "id": "getting-started/getting-started-openshift",
+      "path": "getting-started/getting-started-openshift.html",
+      "source_url": "https://www.keycloak.org/getting-started/getting-started-openshift",
+      "title": "OpenShift",
+      "aliases": [
+        "keycloak openshift"
+      ]
+    },
+    {
+      "id": "getting-started/getting-started-podman",
+      "path": "getting-started/getting-started-podman.html",
+      "source_url": "https://www.keycloak.org/getting-started/getting-started-podman",
+      "title": "Podman",
+      "aliases": [
+        "keycloak podman"
+      ]
+    },
+    {
+      "id": "getting-started/getting-started-scaling-and-tuning",
+      "path": "getting-started/getting-started-scaling-and-tuning.html",
+      "source_url": "https://www.keycloak.org/getting-started/getting-started-scaling-and-tuning",
+      "title": "Scaling",
+      "aliases": [
+        "keycloak scaling"
+      ]
+    },
+    {
+      "id": "getting-started/getting-started-zip",
+      "path": "getting-started/getting-started-zip.html",
+      "source_url": "https://www.keycloak.org/getting-started/getting-started-zip",
+      "title": "OpenJDK",
+      "aliases": [
+        "keycloak openjdk"
+      ]
+    },
+    {
+      "id": "high-availability/introduction",
+      "path": "high-availability/introduction.html",
+      "source_url": "https://www.keycloak.org/high-availability/introduction",
+      "title": "High availability overview",
+      "aliases": [
+        "keycloak high availability overview"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster-v2/concepts",
+      "path": "high-availability/multi-cluster-v2/concepts.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster-v2/concepts",
+      "title": "Concepts for multi-cluster deployments (v2)",
+      "aliases": [
+        "keycloak concepts for multi-cluster deployments (v2)"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster-v2/deploy-keycloak-bare-metal",
+      "path": "high-availability/multi-cluster-v2/deploy-keycloak-bare-metal.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster-v2/deploy-keycloak-bare-metal",
+      "title": "Deploying Keycloak for HA on bare-metal or virtual machines (v2)",
+      "aliases": [
+        "keycloak deploying keycloak for ha on bare-metal or virtual machines (v2)"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster-v2/deploy-keycloak-kubernetes",
+      "path": "high-availability/multi-cluster-v2/deploy-keycloak-kubernetes.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster-v2/deploy-keycloak-kubernetes",
+      "title": "Deploying Keycloak for HA with the Operator (v2)",
+      "aliases": [
+        "keycloak deploying keycloak for ha with the operator (v2)"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster-v2/introduction",
+      "path": "high-availability/multi-cluster-v2/introduction.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster-v2/introduction",
+      "title": "Multi-cluster deployments (v2)",
+      "aliases": [
+        "keycloak multi-cluster deployments (v2)"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster-v2/migrate-from-v1-to-v2",
+      "path": "high-availability/multi-cluster-v2/migrate-from-v1-to-v2.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster-v2/migrate-from-v1-to-v2",
+      "title": "Migrating from multi-cluster v1 to v2",
+      "aliases": [
+        "keycloak migrating from multi-cluster v1 to v2"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster-v2/upgrades",
+      "path": "high-availability/multi-cluster-v2/upgrades.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster-v2/upgrades",
+      "title": "Managing upgrades (v2)",
+      "aliases": [
+        "keycloak managing upgrades (v2)"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/building-blocks",
+      "path": "high-availability/multi-cluster/building-blocks.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/building-blocks",
+      "title": "Building blocks multi-cluster deployments",
+      "aliases": [
+        "keycloak building blocks multi-cluster deployments"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/concepts",
+      "path": "high-availability/multi-cluster/concepts.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/concepts",
+      "title": "Concepts for multi-cluster (v1) deployments",
+      "aliases": [
+        "keycloak concepts for multi-cluster (v1) deployments"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/concepts-database-connections",
+      "path": "high-availability/multi-cluster/concepts-database-connections.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/concepts-database-connections",
+      "title": "Concepts for database connection pools",
+      "aliases": [
+        "keycloak concepts for database connection pools"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/concepts-infinispan-cli-batch",
+      "path": "high-availability/multi-cluster/concepts-infinispan-cli-batch.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/concepts-infinispan-cli-batch",
+      "title": "Concepts to automate Infinispan CLI commands",
+      "aliases": [
+        "keycloak concepts to automate infinispan cli commands"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/concepts-memory-and-cpu-sizing",
+      "path": "high-availability/multi-cluster/concepts-memory-and-cpu-sizing.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/concepts-memory-and-cpu-sizing",
+      "title": "Concepts for sizing CPU and memory resources",
+      "aliases": [
+        "keycloak concepts for sizing cpu and memory resources"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/concepts-threads",
+      "path": "high-availability/multi-cluster/concepts-threads.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/concepts-threads",
+      "title": "Concepts for configuring thread pools",
+      "aliases": [
+        "keycloak concepts for configuring thread pools"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/deploy-aurora",
+      "path": "high-availability/multi-cluster/deploy-aurora.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/deploy-aurora",
+      "title": "Deploying AWS Aurora in multiple availability zones",
+      "aliases": [
+        "keycloak deploying aws aurora in multiple availability zones"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/deploy-aws-accelerator-fencing-lambda",
+      "path": "high-availability/multi-cluster/deploy-aws-accelerator-fencing-lambda.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/deploy-aws-accelerator-fencing-lambda",
+      "title": "Deploying an AWS Lambda to disable a non-responding site",
+      "aliases": [
+        "keycloak deploying an aws lambda to disable a non-responding site"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/deploy-aws-accelerator-loadbalancer",
+      "path": "high-availability/multi-cluster/deploy-aws-accelerator-loadbalancer.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/deploy-aws-accelerator-loadbalancer",
+      "title": "Deploying an AWS Global Accelerator load balancer",
+      "aliases": [
+        "keycloak deploying an aws global accelerator load balancer"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/deploy-infinispan-kubernetes-crossdc",
+      "path": "high-availability/multi-cluster/deploy-infinispan-kubernetes-crossdc.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/deploy-infinispan-kubernetes-crossdc",
+      "title": "Deploying Infinispan for HA with the Infinispan Operator",
+      "aliases": [
+        "keycloak deploying infinispan for ha with the infinispan operator"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/deploy-keycloak-kubernetes",
+      "path": "high-availability/multi-cluster/deploy-keycloak-kubernetes.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/deploy-keycloak-kubernetes",
+      "title": "Deploying Keycloak for HA with the Operator",
+      "aliases": [
+        "keycloak deploying keycloak for ha with the operator"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/health-checks",
+      "path": "high-availability/multi-cluster/health-checks.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/health-checks",
+      "title": "Health checks for multi-cluster deployments",
+      "aliases": [
+        "keycloak health checks for multi-cluster deployments"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/introduction",
+      "path": "high-availability/multi-cluster/introduction.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/introduction",
+      "title": "Multi-cluster deployments (v1)",
+      "aliases": [
+        "keycloak multi-cluster deployments (v1)"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/operate-site-offline",
+      "path": "high-availability/multi-cluster/operate-site-offline.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/operate-site-offline",
+      "title": "Taking a site offline",
+      "aliases": [
+        "keycloak taking a site offline"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/operate-site-online",
+      "path": "high-availability/multi-cluster/operate-site-online.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/operate-site-online",
+      "title": "Bringing a site online",
+      "aliases": [
+        "keycloak bringing a site online"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/operate-synchronize",
+      "path": "high-availability/multi-cluster/operate-synchronize.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/operate-synchronize",
+      "title": "Synchronizing sites",
+      "aliases": [
+        "keycloak synchronizing sites"
+      ]
+    },
+    {
+      "id": "high-availability/multi-cluster/upgrades",
+      "path": "high-availability/multi-cluster/upgrades.html",
+      "source_url": "https://www.keycloak.org/high-availability/multi-cluster/upgrades",
+      "title": "Managing upgrades",
+      "aliases": [
+        "keycloak managing upgrades"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/building-blocks",
+      "path": "high-availability/single-cluster/building-blocks.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/building-blocks",
+      "title": "Building blocks single-cluster deployments",
+      "aliases": [
+        "keycloak building blocks single-cluster deployments"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/concepts",
+      "path": "high-availability/single-cluster/concepts.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/concepts",
+      "title": "Concepts for single-cluster deployments",
+      "aliases": [
+        "keycloak concepts for single-cluster deployments"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/concepts-database-connections",
+      "path": "high-availability/single-cluster/concepts-database-connections.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/concepts-database-connections",
+      "title": "Concepts for database connection pools",
+      "aliases": [
+        "keycloak concepts for database connection pools"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/concepts-memory-and-cpu-sizing",
+      "path": "high-availability/single-cluster/concepts-memory-and-cpu-sizing.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/concepts-memory-and-cpu-sizing",
+      "title": "Concepts for sizing CPU and memory resources",
+      "aliases": [
+        "keycloak concepts for sizing cpu and memory resources"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/concepts-threads",
+      "path": "high-availability/single-cluster/concepts-threads.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/concepts-threads",
+      "title": "Concepts for configuring thread pools",
+      "aliases": [
+        "keycloak concepts for configuring thread pools"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/deploy-aurora",
+      "path": "high-availability/single-cluster/deploy-aurora.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/deploy-aurora",
+      "title": "Deploying AWS Aurora in multiple availability zones",
+      "aliases": [
+        "keycloak deploying aws aurora in multiple availability zones"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/deploy-cnpg",
+      "path": "high-availability/single-cluster/deploy-cnpg.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/deploy-cnpg",
+      "title": "Deploying CloudNativePG in multiple availability zones",
+      "aliases": [
+        "keycloak deploying cloudnativepg in multiple availability zones"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/deploy-cnpg-recovery",
+      "path": "high-availability/single-cluster/deploy-cnpg-recovery.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/deploy-cnpg-recovery",
+      "title": "Recovering a CloudNativePG cluster from an S3 backup",
+      "aliases": [
+        "keycloak recovering a cloudnativepg cluster from an s3 backup"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/deploy-cnpg-with-backup",
+      "path": "high-availability/single-cluster/deploy-cnpg-with-backup.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/deploy-cnpg-with-backup",
+      "title": "Deploying CloudNativePG with scheduled backups to S3",
+      "aliases": [
+        "keycloak deploying cloudnativepg with scheduled backups to s3"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/deploy-keycloak",
+      "path": "high-availability/single-cluster/deploy-keycloak.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/deploy-keycloak",
+      "title": "Deploying Keycloak across multiple availability-zones with the Operator",
+      "aliases": [
+        "keycloak deploying keycloak across multiple availability-zones with the operator"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/introduction",
+      "path": "high-availability/single-cluster/introduction.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/introduction",
+      "title": "Single-cluster deployments",
+      "aliases": [
+        "keycloak single-cluster deployments"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/monitoring-cnpg",
+      "path": "high-availability/single-cluster/monitoring-cnpg.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/monitoring-cnpg",
+      "title": "Monitoring CloudNativePG",
+      "aliases": [
+        "keycloak monitoring cloudnativepg"
+      ]
+    },
+    {
+      "id": "high-availability/single-cluster/operate-cnpg-switchover",
+      "path": "high-availability/single-cluster/operate-cnpg-switchover.html",
+      "source_url": "https://www.keycloak.org/high-availability/single-cluster/operate-cnpg-switchover",
+      "title": "CloudNativePG Switchover Procedure",
+      "aliases": [
+        "keycloak cloudnativepg switchover procedure"
+      ]
+    },
+    {
+      "id": "migration/migrating-to-quarkus",
+      "path": "migration/migrating-to-quarkus.html",
+      "source_url": "https://www.keycloak.org/migration/migrating-to-quarkus",
+      "title": "Migrating to Quarkus distribution",
+      "aliases": [
+        "keycloak migrating to quarkus distribution"
+      ]
+    },
+    {
+      "id": "observability/configuration-metrics",
+      "path": "observability/configuration-metrics.html",
+      "source_url": "https://www.keycloak.org/observability/configuration-metrics",
+      "title": "Gaining insights with metrics",
+      "aliases": [
+        "keycloak gaining insights with metrics"
+      ]
+    },
+    {
+      "id": "observability/event-metrics",
+      "path": "observability/event-metrics.html",
+      "source_url": "https://www.keycloak.org/observability/event-metrics",
+      "title": "Monitoring user activities with event metrics",
+      "aliases": [
+        "keycloak monitoring user activities with event metrics"
+      ]
+    },
+    {
+      "id": "observability/exemplars",
+      "path": "observability/exemplars.html",
+      "source_url": "https://www.keycloak.org/observability/exemplars",
+      "title": "Analyzing outliers and errors with exemplars",
+      "aliases": [
+        "keycloak analyzing outliers and errors with exemplars"
+      ]
+    },
+    {
+      "id": "observability/grafana-dashboards",
+      "path": "observability/grafana-dashboards.html",
+      "source_url": "https://www.keycloak.org/observability/grafana-dashboards",
+      "title": "Visualizing activities in dashboards",
+      "aliases": [
+        "keycloak visualizing activities in dashboards"
+      ]
+    },
+    {
+      "id": "observability/health",
+      "path": "observability/health.html",
+      "source_url": "https://www.keycloak.org/observability/health",
+      "title": "Tracking instance status with health checks",
+      "aliases": [
+        "keycloak tracking instance status with health checks"
+      ]
+    },
+    {
+      "id": "observability/jfr",
+      "path": "observability/jfr.html",
+      "source_url": "https://www.keycloak.org/observability/jfr",
+      "title": "Troubleshooting performance issues using Java Flight Recorder (JFR)",
+      "aliases": [
+        "keycloak troubleshooting performance issues using java flight recorder (jfr)"
+      ]
+    },
+    {
+      "id": "observability/keycloak-service-level-indicators",
+      "path": "observability/keycloak-service-level-indicators.html",
+      "source_url": "https://www.keycloak.org/observability/keycloak-service-level-indicators",
+      "title": "Monitoring performance with Service Level Indicators",
+      "aliases": [
+        "keycloak monitoring performance with service level indicators"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting",
+      "path": "observability/metrics-for-troubleshooting.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting",
+      "title": "Troubleshooting using metrics",
+      "aliases": [
+        "keycloak troubleshooting using metrics"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting-cache",
+      "path": "observability/metrics-for-troubleshooting-cache.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting-cache",
+      "title": "Local caching metrics",
+      "aliases": [
+        "keycloak local caching metrics"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting-clustering-and-network",
+      "path": "observability/metrics-for-troubleshooting-clustering-and-network.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting-clustering-and-network",
+      "title": "Clustering metrics",
+      "aliases": [
+        "keycloak clustering metrics"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting-database",
+      "path": "observability/metrics-for-troubleshooting-database.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting-database",
+      "title": "Database Metrics",
+      "aliases": [
+        "keycloak database metrics"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting-embedded-caches",
+      "path": "observability/metrics-for-troubleshooting-embedded-caches.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting-embedded-caches",
+      "title": "Embedded Infinispan metrics for single-cluster deployments",
+      "aliases": [
+        "keycloak embedded infinispan metrics for single-cluster deployments"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting-embedded-caches-multi-cluster",
+      "path": "observability/metrics-for-troubleshooting-embedded-caches-multi-cluster.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting-embedded-caches-multi-cluster",
+      "title": "Embedded Infinispan metrics for multi-cluster deployments",
+      "aliases": [
+        "keycloak embedded infinispan metrics for multi-cluster deployments"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting-external-infinispan-multi-cluster",
+      "path": "observability/metrics-for-troubleshooting-external-infinispan-multi-cluster.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting-external-infinispan-multi-cluster",
+      "title": "External Infinispan metrics",
+      "aliases": [
+        "keycloak external infinispan metrics"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting-http",
+      "path": "observability/metrics-for-troubleshooting-http.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting-http",
+      "title": "HTTP metrics",
+      "aliases": [
+        "keycloak http metrics"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting-jvm",
+      "path": "observability/metrics-for-troubleshooting-jvm.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting-jvm",
+      "title": "JVM metrics",
+      "aliases": [
+        "keycloak jvm metrics"
+      ]
+    },
+    {
+      "id": "observability/metrics-for-troubleshooting-keycloak",
+      "path": "observability/metrics-for-troubleshooting-keycloak.html",
+      "source_url": "https://www.keycloak.org/observability/metrics-for-troubleshooting-keycloak",
+      "title": "Self-provided metrics",
+      "aliases": [
+        "keycloak self-provided metrics"
+      ]
+    },
+    {
+      "id": "observability/telemetry",
+      "path": "observability/telemetry.html",
+      "source_url": "https://www.keycloak.org/observability/telemetry",
+      "title": "Centralize your observability stack with OpenTelemetry",
+      "aliases": [
+        "keycloak centralize your observability stack with opentelemetry"
+      ]
+    },
+    {
+      "id": "observability/thread-dumps",
+      "path": "observability/thread-dumps.html",
+      "source_url": "https://www.keycloak.org/observability/thread-dumps",
+      "title": "Troubleshooting performance issues using JVM thread dumps",
+      "aliases": [
+        "keycloak troubleshooting performance issues using jvm thread dumps"
+      ]
+    },
+    {
+      "id": "observability/tracing",
+      "path": "observability/tracing.html",
+      "source_url": "https://www.keycloak.org/observability/tracing",
+      "title": "Root cause analysis with tracing",
+      "aliases": [
+        "keycloak root cause analysis with tracing"
+      ]
+    },
+    {
+      "id": "operator/advanced-configuration",
+      "path": "operator/advanced-configuration.html",
+      "source_url": "https://www.keycloak.org/operator/advanced-configuration",
+      "title": "Advanced configuration",
+      "aliases": [
+        "keycloak advanced configuration"
+      ]
+    },
+    {
+      "id": "operator/basic-deployment",
+      "path": "operator/basic-deployment.html",
+      "source_url": "https://www.keycloak.org/operator/basic-deployment",
+      "title": "Basic Keycloak deployment",
+      "aliases": [
+        "keycloak basic keycloak deployment"
+      ]
+    },
+    {
+      "id": "operator/customizing-keycloak",
+      "path": "operator/customizing-keycloak.html",
+      "source_url": "https://www.keycloak.org/operator/customizing-keycloak",
+      "title": "Using custom Keycloak images",
+      "aliases": [
+        "keycloak using custom keycloak images"
+      ]
+    },
+    {
+      "id": "operator/installation",
+      "path": "operator/installation.html",
+      "source_url": "https://www.keycloak.org/operator/installation",
+      "title": "Keycloak Operator Installation",
+      "aliases": [
+        "keycloak keycloak operator installation"
+      ]
+    },
+    {
+      "id": "operator/managing-clients",
+      "path": "operator/managing-clients.html",
+      "source_url": "https://www.keycloak.org/operator/managing-clients",
+      "title": "Managing Keycloak Clients",
+      "aliases": [
+        "keycloak managing keycloak clients"
+      ]
+    },
+    {
+      "id": "operator/realm-import",
+      "path": "operator/realm-import.html",
+      "source_url": "https://www.keycloak.org/operator/realm-import",
+      "title": "Automating a realm import",
+      "aliases": [
+        "keycloak automating a realm import"
+      ]
+    },
+    {
+      "id": "operator/rolling-updates",
+      "path": "operator/rolling-updates.html",
+      "source_url": "https://www.keycloak.org/operator/rolling-updates",
+      "title": "Avoiding downtime with rolling updates",
+      "aliases": [
+        "keycloak avoiding downtime with rolling updates"
+      ]
+    },
+    {
+      "id": "securing-apps/authzen-authorization",
+      "path": "securing-apps/authzen-authorization.html",
+      "source_url": "https://www.keycloak.org/securing-apps/authzen-authorization",
+      "title": "AuthZEN Authorization",
+      "aliases": [
+        "keycloak authzen authorization"
+      ]
+    },
+    {
+      "id": "securing-apps/client-registration",
+      "path": "securing-apps/client-registration.html",
+      "source_url": "https://www.keycloak.org/securing-apps/client-registration",
+      "title": "Using the client registration service",
+      "aliases": [
+        "keycloak using the client registration service"
+      ]
+    },
+    {
+      "id": "securing-apps/client-registration-cli",
+      "path": "securing-apps/client-registration-cli.html",
+      "source_url": "https://www.keycloak.org/securing-apps/client-registration-cli",
+      "title": "Automating client registration with the CLI",
+      "aliases": [
+        "keycloak automating client registration with the cli"
+      ]
+    },
+    {
+      "id": "securing-apps/distribution-registry",
+      "path": "securing-apps/distribution-registry.html",
+      "source_url": "https://www.keycloak.org/securing-apps/distribution-registry",
+      "title": "Configuring a Distribution Registry",
+      "aliases": [
+        "keycloak configuring a distribution registry"
+      ]
+    },
+    {
+      "id": "securing-apps/dpop",
+      "path": "securing-apps/dpop.html",
+      "source_url": "https://www.keycloak.org/securing-apps/dpop",
+      "title": "Securing applications with Demonstrating Proof-of-Possession (DPoP)",
+      "aliases": [
+        "keycloak securing applications with demonstrating proof-of-possession (dpop)"
+      ]
+    },
+    {
+      "id": "securing-apps/identity-assertion-jwt-authorization-grant",
+      "path": "securing-apps/identity-assertion-jwt-authorization-grant.html",
+      "source_url": "https://www.keycloak.org/securing-apps/identity-assertion-jwt-authorization-grant",
+      "title": "Identity Assertion JWT Authorization Grant",
+      "aliases": [
+        "keycloak identity assertion jwt authorization grant"
+      ]
+    },
+    {
+      "id": "securing-apps/jwt-authorization-grant",
+      "path": "securing-apps/jwt-authorization-grant.html",
+      "source_url": "https://www.keycloak.org/securing-apps/jwt-authorization-grant",
+      "title": "JWT Authorization Grant",
+      "aliases": [
+        "keycloak jwt authorization grant"
+      ]
+    },
+    {
+      "id": "securing-apps/mcp-authz-server",
+      "path": "securing-apps/mcp-authz-server.html",
+      "source_url": "https://www.keycloak.org/securing-apps/mcp-authz-server",
+      "title": "Integrating with Model Context Protocol (MCP)",
+      "aliases": [
+        "keycloak integrating with model context protocol (mcp)"
+      ]
+    },
+    {
+      "id": "securing-apps/mod-auth-mellon",
+      "path": "securing-apps/mod-auth-mellon.html",
+      "source_url": "https://www.keycloak.org/securing-apps/mod-auth-mellon",
+      "title": "Configuring the mod_auth_mellon Apache Module",
+      "aliases": [
+        "keycloak configuring the mod_auth_mellon apache module"
+      ]
+    },
+    {
+      "id": "securing-apps/mod-auth-openidc",
+      "path": "securing-apps/mod-auth-openidc.html",
+      "source_url": "https://www.keycloak.org/securing-apps/mod-auth-openidc",
+      "title": "Configuring the mod_auth_openidc Apache HTTPD Module",
+      "aliases": [
+        "keycloak configuring the mod_auth_openidc apache httpd module"
+      ]
+    },
+    {
+      "id": "securing-apps/oauth-identity-authorization-chaining-across-domains",
+      "path": "securing-apps/oauth-identity-authorization-chaining-across-domains.html",
+      "source_url": "https://www.keycloak.org/securing-apps/oauth-identity-authorization-chaining-across-domains",
+      "title": "OAuth Identity and Authorization Chaining Across Domains",
+      "aliases": [
+        "keycloak oauth identity and authorization chaining across domains"
+      ]
+    },
+    {
+      "id": "securing-apps/oidc-layers",
+      "path": "securing-apps/oidc-layers.html",
+      "source_url": "https://www.keycloak.org/securing-apps/oidc-layers",
+      "title": "Securing applications and services with OpenID Connect",
+      "aliases": [
+        "keycloak securing applications and services with openid connect"
+      ]
+    },
+    {
+      "id": "securing-apps/overview",
+      "path": "securing-apps/overview.html",
+      "source_url": "https://www.keycloak.org/securing-apps/overview",
+      "title": "Planning for securing applications and services",
+      "aliases": [
+        "keycloak planning for securing applications and services"
+      ]
+    },
+    {
+      "id": "securing-apps/saml-galleon-layers",
+      "path": "securing-apps/saml-galleon-layers.html",
+      "source_url": "https://www.keycloak.org/securing-apps/saml-galleon-layers",
+      "title": "Keycloak SAML Galleon feature pack for WildFly and EAP",
+      "aliases": [
+        "keycloak keycloak saml galleon feature pack for wildfly and eap"
+      ]
+    },
+    {
+      "id": "securing-apps/saml-galleon-layers-detailed-config",
+      "path": "securing-apps/saml-galleon-layers-detailed-config.html",
+      "source_url": "https://www.keycloak.org/securing-apps/saml-galleon-layers-detailed-config",
+      "title": "Keycloak SAML Galleon feature pack detailed configuration",
+      "aliases": [
+        "keycloak keycloak saml galleon feature pack detailed configuration"
+      ]
+    },
+    {
+      "id": "securing-apps/specifications",
+      "path": "securing-apps/specifications.html",
+      "source_url": "https://www.keycloak.org/securing-apps/specifications",
+      "title": "Specifications implemented",
+      "aliases": [
+        "keycloak specifications implemented"
+      ]
+    },
+    {
+      "id": "securing-apps/ssf-support",
+      "path": "securing-apps/ssf-support.html",
+      "source_url": "https://www.keycloak.org/securing-apps/ssf-support",
+      "title": "Shared Signals Framework (SSF)",
+      "aliases": [
+        "keycloak shared signals framework (ssf)"
+      ]
+    },
+    {
+      "id": "securing-apps/token-exchange",
+      "path": "securing-apps/token-exchange.html",
+      "source_url": "https://www.keycloak.org/securing-apps/token-exchange",
+      "title": "Configuring and using token exchange",
+      "aliases": [
+        "keycloak configuring and using token exchange"
+      ]
+    },
+    {
+      "id": "server/all-config",
+      "path": "server/all-config.html",
+      "source_url": "https://www.keycloak.org/server/all-config",
+      "title": "All configuration",
+      "aliases": [
+        "keycloak all configuration"
+      ]
+    },
+    {
+      "id": "server/all-provider-config",
+      "path": "server/all-provider-config.html",
+      "source_url": "https://www.keycloak.org/server/all-provider-config",
+      "title": "All provider configuration",
+      "aliases": [
+        "keycloak all provider configuration"
+      ]
+    },
+    {
+      "id": "server/bootstrap-admin-recovery",
+      "path": "server/bootstrap-admin-recovery.html",
+      "source_url": "https://www.keycloak.org/server/bootstrap-admin-recovery",
+      "title": "Bootstrapping and recovering an admin account",
+      "aliases": [
+        "keycloak bootstrapping and recovering an admin account"
+      ]
+    },
+    {
+      "id": "server/caching",
+      "path": "server/caching.html",
+      "source_url": "https://www.keycloak.org/server/caching",
+      "title": "Configuring distributed caches",
+      "aliases": [
+        "keycloak configuring distributed caches"
+      ]
+    },
+    {
+      "id": "server/configuration",
+      "path": "server/configuration.html",
+      "source_url": "https://www.keycloak.org/server/configuration",
+      "title": "Configuring Keycloak",
+      "aliases": [
+        "keycloak configuring keycloak"
+      ]
+    },
+    {
+      "id": "server/configuration-production",
+      "path": "server/configuration-production.html",
+      "source_url": "https://www.keycloak.org/server/configuration-production",
+      "title": "Configuring Keycloak for production",
+      "aliases": [
+        "keycloak configuring keycloak for production"
+      ]
+    },
+    {
+      "id": "server/configuration-provider",
+      "path": "server/configuration-provider.html",
+      "source_url": "https://www.keycloak.org/server/configuration-provider",
+      "title": "Configuring providers",
+      "aliases": [
+        "keycloak configuring providers"
+      ]
+    },
+    {
+      "id": "server/containers",
+      "path": "server/containers.html",
+      "source_url": "https://www.keycloak.org/server/containers",
+      "title": "Running Keycloak in a container",
+      "aliases": [
+        "keycloak running keycloak in a container"
+      ]
+    },
+    {
+      "id": "server/db",
+      "path": "server/db.html",
+      "source_url": "https://www.keycloak.org/server/db",
+      "title": "Configuring the database",
+      "aliases": [
+        "keycloak configuring the database"
+      ]
+    },
+    {
+      "id": "server/directory-structure",
+      "path": "server/directory-structure.html",
+      "source_url": "https://www.keycloak.org/server/directory-structure",
+      "title": "Directory Structure",
+      "aliases": [
+        "keycloak directory structure"
+      ]
+    },
+    {
+      "id": "server/enabletls",
+      "path": "server/enabletls.html",
+      "source_url": "https://www.keycloak.org/server/enabletls",
+      "title": "Configuring TLS",
+      "aliases": [
+        "keycloak configuring tls"
+      ]
+    },
+    {
+      "id": "server/features",
+      "path": "server/features.html",
+      "source_url": "https://www.keycloak.org/server/features",
+      "title": "Enabling and disabling features",
+      "aliases": [
+        "keycloak enabling and disabling features"
+      ]
+    },
+    {
+      "id": "server/fips",
+      "path": "server/fips.html",
+      "source_url": "https://www.keycloak.org/server/fips",
+      "title": "FIPS 140-2 support",
+      "aliases": [
+        "keycloak fips 140-2 support"
+      ]
+    },
+    {
+      "id": "server/haproxy-passthrough",
+      "path": "server/haproxy-passthrough.html",
+      "source_url": "https://www.keycloak.org/server/haproxy-passthrough",
+      "title": "HAProxy with TLS passthrough",
+      "aliases": [
+        "keycloak haproxy with tls passthrough"
+      ]
+    },
+    {
+      "id": "server/haproxy-reencrypt",
+      "path": "server/haproxy-reencrypt.html",
+      "source_url": "https://www.keycloak.org/server/haproxy-reencrypt",
+      "title": "HAProxy with TLS re-encrypt",
+      "aliases": [
+        "keycloak haproxy with tls re-encrypt"
+      ]
+    },
+    {
+      "id": "server/hostname",
+      "path": "server/hostname.html",
+      "source_url": "https://www.keycloak.org/server/hostname",
+      "title": "Configuring the hostname (v2)",
+      "aliases": [
+        "keycloak configuring the hostname (v2)"
+      ]
+    },
+    {
+      "id": "server/importexport",
+      "path": "server/importexport.html",
+      "source_url": "https://www.keycloak.org/server/importExport",
+      "title": "Importing and exporting realms",
+      "aliases": [
+        "keycloak importing and exporting realms"
+      ]
+    },
+    {
+      "id": "server/keycloak-truststore",
+      "path": "server/keycloak-truststore.html",
+      "source_url": "https://www.keycloak.org/server/keycloak-truststore",
+      "title": "Configuring trusted certificates",
+      "aliases": [
+        "keycloak configuring trusted certificates"
+      ]
+    },
+    {
+      "id": "server/logging",
+      "path": "server/logging.html",
+      "source_url": "https://www.keycloak.org/server/logging",
+      "title": "Configuring logging",
+      "aliases": [
+        "keycloak configuring logging"
+      ]
+    },
+    {
+      "id": "server/logging/console",
+      "path": "server/logging/console.html",
+      "source_url": "https://www.keycloak.org/server/logging/console",
+      "title": "Console logging",
+      "aliases": [
+        "keycloak console logging"
+      ]
+    },
+    {
+      "id": "server/logging/file",
+      "path": "server/logging/file.html",
+      "source_url": "https://www.keycloak.org/server/logging/file",
+      "title": "File logging",
+      "aliases": [
+        "keycloak file logging"
+      ]
+    },
+    {
+      "id": "server/logging/syslog",
+      "path": "server/logging/syslog.html",
+      "source_url": "https://www.keycloak.org/server/logging/syslog",
+      "title": "Syslog logging",
+      "aliases": [
+        "keycloak syslog logging"
+      ]
+    },
+    {
+      "id": "server/management-interface",
+      "path": "server/management-interface.html",
+      "source_url": "https://www.keycloak.org/server/management-interface",
+      "title": "Configuring the Management Interface",
+      "aliases": [
+        "keycloak configuring the management interface"
+      ]
+    },
+    {
+      "id": "server/mutual-tls",
+      "path": "server/mutual-tls.html",
+      "source_url": "https://www.keycloak.org/server/mutual-tls",
+      "title": "Configuring trusted certificates for mTLS",
+      "aliases": [
+        "keycloak configuring trusted certificates for mtls"
+      ]
+    },
+    {
+      "id": "server/outgoinghttp",
+      "path": "server/outgoinghttp.html",
+      "source_url": "https://www.keycloak.org/server/outgoinghttp",
+      "title": "Configuring outgoing HTTP requests",
+      "aliases": [
+        "keycloak configuring outgoing http requests"
+      ]
+    },
+    {
+      "id": "server/reverseproxy",
+      "path": "server/reverseproxy.html",
+      "source_url": "https://www.keycloak.org/server/reverseproxy",
+      "title": "Configuring a reverse proxy",
+      "aliases": [
+        "keycloak configuring a reverse proxy"
+      ]
+    },
+    {
+      "id": "server/supported-configurations",
+      "path": "server/supported-configurations.html",
+      "source_url": "https://www.keycloak.org/server/supported-configurations",
+      "title": "Supported Configurations",
+      "aliases": [
+        "keycloak supported configurations"
+      ]
+    },
+    {
+      "id": "server/traefik-passthrough",
+      "path": "server/traefik-passthrough.html",
+      "source_url": "https://www.keycloak.org/server/traefik-passthrough",
+      "title": "Traefik with TLS passthrough",
+      "aliases": [
+        "keycloak traefik with tls passthrough"
+      ]
+    },
+    {
+      "id": "server/traefik-reencrypt",
+      "path": "server/traefik-reencrypt.html",
+      "source_url": "https://www.keycloak.org/server/traefik-reencrypt",
+      "title": "Traefik with TLS re-encrypt",
+      "aliases": [
+        "keycloak traefik with tls re-encrypt"
+      ]
+    },
+    {
+      "id": "server/update-compatibility",
+      "path": "server/update-compatibility.html",
+      "source_url": "https://www.keycloak.org/server/update-compatibility",
+      "title": "Checking if rolling updates are possible",
+      "aliases": [
+        "keycloak checking if rolling updates are possible"
+      ]
+    },
+    {
+      "id": "server/vault",
+      "path": "server/vault.html",
+      "source_url": "https://www.keycloak.org/server/vault",
+      "title": "Using a vault",
+      "aliases": [
+        "keycloak using a vault"
+      ]
+    },
+    {
+      "id": "server/windows-service",
+      "path": "server/windows-service.html",
+      "source_url": "https://www.keycloak.org/server/windows-service",
+      "title": "Run Keycloak as a Windows Service",
+      "aliases": [
+        "keycloak run keycloak as a windows service"
+      ]
+    },
+    {
+      "id": "ui-customization/avatars",
+      "path": "ui-customization/avatars.html",
+      "source_url": "https://www.keycloak.org/ui-customization/avatars",
+      "title": "Using Avatars",
+      "aliases": [
+        "keycloak using avatars"
+      ]
+    },
+    {
+      "id": "ui-customization/creating-your-own-console",
+      "path": "ui-customization/creating-your-own-console.html",
+      "source_url": "https://www.keycloak.org/ui-customization/creating-your-own-console",
+      "title": "Creating your own Console",
+      "aliases": [
+        "keycloak creating your own console"
+      ]
+    },
+    {
+      "id": "ui-customization/introduction",
+      "path": "ui-customization/introduction.html",
+      "source_url": "https://www.keycloak.org/ui-customization/introduction",
+      "title": "Introduction",
+      "aliases": [
+        "keycloak introduction"
+      ]
+    },
+    {
+      "id": "ui-customization/localization",
+      "path": "ui-customization/localization.html",
+      "source_url": "https://www.keycloak.org/ui-customization/localization",
+      "title": "Localization",
+      "aliases": [
+        "keycloak localization"
+      ]
+    },
+    {
+      "id": "ui-customization/quick-theme",
+      "path": "ui-customization/quick-theme.html",
+      "source_url": "https://www.keycloak.org/ui-customization/quick-theme",
+      "title": "Customizing with Quick Theme",
+      "aliases": [
+        "keycloak customizing with quick theme"
+      ]
+    },
+    {
+      "id": "ui-customization/themes",
+      "path": "ui-customization/themes.html",
+      "source_url": "https://www.keycloak.org/ui-customization/themes",
+      "title": "Working with themes",
+      "aliases": [
+        "keycloak working with themes"
+      ]
+    },
+    {
+      "id": "ui-customization/themes-react",
+      "path": "ui-customization/themes-react.html",
+      "source_url": "https://www.keycloak.org/ui-customization/themes-react",
+      "title": "Using the npm UI packages",
+      "aliases": [
+        "keycloak using the npm ui packages"
+      ]
+    },
+    {
+      "id": "ui-customization/welcome-theme",
+      "path": "ui-customization/welcome-theme.html",
+      "source_url": "https://www.keycloak.org/ui-customization/welcome-theme",
+      "title": "Customizing the Welcome Theme",
+      "aliases": [
+        "keycloak customizing the welcome theme"
+      ]
+    }
+  ]
+}

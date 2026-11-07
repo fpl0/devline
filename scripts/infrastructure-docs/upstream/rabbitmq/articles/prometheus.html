@@ -1,0 +1,538 @@
+<main><header><h1>Monitoring with Prometheus and Grafana</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This guide covers RabbitMQ monitoring with two popular tools:
+<a href="https://prometheus.io/docs/introduction/overview/">Prometheus</a>, a monitoring toolkit;
+and <a href="https://grafana.com/grafana">Grafana</a>, a metrics visualisation system.</p>
+<p>These tools together form a powerful toolkit for long-term metric collection and monitoring of RabbitMQ clusters.
+While <a href="/docs/4.3/management">RabbitMQ management UI</a> also provides access to a subset of metrics, it by
+design doesn't try to be a long term metric collection solution.</p>
+<p>Please read through the main <a href="/docs/4.3/monitoring">guide on monitoring</a> first. Monitoring principles and
+available metrics are mostly relevant when Prometheus and Grafana are used.</p>
+<p>Some key topics covered by this guide are</p>
+<ul>
+<li><a href="#overview-prometheus">Prometheus support basics</a></li>
+<li><a href="#overview-grafana">Grafana support basics</a></li>
+<li><a href="#quick-start">Quick Start</a> for local experimentation</li>
+<li><a href="#installation">Installation steps</a> for production systems</li>
+<li>Two types of scraping endpoint responses: <a href="#metric-aggregation">Aggregated vs. Individual Entity Metrics</a></li>
+</ul>
+<p>Grafana dashboards follow a number of conventions to make the system more observable
+and anti-patterns easier to spot. Its design decisions are explained in a number of sections:</p>
+<ul>
+<li><a href="#rabbitmq-overview-dashboard">RabbitMQ Overview Dashboard</a></li>
+<li><a href="#health-indicators">Health indicators</a> on the Overview dashboard</li>
+<li><a href="#graph-colour-labelling">Graph colour labelling</a> conventions</li>
+<li><a href="#graph-thresholds">Graph thresholds</a></li>
+<li><a href="#graph-documentation">Relevant documentation</a> for each graph (metric)</li>
+<li><a href="#spot-anti-patterns">Spotting Anti-patterns</a></li>
+<li><a href="#other-dashboards">Other available dashboards</a></li>
+<li><a href="#tls">TLS support</a> for Prometheus scraping endpoint</li>
+</ul>
+<h3 id="overview-prometheus">Built-in Prometheus Support</h3>
+<p>RabbitMQ ships with built-in Prometheus &amp; Grafana support.</p>
+<p>Support for Prometheus metric collector ships in the <code>rabbitmq_prometheus</code> plugin.
+The plugin exposes all RabbitMQ metrics on a dedicated TCP port, in Prometheus text format.</p>
+<p>These metrics provide deep insights into the state of RabbitMQ nodes and <a href="/docs/4.3/runtime">the runtime</a>.
+They make reasoning about the behaviour of RabbitMQ, applications that use it and various infrastructure
+elements a lot more informed.</p>
+<h3 id="overview-grafana">Grafana Support</h3>
+<p>Collected metrics are not very useful unless they are visualised. Team RabbitMQ provides a <a href="https://grafana.com/orgs/rabbitmq">prebuilt set of Grafana dashboards</a>
+that visualise a large number of available RabbitMQ and <a href="/docs/4.3/runtime">runtime</a> metrics in context-specific ways.</p>
+<p>There is a number of dashboards available:</p>
+<ul>
+<li>an overview dashboard</li>
+<li>runtime <a href="/docs/4.3/runtime#allocators">memory allocators</a> dashboard</li>
+<li>an <a href="/docs/4.3/clustering#cluster-membership">inter-node communication</a>
+(Erlang distribution) dashboard</li>
+<li>a Raft metric dashboard</li>
+</ul>
+<p>and others. Each is meant to provide an insight into a specific
+part of the system. When used together, they are able to explain RabbitMQ and application behaviour in detail.</p>
+<p>Note that the Grafana dashboards are opinionated and use a number of conventions, for example, to
+<a href="#health-indicators">spot system health issues quicker</a> or make <a href="#graph-colour-labelling">cross-graph referencing</a> possible.
+Like all Grafana dashboards, they are also highly customizable. The conventions they assume are considered to be
+good practices and are thus recommended.</p>
+<h3 id="overview-example">An Example</h3>
+<p>When RabbitMQ is integrated with Prometheus and Grafana, this is what the
+RabbitMQ Overview dashboard looks like:</p>
+<p><img alt="RabbitMQ Overview Dashboard" src="/assets/images/rabbitmq-overview-dashboard-a8d225500f0a2331742b3be17b8f1027.png"/></p>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="before-we-start">Before We Start</h3>
+<p>This section explains how to set up a RabbitMQ cluster with Prometheus and Grafana dashboards, as well
+as some applications that will produce some activity and meaningful metrics.</p>
+<p>With this setup you will be able to interact with RabbitMQ, Prometheus
+&amp; Grafana running locally. You will also be able to try out different
+load profiles to see how it all fits together, make sense of the dashboards,
+panels and so on.</p>
+<p>This is merely an example; the <code>rabbitmq_prometheus</code> plugin and our Grafana dashboards do not require
+the use of Docker Compose demonstrated below.</p>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>The instructions below assume a host machine that has a certain set of tools
+installed:</p>
+<ul>
+<li>A terminal to run the commands</li>
+<li><a href="https://git-scm.com/">Git</a> to clone the repository</li>
+<li><a href="https://www.docker.com/products/docker-desktop">Docker Desktop</a> to use Docker Compose locally</li>
+<li>A Web browser to browse the dashboards</li>
+</ul>
+<p>Their installation is out of scope of this guide. Use</p>
+<div><div><pre><code class="language-bash">git version</code></pre></div></div>
+<blockquote>
+<p>docker-compose CLI is deprecated, use <code>docker compose</code> instead</p>
+</blockquote>
+<div><div><pre><code class="language-bash">docker info &amp;&amp; docker compose version</code></pre></div></div>
+<p>on the command line to verify that the necessary tools are available.</p>
+<h3 id="clone-a-repository-with-manifests">Clone a Repository with Manifests</h3>
+<p>First step is to clone a Git repository, <a href="https://github.com/rabbitmq/rabbitmq-server">rabbitmq-server</a>, with the manifests and other components required to run
+a RabbitMQ cluster, Prometheus and a set of applications:</p>
+<div><div><pre><code class="language-bash">git clone https://github.com/rabbitmq/rabbitmq-server.git
+cd rabbitmq-server/deps/rabbitmq_prometheus/docker</code></pre></div></div>
+<h3 id="run-docker-compose">Run Docker Compose</h3>
+<p>Next use Docker Compose manifests to run a pre-configured RabbitMQ cluster, a Prometheus instance and a basic
+workload that will produce the metrics displayed in the RabbitMQ overview dashboard:</p>
+<div><div><pre><code class="language-bash">docker compose -f docker-compose-metrics.yml up -d
+docker compose -f docker-compose-overview.yml up -d</code></pre></div></div>
+<p>The <code>docker compose</code> commands above can also be executed with a <code>make</code> target:</p>
+<div><div><pre><code class="language-bash">make metrics overview</code></pre></div></div>
+<p>When the above commands succeed, there will be a functional RabbitMQ cluster and a Prometheus
+instance collecting metrics from it running in a set of containers.</p>
+<h3 id="access-rabbitmq-overview-grafana-dashboard">Access RabbitMQ Overview Grafana Dashboard</h3>
+<p>Now navigate to <a href="http://localhost:3000/dashboards"></a><a href="http://localhost:3000/dashboards">http://localhost:3000/dashboards</a> in a Web browser.
+It will bring up a login page. Use <code>admin</code> for both the username and the password. On the very first login
+Grafana will suggest changing your password. For the sake of this example, we suggest that this step is skipped.</p>
+<p>Navigate to the <strong>RabbitMQ-Overview</strong> dashboard that will look like this:</p>
+<p><img alt="RabbitMQ Overview Dashboard Localhost" src="/assets/images/rabbitmq-overview-dashboard-localhost-4aa683ff06f18af42f393a9302e5c660.png"/></p>
+<p>Congratulations! You now have a 3-nodes RabbitMQ cluster integrated with
+Prometheus &amp; Grafana running locally. This is a perfect time to learn more
+about the available dashboards.</p>
+<h2 id="rabbitmq-overview-dashboard">RabbitMQ Overview Dashboard</h2>
+<p>All metrics available in the <a href="/docs/4.3/management">management UI</a> Overview
+page are available in the Overview Grafana dashboard. They are grouped by object type,
+with a focus on RabbitMQ nodes and message rates.</p>
+<h3 id="health-indicators">Health Indicators</h3>
+<p><a href="https://grafana.com/docs/features/panels/singlestat/">Single stat metrics</a> at the top of the dashboard capture the health of a single
+RabbitMQ cluster. In this case, there's a single RabbitMQ cluster,
+<strong>rabbitmq-overview</strong>, as seen in the <strong>Cluster</strong> drop-down menu just below the
+dashboard title.</p>
+<p>The panels on all RabbitMQ Grafana dashboards use different colours to capture the following
+metric states:</p>
+<ul>
+<li><strong>Green</strong> means the value of the metric is within a healthy range</li>
+<li><strong>Blue</strong> means under-utilisation or some form of degradation</li>
+<li><strong>Red</strong> means the value of the metric is below or above the range that is considered healthy</li>
+</ul>
+<p><img alt="RabbitMQ Overview Dashboard Single-stat" src="/assets/images/rabbitmq-overview-dashboard-single-stat-5cc70eca35c4e241d5f8bf47fcf3949e.png"/></p>
+<p>Default ranges for the <a href="https://grafana.com/docs/features/panels/singlestat/">single stat metrics</a> <strong>will not be optimal for all</strong>
+RabbitMQ deployments. For example, in environments with many consumers and/or
+high prefetch values, it may be perfectly fine to have over 1,000
+unacknowledged messages. The default thresholds can be easily adjusted to suit
+the workload and system at hand. The users are encouraged to revisit these ranges and tweak
+them as they see fit for their workloads, monitoring and operational practices, and tolerance
+for false positives.</p>
+<h3 id="graphs">Metrics and Graphs</h3>
+<p>Most RabbitMQ and runtime metrics are represented as graphs in Grafana: they are values that change over time.
+This is the simplest and clearest way of visualising how some aspect of the system changes.
+Time-based charting makes it easy to understand the change in key metrics: message rates, memory used by every node in
+the cluster, or the number of concurrent connections. All metrics except for health
+indicators are <strong>node-specific</strong>, that is, they represent values of a metric on a single node.</p>
+<p>Some metrics, such as the panels grouped under <strong>CONNECTIONS</strong>, are stacked to
+capture the state of the <strong>cluster as a whole</strong>. These metrics are
+collected on individual nodes and grouped visually, which makes it easy to notice when,
+for example, one node serves a disproportionate number of connections.</p>
+<p>We would refer to such a RabbitMQ cluster as <strong>unbalanced</strong>, meaning that at least in some ways,
+a minority of nodes perform the majority of work.</p>
+<p>In the example below, connections are spread out evenly across all nodes most of the time:</p>
+<p><img alt="RabbitMQ Overview Dashboard CONNECTIONS" src="/assets/images/rabbitmq-overview-dashboard-connections-53fa5677fef29f500115f6a6e70379a5.png"/></p>
+<h3 id="graph-colour-labelling">Colour Labelling in Graphs</h3>
+<p>All metrics on all graphs are associated with specific node names. For example,
+all metrics drawn in green are for the node that contains <code>0</code> in its name, e.g.
+<code>rabbit@rmq0</code>. This makes it easy to correlate metrics of a specific node across graphs.
+Metrics for the first node, which is assumed to contain <code>0</code> in
+its name, will always appear as green across all graphs.</p>
+<p>It is important to remember this aspect when using the RabbitMQ Overview dashboard.
+<strong>If a different node naming convention is used, the colours will appear inconsistent across graphs</strong>:
+green may represent e.g. <code>rabbit@foo</code> in one graph, and e.g. <code>rabbit@bar</code> in another graph.</p>
+<p>When this is the case, the panels must be updated to use a different node naming scheme.</p>
+<h3 id="graph-thresholds">Thresholds in Graphs</h3>
+<p>Most metrics have pre-configured thresholds. They define expected operating boundaries for the metric.
+On the graphs they appear as semi-transparent
+orange or red areas, as seen in the example below.</p>
+<p><img alt="RabbitMQ Overview Dashboard Single-stat" src="/assets/images/rabbitmq-overview-dashboard-memory-threshold-2cdaed085151fba857d56b665de950b0.png"/></p>
+<p>Metric values in the <strong>orange</strong> area signal that some pre-defined threshold has been
+exceeded. This may be acceptable, especially if the metric recovers. A metric that
+comes close to the orange area is considered to be in healthy state.</p>
+<p>Metric values in the <strong>red</strong> area need attention and may identify some form of service degradation.
+For example, metrics in the red area can indicate that an <a href="/docs/4.3/alarms">alarm</a> in effect
+or when the node is <a href="/docs/4.3/networking">out of file descriptors</a> and cannot accept any more connections or open new files.</p>
+<p>In the example above, we have a RabbitMQ cluster that runs at optimal memory
+capacity, which is just above the warning threshold. If there is a spike in published messages that should
+be stored in RAM, the amount of memory used by the node go up and the metric on the graph will
+go down (as it indicates the amount of <strong>available</strong> memory).</p>
+<p>Because the system has more memory available than is allocated to the RabbitMQ node it hosts, we
+notice the dip below <strong>0 B</strong>. This emphasizes the importance of leaving spare
+memory available for the OS, housekeeping tasks that cause short-lived memory usage spikes,
+and other processes. When a RabbitMQ node exhausts all memory that it is allowed to use, a <a href="/docs/4.3/alarms">memory alarm</a> is
+triggered and publishers across the entire cluster will be blocked.</p>
+<p>On the right side of the graph we can see that consumers catch up and the amount of memory used goes down.
+That clears the memory alarm on the node and, as a result, publishers become unblocked. This and related metrics
+across cluster then should return to their optimal state.</p>
+<h3 id="graph-thresholds-are-system-specific">There is No "Right" Threshold for Many Metrics</h3>
+<p>Note that the thresholds used by the Grafana dashboards have to have a default value. No matter
+what value is picked by dashboard developers, they <strong>will not be suitable for all environments and workloads</strong>.</p>
+<p>Some workloads may require higher thresholds, others may choose to lower them. While the defaults should be
+adequate in many cases, the <strong>operator must review and adjust the thresholds</strong> to suit their specific
+requirements.</p>
+<h3 id="graph-documentation">Relevant Documentation for Graphs</h3>
+<p>Most metrics have a help icon in the top-left corner of the panel.</p>
+<p><img alt="RabbitMQ Overview Dashboard Single-stat" src="/assets/images/rabbitmq-overview-dashboard-disk-documentation-7e1bad8883b9b0b8515c6da4fb78260f.png"/></p>
+<p>Some, like the available disk space metric, link to dedicated pages in <a href="/docs/4.3/prometheus">RabbitMQ documentation</a>.
+These pages contain information relevant to the metric. Getting familiar with the linked guides
+is highly recommended and will help the operator understand what the metric means better.</p>
+<h3 id="spot-anti-patterns">Using Graphs to Spot Anti-patterns</h3>
+<p>Any metric drawn in red hints at an anti-pattern in the system. Such graphs try to highlight sub-optimal
+uses of RabbitMQ. A <strong>red graphs with non-zero metrics should be investigated</strong>. Such metrics might indicate
+an issue in RabbitMQ configuration or sub-optimal actions by clients (<a href="/docs/4.3/publishers">publishers</a> or <a href="/docs/4.3/consumers">consumers</a>).</p>
+<p>In the example below we can see the usage of greatly inefficient <a href="/docs/4.3/consumers#polling">polling consumers</a> that keep polling, even though
+most or even all polling operation return no messages. Like any polling-based algorithm, it is wasteful
+and should be avoided where possible.</p>
+<p>It is a lot more and efficient to have RabbitMQ <a href="/docs/4.3/consumers">push messages to the consumer</a>.</p>
+<p><img alt="RabbitMQ Overview Dashboard Antipatterns" src="/assets/images/rabbitmq-overview-dashboard-antipattern-adfbd0bee0be0676b0eb349851c40cc6.png"/></p>
+<h3 id="example-workloads">Example Workloads</h3>
+<p>The <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_prometheus/docker">Prometheus plugin repository</a> contains example workloads that use <a href="https://rabbitmq.github.io/rabbitmq-perf-test/stable/htmlsingle/">PerfTest</a>
+to simulate different workloads.
+Their goal is to exercise all metrics in the RabbitMQ Overview dashboard. These examples are meant to be
+edited and extended as developers and operators see fit when exploring various metrics, their thresholds and behaviour.</p>
+<p>To deploy a workload app, run <code>docker compose -f docker-compose-overview.yml up -d</code>.
+The same command will redeploy the app after the file has been updated.</p>
+<p>To delete all workload containers, run <code>docker compose -f docker-compose-overview.yml down</code> or</p>
+<div><div><pre><code class="language-bash">gmake down</code></pre></div></div>
+<h2 id="other-dashboards">More Dashboards: Inter-Node Connections (Links), Raft and Erlang Runtime</h2>
+<p>There are two more Grafana dashboards available: <strong>RabbitMQ-Raft</strong> and <strong>Erlang-Distribution</strong>. They collect and
+visualise metrics related to the Raft consensus algorithm (used by <a href="/docs/4.3/quorum-queues">Quorum Queues</a> and other features) as well
+as more nitty-gritty <a href="/docs/4.3/runtime">runtime metrics</a> such as the state of inter-node connections (communication links),
+for example, their buffers.</p>
+<p>The dashboards have corresponding RabbitMQ clusters and PerfTest instances which are started and stopped the same
+as the Overview one. Feel free to experiment with the other workloads
+that are included in <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_prometheus/docker">the same <code>docker</code> directory</a>.</p>
+<p>For example, the <code>docker-compose-dist-tls.yml</code> Compose manifest is meant to stress
+the <a href="/docs/4.3/clustering">inter-node communication links</a>. This workload uses a lot of system resources.
+<code>docker-compose-qq.yml</code> contains a quorum queue workload.</p>
+<p>To stop and delete all containers used by the workloads, run <code>docker compose -f [file] down</code> or</p>
+<div><div><pre><code class="language-bash">make down</code></pre></div></div>
+<h2 id="installation">Installation</h2>
+<p>Unlike the <a href="#quick-start">Quick Start</a> above, this section covers monitoring setup geared towards production usage.</p>
+<p>We will assume that the following tools are provisioned and running:</p>
+<ul>
+<li>A <a href="/docs/4.3/cluster-formation">3-node RabbitMQ 3.11 cluster</a></li>
+<li>Prometheus, including network connectivity with all RabbitMQ cluster nodes</li>
+<li>Grafana, including configuration that lists the above Prometheus instance as one of the data sources</li>
+</ul>
+<h3 id="rabbitmq-configuration">RabbitMQ Configuration</h3>
+<h4 id="cluster-name">Cluster Name</h4>
+<p>First step is to give the RabbitMQ cluster a descriptive name so that it can be distinguished from other
+clusters.</p>
+<p>To find the current name of the cluster, use</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics -q cluster_status</code></pre></div></div>
+<p>This command can be executed against any cluster node. If the current cluster name is distinctive and appropriate,
+skip the rest of this paragraph.
+To change the name of the cluster, run the following command (the name used here is just an example):</p>
+<div><div><pre><code class="language-bash">rabbitmqctl -q set_cluster_name testing-prometheus</code></pre></div></div>
+<h3 id="enable-rabbitmq_prometheus">Enable <code>rabbitmq_prometheus</code></h3>
+<p>Next, enable the <strong>rabbitmq_prometheus</strong> <a href="/docs/4.3/plugins">plugin</a> on all nodes:</p>
+<div><div><pre><code class="language-bash">rabbitmq-plugins enable rabbitmq_prometheus</code></pre></div></div>
+<p>The output will look similar to this:</p>
+<div><div><pre><code class="language-ini">rabbitmq-plugins enable rabbitmq_prometheus
+
+Enabling plugins on node rabbit@ed9618ea17c9:
+rabbitmq_prometheus
+The following plugins have been configured:
+  rabbitmq_management_agent
+  rabbitmq_prometheus
+  rabbitmq_web_dispatch
+Applying plugin configuration to rabbit@ed9618ea17c9...
+The following plugins have been enabled:
+  rabbitmq_management_agent
+  rabbitmq_prometheus
+  rabbitmq_web_dispatch
+
+started 3 plugins.</code></pre></div></div>
+<p>To confirm that RabbitMQ now exposes metrics in Prometheus format, get the
+first couple of lines with <code>curl</code> or similar:</p>
+<div><div><pre><code class="language-bash">curl -s localhost:15692/metrics | head -n 3
+# TYPE erlang_mnesia_held_locks gauge
+# HELP erlang_mnesia_held_locks Number of held locks.
+erlang_mnesia_held_locks{node="rabbit@65f1a10aaffa",cluster="rabbit@65f1a10aaffa"} 0</code></pre></div></div>
+<p>Notice that RabbitMQ exposes the metrics on a dedicated TCP port, <code>15692</code> by
+default.</p>
+<h3 id="enable-authentication-optional">Enable Authentication (Optional)</h3>
+<p>Optionally, you can enable HTTP authentication for the metrics endpoint.
+If you want to do this, add:</p>
+<div><div><pre><code class="language-text">prometheus.authentication.enabled = true</code></pre></div></div>
+<p>to the RabbitMQ configuration file.</p>
+<h3 id="prometheus-configuration">Prometheus Configuration</h3>
+<p>Once RabbitMQ is configured to expose metrics to Prometheus, Prometheus should be made
+aware of where it should scrape RabbitMQ metrics from. There are a number of ways of doing this.
+Please refer to the official <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/">Prometheus configuration documentation</a>.
+There's also a <a href="https://prometheus.io/docs/introduction/first_steps/">first steps with Prometheus</a> guide
+for beginners.</p>
+<h4 id="metric-collection-and-scraping-intervals">Metric Collection and Scraping Intervals</h4>
+<p>Prometheus will periodically scrape (read) metrics from the systems it
+monitors, every 60 seconds by default. RabbitMQ metrics are updated
+periodically, too, every 5 seconds by default. Since <a href="/docs/4.3/management#statistics-interval">this value is
+configurable</a>, check the metrics update
+interval by running the following command on any of the nodes:</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics environment | grep collect_statistics_interval
+# =&gt; {collect_statistics_interval,5000}</code></pre></div></div>
+<p>The returned value will be <strong>in milliseconds</strong>.</p>
+<p>For production systems, we recommend a minimum value of <code>15s</code> for Prometheus
+scrape interval and a <code>10000</code> (10s) value for RabbitMQ's
+<code>collect_statistics_interval</code>.  With these values, Prometheus doesn't scrape
+RabbitMQ too frequently, and RabbitMQ doesn't update metrics unnecessarily. If
+you configure a different value for Prometheus scrape interval, remember to set an
+appropriate interval when visualising metrics in Grafana with <code>rate()</code> - <a href="https://www.robustperception.io/what-range-should-i-use-with-rate">4x the scrape interval is considered safe</a>.</p>
+<p>When using RabbitMQ's Management UI default 5 second auto-refresh, keeping
+the default <code>collect_statistics_interval</code> setting is optimal. Both intervals are <code>5000</code> ms
+(5 seconds) by default for this reason.</p>
+<p>To confirm that Prometheus is scraping RabbitMQ metrics from all nodes, ensure
+that all RabbitMQ endpoints are <strong>Up</strong> on the Prometheus Targets page, as shown
+below:</p>
+<p><img alt="Prometheus RabbitMQ Targets" src="/assets/images/prometheus-targets-db12520edde03c4b41f9ce06728a9748.png"/></p>
+<h3 id="port">Network Interface and Port</h3>
+<p>The port is configured using the <code>prometheus.tcp.port</code> key:</p>
+<div><div><pre><code class="language-ini">prometheus.tcp.port = 15692</code></pre></div></div>
+<p>It is possible to configure what interface the Prometheus plugin API endpoint will use, similarly
+to <a href="/docs/4.3/networking#interfaces">messaging protocol listeners</a>, using
+the <code>prometheus.tcp.ip</code> key:</p>
+<div><div><pre><code class="language-ini">prometheus.tcp.ip = 0.0.0.0</code></pre></div></div>
+<p>To check what interface and port is used by a running node, use
+<code>rabbitmq-diagnostics</code>:</p>
+<div><div><pre><code class="language-bash">rabbitmq-diagnostics -s listeners
+# =&gt; Interface: [::], port: 15692, protocol: http/prometheus, purpose: Prometheus exporter API over HTTP</code></pre></div></div>
+<p>or <a href="/docs/4.3/troubleshooting-networking#ports">tools such as <code>lsof</code>, <code>ss</code> or <code>netstat</code></a>.</p>
+<h3 id="metric-aggregation">Aggregated and Per-Object Metrics</h3>
+<p>RabbitMQ can return Prometheus metrics in two modes:</p>
+<ol>
+<li>Aggregated: metrics are aggregated by name. This mode has lower performance overhead with the output size
+constant, even as the number of objects (e.g. connections and queues) grows.</li>
+<li>Per-object: individual metric for <strong>each object-metric pair</strong>. With a large number of stats-emitting entities,
+e.g. a lot of connections and queues, this can result in very large payloads and a lot of CPU resources spent serialising
+data to output.</li>
+</ol>
+<p>Metric aggregation is a more predictable and practical option for larger deployments.
+It scales very well with respect to the number of metric-emitting objects in the system
+(connections, channels, queues, consumers, etc) by keeping response size and time small.
+It is also predictably easy to visualise.</p>
+<p>The downside of metric aggregation is that it loses data fidelity. Per-object metrics
+and alerting are not possible with aggregation. Individual object metrics, while very useful
+in some cases, are also hard to visualise. Consider what a chart with 200K connections
+charted on it would look like and whether an operator would be able to make sense of it.</p>
+<h3 id="default-endpoint">Prometheus endpoints: <code>/metrics</code></h3>
+<p>By default, Prometheus (and other Prometheus-compatible solutions), expects metrics to be available on a path of <code>/metrics</code>.
+RabbitMQ returns aggregated metrics on this endpoint by default.</p>
+<p>If you prefer to return per-object (unaggregated) metrics on the <code>/metrics</code> endpoint, set <code>prometheus.return_per_object_metrics</code> to <code>true</code>:</p>
+<div><div><pre><code class="language-ini"># can result in a really excessive output produced,
+# only suitable for environments with a relatively small
+# number of metrics-emitting objects such as connections and queues
+prometheus.return_per_object_metrics = true</code></pre></div></div>
+<h3 id="memory-breakdown-endpoint">Prometheus endpoints: <code>/metrics/memory-breakdown</code></h3>
+<p>This endpoint provides metrics similar to the output of <code>rabbitmq-diagnostics memory_breakdown</code>.
+It aggregates memory usage by different components to provide a more detailed view of
+where the memory is allocated.</p>
+<p>Memory breakdown is a separate endpoint, since providing this information requires
+iterating through all the Erlang processes. This is not a problem in most systems, but becomes
+relatively expensive in large deployments. In systems with tens of thousands (or more)
+connections and/or queues (each connection and queue is at least 1 process),
+it is recommended to either not use this endpoint at all, or to scrape it infrequently.</p>
+<h3 id="per-object-endpoint">Prometheus endpoints: <code>/metrics/per-object</code></h3>
+<p>RabbitMQ offers a dedicated endpoint</p>
+<div><div><pre><code class="language-text">GET /metrics/per-object</code></pre></div></div>
+<p>which always returns per-object metrics,
+regardless of the value of <code>prometheus.return_per_object_metrics</code>.
+You can therefore keep the default value of <code>prometheus.return_per_object_metrics</code>,
+which is <code>false</code>, and still scrape per-object metrics when necessary, by setting <code>metrics_path = /metrics/per-object</code> in the Prometheus target configuration (check <a href="https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config">Prometheus Documentation</a> for additional information).</p>
+<h3 id="detailed-endpoint">Prometheus endpoints: <code>/metrics/detailed</code></h3>
+<p>As mentioned earlier, using per-object metrics in environments with a lot of entitites is very computationally expensive.
+For example, <code>/metrics/per-object</code> returns all metrics for all entities in the system, even if many of them are not used
+by most clients (such as monitoring tools).</p>
+<p>This is why there is a separate endpoint for per-object metrics that allows the caller to query only the metrics they need:</p>
+<div><div><pre><code class="language-text">GET /metrics/detailed</code></pre></div></div>
+<p>By default it does not return any metrics. All required metric groups and filters must be provided as query
+parameters. For example,</p>
+<div><div><pre><code class="language-text">GET /metrics/detailed?vhost=vhost-1&amp;vhost=vhost-2&amp;family=queue_coarse_metrics&amp;family=queue_consumer_count</code></pre></div></div>
+<p>will only return requested metrics and leave out, for example, all channel metrics that this client is not
+interested in.</p>
+<p>This endpoint supports the following parameters:</p>
+<ul>
+<li>Zero or more <code>family</code> values. Only the requested metric families will be returned. The full list is documented below</li>
+<li>Zero or more <code>vhost</code> values: when provided, queue and exchange related metrics (<code>queue_coarse_metrics</code>, <code>queue_consumer_count</code>, <code>queue_metrics</code>, <code>queue_delivery_metrics</code>, <code>exchange_metrics</code>, <code>queue_exchange_metrics</code>, and <code>ra_metrics</code>) will be returned only for the queues in the provided virtual hosts</li>
+<li>Zero or one <code>queue</code> value: a regular expression. When provided, only queues whose names match the regex will be included in the response. This applies to all queue-related metric families. Only one <code>queue</code> parameter is accepted</li>
+</ul>
+<p>The returned metrics use a different prefix: <code>rabbitmq_detailed_</code> (instead of <code>rabbitmq_</code> used by other  endpoints).
+This means the endpoint can be used together with <code>GET /metrics</code> and tools that rely on other endpoints won't be affected.</p>
+<p>Since it queries and serves less data in almost all cases, this endpoint puts less load on the system.
+For example,</p>
+<div><div><pre><code class="language-text">GET /metrics/detailed?family=queue_coarse_metrics&amp;family=queue_consumer_count</code></pre></div></div>
+<p>provides just enough metrics to determine how many messages are enqueued and how many consumers those queues have.
+In some environments this query is <strong>up to 60 times more efficient</strong> than querying <code>GET /metrics/per-object</code> to get
+only a couple of metrics from the response.</p>
+<h4 id="detailed-endpoint-queue-filter">Filtering by Queue Name</h4>
+<p>The <code>queue</code> parameter accepts a regular expression and can be combined with the <code>vhost</code> parameter.</p>
+<p>To return metrics only for queues whose names start with <code>orders-</code>:</p>
+<div><div><pre><code class="language-text">GET /metrics/detailed?family=queue_coarse_metrics&amp;queue=^orders-</code></pre></div></div>
+<p>To combine queue name and virtual host filtering:</p>
+<div><div><pre><code class="language-text">GET /metrics/detailed?family=queue_coarse_metrics&amp;vhost=production&amp;queue=^orders-</code></pre></div></div>
+<h4 id="generic-metrics">Generic metrics</h4>
+<p>These are some generic metrics, which do not refer to any specific
+queue/connection/etc.</p>
+<h5 id="connectionchannelqueue-churn">Connection/channel/queue churn</h5>
+<p>Grouped under <code>connection_churn_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_connections_opened_total</td><td>Total number of connections opened</td></tr><tr><td>rabbitmq_detailed_connections_closed_total</td><td>Total number of connections closed or terminated</td></tr><tr><td>rabbitmq_detailed_channels_opened_total</td><td>Total number of channels opened</td></tr><tr><td>rabbitmq_detailed_channels_closed_total</td><td>Total number of channels closed</td></tr><tr><td>rabbitmq_detailed_queues_declared_total</td><td>Total number of queues declared</td></tr><tr><td>rabbitmq_detailed_queues_created_total</td><td>Total number of queues created</td></tr><tr><td>rabbitmq_detailed_queues_deleted_total</td><td>Total number of queues deleted</td></tr></tbody></table>
+<h5 id="erlang-vmdisk-io-via-rabbitmq">Erlang VM/Disk IO via RabbitMQ</h5>
+<p>Grouped under <code>node_coarse_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_process_open_fds</td><td>Open file descriptors</td></tr><tr><td>rabbitmq_detailed_process_open_tcp_sockets</td><td>Open TCP sockets</td></tr><tr><td>rabbitmq_detailed_process_resident_memory_bytes</td><td>Memory used in bytes</td></tr><tr><td>rabbitmq_detailed_disk_space_available_bytes</td><td>Disk space available in bytes</td></tr><tr><td>rabbitmq_detailed_erlang_processes_used</td><td>Erlang processes used</td></tr><tr><td>rabbitmq_detailed_erlang_gc_runs_total</td><td>Total number of Erlang garbage collector runs</td></tr><tr><td>rabbitmq_detailed_erlang_gc_reclaimed_bytes_total</td><td>Total number of bytes of memory reclaimed by Erlang garbage collector</td></tr><tr><td>rabbitmq_detailed_erlang_scheduler_context_switches_total</td><td>Total number of Erlang scheduler context switches</td></tr></tbody></table>
+<p>Grouped under <code>node_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_process_max_fds</td><td>Open file descriptors limit</td></tr><tr><td>rabbitmq_detailed_process_max_tcp_sockets</td><td>Open TCP sockets limit</td></tr><tr><td>rabbitmq_detailed_resident_memory_limit_bytes</td><td>Memory high watermark in bytes</td></tr><tr><td>rabbitmq_detailed_disk_space_available_limit_bytes</td><td>Free disk space low watermark in bytes</td></tr><tr><td>rabbitmq_detailed_erlang_processes_limit</td><td>Erlang processes limit</td></tr><tr><td>rabbitmq_detailed_erlang_scheduler_run_queue</td><td>Erlang scheduler run queue</td></tr><tr><td>rabbitmq_detailed_erlang_net_ticktime_seconds</td><td>Inter-node heartbeat interval</td></tr><tr><td>rabbitmq_detailed_erlang_uptime_seconds</td><td>Node uptime</td></tr></tbody></table>
+<p>Grouped under <code>node_persister_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_io_read_ops_total</td><td>Total number of I/O read operations</td></tr><tr><td>rabbitmq_detailed_io_read_bytes_total</td><td>Total number of I/O bytes read</td></tr><tr><td>rabbitmq_detailed_io_write_ops_total</td><td>Total number of I/O write operations</td></tr><tr><td>rabbitmq_detailed_io_write_bytes_total</td><td>Total number of I/O bytes written</td></tr><tr><td>rabbitmq_detailed_io_sync_ops_total</td><td>Total number of I/O sync operations</td></tr><tr><td>rabbitmq_detailed_io_seek_ops_total</td><td>Total number of I/O seek operations</td></tr><tr><td>rabbitmq_detailed_io_reopen_ops_total</td><td>Total number of times files have been reopened</td></tr><tr><td>rabbitmq_detailed_schema_db_ram_tx_total</td><td>Total number of Schema DB memory transactions</td></tr><tr><td>rabbitmq_detailed_schema_db_disk_tx_total</td><td>Total number of Schema DB disk transactions</td></tr><tr><td>rabbitmq_detailed_msg_store_read_total</td><td>Total number of Message Store read operations</td></tr><tr><td>rabbitmq_detailed_msg_store_write_total</td><td>Total number of Message Store write operations</td></tr><tr><td>rabbitmq_detailed_queue_index_read_ops_total</td><td>Total number of Queue Index read operations</td></tr><tr><td>rabbitmq_detailed_queue_index_write_ops_total</td><td>Total number of Queue Index write operations</td></tr><tr><td>rabbitmq_detailed_io_read_time_seconds_total</td><td>Total I/O read time</td></tr><tr><td>rabbitmq_detailed_io_write_time_seconds_total</td><td>Total I/O write time</td></tr><tr><td>rabbitmq_detailed_io_sync_time_seconds_total</td><td>Total I/O sync time</td></tr><tr><td>rabbitmq_detailed_io_seek_time_seconds_total</td><td>Total I/O seek time</td></tr></tbody></table>
+<h5 id="raft-related-quorum-queues-streams-metrics">Raft-related (Quorum queues, streams) metrics</h5>
+<p>Grouped under <code>ra_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_raft_bytes_written</td><td>Number of bytes written</td></tr><tr><td>rabbitmq_detailed_raft_entries</td><td>Number of entries written</td></tr><tr><td>rabbitmq_detailed_raft_mem_tables</td><td>Number of in-memory tables handled</td></tr><tr><td>rabbitmq_detailed_raft_segments</td><td>Number of segments written</td></tr><tr><td>rabbitmq_detailed_raft_wal_files</td><td>Number of write-ahead log files created</td></tr><tr><td>rabbitmq_detailed_raft_segments</td><td>Number of segments written</td></tr><tr><td>rabbitmq_detailed_raft_forced_gcs</td><td>Number of forced garbage collection runs</td></tr><tr><td>rabbitmq_detailed_raft_commit_index</td><td>The current commit index.</td></tr><tr><td>rabbitmq_detailed_raft_wal_files</td><td>Number of write-ahead log files created</td></tr><tr><td>rabbitmq_detailed_raft_commands</td><td>Total number of commands received by a leader</td></tr><tr><td>rabbitmq_detailed_raft_term_and_voted_for_updates</td><td>Total number of updates of term and voted for</td></tr><tr><td>rabbitmq_detailed_raft_aux_commands</td><td>Total number of aux commands received</td></tr><tr><td>rabbitmq_detailed_raft_num_segments</td><td>The number of non-empty segment files.</td></tr><tr><td>rabbitmq_detailed_raft_read_segment</td><td>Total number of read segments</td></tr><tr><td>rabbitmq_detailed_raft_last_written_index</td><td>The last fully written and fsynced index of the log.</td></tr><tr><td>rabbitmq_detailed_raft_read_ops</td><td>Total number of read ops</td></tr><tr><td>rabbitmq_detailed_raft_term</td><td>The current term.</td></tr><tr><td>rabbitmq_detailed_raft_snapshot_bytes_written</td><td>Number of snapshot bytes written (not installed)</td></tr><tr><td>rabbitmq_detailed_raft_command_flushes</td><td>Total number of low priority command batches written</td></tr><tr><td>rabbitmq_detailed_raft_commit_latency_seconds</td><td>Approximate time taken from an entry being written to the log until it is committed.</td></tr><tr><td>rabbitmq_detailed_raft_local_queries</td><td>Total number of local queries</td></tr><tr><td>rabbitmq_detailed_raft_aer_received_follower_empty</td><td>Total number of empty append entries received by a follower</td></tr><tr><td>rabbitmq_detailed_raft_msgs_sent</td><td>All messages sent (except messages sent to wal)</td></tr><tr><td>rabbitmq_detailed_raft_aer_replies_success</td><td>Total number of successful append entries received</td></tr><tr><td>rabbitmq_detailed_raft_write_ops</td><td>Total number of write ops</td></tr><tr><td>rabbitmq_detailed_raft_checkpoint_bytes_written</td><td>Number of checkpoint bytes written</td></tr><tr><td>rabbitmq_detailed_raft_read_mem_table</td><td>Total number of reads from mem tables</td></tr><tr><td>rabbitmq_detailed_raft_read_cache</td><td>Unused. Total number of cache reads</td></tr><tr><td>rabbitmq_detailed_raft_bytes_written</td><td>Number of bytes written</td></tr><tr><td>rabbitmq_detailed_raft_open_segments</td><td>Number of open segments</td></tr><tr><td>rabbitmq_detailed_raft_snapshots_written</td><td>Total number of snapshots written</td></tr><tr><td>rabbitmq_detailed_raft_last_applied</td><td>The last applied index. Can go backwards if a ra server is restarted.</td></tr><tr><td>rabbitmq_detailed_raft_invalid_reply_mode_commands</td><td>Total number of commands received with an invalid reply-mode</td></tr><tr><td>rabbitmq_detailed_raft_snapshots_sent</td><td>Total number of snapshots sent</td></tr><tr><td>rabbitmq_detailed_raft_checkpoints_written</td><td>Total number of checkpoints written</td></tr><tr><td>rabbitmq_detailed_raft_send_msg_effects_sent</td><td>Total number of send_msg effects executed</td></tr><tr><td>rabbitmq_detailed_raft_write_resends</td><td>Total number of write resends</td></tr><tr><td>rabbitmq_detailed_raft_last_index</td><td>The last index of the log.</td></tr><tr><td>rabbitmq_detailed_raft_entries</td><td>Number of entries written</td></tr><tr><td>rabbitmq_detailed_raft_checkpoint_index</td><td>The current checkpoint index.</td></tr><tr><td>rabbitmq_detailed_raft_read_closed_mem_tbl</td><td>Unused. Total number of closed memory tables</td></tr><tr><td>rabbitmq_detailed_raft_rpcs_sent</td><td>Total number of rpcs, incl append_entries_rpcs</td></tr><tr><td>rabbitmq_detailed_raft_dropped_sends</td><td>Total number of message sends that return noconnect or nosuspend are dropped</td></tr><tr><td>rabbitmq_detailed_raft_effective_machine_version</td><td>The current effective version number of the machine.</td></tr><tr><td>rabbitmq_detailed_raft_batches</td><td>Number of batches written</td></tr><tr><td>rabbitmq_detailed_raft_release_cursors</td><td>Total number of updates of the release cursor</td></tr><tr><td>rabbitmq_detailed_raft_checkpoints</td><td>The number of checkpoint effects executed</td></tr><tr><td>rabbitmq_detailed_raft_snapshot_installed</td><td>Total number of snapshots installed</td></tr><tr><td>rabbitmq_detailed_raft_pre_vote_elections</td><td>Total number of pre-vote elections</td></tr><tr><td>rabbitmq_detailed_raft_aer_replies_fail</td><td>Total number of failed append entries</td></tr><tr><td>rabbitmq_detailed_raft_snapshot_index</td><td>The current snapshot index.</td></tr><tr><td>rabbitmq_detailed_raft_mem_tables</td><td>Number of in-memory tables handled</td></tr><tr><td>rabbitmq_detailed_raft_fetch_term</td><td>Total number of terms fetched</td></tr><tr><td>rabbitmq_detailed_raft_reserved_2</td><td>Reserved counter</td></tr><tr><td>rabbitmq_detailed_raft_reserved_1</td><td>Reserved counter</td></tr><tr><td>rabbitmq_detailed_raft_consistent_queries</td><td>Total number of consistent query requests</td></tr><tr><td>rabbitmq_detailed_raft_checkpoints_promoted</td><td>Number of checkpoints promoted to snapshots</td></tr><tr><td>rabbitmq_detailed_raft_writes</td><td>Number of entries written</td></tr><tr><td>rabbitmq_detailed_raft_aer_received_follower</td><td>Total number of append entries received by a follower</td></tr><tr><td>rabbitmq_detailed_raft_elections</td><td>Total number of elections</td></tr></tbody></table>
+<h5 id="auth-metrics">Auth metrics</h5>
+<p>Grouped under <code>auth_attempt_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_auth_attempts_total</td><td>Total number of authorization attempts</td></tr><tr><td>rabbitmq_detailed_auth_attempts_succeeded_total</td><td>Total number of successful authentication attempts</td></tr><tr><td>rabbitmq_detailed_auth_attempts_failed_total</td><td>Total number of failed authentication attempts</td></tr></tbody></table>
+<p>Grouped under <code>auth_attempt_detailed_metrics</code>. When aggregated, these add up to the same numbers as <code>auth_attempt_metrics</code>.</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_auth_attempts_detailed_total</td><td>Total number of authorization attempts with source info</td></tr><tr><td>rabbitmq_detailed_auth_attempts_detailed_succeeded_total</td><td>Total number of successful authorization attempts with source info</td></tr><tr><td>rabbitmq_detailed_auth_attempts_detailed_failed_total</td><td>Total number of failed authorization attempts with source info</td></tr></tbody></table>
+<h4 id="queue-metrics">Queue metrics</h4>
+<p>Each metric in this group points to a single queue via its label.
+So the size of the response here is directly proportional to the number of queues hosted
+on the node.</p>
+<p>The metrics below are listed from the least expensive to collect to the most expensive.</p>
+<h5 id="queue-coarse-metrics">Queue coarse metrics</h5>
+<p>Grouped under <code>queue_coarse_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_queue_messages_ready</td><td>Messages ready to be delivered to consumers</td></tr><tr><td>rabbitmq_detailed_queue_messages_unacked</td><td>Messages delivered to consumers but not yet acknowledged</td></tr><tr><td>rabbitmq_detailed_queue_messages</td><td>Sum of ready and unacknowledged messages - total queue depth</td></tr><tr><td>rabbitmq_detailed_queue_process_reductions_total</td><td>Total number of queue process reductions</td></tr></tbody></table>
+<h5 id="queue-delivery-metrics">Queue delivery metrics</h5>
+<p>These metrics are similar to those grouped under <code>channel_queue_metrics</code>, but do not include a channel ID in their labels. They are useful for monitoring the state of each queue individually.</p>
+<p>Grouped under <code>queue_delivery_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_queue_get_ack_total</td><td>Total number of messages fetched from a queue with basic.get in manual acknowledgement mode</td></tr><tr><td>rabbitmq_detailed_queue_get_total</td><td>Total number of messages fetched from a queue with basic.get in automatic acknowledgement mode</td></tr><tr><td>rabbitmq_detailed_queue_messages_delivered_ack_total</td><td>Total number of messages delivered from a queue to consumers in manual acknowledgement mode</td></tr><tr><td>rabbitmq_detailed_queue_messages_delivered_total</td><td>Total number of messages delivered from a queue to consumers in automatic acknowledgement mode</td></tr><tr><td>rabbitmq_detailed_queue_messages_redelivered_total</td><td>Total number of messages redelivered from a queue to consumers</td></tr><tr><td>rabbitmq_detailed_queue_messages_acked_total</td><td>Total number of messages acknowledged by consumers on a queue</td></tr><tr><td>rabbitmq_detailed_queue_get_empty_total</td><td>Total number of times basic.get operations fetched no message on a queue</td></tr></tbody></table>
+<h5 id="per-queue-consumer-count">Per-queue consumer count</h5>
+<p>Grouped under <code>queue_consumer_count</code>. This is a subset of <code>queue_metrics</code> which is skipped if <code>queue_metrics</code> are requested:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_queue_consumers</td><td>Consumers on a queue</td></tr></tbody></table>
+<p>This metric is useful for quickly detecting issues with consumers (e.g. when there are no consumers online).
+This is why it is exposed separately.</p>
+<h5 id="detailed-queue-metrics">Detailed queue metrics</h5>
+<p>Grouped under <code>queue_metrics</code>. This group contains all the metrics for every queue, and can be relatively expensive to produce:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_queue_consumers</td><td>Consumers on a queue</td></tr><tr><td>rabbitmq_detailed_queue_consumer_capacity</td><td>Consumer capacity</td></tr><tr><td>rabbitmq_detailed_queue_consumer_utilisation</td><td>Same as consumer capacity</td></tr><tr><td>rabbitmq_detailed_queue_process_memory_bytes</td><td>Memory in bytes used by the Erlang queue process</td></tr><tr><td>rabbitmq_detailed_queue_messages_ram</td><td>Ready and unacknowledged messages stored in memory</td></tr><tr><td>rabbitmq_detailed_queue_messages_ram_bytes</td><td>Size of ready and unacknowledged messages stored in memory</td></tr><tr><td>rabbitmq_detailed_queue_messages_ready_ram</td><td>Ready messages stored in memory</td></tr><tr><td>rabbitmq_detailed_queue_messages_unacked_ram</td><td>Unacknowledged messages stored in memory</td></tr><tr><td>rabbitmq_detailed_queue_messages_persistent</td><td>Persistent messages</td></tr><tr><td>rabbitmq_detailed_queue_messages_persistent_bytes</td><td>Size in bytes of persistent messages</td></tr><tr><td>rabbitmq_detailed_queue_messages_bytes</td><td>Size in bytes of ready and unacknowledged messages</td></tr><tr><td>rabbitmq_detailed_queue_messages_ready_bytes</td><td>Size in bytes of ready messages</td></tr><tr><td>rabbitmq_detailed_queue_messages_unacked_bytes</td><td>Size in bytes of all unacknowledged messages</td></tr><tr><td>rabbitmq_detailed_queue_messages_paged_out</td><td>Messages paged out to disk</td></tr><tr><td>rabbitmq_detailed_queue_messages_paged_out_bytes</td><td>Size in bytes of messages paged out to disk</td></tr><tr><td>rabbitmq_detailed_queue_head_message_timestamp</td><td>Timestamp of the first message in the queue, if any</td></tr><tr><td>rabbitmq_detailed_queue_disk_reads_total</td><td>Total number of times queue read messages from disk</td></tr><tr><td>rabbitmq_detailed_queue_disk_writes_total</td><td>Total number of times queue wrote messages to disk</td></tr><tr><td>rabbitmq_detailed_stream_segments</td><td>Total number of stream segment files</td></tr></tbody></table>
+<h4 id="exchange-metrics">Exchange metrics</h4>
+<p>Each metric in this group points to a single exchange via its label.
+So the size of the response here is directly proportional to the number of exchanges hosted
+on the node.</p>
+<p>These metrics are similar to those grouped under <code>channel_exchange_metrics</code>, but do not include the channel ID in their labels. They are useful for monitoring the state of each exchange individually.</p>
+<p>Grouped under <code>exchange_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_exchange_messages_published_total</td><td>Total number of messages published to an exchange</td></tr><tr><td>rabbitmq_detailed_exchange_messages_confirmed_total</td><td>Total number of messages published to an exchange and <a href="/docs/4.3/confirms#publisher-confirms">confirmed</a></td></tr><tr><td>rabbitmq_detailed_exchange_messages_unroutable_returned_total</td><td>Total number of messages published as mandatory to an exchange and returned to the publisher as <a href="/docs/4.3/publishers#unroutable">unroutable</a></td></tr><tr><td>rabbitmq_detailed_exchange_messages_unroutable_dropped_total</td><td>Total number of messages published as non-mandatory to an exchange and dropped as <a href="/docs/4.3/publishers#unroutable">unroutable</a></td></tr></tbody></table>
+<h4 id="queue-exchange-metrics">Queue-Exchange metrics</h4>
+<p>Each metric in this group points to a single queue-exchange pair via its label.</p>
+<p>These metrics are similar to those grouped under <code>channel_queue_exchange_metrics</code>, but do not include the channel ID in their labels. They are useful for monitoring the state of each queue-exchange pair individually.</p>
+<p>Grouped under <code>queue_exchange_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_queue_exchange_messages_published_total</td><td>Total number of messages published into a queue through an exchange</td></tr></tbody></table>
+<h4 id="connectionchannel-metrics">Connection/channel metrics</h4>
+<p>All of those include the Erlang process ID of the channel in their label. This data is not particularly useful
+and is only present to distinguish metrics of separate channels.</p>
+<p>These metrics are the most expensive to produce.</p>
+<h5 id="connection-metrics">Connection metrics</h5>
+<p>Grouped under <code>connection_coarse_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_connection_incoming_bytes_total</td><td>Total number of bytes received on a connection</td></tr><tr><td>rabbitmq_detailed_connection_outgoing_bytes_total</td><td>Total number of bytes sent on a connection</td></tr><tr><td>rabbitmq_detailed_connection_process_reductions_total</td><td>Total number of connection process reductions</td></tr></tbody></table>
+<p>Grouped under <code>connection_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_connection_incoming_packets_total</td><td>Total number of packets received on a connection</td></tr><tr><td>rabbitmq_detailed_connection_outgoing_packets_total</td><td>Total number of packets sent on a connection</td></tr><tr><td>rabbitmq_detailed_connection_pending_packets</td><td>Number of packets waiting to be sent on a connection</td></tr><tr><td>rabbitmq_detailed_connection_channels</td><td>Channels on a connection</td></tr></tbody></table>
+<h5 id="general-channel-metrics">General channel metrics</h5>
+<p>Grouped under <code>channel_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_channel_consumers</td><td>Consumers on a channel</td></tr><tr><td>rabbitmq_detailed_channel_messages_unacked</td><td>Delivered but not yet acknowledged messages</td></tr><tr><td>rabbitmq_detailed_channel_messages_unconfirmed</td><td>Published but not yet confirmed messages</td></tr><tr><td>rabbitmq_detailed_channel_messages_uncommitted</td><td>Messages received in a transaction but not yet committed</td></tr><tr><td>rabbitmq_detailed_channel_acks_uncommitted</td><td>Message acknowledgements in a transaction not yet committed</td></tr><tr><td>rabbitmq_detailed_consumer_prefetch</td><td>Limit of unacknowledged messages for each consumer</td></tr><tr><td>rabbitmq_detailed_channel_prefetch</td><td>Total limit of unacknowledged messages for all consumers on a channel</td></tr></tbody></table>
+<p>Grouped under <code>channel_process_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_channel_process_reductions_total</td><td>Total number of channel process reductions</td></tr></tbody></table>
+<h5 id="channel-metrics-with-queueexchange-breakdowns">Channel metrics with queue/exchange breakdowns</h5>
+<p>Grouped under <code>channel_exchange_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_channel_messages_published_total</td><td>Total number of messages published to an exchange on a channel</td></tr><tr><td>rabbitmq_detailed_channel_messages_confirmed_total</td><td>Total number of messages published to an exchange and confirmed on the channel</td></tr><tr><td>rabbitmq_detailed_channel_messages_unroutable_returned_total</td><td>Total number of messages published as mandatory to an exchange and returned to the publisher as unroutable</td></tr><tr><td>rabbitmq_detailed_channel_messages_unroutable_dropped_total</td><td>Total number of messages published as non-mandatory to an exchange and dropped as unroutable</td></tr></tbody></table>
+<p>Grouped under <code>channel_queue_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_channel_get_ack_total</td><td>Total number of messages fetched with basic.get in manual acknowledgement mode</td></tr><tr><td>rabbitmq_detailed_channel_get_total</td><td>Total number of messages fetched with basic.get in automatic acknowledgement mode</td></tr><tr><td>rabbitmq_detailed_channel_messages_delivered_ack_total</td><td>Total number of messages delivered to consumers in manual acknowledgement mode</td></tr><tr><td>rabbitmq_detailed_channel_messages_delivered_total</td><td>Total number of messages delivered to consumers in automatic acknowledgement mode</td></tr><tr><td>rabbitmq_detailed_channel_messages_redelivered_total</td><td>Total number of messages redelivered to consumers</td></tr><tr><td>rabbitmq_detailed_channel_messages_acked_total</td><td>Total number of messages acknowledged by consumers</td></tr><tr><td>rabbitmq_detailed_channel_get_empty_total</td><td>Total number of times basic.get operations fetched no message</td></tr></tbody></table>
+<p>Grouped under <code>channel_queue_exchange_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_queue_messages_published_total</td><td>Total number of messages published to queues</td></tr></tbody></table>
+<h4 id="virtual-hosts-and-exchange-metrics">Virtual hosts and exchange metrics</h4>
+<p>These additional metrics can be useful when virtual hosts or exchanges are
+created in a shared cluster. <strong>These metrics are cluster-wide and not node-local</strong>.
+Therefore these metrics <strong>must not be aggregated</strong> across cluster nodes.</p>
+<p>Grouped under <code>vhost_status</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_cluster_vhost_status</td><td>Whether a given vhost is running</td></tr></tbody></table>
+<p>Grouped under <code>exchange_names</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_cluster_exchange_name</td><td>Enumerates exchanges without any additional info. This value is cluster-wide. A cheaper alternative to <code>exchange_bindings</code></td></tr></tbody></table>
+<p>Grouped under <code>exchange_bindings</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_cluster_exchange_bindings</td><td>Number of bindings for an exchange. This value is cluster-wide.</td></tr></tbody></table>
+<h4 id="stream-consumer-metrics">Stream consumer metrics</h4>
+<p>Grouped under <code>stream_consumer_metrics</code>:</p>
+<table><thead><tr><th>Metric</th><th>Description</th></tr></thead><tbody><tr><td>rabbitmq_detailed_stream_consumer_max_offset_lag</td><td>Highest consumer offset lag for a given stream</td></tr></tbody></table>
+<h3 id="timeout-configuration">Scraping Endpoint Timeouts</h3>
+<p>In some environments there aren't many stats-emitting entities (queues, connections, channels), in others
+the scraping HTTP endpoint may have to return a sizeable data set to the client (e.g. many thousands of rows).
+In those cases the amount of time it takes to process the request can exceed certain
+timeouts in the embedded HTTP server and the HTTP client used by Prometheus.</p>
+<p>It is possible to bump plugin side HTTP request timeouts using the <code>prometheus.tcp.idle_timeout</code>,
+<code>prometheus.tcp.inactivity_timeout</code>, <code>prometheus.tcp.request_timeout</code> settings.</p>
+<ul>
+<li><code>prometheus.tcp.inactivity_timeout</code> controls HTTP(S) client's TCP connection inactivity timeout.
+When it is reached, the connection will be closed by the HTTP server.</li>
+<li><code>prometheus.tcp.request_timeout</code> controls the window of time in which the client has to send an HTTP
+request.</li>
+<li><code>prometheus.tcp.idle_timeout</code> controls the window of time in which the client has to send more data (if any)
+within the context of an HTTP request.</li>
+</ul>
+<p>If a load balancer or proxy is used between the Prometheus node and the RabbitMQ nodes it scrapes,
+the <code>inactivity_timeout</code> and <code>idle_timeout</code> values should be at least as large, and often greater than,
+the timeout and inactivity values used by the load balancer.</p>
+<p>Here is an example configuration snippet that modifies the timeouts:</p>
+<div><div><pre><code class="language-ini">prometheus.tcp.idle_timeout = 120000
+prometheus.tcp.inactivity_timeout = 120000
+prometheus.tcp.request_timeout = 120000</code></pre></div></div>
+<h3 id="grafana-configuration">Grafana Configuration</h3>
+<p>The last component in this setup is Grafana. If this is your first time integrating Grafana with
+Prometheus, please follow the <a href="https://prometheus.io/docs/visualization/grafana/">official integration guide</a>.</p>
+<p>After Grafana is integrated with the Prometheus instance that reads and stores
+RabbitMQ metrics, it is time to import the Grafana dashboards that Team RabbitMQ
+maintains. Please refer to the <a href="https://grafana.com/docs/reference/export_import/#importing-a-dashboard">the official Grafana tutorial</a>
+on importing dashboards in Grafana.</p>
+<p>Grafana dashboards for RabbitMQ and Erlang are open source and publicly from the <a href="https://github.com/rabbitmq/rabbitmq-server/tree/main/deps/rabbitmq_prometheus/docker/grafana/dashboards">rabbitmq-server</a> GitHub repository.</p>
+<p>To import <strong>RabbitMQ-Overview</strong> dashboard to Grafana:</p>
+<ol>
+<li>Go to the <a href="https://grafana.com/orgs/rabbitmq">Grafana website</a> to view the list of official RabbitMQ Grafana
+dashboards.</li>
+<li>Select <strong>RabbitMQ-Overview</strong> <a href="https://grafana.com/grafana/dashboards/10991">dashboard</a>.</li>
+<li>Click the <strong>Download JSON</strong> link or copy the dashboard ID.</li>
+<li>Copy paste the file contents in Grafana, then click <strong>Load</strong>, as seen below:<!-- -->
+<ul>
+<li>Alternatively, paste the dashboard ID in the field <strong>Grafana.com Dashboard</strong>.</li>
+</ul>
+</li>
+</ol>
+<p><img alt="Grafana Import Dashboard" src="/assets/images/grafana-import-dashboard-7cc67028b12dce2f7444802284d10e51.png"/></p>
+<p>Repeat the process for all other Grafana dashboards that you would like to use with
+this RabbitMQ deployment.</p>
+<p>Finally, switch the default data source used by Grafana to <code>prometheus</code>.</p>
+<p>Congratulations! Your RabbitMQ is now monitored with Prometheus &amp; Grafana!</p>
+<h2 id="tls">Securing Prometheus Scraping Endpoint with TLS</h2>
+<p>The Prometheus metrics can be secured with TLS similar to the other listeners.
+For example, in the <a href="/docs/4.3/configure#configuration-files">configuration file</a></p>
+<div><div><pre><code class="language-ini">prometheus.ssl.port       = 15691
+prometheus.ssl.cacertfile = /full/path/to/ca_certificate.pem
+prometheus.ssl.certfile   = /full/path/to/server_certificate.pem
+prometheus.ssl.keyfile    = /full/path/to/server_key.pem
+prometheus.ssl.password   = password-if-keyfile-is-encrypted
+## To enforce TLS (disable the non-TLS port):
+# prometheus.tcp.listener = none</code></pre></div></div>
+<p>To enable TLS with <a href="/docs/4.3/ssl#peer-verification">peer verification</a>, use a config similar to</p>
+<div><div><pre><code class="language-ini">prometheus.ssl.port       = 15691
+prometheus.ssl.cacertfile = /full/path/to/ca_certificate.pem
+prometheus.ssl.certfile   = /full/path/to/server_certificate.pem
+prometheus.ssl.keyfile    = /full/path/to/server_key.pem
+prometheus.ssl.password   = password-if-keyfile-is-encrypted
+prometheus.ssl.verify     = verify_peer
+prometheus.ssl.depth      = 2
+prometheus.ssl.fail_if_no_peer_cert = true
+## To enforce TLS (disable the non-TLS port):
+# prometheus.tcp.listener = none</code></pre></div></div></main>

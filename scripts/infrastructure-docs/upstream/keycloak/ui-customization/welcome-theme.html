@@ -1,0 +1,20 @@
+<main>
+<div class="kc-asciidoc" id="guide-body">
+<div class="paragraph">
+<p>The welcome theme is the web page that is served when you request the default page from the Keycloak server.  For instance, if your server is deployed on your local machine at port 8080, <a class="bare" href="http://localhost:8080">http://localhost:8080</a> serves the welcome theme.</p>
+</div>
+<div class="paragraph">
+<p>By default, the welcome theme is only used during the initial setup to create the first admin user. Once an initial admin exists, navigating to the welcome page redirects to the Admin Console. However, this behavior can be changed and the welcome theme can be completely customized or replaced.</p>
+</div>
+<div class="paragraph">
+<p>Since the welcome theme is not associated with a realm, it cannot be selected in the admin console like other themes.</p>
+</div>
+<div class="paragraph">
+<p>To change the welcome theme, create and deploy a new welcome theme as described in <a href="https://www.keycloak.org/ui-customization/themes#_creating-a-theme">Working with themes</a>. Then, start the Keycloak server using the <code>spi-theme—​welcome-theme</code> option.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="rouge highlight"><code data-lang="bash">bin/kc.[sh|bat] start <span class="nt">--spi-theme--welcome-theme</span><span class="o">=</span>custom-theme</code></pre>
+</div>
+</div> </div>
+</main>

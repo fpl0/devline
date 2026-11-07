@@ -1,0 +1,270 @@
+<main><header><h1>Advisories &amp; events</h1></header>
+<p>The two pages before this one read state on demand. You <code>curl</code> the
+monitoring port <code>:8222</code> and it answers with the numbers as they are right
+now. That works when you know <em>which</em> number to ask about and <em>when</em> to
+ask. It does nothing for events that happen between two polls.</p>
+<p>The <code>shipping</code> consumer falling behind is a number you can poll for: its
+lag climbs and you see it on the next scrape. But a poison order that
+exhausts its deliveries is a one-time event rather than a level you read.
+By the time your next scrape runs, the moment has passed and the counter
+that ticked is now part of an aggregate. You need NATS to tell you the
+instant it happens.</p>
+<p>This page covers the two streams of events NATS publishes for exactly
+that: advisories on the <code>$JS.EVENT.ADVISORY.*</code> subjects, and system
+events on the <code>$SYS.*</code> subjects. Both arrive as ordinary messages you
+subscribe to. You don't request either one; the server pushes them to you.</p>
+<h2 id="advisories">Advisories</h2>
+<p>An <strong>advisory</strong> is a transient JSON message that JetStream publishes once,
+the moment something noteworthy happens to a stream or a consumer. It's a
+normal NATS message on a well-known subject. You subscribe to it the same
+way you subscribe to any subject.</p>
+<p>Advisories live under one subject tree:</p>
+<div><div><pre><code class="language-text">$JS.EVENT.ADVISORY.&gt;</code></pre></div></div>
+<p>Every JetStream advisory lands somewhere under that prefix. The leaf of
+the subject names the event and the entities it's about. When a message
+on the <code>shipping</code> consumer exhausts its delivery attempts, the server
+publishes one advisory here:</p>
+<div><div><pre><code class="language-text">$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.ORDERS.shipping</code></pre></div></div>
+<p>The stream name and consumer name are baked into the subject, so a
+subscriber can choose a wildcard that matches exactly the events it
+cares about: all advisories for <code>ORDERS</code>, or only max-delivery events
+for <code>shipping</code>.</p>
+<p>Subscribe to the whole advisory tree and receive these events from the
+deployment:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Subscribe to every JetStream advisory the cluster publishes.
+# Advisories are transient: you only see events that fire while you are
+# attached. Leave this running before the shipping consumer goes wrong.
+nats subscribe '$JS.EVENT.ADVISORY.&gt;'
+
+# When a poison order exhausts its deliveries on the shipping consumer,
+# one max_deliver advisory lands on this subject:
+#   $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.ORDERS.shipping
+# The message body names the stream, the consumer, the failed sequence,
+# and how many times delivery was attempted:
+#
+# {
+#   "type": "io.nats.jetstream.advisory.v1.max_deliver",
+#   "stream": "ORDERS",
+#   "consumer": "shipping",
+#   "stream_seq": 987,
+#   "deliveries": 5
+# }</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Subscribe to every JetStream advisory the cluster publishes.
+// Advisories are transient: you only see events that fire while
+// you are attached, so subscribe before the shipping consumer
+// goes wrong.
+s = natsConnection_SubscribeSync(&amp;sub, conn, "$JS.EVENT.ADVISORY.&gt;");
+
+// When a poison order exhausts its deliveries on the shipping
+// consumer, one max_deliver advisory lands on:
+//   $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.ORDERS.shipping
+// Its JSON body names the stream, the consumer, the failed
+// sequence, and how many times delivery was attempted.
+while (s == NATS_OK)
+{
+    natsMsg *msg = NULL;
+
+    s = natsSubscription_NextMsg(&amp;msg, sub, 30000);
+    if (s == NATS_OK)
+    {
+        printf("[%s] %s\n", natsMsg_GetSubject(msg), natsMsg_GetData(msg));
+        natsMsg_Destroy(msg);
+    }
+}</code></pre></div></div>
+<p>When the poison order finally exceeds its delivery limit, one message
+arrives. Its body names the stream, the consumer, the sequence that
+failed, and how many times delivery was attempted:</p>
+<div><div><pre><code class="language-json">{
+  "type": "io.nats.jetstream.advisory.v1.max_deliver",
+  "stream": "ORDERS",
+  "consumer": "shipping",
+  "stream_seq": 987,
+  "deliveries": 5
+}</code></pre></div></div>
+<p>That is the whole event: stream sequence <code>987</code> was delivered five times,
+never acked, and JetStream stopped attempting delivery. The message itself
+stays in the <code>ORDERS</code> stream under its retention policy; what stops is
+delivery to <code>shipping</code>. The <code>max_deliver</code> advisory is the only built-in
+signal that this happened. There's no dead-letter queue, and the advisory
+is published once. If no one is subscribed when it fires, you never learn
+that order <code>987</code> stopped being delivered.</p>
+<p>The <code>max_deliver</code> advisory is one type among several. JetStream also
+publishes a <code>consumer_action</code> advisory when a consumer is created or
+deleted, a <code>nak</code> advisory when a handler explicitly negative-acks a
+message, and a <code>terminated</code> advisory when a message is removed from
+delivery. Each is a different leaf under <code>$JS.EVENT.ADVISORY.&gt;</code>, and each
+carries its own JSON body. The full set of advisory types and their
+schemas is documented in
+<a href="/reference/jetstream/advisory">Reference → JetStream advisories</a>. We only need the
+<code>max_deliver</code> advisory here, because it's the one that tells you an order
+slipped through.</p>
+<h3 id="the-leader-elected-advisory">The leader-elected advisory</h3>
+<p>One advisory is worth calling out separately. When the leader of a replicated
+stream or consumer changes, JetStream publishes a leader-elected advisory
+naming the new leader. You'll see it in the same <code>$JS.EVENT.ADVISORY.&gt;</code>
+subscription, and a flapping leader showing up here is worth watching.</p>
+<p>This page covers <em>observing</em> that it happened. <em>Why</em> a leader
+changed (how the election ran, what quorum is, which peer won) is
+clustering mechanics rather than monitoring. When you want to understand the
+election behind the advisory, that lives in
+<a href="/learn/clustering/raft-and-leaders">Clustering → RAFT and leaders</a>. Here,
+the advisory is a fact you receive, and this page does not explain the process.</p>
+<h2 id="system-events">System events</h2>
+<p>The second stream of events is broader than JetStream. A <strong>system event</strong>
+is a message the server publishes on the <code>$SYS.*</code> subjects to report
+server- and account-level activity: connections opening and closing, and
+a periodic server heartbeat.</p>
+<p>The two you'll reach for first are the connection events. Every time a
+client connects, the server publishes:</p>
+<div><div><pre><code class="language-text">$SYS.ACCOUNT.ORDERS.CONNECT</code></pre></div></div>
+<p>and the matching <code>$SYS.ACCOUNT.ORDERS.DISCONNECT</code> when it leaves. The
+account is baked into the subject, so <code>$SYS.ACCOUNT.ORDERS.CONNECT</code> watches
+<code>order-svc</code> in the <code>ORDERS</code> account. <code>analytics-reader</code> lives in the
+<code>ANALYTICS</code> account and publishes on <code>$SYS.ACCOUNT.ANALYTICS.CONNECT</code>
+instead. Subscribe to <code>$SYS.ACCOUNT.*.CONNECT</code> to watch clients across
+every account come and go without polling <code>/connz</code> on a timer.</p>
+<p>Alongside connections, each server publishes a <code>STATSZ</code> heartbeat on
+<code>$SYS.SERVER.&lt;id&gt;.STATSZ</code> on a fixed interval. It carries the same kind of
+summary numbers as <code>/varz</code>, pushed instead of pulled, so a listener has a
+steady pulse from every node in the <code>east</code> cluster.</p>
+<p>System events are published into the <strong>system account</strong>, not your
+application account. To subscribe to <code>$SYS.*</code> you connect as a system
+user, which is a separate privilege from the <code>ORDERS</code> account <code>order-svc</code>
+uses. Setting that up is a security task, covered in
+<a href="/learn/security/authorization">Security → Authorization</a>. The full set of
+<code>$SYS.*</code> subjects is documented in
+<a href="/reference/system/advisory">Reference → Advisories</a>. We only need the
+connect and disconnect events here.</p>
+<div></div>
+<p>The animation shows the property that makes advisories tricky. The
+JetStream layer publishes one advisory the instant the poison order hits
+its limit. A subscriber attached <em>before</em> that moment receives it. A
+subscriber that connects <em>after</em> receives nothing: the message was
+published once and is already gone.</p>
+<h2 id="pitfalls">Pitfalls</h2>
+<p>These pitfalls are scoped to this page's two concepts: advisories and system
+events. Each one comes down to the same property: these are messages that
+pass by, whereas the monitoring endpoints expose levels you read.</p>
+<p><strong>Advisories are transient.</strong> An advisory is published exactly once, the
+moment its event fires, and it is not stored in any stream. If you're not
+subscribed at that instant, you never learn the event happened. A live
+<code>nats subscribe '$JS.EVENT.ADVISORY.&gt;'</code> in a terminal is fine for a demo,
+but it stops when the terminal closes, and every advisory after that is
+gone. Don't rely on a watching human or an ad-hoc subscription; capture
+advisories in a durable destination that is always subscribed.</p>
+<p>The fix is to point a stream at the advisory subjects. A stream is always
+subscribed and stores what it captures, so you can read events back long
+after they fired:</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Pitfall fix: advisories are transient, so capture them in a stream that
+# is always listening. Create a dedicated stream that records every
+# advisory the cluster publishes, so none is missed while no one watches.
+nats stream add ADVISORIES \
+  --subjects '$JS.EVENT.ADVISORY.&gt;' \
+  --storage file \
+  --retention limits \
+  --max-age 168h \
+  --defaults
+
+# Now the max_deliver advisory for a poison order is durable. Read back
+# every advisory the stream has recorded, oldest first:
+nats stream view ADVISORIES
+
+# Or replay only the consumer max-delivery events:
+nats stream view ADVISORIES --subject \
+  '$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.&gt;'</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Pitfall fix: advisories are transient, so capture them in a
+// stream that is always listening. This stream records every
+// advisory the cluster publishes and keeps a week of history.
+jsStreamConfig  cfg;
+const char      *subjects[] = {"$JS.EVENT.ADVISORY.&gt;"};
+
+jsStreamConfig_Init(&amp;cfg);
+cfg.Name        = "ADVISORIES";
+cfg.Subjects    = subjects;
+cfg.SubjectsLen = 1;
+cfg.Storage     = js_FileStorage;
+cfg.Retention   = js_LimitsPolicy;
+cfg.MaxAge      = 168LL * 60 * 60 * 1000000000LL; // 168h in ns
+
+s = js_AddStream(&amp;si, js, &amp;cfg, NULL, &amp;jerr);
+
+// Now the max_deliver advisory for a poison order is durable.
+// Read back every advisory the stream has recorded, oldest
+// first, with an ephemeral no-ack consumer.
+if (s == NATS_OK)
+{
+    jsSubOptions    so;
+    natsMsgList     list = {NULL, 0};
+
+    jsSubOptions_Init(&amp;so);
+    so.Stream           = "ADVISORIES";
+    so.Config.AckPolicy = js_AckNone; // read-back only
+
+    s = js_PullSubscribe(&amp;sub, js, "$JS.EVENT.ADVISORY.&gt;", NULL,
+                         NULL, &amp;so, &amp;jerr);
+    if (s == NATS_OK)
+        s = natsSubscription_Fetch(&amp;list, sub, 100, 2000, &amp;jerr);
+    if ((s == NATS_OK) || (s == NATS_TIMEOUT))
+    {
+        int i;
+
+        s = NATS_OK;
+        for (i = 0; i &lt; list.Count; i++)
+            printf("[%s] %s\n",
+                   natsMsg_GetSubject(list.Msgs[i]),
+                   natsMsg_GetData(list.Msgs[i]));
+        natsMsgList_Destroy(&amp;list);
+    }
+}</code></pre></div></div>
+<p><strong>A <code>max_deliver</code> advisory is the only built-in signal a message was
+dropped.</strong> JetStream has no dead-letter queue. When the <code>shipping</code>
+consumer exhausts its deliveries on a poison order, the order is removed
+from delivery and the only record is one advisory message. Subscribe to
+<code>$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.&gt;</code>, or capture it in the
+stream above; otherwise poison orders disappear silently. What to <em>do</em>
+with a dropped order, such as routing it to a parking subject, is an
+acknowledgment pattern covered in
+<a href="/learn/jetstream/acknowledgment">JetStream → Acknowledgment</a>.</p>
+<p><strong>A leader-elected advisory reports a flap, not its cause.</strong> Seeing
+repeated leader-elected advisories for <code>ORDERS</code> tells you the cluster is
+unstable, and that's worth watching. It doesn't tell you why. Treat
+the advisory as a symptom to watch and take the <em>why</em> (election timing,
+quorum, peer health) to
+<a href="/learn/clustering/raft-and-leaders">Clustering → RAFT and leaders</a>.
+Don't try to diagnose the election from the advisory body alone.</p>
+<h2 id="where-you-are">Where you are</h2>
+<p>You now have a second way to watch the <code>ORDERS</code> deployment, one that
+doesn't depend on polling. You can:</p>
+<ul>
+<li>Subscribe to <code>$JS.EVENT.ADVISORY.&gt;</code> and see a <code>max_deliver</code> advisory the
+instant a poison order exhausts its deliveries on the <code>shipping</code>
+consumer.</li>
+<li>Read the advisory body (<code>stream</code>, <code>consumer</code>, <code>stream_seq</code>,
+<code>deliveries</code>) to know exactly which order was dropped and how many
+attempts it took.</li>
+<li>Subscribe to <code>$SYS.ACCOUNT.ORDERS.CONNECT</code> and <code>DISCONNECT</code> to watch
+clients come and go, and read the <code>STATSZ</code> heartbeat from each node.</li>
+<li>Capture advisories in a durable stream so a transient event is never
+missed.</li>
+</ul>
+<p>You've read state on demand from the monitoring port, computed lag from
+consumer state, and now received events you never asked for. The last
+page turns all of it into stored history, charts, and threshold checks.</p>
+<h2 id="whats-next">What's next</h2>
+<p>The next page wires the production loop: an <strong>exporter</strong> that scrapes
+<code>:8222</code>, <strong>Prometheus</strong> that stores the numbers as time series, <strong>Grafana</strong>
+that charts them, and <code>nats server check</code> that fires when lag crosses a
+threshold.</p>
+<p>Continue to
+<a href="/learn/monitoring/prometheus-and-dashboards">Prometheus &amp; dashboards</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/reference/jetstream/advisory">Reference → JetStream advisories</a> — every
+JetStream advisory subject and its JSON schema.</li>
+<li><a href="/reference/system/advisory">Reference → System events</a> — every <code>$SYS.*</code>
+system-event subject and its JSON schema.</li>
+<li><a href="/learn/jetstream/acknowledgment">JetStream → Acknowledgment</a> — what to
+do with a message that hit <code>max_deliver</code>.</li>
+<li><a href="/learn/clustering/raft-and-leaders">Clustering → RAFT and leaders</a> —
+the election behind a leader-elected advisory.</li>
+</ul></main>

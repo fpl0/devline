@@ -1,0 +1,85 @@
+<main><header><h1>Clustering &amp; Replication Deep Dive</h1></header>
+<p>A NATS cluster involves more than three servers wired together. Beneath
+that wiring is a mechanism by which the servers find each other, elect
+leaders, agree on every write, and keep replicas in step. This chapter
+covers that mechanism, taught one layer at a time the way you'd learn it
+by running a real cluster and watching it work.</p>
+<p>The <a href="/learn/topologies">Topologies</a> chapter stood up the shapes (one
+server growing into the <code>east</code> cluster, then a super-cluster, then leaf
+nodes) and deliberately left the internals for here. The
+<a href="/learn/jetstream">JetStream</a> chapter gave you one page on
+<a href="/learn/jetstream/surviving-node-loss">surviving node loss</a>: set <code>R=3</code>,
+lose a server, keep serving. This chapter explains how both of those
+work. We go beneath the shapes to the agreement and replication that make
+them work.</p>
+<h2 id="by-the-end-youll-have">By the end you'll have</h2>
+<ul>
+<li>A live three-server cluster (<code>n1-east</code>, <code>n2-east</code>, <code>n3-east</code>, the same
+<code>east</code> cluster from Topologies) that discovered itself from a single
+seed route.</li>
+<li>The <code>ORDERS</code> stream running at <code>R=3</code>, with a write you can trace from
+<code>order-svc</code> publishing <code>orders.created</code>, through the leader's log, to a
+quorum commit that survives one server dying.</li>
+<li>A working mental model of the five moving parts: <strong>routes</strong> form the
+mesh, <strong>RAFT groups</strong> agree, a <strong>quorum</strong> commits each write,
+<strong>placement</strong> decides where replicas live, and <strong>peer management</strong>
+grows or shrinks the set safely.</li>
+<li>The commands to inspect all of it (leaders, replicas, lag) and the
+failure modes to watch for when you operate it for real.</li>
+</ul>
+<h2 id="who-this-is-for">Who this is for</h2>
+<p>You've read the <a href="/concepts/what-is-nats">Core Concepts</a> primers and,
+ideally, the <a href="/learn/jetstream">JetStream</a> and
+<a href="/learn/topologies">Topologies</a> deep dives. You know what a stream, a
+consumer, a route, and a cluster are. This chapter doesn't re-teach
+them.</p>
+<p>You don't need to know anything about consensus or replication
+specifically. We start from "what is a route and how does one server
+find another" and build up to placement and peer management from there.</p>
+<h2 id="how-to-read-it">How to read it</h2>
+<p>Each page introduces at most two new concepts and carries the cluster
+forward. You stand up <code>n1-east</code>, <code>n2-east</code>, and <code>n3-east</code> on the first
+page and keep them running: later pages elect a leader on that same
+cluster, replicate a write to it, place the stream on tagged servers,
+and add or remove a peer. The server names, the <code>ORDERS</code> stream, and the
+payload never change.</p>
+<p>The vocabulary here is dense: leader, follower, term, quorum, commit,
+apply. Every term is defined before it's used, so read the pages in
+order rather than jumping. Where a feature has a long list of knobs or
+timer values, the page teaches only what you need to understand the
+mechanism and links to <a href="/reference/">Reference</a> for the rest.</p>
+<p>This chapter is replication <em>within one cluster</em>. Replication <em>across</em>
+clusters (gateways, geo-affinity, super-cluster traffic) stays in
+<a href="/learn/topologies/super-clusters">Super-clusters</a>.</p>
+<h2 id="map">Map</h2>
+<table><thead><tr><th>Page</th><th>What you learn</th></tr></thead><tbody><tr><td><a href="/learn/clustering/forming-a-cluster">Forming a cluster</a></td><td>Routes (explicit seed vs implicit gossip) and how one seed grows into a full mesh</td></tr><tr><td><a href="/learn/clustering/raft-and-leaders">Raft and leaders</a></td><td>RAFT groups, the meta leader and stream leaders, and how an election picks one</td></tr><tr><td><a href="/learn/clustering/replication-and-r3">Replication and R=3</a></td><td>How a quorum commits a write, then followers apply it, and the consistency you get</td></tr><tr><td><a href="/learn/clustering/placement">Placement</a></td><td>Constrain replicas to a cluster and tagged servers, and move a stream's leader to a chosen server</td></tr><tr><td><a href="/learn/clustering/scaling-and-peers">Scaling and peer management</a></td><td>Grow the group with catchup, move a replica off a server safely, and never lose quorum doing it</td></tr><tr><td><a href="/learn/clustering/desired-state">Desired state and evacuation</a></td><td>Read a reconfiguration in flight, evacuate a server in one command, and roll a move back</td></tr><tr><td><a href="/learn/clustering/where-next">Where to go next</a></td><td>A recap of the whole mechanism and a production checklist</td></tr></tbody></table>
+<p>In summary, servers form a mesh, elect leaders, replicate
+every write, place the replicas where you want them, and let you scale
+the peer set without losing agreement.</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>You'll need:</p>
+<ul>
+<li>Three local <code>nats-server</code> processes with JetStream enabled, which the
+first page stands up as the <code>east</code> cluster. A single server isn't
+enough here: RAFT needs a majority, so the mechanism only appears once
+three servers are talking.</li>
+<li>The <code>nats</code> CLI installed. Most of this chapter is server config and
+<code>nats</code> operator commands; a few stream operations also show the
+JavaScript, Go, Python, Java, Rust, and C# client form, since every
+client sets the same replica count and placement.</li>
+<li>A system account (<code>$SYS</code>) to run the <code>nats server</code> operator commands
+against. These configs don't set one up; add a system user (the
+<a href="/learn/security">Security deep dive</a> covers it) and connect with its
+credentials before the first <code>nats server list</code>, <code>info</code>, or <code>report</code>.</li>
+</ul>
+<p>Open a terminal and turn to
+<a href="/learn/clustering/forming-a-cluster">Forming a cluster</a>.</p>
+<h2 id="see-also">See also</h2>
+<ul>
+<li><a href="/learn/topologies">Topologies deep dive</a> — the shapes this chapter
+runs beneath, including the <code>east</code> cluster it reuses.</li>
+<li><a href="/learn/jetstream/surviving-node-loss">JetStream → surviving node loss</a>
+— the one-page replica intro this chapter goes deeper than.</li>
+<li><a href="/reference/">Reference</a> — the exhaustive config, protocol, and
+monitoring detail behind every mechanism here.</li>
+</ul></main>

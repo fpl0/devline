@@ -1,0 +1,11 @@
+<main><header><h1>rtt_thresholds</h1></header>
+<div><span><span>Hot Reloadable</span></span></div>
+<p>Applies only when the <code>s2_auto</code> mode is used and defines the round-trip time (RTT)
+thresholds for compression level changes.</p>
+<p>By default, no compression is used unless the RTT hits the first threshold
+(e.g. 10ms), then <code>s2_fast</code>. The next threshold would switch to <code>s2_better</code>,
+and then finally <code>s2_best</code> is the last threshold is reached.</p>
+<p>Note, the compression level is dynamic so if the RTT decreases, the compression
+level will decrease accordingly.</p>
+<h2 id="types">Types</h2>
+<table><thead><tr><th>Type</th><th>Description</th><th>Choices</th></tr></thead><tbody><tr><td><code>[ duration ]</code></td><td>Duration as a string with units such as 100ms, 10s, 5m, or 2h.</td><td>-</td></tr></tbody></table></main>

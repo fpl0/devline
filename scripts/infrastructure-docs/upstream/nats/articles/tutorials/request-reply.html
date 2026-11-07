@@ -1,0 +1,103 @@
+<main><header><h1>2. Request and reply</h1></header>
+<p>In <a href="/tutorials/hello-nats">Hello NATS</a> a publisher sent a message and never
+heard back. This time you'll build a two-way conversation: a small <strong>responder</strong>
+that answers questions on a subject, and a <strong>request</strong> that calls it and gets
+exactly one reply. By the end you'll start a <code>time</code> service in one terminal
+and ask it for the time from another.</p>
+<div></div>
+<h2 id="what-youll-need">What you'll need</h2>
+<ul>
+<li>
+<p>The <code>nats</code> CLI and a running <code>nats-server</code> from
+<a href="/tutorials/hello-nats">Hello NATS</a>. If the server isn't running, start it:</p>
+<div><div><pre><code class="language-bash">nats-server</code></pre></div></div>
+</li>
+<li>
+<p>Two terminals: one for the responder, one for the request.</p>
+</li>
+</ul>
+<h2 id="step-1-start-a-responder">Step 1: Start a responder</h2>
+<p>In your first terminal, start a responder on the subject <code>time</code>. The <code>--command</code>
+flag tells <code>nats reply</code> to run a command for each request and send its output
+back as the reply.</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Start a responder on the subject "time". `nats reply` subscribes to the
+# subject and, for every request it receives, runs the command and sends its
+# output back on the request's private reply subject. Leave this running.
+nats reply time --command "date"</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Answer every request on "time" with the current date and time, sent
+// back on the request's private reply subject.
+static void
+onRequest(natsConnection *nc, natsSubscription *sub, natsMsg *msg, void *closure)
+{
+    char   now[64];
+    time_t t = time(NULL);
+
+    strftime(now, sizeof(now), "%a %b %e %H:%M:%S %Z %Y", localtime(&amp;t));
+    if (natsMsg_GetReply(msg) != NULL)
+        natsConnection_PublishString(nc, natsMsg_GetReply(msg), now);
+
+    natsMsg_Destroy(msg);
+}
+    // Subscribe on "time" and leave the responder running; Ctrl-C to stop.
+    if (s == NATS_OK)
+        s = natsConnection_Subscribe(&amp;sub, conn, "time", onRequest, NULL);</code></pre></div></div>
+<p>You should see it start up and wait:</p>
+<div><div><pre><code class="language-text">17:42:10 Listening on "time" in group "NATS-RPLY-22"</code></pre></div></div>
+<p>Leave this terminal running. It's now a service waiting to answer.</p>
+<h2 id="step-2-send-a-request">Step 2: Send a request</h2>
+<p>Open your second terminal and call the service. <code>nats request</code> publishes one
+message on <code>time</code> and waits for a single reply, up to the global <code>--timeout</code>
+(five seconds by default).</p>
+<h4>CLI</h4><div><div><pre><code class="language-bash">#!/bin/bash
+# Call the responder once. `nats request` creates a private inbox, subscribes
+# to it, publishes an (empty) request on "time" with the inbox attached, and
+# prints the first reply it gets back. --timeout is the longest it waits.
+nats request time "" --timeout 2s</code></pre></div></div><h4>C</h4><div><div><pre><code class="language-c">// Call the responder once. The client creates a private inbox,
+// publishes an empty request on "time" with the inbox attached, and
+// waits up to two seconds for the first reply.
+natsMsg *reply = NULL;
+
+s = natsConnection_RequestString(&amp;reply, conn, "time", "", 2000);
+if (s == NATS_OK)
+{
+    printf("received: %.*s\n",
+           natsMsg_GetDataLength(reply), natsMsg_GetData(reply));
+    natsMsg_Destroy(reply);
+}
+else if (s == NATS_NO_RESPONDERS)
+{
+    // Nobody is subscribed to "time": the server says so right away
+    // instead of letting the request wait out the timeout.
+    printf("no responders are available\n");
+}</code></pre></div></div>
+<p>You should see one reply printed, the current date and time from the responder:</p>
+<div><div><pre><code class="language-text">17:42:31 Sending request on "time"
+17:42:31 Received with rtt 612µs
+Mon Jun  9 17:42:31 CEST 2026</code></pre></div></div>
+<p>That date came from the responder's <code>date</code> command, sent back to your request.</p>
+<h2 id="step-3-watch-the-responder-log-the-call">Step 3: Watch the responder log the call</h2>
+<p>Switch back to your first terminal. You should see the responder log the call:</p>
+<div><div><pre><code class="language-text">17:42:31 [#0] Received on subject "time":</code></pre></div></div>
+<p>Each time you rerun the request in your second terminal, the counter goes up by
+one (<code>[#1]</code>, <code>[#2]</code>, …) and a fresh reply comes back. Try it a couple of times.</p>
+<h2 id="step-4-see-what-happens-with-no-responder">Step 4: See what happens with no responder</h2>
+<p>Stop the responder in your first terminal with <code>Ctrl+C</code>, then send the request
+again from your second terminal:</p>
+<div><div><pre><code class="language-bash">nats request time "" --timeout 2s</code></pre></div></div>
+<p>Instead of waiting out the timeout, the request returns right away, because the
+server knows nobody is subscribed to <code>time</code>:</p>
+<div><div><pre><code class="language-text">17:43:02 No responders are available</code></pre></div></div>
+<p>Start the responder again and the same request succeeds.</p>
+<h2 id="what-you-built">What you built</h2>
+<p>You ran a <code>time</code> responder and called it with a request, getting exactly one
+reply per call, all over NATS with no shared address between the two sides.</p>
+<h2 id="next">Next</h2>
+<ul>
+<li>Next tutorial: <a href="/tutorials/work-queue">3. Work queue</a> — split work across
+several workers so each message goes to exactly one of them.</li>
+<li>Understand how this works: <a href="/learn/core-nats/request-reply">Core NATS deep dive →
+Request-reply</a> covers the inbox, timeouts, and
+the no-responders signal.</li>
+<li>Turn responders into discoverable services with stats and schemas:
+<a href="/learn/services">Learn → Services</a>.</li>
+</ul></main>

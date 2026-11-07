@@ -1,0 +1,10 @@
+<main><header><h1>Leader Stepdown</h1></header>
+<p>Initiates leader stepdown for a consumer.</p>
+<!-- -->
+<h2 id="subject">Subject</h2>
+<p><code>$JS.API.CONSUMER.LEADER.STEPDOWN.{stream}.{consumer}</code></p>
+<p>Where <code>{stream}</code> is the stream name and <code>{consumer}</code> is the consumer name.</p>
+<h2 id="request">Request</h2>
+<div><p>A request for the JetStream $JS.API.CONSUMER.LEADER.STEPDOWN API</p><div></div><div><div><div><span>placement</span><span>object</span></div><div>Placement directives to consider when placing the leader</div></div></div></div>
+<h2 id="response">Response</h2>
+<div><p>A response from the JetStream $JS.API.CONSUMER.LEADER.STEPDOWN API</p><div></div><div><div><div>One of the following:</div><div><div>Option <!-- -->1<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>error</span><span>object</span><span>required</span></div></div></div><div><div>Option <!-- -->2<span> <!-- -->(<!-- -->object<!-- -->)</span></div><div><div><span>success</span><span>boolean</span><span>required</span></div><div>If the leader successfully stood down</div><div><span>Default:</span><code>false</code></div></div></div></div><div><div><span>type</span><span>const: "io.nats.jetstream.api.v1.consumer_leader_stepdown_response"</span></div></div></div></div></main>

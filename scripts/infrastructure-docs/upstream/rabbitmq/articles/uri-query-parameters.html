@@ -1,0 +1,73 @@
+<main><header><h1>URI Query Parameters</h1></header>
+<h2 id="overview">Overview</h2>
+<p>This page is a less-formal companion to the <a href="/docs/4.3/uri-spec">URI specification</a> and <a href="/docs/4.3/ssl">TLS</a> guides, documenting how the
+officially-supported clients interpret URI parameters. Currently
+only the Erlang client does so.</p>
+<p>The <a href="/docs/4.3/federation-reference#upstreams">Federation</a>
+and <a href="/docs/4.3/shovel">Shovel</a> plugins specify
+connections to other brokers using URIs, and are implemented
+using the Erlang client, so they take all the parameters
+described here for it.</p>
+<h2 id="basics">The Basics</h2>
+<p>Query parameters are added to the URI in the usual way. Any
+parameter can be omitted. The client will pick sensible defaults
+when they are.</p>
+<h3 id="example-a">Example A</h3>
+<p>An example connection URI with TLS disabled:</p>
+<div><div><pre><code class="language-ini">amqp://myhost?heartbeat=5&amp;connection_timeout=10000</code></pre></div></div>
+<p>This specifies a (non-encrypted) network connection to the host
+<code>myhost</code>. The heartbeat interval is set to 5 seconds,
+and connection timeout is set to 10 seconds (10,000 milliseconds).
+Other parameters are set to their default values.</p>
+<h3 id="example-b">Example B</h3>
+<p>In the following example URI, TLS and <a href="/docs/4.3/ssl#peer-verification">TLS peer verification</a> on the client side of the connection are enabled:</p>
+<div><div><pre><code class="language-ini">amqps://myhost?cacertfile=/path/to/ca_certificate.pem
+  &amp;certfile=/path/to/client_certificate.pem
+  &amp;keyfile=/path/to/client_key.pem
+  &amp;verify=verify_peer
+  &amp;server_name_indication=myhost</code></pre></div></div>
+<h3 id="example-c">Example C</h3>
+<p>In the following example URI, TLS is enabled but <a href="/docs/4.3/ssl#peer-verification">TLS peer verification</a> on the client side of the connection is disabled:</p>
+<div><div><pre><code class="language-ini">amqps://myhost?cacertfile=/path/to/ca_certificate.pem
+  &amp;certfile=/path/to/client_certificate.pem
+  &amp;keyfile=/path/to/client_key.pem
+  &amp;verify=verify_none
+  &amp;server_name_indication=myhost</code></pre></div></div>
+<h2 id="tls">TLS Parameters</h2>
+<p>This specifies an encrypted network connection to the host
+<code>myhost</code>. Absolute paths to the certificate files
+are provided. <code>verify_peer</code> ensures that certificate
+chain of trust is verified, and <code>server_name_indication</code>
+validates the <code>CN</code> value in the server's certificate
+against the hostname <code>myhost</code>.</p>
+<table><tbody><tr><th>Parameter name</th><th>Description</th></tr><tr><td><code>cacertfile</code><br/><code>certfile</code><br/><code>keyfile</code></td><td><p>Paths to files to use in order to present a client-side SSL
+certificate to the server. Only of use for the
+<code>amqps</code> scheme.</p></td></tr><tr><td><code>password</code></td><td><p>The passphrase for the private key file specified by
+<code>keyfile</code>. Only used when <code>keyfile</code>
+is set and refers to a password-protected private key.</p></td></tr><tr><td><code>verify</code><br/><code>server_name_indication</code></td><td><p>Only of use for the <code>amqps</code> scheme and used to
+configure verification of the server's x509 (TLS)
+certificate. <b>Note:</b> It is highly recommended to use
+both values. See the <a href="./ssl">TLS guide</a> to
+learn more about TLS support in RabbitMQ in general and specifically the
+<a href="./ssl#erlang-client">Erlang client</a>
+section.</p></td></tr><tr><td><code>auth_mechanism</code></td><td><p>SASL authentication mechanisms to consider when negotiating
+a mechanism with the server. This parameter can be specified
+multiple times,
+e.g. <code>?auth_mechanism=plain&amp;auth_mechanism=amqplain</code>,
+to specify multiple mechanisms.</p></td></tr><tr><td><code>heartbeat</code></td><td><p><a href="./heartbeats">Heartbeat</a> timeout value in seconds (an integer)
+to negotiate with the server.</p></td></tr><tr><td><code>connection_timeout</code></td><td><p>Time in milliseconds (an integer) to wait while establishing a TCP connection
+to the server before giving up.</p></td></tr><tr><td><code>channel_max</code></td><td><p>Maximum number of channels to permit on this connection.</p></td></tr></tbody></table>
+<p><a href="/docs/4.3/ssl">TLS options</a> can also be specified globally using the
+<code>amqp_client.ssl_options</code> configuration key in <code>advanced.config</code> like so:</p>
+<div><div><pre><code class="language-erlang">{amqp_client, [
+    {ssl_options, [
+        {cacertfile, "path-to-ca-certificate"},
+        {certfile, "path-to-certificate"},
+        {keyfile, "path-to-keyfile"},
+        {verify, verify_peer}
+    ]}
+]}.</code></pre></div></div>
+<p>They will be merged with the TLS parameters from the URI (the latter will take
+precedence) and affect all outgoing RabbitMQ Erlang client connections on the
+node, including plugins that use the client internally (Federation, Shovel,
+etc). Please see the <a href="/docs/4.3/ssl">TLS guide</a> for details.</p></main>

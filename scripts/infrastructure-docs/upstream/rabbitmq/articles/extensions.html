@@ -1,0 +1,54 @@
+<main><header><h1>AMQP 0-9-1 Protocol Extensions</h1></header>
+<h2 id="overview">Overview</h2>
+<p>RabbitMQ implements a number of extensions of the
+<a href="https://github.com/rabbitmq/amqp-0.9.1-spec/">AMQP 0-9-1 specification</a>,
+which are listed on this page.</p>
+<p>Some extensions introduce new protocol methods (operations); others rely on existing
+extension points such as <a href="/docs/4.3/queues#optional-arguments">optional queue arguments</a>.</p>
+<h2 id="publishing">Publishing</h2>
+<ul>
+<li><a href="/docs/4.3/confirms">Publisher Confirms</a> (aka Publisher Acknowledgements) are a lightweight way to know when
+RabbitMQ has taken responsibility for messages.</li>
+<li><a href="/docs/4.3/connection-blocked">Blocked Connection Notifications</a>
+allows clients to be notified when a connection is blocked and unblocked.</li>
+</ul>
+<h2 id="consuming">Consuming</h2>
+<ul>
+<li><a href="/docs/4.3/consumer-cancel">Consumer Cancellation Notifications</a> let a consumer know if it has been cancelled by the server.</li>
+<li><a href="/docs/4.3/nack"><code>basic.nack</code></a> extends <code>basic.reject</code> to support rejecting multiple messages at once.</li>
+<li><a href="/docs/4.3/consumer-priority">Consumer Priorities</a> allow you to send messages to higher priority consumers first.</li>
+<li><a href="/docs/4.3/direct-reply-to">Direct Reply-To</a> allows RPC clients to receive replies to their queries without needing to declare a queue.</li>
+</ul>
+<h2 id="message-routing">Message Routing</h2>
+<ul>
+<li><a href="/docs/4.3/e2e">Exchange to Exchange Bindings</a> allow
+messages to pass through multiple exchanges for more flexible routing.</li>
+<li><a href="/docs/4.3/ae">Alternate Exchanges</a> route messages that were otherwise unroutable.</li>
+<li><a href="/docs/4.3/sender-selected">Sender-selected Distribution</a> allows a publisher to decide where messages
+are routed directly.</li>
+</ul>
+<h2 id="message-lifecycle">Message Lifecycle</h2>
+<ul>
+<li><a href="/docs/4.3/ttl#per-queue-message-ttl">Per-Queue Message TTL</a>
+determines how long an unconsumed message can live in a queue before
+it is automatically deleted.</li>
+<li><a href="/docs/4.3/ttl#per-message-ttl-in-publishers">Per-Message TTL</a> determines the TTL on a per-message basis.</li>
+<li><a href="/docs/4.3/ttl#queue-ttl">Queue TTL</a> determines how
+long an unused queue can live before it is automatically deleted.</li>
+<li><a href="/docs/4.3/dlx">Dead Letter Exchanges</a> ensure messages get re-routed when they are rejected or expire.</li>
+<li><a href="/docs/4.3/maxlength">Queue Length Limit</a> allows the maximum length of a queue to be set.</li>
+<li><a href="/docs/4.3/priority">Priority Queues</a> support the message priority field (in a slightly different way).</li>
+</ul>
+<h2 id="authentication-and-identity">Authentication and Identity</h2>
+<ul>
+<li>The <a href="/docs/4.3/validated-user-id">User-ID</a> message property is validated by the server.</li>
+<li>Clients that advertise the appropriate capability may receive
+explicit <a href="/docs/4.3/auth-notification">authentication failure notifications</a> from the broker.</li>
+<li><code>update-secret</code> to be able to renew credentials for an active connection, when those credentials can expire.</li>
+</ul>
+<h2 id="amqp-0-9-1-spec-differences">AMQP 0-9-1 Spec Differences</h2>
+<p>Some features that were in AMQP 0-8 were deprecated in AMQP
+0-9-1. We have undeprecated some of them and introduced a
+couple of tiny behaviour changes that improve usability of
+the product. Please refer to the <a href="/docs/4.3/spec-differences">spec differences</a> page.</p>
+<p>There's also an <a href="/amqp-0-9-1-errata">AMQP 0-9-1 Errata page</a> which explains how various</p></main>

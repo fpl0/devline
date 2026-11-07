@@ -1,0 +1,19 @@
+<main>
+		
+		<h1>Updating Swagger spec</h1>
+		<p>Mailpit uses <a href="https://github.com/go-swagger/go-swagger">go-swagger</a> to automatically generate the Swagger (v2) JSON file.
+This file is then used to display the API documentation within Mailpit, typically visible at <code>http://localhost:8025/api/v1/</code>.
+You can view this from within the Mailpit web UI by clicking on “About” (bottom left) and then “OpenAPI / Swagger API documentation”.</p>
+<p>Go-swagger uses specific inline comments within Mailpit’s Go code to generate this spec file.
+For ease of use, a self-created Docker image is used (which ensures consistency) with the following command:</p>
+<div><pre><code class="language-shell"><span><span>docker run --rm -it <span>\
+</span></span></span><span><span>    -u <span>$(</span>shell id -u<span>)</span>:<span>$(</span>shell id -g<span>)</span> <span>\
+</span></span></span><span><span>    -v <span>"</span><span>${</span><span>PWD</span><span>}</span><span>:/source"</span> <span>\
+</span></span></span><span><span>    axllent/go-swagger generate spec -m -i ./server/apiv1/swagger-config.yml <span>\
+</span></span></span><span><span>    -o ./server/ui/api/v1/swagger.json
+</span></span></code></pre></div>
+
+		
+		
+		
+	</main>
