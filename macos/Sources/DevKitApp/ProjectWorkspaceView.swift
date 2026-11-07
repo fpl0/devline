@@ -178,7 +178,7 @@ struct ProjectWorkspaceView: View {
                 Text("\(catalog?.name ?? service.id) · \(service.version)").font(.callout.weight(.medium))
                 HStack(spacing: 12) {
                     ForEach(service.ports) { port in
-                        Button { copy("127.0.0.1:\(port.hostPort)") } label: { Text("\(port.name) :\(port.hostPort)").font(.caption.monospacedDigit()) }
+                        Button { copy("127.0.0.1:\(port.hostPort)") } label: { Text("\(port.name) :\(String(port.hostPort))").font(.caption.monospacedDigit()) }
                             .buttonStyle(.link).help("Copy local endpoint")
                     }
                 }
