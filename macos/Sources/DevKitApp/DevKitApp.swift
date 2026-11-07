@@ -405,21 +405,27 @@ private struct WorkspaceView: View {
         .onChange(of: model.libraryRevision) { _, _ in
             if let path = projectContext?.path { Task { await loadProjectContext(path) } }
         }
-        .onOpenURL { url in
-            if let request = LookupRequest(url: url) { lookUp(request); return }
-            guard ["devline", "devkit"].contains(url.scheme ?? ""), url.host == "docs",
-                  let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-                  let id = components.queryItems?.first(where: { $0.name == "id" })?.value,
-                  !id.isEmpty else { return }
-            beginNavigation()
-            reading.open(ReferenceLocation(
-                id: id,
-                anchor: components.queryItems?.first(where: { $0.name == "anchor" })?.value,
-                focusText: components.queryItems?.first(where: { $0.name == "focus" })?.value
-            ))
-            directDocumentID = id
-            workspace = .docs
+        .onOpenURL(perform: handleURL)
+    }
+
+    private func handleURL(_ url: URL) {
+        if let request = LookupRequest(url: url) {
+            lookUp(request)
+            return
         }
+        let scheme = url.scheme ?? ""
+        guard scheme == "devline" || scheme == "devkit" else { return }
+        guard url.host == "docs" else { return }
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
+        let items: [URLQueryItem] = components.queryItems ?? []
+        guard let id = items.first(where: { $0.name == "id" })?.value, !id.isEmpty else { return }
+        let anchor: String? = items.first(where: { $0.name == "anchor" })?.value
+        let focus: String? = items.first(where: { $0.name == "focus" })?.value
+        let location = ReferenceLocation(id: id, anchor: anchor, focusText: focus)
+        beginNavigation()
+        reading.open(location)
+        directDocumentID = id
+        workspace = .docs
     }
 
     private func sidebarRows(_ pages: [Workspace]) -> some View {
