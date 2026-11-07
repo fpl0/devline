@@ -4,15 +4,17 @@ Checks ran on an Apple M2 Pro Mac with macOS 27.2. Native observations below are
 
 ## References, projects, and downloads
 
-- The current bundled catalog contains 21 docsets, 23 revisions, and 10,615 articles. The whole-corpus audit checked 69,786 code examples and 322,901 local links. It found zero render errors and 85 previously recorded missing local fragments. Pack metadata identifies known omissions.
+- The bundled catalog contains 21 docsets, 23 revisions, and 10,615 articles. The whole-corpus audit checked 69,786 code examples and 322,901 local links. It found zero render errors and 85 previously recorded missing local fragments in the source snapshots. The reader applies 53 verified fragment aliases across 37 source URLs. It follows an alias only when the replacement anchor exists in the same installed docset revision. [Fragment navigation repair](https://github.com/fpl0/devline/commit/9c7b29aabe243418c7db71a5ea9ba3c80af39dc9)
 - A fresh CLI library installed the 19 infrastructure articles and ranked the image and volume portability article first for `infrastructure:docker save`. A separate fresh library installed the Node.js, TypeScript, Playwright, React, and Vite packs and ranked `fs.promises.readFile`, `Page.goto`, `useState`, Narrowing, and `build.target` first in their docsets. The five packs contain 130 official-source articles and 4,347 code examples.
-- All 26 independently prepared docset archives passed size and checksum verification. Their exact revisions are present in the local library, alongside older installed snapshots. The independent channel is staged for publication.
+- All 26 independently published docset archives, totaling 169,713,454 bytes, were downloaded over public HTTPS and matched their recorded sizes and SHA-256 checksums. The manifest matched the staged file byte for byte. [Versioned archives](https://github.com/fpl0/devline/releases/tag/docsets-2026.11.07) · [Public manifest](https://github.com/fpl0/devline/releases/download/docsets-v1/docs-manifest.json)
+- A fresh Devline 0.4 CLI library with an empty bundled catalog discovered 21 docsets and 26 releases through the public channel. It installed Go revision 2, discovered and installed revision 3, then rolled back offline. Both revisions remained searchable. Downloaded Node.js and infrastructure references also passed offline lookups.
 - Project reference tests include resolved framework versions, an incompatible release excluded from automatic search, an intentional pin retained across scopes, and global rollback precedence.
 - A local HTTPS test interrupted a docset transfer and resumed at byte 16,384. The completed archive passed size and checksum checks. Rollback kept older revisions addressable.
 - VS Code packaged and installed the extension in an isolated profile. Its command and URL encoding passed automated tests. Neovim’s headless test exercised cursor lookup, explicit queries, and visual selection. Full native editor handoff is still being checked.
 
 ## Starters, jobs, and transfer
 
+- All 28 bundled releases across 22 starter families passed offline verification. A single readiness check of the installed library matched all 28 exact releases to their receipts. The matrix covers six Go, three Rust, four Python, three Ruby, three .NET, three Java, three Elixir, and three Node.js releases. [Versioned starter catalog](data/templates-catalog.json)
 - The seven Python and Ruby releases installed and verified in the local library with external networking denied and local loopback available. The four new Python and Ruby kits also passed dependency refresh and offline verification in isolated libraries. Their service tests exercise client construction and SQLite flows. The data and task automation starters exercise file inputs and local HTTP fixtures.
 - The four new Python and Ruby starters passed generated project creation and readiness under the stricter write-and-network sandbox. The Ruby service kit uses the selected Xcode or Command Line Tools compiler and SDK directly during native gem builds.
 - Existing Go, Rust, Python, and Ruby project fixtures prepared their dependencies, preserved their source manifests and lockfiles, and ran commands against their managed offline dependency caches.
@@ -30,17 +32,20 @@ Checks ran on an Apple M2 Pro Mac with macOS 27.2. Native observations below are
 
 ## Search measurements
 
-The release CLI was measured against the freshly imported 10,453-record library with warm filesystem caches and external networking denied. Timings include process startup and JSON output.
+The release CLI ran seven times per query against the installed library with external networking denied. The 49 timings include sandbox and CLI process startup. Each query returned the same number of results in all seven runs.
 
-| Query scope | Samples | Median | 95th percentile |
-| --- | ---: | ---: | ---: |
-| All installed docsets, six representative symbols | 48 | 5.54 ms | 8.09 ms |
-| A Go/Chi project, two representative symbols | 24 | 5.50 ms | 5.99 ms |
+- `py:Path.read_text()` had a 19.12 ms median and a 208.91 ms maximum, with two results.
+- `go:http.Handler` had a 14.95 ms median and a 20.71 ms maximum, with one result.
+- `node:fs.promises.readFile` had a 15.55 ms median and a 17.89 ms maximum, with one result.
+- `playwright:Page.goto` had a 15.37 ms median and a 17.45 ms maximum, with one result.
+- `react:useState` had a 20.15 ms median and a 35.31 ms maximum, with five results.
+- `rust:std::fs::read` had a 15.73 ms median and a 20.22 ms maximum, with five results.
+- `sql postgres` had a 27.88 ms median and a 106.31 ms maximum, with five results.
 
 ## Native candidate and release checks
 
 - The native search distinguished the two Python `Path.read_text` symbols and landed at the selected signature. The pinned Contents pane supported filtering and keyboard selection. After testing Focus Reading, a relaunch restored the query, article, scroll position, reading mode, and Contents state.
-- The native retest still covers layout width changes, project versions and pins, Activity, and Ready Offline. System-wide hotkey delivery and a VoiceOver pass are also open.
+- Final installed-app checks for layout width changes, project versions and pins, Activity, and Ready Offline are pending.
 - The candidate app passed strict code signature verification with Sparkle 2.10.1 embedded. Final installer verification and an installed Sparkle upgrade are still open. Distribution targets Apple Silicon on macOS 14 or later and uses ad hoc signing. Sparkle requires Ed25519 signatures on the appcast and archive.
 
-The taskboard integration snapshot passed 52 Rust tests and Clippy with warnings denied. The ingestion and distribution suite passed 15 Python tests. The [0.3.0 evidence](validation.json) records the earlier release’s checks.
+The post-rebase core passed 65 Rust tests, formatting checks, and Clippy with warnings denied. The ingestion and distribution suite passed 15 Python tests. The [0.3.0 evidence](validation.json) records the earlier release’s checks.
