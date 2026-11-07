@@ -243,6 +243,10 @@ fn choose(
         .as_deref()
         .unwrap_or("an unspecified version");
     if docset.installed_versions.is_empty() {
+        if docset.id == "swiftui" && docset.available_versions.is_empty() {
+            docset.detail = "Prepare Apple’s SwiftUI API reference from the selected local Xcode SDK in Docset Library, or run `devline --offline docs install swiftui`. Website tutorials are separate from the SDK reference.".into();
+            return;
+        }
         if let Some(release) = docset
             .available_versions
             .iter()

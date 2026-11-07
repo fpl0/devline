@@ -17,6 +17,7 @@ MAX_TOTAL = 1024 * 1024 * 1024
 MAX_ARCHIVE = 512 * 1024 * 1024
 MAX_FILES = 10_000
 MANIFEST_NAME = "docs-manifest.json"
+RETIRED_FROM_CHANNEL = {("infrastructure", "2026.11.07+devline.1")}
 
 
 def digest(file):
@@ -26,6 +27,8 @@ def digest(file):
 
 def identity(pack):
     pack_id, version = pack["id"], pack["version"]
+    if pack_id == "swiftui" or pack.get("local_only", False) is not False:
+        raise ValueError("Local SDK documentation must be imported on the destination Mac, not published as a docset archive")
     if not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", pack_id) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]{0,95}", version):
         raise ValueError(f"Invalid docset identity {pack_id}@{version}")
     if pack["path"] != f"docs/{pack_id}/{version}":
@@ -125,6 +128,8 @@ def build(data, output, base, selected=None, previous=None, notes=None):
             raise ValueError("Unsupported prior documentation manifest")
         for release in prior["releases"]:
             key = identity(release["pack"])
+            if key in RETIRED_FROM_CHANNEL:
+                continue
             if key in releases:
                 raise ValueError(f"Duplicate prior release {key[0]}@{key[1]}")
             release_asset(release, *key)
@@ -134,7 +139,11 @@ def build(data, output, base, selected=None, previous=None, notes=None):
         pack_id, version = identity(pack)
         filename = archive_name(pack_id, version)
         asset = output / filename
-        source = data / pack["path"]
+        source = data
+        for part in PurePosixPath(pack["path"]).parts:
+            source = source / part
+            if source.is_symlink():
+                raise ValueError(f"Links are unsupported in docset paths: {source}")
         if not source.resolve().is_relative_to(data.resolve()):
             raise ValueError(f"Docset path escapes the catalog: {source}")
         with tempfile.TemporaryDirectory(dir=output) as staging:

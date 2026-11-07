@@ -171,6 +171,7 @@ enum Feed {
     Chi,
     FastApi,
     Axum,
+    Tauri,
     Spring,
     Phoenix,
     EntityFramework,
@@ -185,7 +186,7 @@ enum Feed {
 }
 
 impl Feed {
-    const ALL: [Self; 23] = [
+    const ALL: [Self; 24] = [
         Self::Go,
         Self::Python,
         Self::Rust,
@@ -198,6 +199,7 @@ impl Feed {
         Self::Chi,
         Self::FastApi,
         Self::Axum,
+        Self::Tauri,
         Self::Spring,
         Self::Phoenix,
         Self::EntityFramework,
@@ -225,6 +227,7 @@ impl Feed {
             Self::Chi => "chi",
             Self::FastApi => "fastapi",
             Self::Axum => "axum",
+            Self::Tauri => "tauri",
             Self::Spring => "spring-boot",
             Self::Phoenix => "phoenix",
             Self::EntityFramework => "entity-framework",
@@ -253,6 +256,7 @@ impl Feed {
             Self::Chi => "Chi",
             Self::FastApi => "FastAPI",
             Self::Axum => "Axum",
+            Self::Tauri => "Tauri",
             Self::Spring => "Spring Boot",
             Self::Phoenix => "Phoenix",
             Self::EntityFramework => "Entity Framework Core SQLite",
@@ -281,6 +285,7 @@ impl Feed {
             Self::Chi => "https://proxy.golang.org/github.com/go-chi/chi/v5/@latest",
             Self::FastApi => "https://pypi.org/pypi/fastapi/json",
             Self::Axum => "https://crates.io/api/v1/crates/axum",
+            Self::Tauri => "https://crates.io/api/v1/crates/tauri",
             Self::Spring => "https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-parent/maven-metadata.xml",
             Self::Phoenix => "https://hex.pm/api/packages/phoenix",
             Self::EntityFramework => "https://api.nuget.org/v3-flatcontainer/microsoft.entityframeworkcore.sqlite/index.json",
@@ -309,6 +314,7 @@ impl Feed {
             Self::Chi => "https://pkg.go.dev/github.com/go-chi/chi/v5",
             Self::FastApi => "https://fastapi.tiangolo.com/",
             Self::Axum => "https://docs.rs/axum/latest/axum/",
+            Self::Tauri => "https://v2.tauri.app/",
             Self::Spring => "https://docs.spring.io/spring-boot/",
             Self::Phoenix => "https://hexdocs.pm/phoenix/",
             Self::EntityFramework => {
@@ -332,6 +338,7 @@ impl Feed {
         match self {
             Self::FastApi => major == 0,
             Self::Axum => major == 0 && minor == 8,
+            Self::Tauri => major == 2,
             Self::Spring => major == 4 && minor == 1,
             Self::Phoenix => major == 1 && minor == 8,
             Self::EntityFramework => major == 10 && minor == 0,
@@ -516,7 +523,7 @@ fn feed_versions(feed: Feed, body: &str) -> Result<Vec<String>> {
                     versions.extend(json["info"]["version"].as_str().map(str::to_owned));
                     Ok(versions)
                 }
-                Feed::Axum => Ok(many(&json["versions"], "num")
+                Feed::Axum | Feed::Tauri => Ok(many(&json["versions"], "num")
                     .into_iter()
                     .filter(|version| {
                         json["versions"]
@@ -684,6 +691,36 @@ fn docs_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
             .iter()
             .max_by(|a, b| compare_doc_releases(a, b))
             .unwrap();
+        if id == "swiftui" {
+            let local = crate::apple_docs::status(ctx)?;
+            item.name = "SwiftUI SDK Reference".into();
+            item.current_version = local["active_version"]
+                .as_str()
+                .map(str::to_owned)
+                .or_else(|| Some(current.to_owned()));
+            item.detail = local["detail"]
+                .as_str()
+                .unwrap_or("Imported from this Mac’s selected Xcode SDK.")
+                .into();
+            if let Some(version) = local["version"]
+                .as_str()
+                .filter(|_| local["available"] == true)
+            {
+                if item.current_version.as_deref() == Some(version) {
+                    item.state = "current";
+                } else {
+                    item.state = "available";
+                    item.available_version = Some(version.into());
+                    item.action = Some("install_docs");
+                    item.reference = Some(format!("swiftui@{version}"));
+                    append_detail(&mut item, "Prepare the reference from the selected SDK. Earlier imported versions remain available.");
+                }
+            } else {
+                append_detail(&mut item, "The previously imported reference remains available offline. Select an installed Xcode SDK to refresh it.");
+            }
+            updates.push(item);
+            continue;
+        }
         let (upstream_version, _) = doc_release(current);
         item.current_version = Some(current.to_owned());
         item.detail = format!("Installed versions: {}.", versions.join(", "));
@@ -788,6 +825,7 @@ fn starter_feed(id: &str) -> Option<Feed> {
         "go/chi-api" | "go/chi-taskboard" | "go/service-kit" => Some(Feed::Chi),
         "python/fastapi-api" | "python/service-kit" => Some(Feed::FastApi),
         "rust/axum-api" | "rust/service-kit" => Some(Feed::Axum),
+        "rust/tauri-desktop" => Some(Feed::Tauri),
         "java/spring-api" => Some(Feed::Spring),
         "elixir/phoenix-api" => Some(Feed::Phoenix),
         "dotnet/aspnet-api" => Some(Feed::EntityFramework),
@@ -817,6 +855,7 @@ fn dependency_version(feed: Feed, project: &Path) -> Option<String> {
         Feed::Chi => ("go.mod", "github.com/go-chi/chi/v5 v"),
         Feed::FastApi => ("requirements.txt", "fastapi=="),
         Feed::Axum => ("Cargo.lock", "name = \"axum\""),
+        Feed::Tauri => ("Cargo.lock", "name = \"tauri\""),
         Feed::Spring => (
             "pom.xml",
             "<artifactId>spring-boot-starter-parent</artifactId>",
@@ -831,7 +870,7 @@ fn dependency_version(feed: Feed, project: &Path) -> Option<String> {
     let contents = fs::read_to_string(project.join(file)).ok()?;
     let (_, tail) = contents.split_once(marker)?;
     let value = match feed {
-        Feed::Axum => tail.trim_start().strip_prefix("version = \"")?,
+        Feed::Axum | Feed::Tauri => tail.trim_start().strip_prefix("version = \"")?,
         Feed::Spring => tail.trim_start().strip_prefix("<version>")?,
         _ => tail,
     };
@@ -912,6 +951,9 @@ fn template_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> 
                 (Some(pinned), None) => append_detail(&mut item, &format!("Bundled {} {pinned}. Check for a newer upstream release.", feed.name())),
                 (None, _) => append_detail(&mut item, &format!("Could not identify the installed {} pin. Rebuild can refresh and verify dependencies.", feed.name())),
             }
+        } else if id == "swift/swiftui-app" {
+            item.state = "current";
+            append_detail(&mut item, "This starter uses SwiftUI from your local macOS SDK. Devline can rebuild the starter; update Xcode or Command Line Tools separately.");
         } else if id == "ruby/json-cli" {
             append_detail(
                 &mut item,
@@ -1246,6 +1288,12 @@ mod tests {
 
     #[test]
     fn reads_upstream_feeds_and_ignores_prerelease_versions() {
+        let tauri = feed_versions(Feed::Tauri, r#"{"versions":[{"num":"2.12.5","yanked":false},{"num":"2.12.6","yanked":true},{"num":"3.0.0-alpha.1","yanked":false},{"num":"3.0.0","yanked":false}]}"#).unwrap();
+        let compatible = tauri
+            .iter()
+            .map(String::as_str)
+            .filter(|v| stable_version(v).is_some_and(|parts| Feed::Tauri.compatible(&parts)));
+        assert_eq!(latest(compatible), Some("2.12.5"));
         let python = feed_versions(Feed::Python, r#"<a href="/downloads/release/python-3152/">Latest Python 3 Release - Python 3.15.2</a>"#).unwrap();
         assert_eq!(python, ["3.15.2"]);
         let ruby = feed_versions(

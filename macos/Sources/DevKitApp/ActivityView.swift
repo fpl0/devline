@@ -21,6 +21,7 @@ struct JobRecord: Decodable, Identifiable, Sendable {
         case "infra_stack_down": "Stop Project Services"
         case "infra_export": "Export Image Archives"
         case "infra_import": "Import Image Archives"
+        case "docs_prepare": "Prepare Local Documentation"
         case "docs_install": "Download Documentation"
         case "bundle_export": "Export Offline Bundle"
         case "bundle_import": "Import Offline Bundle"

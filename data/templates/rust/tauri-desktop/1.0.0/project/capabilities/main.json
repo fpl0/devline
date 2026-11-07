@@ -1,0 +1,6 @@
+{
+  "identifier": "main",
+  "description": "The bundled inspector window can analyze text using the Rust backend.",
+  "windows": ["main"],
+  "permissions": ["allow-inspect-text"]
+}

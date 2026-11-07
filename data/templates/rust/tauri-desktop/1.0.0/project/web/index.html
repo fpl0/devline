@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title>Local Text Inspector</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="inspector.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">TEXT UTILITY</p>
+        <h1>Local Text Inspector</h1>
+        <p class="intro">Count words, lines, and Unicode without sending your text anywhere.</p>
+      </header>
+      <section class="editor" aria-labelledby="editor-label">
+        <div class="editor-heading">
+          <label id="editor-label" for="text">Text to inspect</label>
+          <div class="actions">
+            <button type="button" id="sample">Try a sample</button>
+            <button type="button" id="clear">Clear</button>
+          </div>
+        </div>
+        <textarea id="text" rows="8" spellcheck="false" placeholder="Paste or type text…"></textarea>
+        <p id="status" role="status"></p>
+      </section>
+      <dl class="stats" aria-label="Text counts">
+        <div><dt>Words</dt><dd id="words">0</dd></div>
+        <div><dt>Lines</dt><dd id="lines">0</dd></div>
+        <div><dt>Unicode scalars</dt><dd id="scalars">0</dd></div>
+        <div><dt>UTF-8 bytes</dt><dd id="bytes">0</dd></div>
+      </dl>
+      <p class="detail">Words are split on whitespace. An ending newline does not add an extra line.</p>
+    </main>
+  </body>
+</html>

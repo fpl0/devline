@@ -11,8 +11,11 @@ use std::{
 };
 
 const MAX_MANIFEST_BYTES: u64 = 4 * 1024 * 1024;
+const MAX_SWIFT_SOURCE_BYTES: u64 = 64 * 1024;
+const MAX_SWIFT_SOURCE_ENTRIES: usize = 256;
 const MARKERS: &[(&str, &[&str])] = &[
     ("node", &["package.json", ".node-version", ".nvmrc"]),
+    ("swift", &["Package.swift", ".swift-version"]),
     ("go", &["go.mod", "go.work"]),
     (
         "rust",
@@ -64,17 +67,21 @@ impl Detected {
 }
 
 fn read(path: &Path) -> Option<String> {
+    read_bounded(path, MAX_MANIFEST_BYTES)
+}
+
+fn read_bounded(path: &Path, limit: u64) -> Option<String> {
     let metadata = fs::metadata(path).ok()?;
-    if !metadata.is_file() || metadata.len() > MAX_MANIFEST_BYTES {
+    if !metadata.is_file() || metadata.len() > limit {
         return None;
     }
     let mut value = String::new();
     File::open(path)
         .ok()?
-        .take(MAX_MANIFEST_BYTES + 1)
+        .take(limit + 1)
         .read_to_string(&mut value)
         .ok()?;
-    (value.len() as u64 <= MAX_MANIFEST_BYTES).then_some(value)
+    (value.len() as u64 <= limit).then_some(value)
 }
 
 fn toml(root: &Path, file: &str) -> Option<toml::Value> {
@@ -415,39 +422,168 @@ fn rust(root: &Path, output: &mut Vec<Dependency>) {
             .unwrap_or_else(|| unversioned("rust", "Cargo.toml")),
     );
     let declared = manifest.as_ref().and_then(|manifest| {
-        let dependencies = manifest
+        manifest
             .get("dependencies")
             .or_else(|| manifest.get("workspace")?.get("dependencies"))?
-            .as_table()?;
-        dependencies.iter().find_map(|(name, value)| {
-            (name == "axum" || toml_text(value, &["package"]) == Some("axum")).then_some(value)
-        })
+            .as_table()
     });
     let inherited = workspace
         .as_ref()
-        .and_then(|(_, value)| value.get("workspace")?.get("dependencies")?.get("axum"));
-    let declared = declared.map(|item| {
-        let item = if item.get("workspace").and_then(toml::Value::as_bool) == Some(true) {
-            inherited.unwrap_or(item)
-        } else {
-            item
-        };
-        item.as_str()
-            .or_else(|| toml_text(item, &["version"]))
-            .map_or_else(
-                || unknown("axum", "Cargo.toml", "path or Git dependency"),
-                |value| requirement("axum", value, "Cargo.toml", Grammar::Cargo),
-            )
-    });
+        .and_then(|(_, manifest)| manifest.get("workspace")?.get("dependencies"));
     let lockfile = toml(root, "Cargo.lock").or_else(|| {
         workspace
             .as_ref()
             .and_then(|(ancestor, _)| toml(ancestor, "Cargo.lock"))
     });
-    let versions = lockfile
-        .iter()
-        .flat_map(|value| lock_packages(value, "axum"));
-    output.extend(lock("axum", versions, declared, "Cargo.lock"));
+    for package in ["axum", "tauri"] {
+        let declared = declared.and_then(|items| {
+            items.iter().find_map(|(name, value)| {
+                let resolved =
+                    if value.get("workspace").and_then(toml::Value::as_bool) == Some(true) {
+                        inherited
+                            .and_then(|entries| entries.get(name))
+                            .unwrap_or(value)
+                    } else {
+                        value
+                    };
+                (name == package || toml_text(resolved, &["package"]) == Some(package))
+                    .then_some(resolved)
+            })
+        });
+        let declared = declared.map(|item| {
+            item.as_str()
+                .or_else(|| toml_text(item, &["version"]))
+                .map_or_else(
+                    || unknown(package, "Cargo.toml", "path or Git dependency"),
+                    |value| requirement(package, value, "Cargo.toml", Grammar::Cargo),
+                )
+        });
+        let versions = lockfile
+            .iter()
+            .flat_map(|value| lock_packages(value, package));
+        output.extend(lock(package, versions, declared, "Cargo.lock"));
+    }
+}
+
+fn swift_imports_ui(source: &str) -> bool {
+    let mut block_depth = 0usize;
+    let mut multiline_string = false;
+    for line in source.lines() {
+        let mut line = line.trim_start();
+        while block_depth > 0 || line.starts_with("/*") {
+            let open = line.find("/*");
+            let close = line.find("*/");
+            if let Some(start) = open.filter(|start| close.is_none_or(|end| *start < end)) {
+                block_depth += 1;
+                line = &line[start + 2..];
+            } else if let Some(end) = close {
+                block_depth -= 1;
+                line = line[end + 2..].trim_start();
+            } else {
+                break;
+            }
+        }
+        if block_depth > 0 || line.starts_with("//") {
+            continue;
+        }
+        if line.matches("\"\"\"").count() % 2 == 1 {
+            multiline_string = !multiline_string;
+            continue;
+        }
+        if multiline_string {
+            continue;
+        }
+        let mut tokens = line.split_whitespace().skip_while(|part| {
+            part.starts_with('@')
+                || matches!(
+                    *part,
+                    "private" | "fileprivate" | "internal" | "package" | "public"
+                )
+        });
+        if tokens.next() != Some("import") {
+            continue;
+        }
+        let module = match tokens.next() {
+            Some(
+                "typealias" | "struct" | "class" | "enum" | "protocol" | "let" | "var" | "func",
+            ) => tokens.next(),
+            name => name,
+        };
+        if module.and_then(|name| name.split(['.', ';']).next()) == Some("SwiftUI") {
+            return true;
+        }
+    }
+    false
+}
+
+fn has_swiftui_source(root: &Path) -> bool {
+    let sources = root.join("Sources");
+    if !fs::symlink_metadata(&sources).is_ok_and(|metadata| metadata.is_dir()) {
+        return false;
+    }
+    let mut pending = vec![(sources, 0)];
+    let mut budget = MAX_SWIFT_SOURCE_ENTRIES;
+    while let Some((directory, depth)) = pending.pop() {
+        let Ok(entries) = fs::read_dir(directory) else {
+            continue;
+        };
+        for entry in entries.take(budget).flatten() {
+            budget -= 1;
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            let path = entry.path();
+            if kind.is_dir() && depth < 5 && !entry.file_name().to_string_lossy().starts_with('.') {
+                pending.push((path, depth + 1));
+            } else if kind.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension == "swift")
+                && read_bounded(&path, MAX_SWIFT_SOURCE_BYTES)
+                    .is_some_and(|source| swift_imports_ui(&source))
+            {
+                return true;
+            }
+        }
+        if budget == 0 {
+            break;
+        }
+    }
+    false
+}
+
+fn swift(root: &Path, output: &mut Vec<Dependency>) {
+    let tools_version =
+        read_bounded(&root.join("Package.swift"), MAX_SWIFT_SOURCE_BYTES).and_then(|body| {
+            let version = body.lines().take(8).find_map(|line| {
+                line.trim_start()
+                    .strip_prefix("//")?
+                    .trim_start()
+                    .strip_prefix("swift-tools-version:")?
+                    .split_whitespace()
+                    .next()
+                    .filter(|value| numeric(value))
+            })?;
+            Some(requirement(
+                "swift",
+                &format!(">={version}"),
+                "Package.swift",
+                Grammar::Constraint,
+            ))
+        });
+    output.push(
+        runtime_file(root, ".swift-version")
+            .map(|value| runtime("swift", &value, ".swift-version", 2))
+            .or_else(|| {
+                tool_version(root, "swift")
+                    .map(|value| runtime("swift", &value, ".tool-versions", 2))
+            })
+            .or(tools_version)
+            .unwrap_or_else(|| unversioned("swift", "Package.swift")),
+    );
+    if has_swiftui_source(root) {
+        output.push(unversioned("swiftui", "Sources"));
+    }
 }
 
 fn go(root: &Path, output: &mut Vec<Dependency>) {
@@ -1040,6 +1176,7 @@ pub(super) fn detect_with_origin(
                 "node" => node(current, &mut dependencies),
                 "go" => go(current, &mut dependencies),
                 "rust" => rust(current, &mut dependencies),
+                "swift" => swift(current, &mut dependencies),
                 "python" => python(current, &mut dependencies),
                 "ruby" => ruby(current, &mut dependencies),
                 "java" => java(current, &mut dependencies),

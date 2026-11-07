@@ -50,6 +50,14 @@ enum Commands {
         #[command(subcommand)]
         command: Option<Docs>,
     },
+    #[command(about = "Read Devline help for local services and portable libraries")]
+    Guide {
+        /// Guide ID, such as postgres or portable-toolbox. Omit to list guides.
+        id: Option<String>,
+        /// Print directly without using a pager.
+        #[arg(long, requires = "id")]
+        no_pager: bool,
+    },
     #[command(about = "Browse, install, and build template releases")]
     Templates {
         #[command(subcommand)]
@@ -162,6 +170,10 @@ struct Scope {
 
 #[derive(Subcommand)]
 enum Docs {
+    #[command(
+        about = "Inspect official documentation available from the selected local Xcode SDK"
+    )]
+    Local,
     #[command(about = "Find symbols and articles in installed packs")]
     Search {
         query: String,
@@ -218,13 +230,13 @@ enum Docs {
         #[command(flatten)]
         scope: Scope,
     },
-    #[command(about = "Add a documentation pack from the bundled catalog")]
+    #[command(about = "Install bundled documentation, or import SwiftUI from local Xcode")]
     Install {
         id: String,
         #[arg(long)]
         version: Option<String>,
         #[arg(long)]
-        /// Install from the bundled catalog as a background job.
+        /// Install or import documentation as a background job.
         background: bool,
     },
     #[command(about = "List available documentation packs")]
@@ -1505,6 +1517,19 @@ fn run(cli: &Cli) -> Result<i32> {
             print_completions(*shell)?;
             return Ok(0);
         }
+        Some(Commands::Guide { id, no_pager }) => match id {
+            Some(id) => {
+                let mut guide = request(cli, json!({"command":"guide.show","id":id}))?;
+                if !cli.json {
+                    guide["terminal_label"] = json!("Devline Help");
+                    guide["terminal_markdown"] = guide["body"].clone();
+                    terminal::read(&guide, *no_pager)?;
+                    return Ok(0);
+                }
+                ("guide", guide)
+            }
+            None => ("guides", request(cli, json!({"command":"guide.list"}))?),
+        },
         Some(Commands::Project { path, command }) => {
             let path = path.clone().map_or_else(std::env::current_dir, Ok)?;
             let payload = match command {
@@ -1750,6 +1775,10 @@ fn run(cli: &Cli) -> Result<i32> {
                     json!({"command":"docs.install","id":id,"version":version}),
                 )?
             }
+            Some(Docs::Local) => (
+                "local-docs",
+                request(cli, json!({"command":"docs.local.status","id":"swiftui"}))?,
+            ),
             Some(Docs::List { installed }) => {
                 let mut list = request(cli, json!({"command":"catalog"}))?["docs"].clone();
                 if *installed {
@@ -1945,7 +1974,32 @@ fn run(cli: &Cli) -> Result<i32> {
         println!("{}", json!({"schema_version":1,"data":data}));
     } else {
         match action {
+            "local-docs" => {
+                println!("SwiftUI · Official API documentation from local Xcode");
+                if let Some(version) = data["sdk_version"].as_str() {
+                    println!("macOS SDK {version}");
+                }
+                println!("{}", terminal::safe_text(s(&data, "detail")));
+                if let Some(count) = data["count"].as_u64() {
+                    println!("{count} symbols indexed for this SDK.");
+                }
+                println!(
+                    "\nPrepare or refresh: {} --offline docs install swiftui --background",
+                    update_command_prefix(cli)
+                );
+                println!("This reference stays on this Mac and is excluded from exports.");
+            }
             "project" => render_project(&data),
+            "guides" => {
+                println!("Devline Help");
+                for guide in data.as_array().context("Unexpected guide list")? {
+                    println!(
+                        "  {}  {}",
+                        s(guide, "id"),
+                        terminal::safe_text(s(guide, "title"))
+                    );
+                }
+            }
             "offline" => render_offline(&data),
             action if action == "toolbox" || action.starts_with("infra-") => {
                 cli_infra::render(action, &data)

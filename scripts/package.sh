@@ -39,7 +39,30 @@ xcrun actool "$ROOT/macos/Assets/DevKit.icon" \
     --compile "$APP/Contents/Resources" --platform macosx \
     --minimum-deployment-target 14.0 --app-icon DevKit \
     --output-partial-info-plist "$STAGING_ROOT/icon-info.plist"
-rsync -a --delete --exclude='.DS_Store' "$ROOT/data/" "$APP/Contents/Resources/catalog/"
+rsync -a --delete --exclude='.DS_Store' --exclude='/docs/' "$ROOT/data/" "$APP/Contents/Resources/catalog/"
+python3 - "$ROOT/data" "$APP/Contents/Resources/catalog" <<'PYTHON'
+import json
+from pathlib import Path
+import shutil
+import sys
+
+source, destination = map(Path, sys.argv[1:])
+for pack in json.loads((source / 'catalog.json').read_text())['docs']:
+    if pack['id'] == 'swiftui' or pack.get('local_only', False) is not False:
+        raise SystemExit('Local SDK documentation cannot be bundled in the application')
+    relative = Path(pack['path'])
+    original = source / relative
+    path = original.resolve()
+    expected = Path('docs') / pack['id'] / pack['version']
+    if relative != expected or relative.is_absolute() or not path.is_relative_to((source / 'docs').resolve()):
+        raise SystemExit('Documentation path escapes the bundled reference catalog')
+    if any((source / Path(*relative.parts[:length])).is_symlink() for length in range(1, len(relative.parts) + 1)):
+        raise SystemExit('Documentation pack paths must not contain symbolic links')
+    for entry in path.rglob('*'):
+        if entry.is_symlink() or not (entry.is_dir() or entry.is_file()):
+            raise SystemExit('Documentation packs must contain only regular files and directories')
+    shutil.copytree(path, destination / relative, ignore=shutil.ignore_patterns('.DS_Store'))
+PYTHON
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/THIRD_PARTY_NOTICES.md"
 rsync -a --exclude='.DS_Store' "$ROOT/third-party/" "$APP/Contents/Resources/third-party/"
 cat > "$APP/Contents/Info.plist" <<'PLIST'

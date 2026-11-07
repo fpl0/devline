@@ -79,6 +79,10 @@ struct OfflineLibraryView: View {
             releases.filter(\.verified).max { $0.version.compare($1.version, options: .numeric) == .orderedAscending } ?? releases.first
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
+    private var portableDocs: Set<String> {
+        let local = Set((model.catalog?.docs ?? []).filter(\.localOnly).map(\.reference))
+        return docs.subtracting(local)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -91,9 +95,9 @@ struct OfflineLibraryView: View {
                 Spacer()
                 Button("Import Bundle…", action: chooseImport)
                 Menu("Export Selected…") {
-                    Button("Documentation and Starters…", action: export).disabled(docs.isEmpty && starters.isEmpty)
+                    Button("Documentation and Starters…", action: export).disabled(portableDocs.isEmpty && starters.isEmpty)
                     Button("Image Archives…", action: exportImages).disabled(images.isEmpty)
-                }.disabled(docs.isEmpty && starters.isEmpty && images.isEmpty)
+                }.disabled(portableDocs.isEmpty && starters.isEmpty && images.isEmpty)
             }.padding(18)
             Divider()
             if model.catalog != nil {
@@ -124,6 +128,7 @@ struct OfflineLibraryView: View {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(pack.name)
                                         Text(displayDocVersion(pack.version)).font(.caption).foregroundStyle(.secondary)
+                                        if pack.localOnly { Text("This Mac only · excluded from exports").font(.caption).foregroundStyle(.secondary) }
                                     }
                                 }.toggleStyle(.checkbox)
                                 Spacer()
@@ -253,7 +258,7 @@ struct OfflineLibraryView: View {
         panel.title = "Export Offline Bundle"; panel.nameFieldStringValue = "Devline-offline.devlinebundle"
         panel.allowedContentTypes = [UTType(filenameExtension: "devlinebundle") ?? .data]
         if panel.runModal() == .OK, let path = panel.url?.path(percentEncoded: false) {
-            Task { await model.startJob(CoreRequest("jobs.start", path: path, kind: "bundle_export", docs: docs.sorted(), starters: starters.sorted())) }
+            Task { await model.startJob(CoreRequest("jobs.start", path: path, kind: "bundle_export", docs: portableDocs.sorted(), starters: starters.sorted())) }
         }
     }
     private func exportImages() {

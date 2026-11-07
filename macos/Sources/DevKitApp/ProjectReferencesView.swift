@@ -41,6 +41,10 @@ struct ProjectReferencesView: View {
                                 }.labelsHidden().frame(maxWidth: 290).disabled(changing != nil)
                             }
                             Text(doc.detail).font(.callout).foregroundStyle(doc.needsAttention ? .orange : .secondary)
+                            if doc.id == "swiftui", doc.version == nil, doc.availableVersions.isEmpty {
+                                Link("Apple’s SwiftUI Reference (Online)", destination: URL(string: "https://developer.apple.com/documentation/swiftui/")!)
+                                    .font(.callout)
+                            }
                             if let version = doc.version { Text("Using \(displayDocVersion(version))").font(.caption).foregroundStyle(.secondary) }
                         }
                         Divider()

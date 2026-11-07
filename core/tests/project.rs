@@ -31,6 +31,9 @@ impl Fixture {
             ("go", "go", "1.27.3"),
             ("csharp", "dotnet", "2026.11.06+devline.4"),
             ("aspnet", "dotnet", "2026.11.06+devline.3"),
+            ("swift", "swift", "6.3.0"),
+            ("swift", "swift", "6.4.0"),
+            ("tauri", "rust", "2.12.5"),
         ] {
             let path = format!("docs/{id}/{version}");
             let document = json!([{"id":"guide","title":id,"body":"Compatibility sample", "source_url":"https://example.org/"}]);
@@ -104,6 +107,88 @@ fn entry<'a>(profile: &'a Value, list: &str, id: &str) -> &'a Value {
         .iter()
         .find(|row| row["id"] == id)
         .unwrap()
+}
+
+#[test]
+fn swift_package_tools_version_is_a_minimum_and_detects_swiftui_sources() {
+    let fixture = Fixture::new();
+    fixture.write(
+        "desktop/Package.swift",
+        "// swift-tools-version: 6.3\nimport PackageDescription\nfatalError(\"do not evaluate manifests\")\n",
+    );
+    fixture.write(
+        "desktop/Sources/ReadingDesk/Views/ContentView.swift",
+        "@preconcurrency import struct SwiftUI.Text\n",
+    );
+    let profile = fixture.profile("desktop/Sources/ReadingDesk/Views/ContentView.swift");
+    assert_eq!(profile["stacks"], json!(["swift"]));
+    assert_eq!(
+        entry(&profile, "dependencies", "swift")["requirement"],
+        ">=6.3"
+    );
+    assert_eq!(entry(&profile, "docsets", "swift")["version"], "6.4.0");
+    assert_eq!(
+        entry(&profile, "dependencies", "swiftui")["source"],
+        "Sources"
+    );
+    assert!(entry(&profile, "docsets", "swiftui")["version"].is_null());
+
+    fixture.write("desktop/.swift-version", "6.3.2\n");
+    let profile = fixture.profile("desktop");
+    assert_eq!(
+        entry(&profile, "dependencies", "swift")["source"],
+        ".swift-version"
+    );
+    assert_eq!(entry(&profile, "docsets", "swift")["version"], "6.3.0");
+}
+
+#[test]
+fn swiftui_detection_ignores_comments_strings_tests_and_symlinked_sources() {
+    let fixture = Fixture::new();
+    fixture.write("library/.swift-version", "6.4.2\n");
+    fixture.write(
+        "library/Sources/Example.swift",
+        "// import SwiftUI\n/*\n  /* nested */\n  import SwiftUI\n*/\nlet sample = \"\"\"\nimport SwiftUI\n\"\"\"\n",
+    );
+    fixture.write("library/Tests/UITests.swift", "import SwiftUI\n");
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(
+        fixture.0.join("library/Tests/UITests.swift"),
+        fixture.0.join("library/Sources/Linked.swift"),
+    )
+    .unwrap();
+    let profile = fixture.profile("library");
+    assert_eq!(profile["stacks"], json!(["swift"]));
+    assert!(profile["dependencies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|entry| entry["id"] != "swiftui"));
+}
+
+#[test]
+fn rust_project_resolves_renamed_tauri_workspace_dependency_from_lockfile() {
+    let fixture = Fixture::new();
+    fixture.write(
+        "workspace/Cargo.toml",
+        "[workspace]\nmembers=['desktop']\n[workspace.dependencies]\ndesktop-framework={package='tauri',version='2.12'}\n",
+    );
+    fixture.write(
+        "workspace/desktop/Cargo.toml",
+        "[package]\nname='desktop'\n[dependencies]\ndesktop-framework.workspace=true\naxum='0.8'\n",
+    );
+    fixture.write(
+        "workspace/Cargo.lock",
+        "[[package]]\nname='tauri'\nversion='1.8.0'\n[[package]]\nname='tauri'\nversion='2.12.5'\n[[package]]\nname='axum'\nversion='0.8.9'\n",
+    );
+    let profile = fixture.profile("workspace/desktop");
+    assert_eq!(profile["stacks"], json!(["rust"]));
+    let tauri = entry(&profile, "dependencies", "tauri");
+    assert_eq!(tauri["source"], "Cargo.lock");
+    assert_eq!(tauri["requirement"], "2.12");
+    assert_eq!(tauri["version"], "2.12.5");
+    assert_eq!(entry(&profile, "dependencies", "axum")["version"], "0.8.9");
+    assert_eq!(entry(&profile, "docsets", "tauri")["version"], "2.12.5");
 }
 
 #[test]
@@ -249,6 +334,24 @@ fn compatible_project_selection_takes_priority_over_global_rollback() {
         entry(&fixture.profile("service"), "docsets", "fastapi")["version"],
         "0.162.0+devline.1"
     );
+}
+
+#[test]
+fn unavailable_swiftui_reference_remains_an_offline_coverage_gap() {
+    let fixture = Fixture::new();
+    fixture.write("app/Package.swift", "// swift-tools-version: 6.0\n");
+    fixture.write("app/Sources/App.swift", "import SwiftUI\n");
+    let profile = fixture.profile("app");
+    let gap = entry(&profile, "docsets", "swiftui");
+    assert_eq!(gap["state"], "uninstalled");
+    assert!(gap["version"].is_null());
+    assert!(gap["detail"]
+        .as_str()
+        .unwrap()
+        .contains("Prepare Apple’s SwiftUI API reference from the selected local Xcode SDK"));
+    let offline = fixture.call(json!({"command":"offline.status","path":fixture.0.join("app")}));
+    assert_eq!(offline["ready_offline"], false);
+    assert_eq!(entry(&offline, "docs", "swiftui")["ready_offline"], false);
 }
 
 #[test]

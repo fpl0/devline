@@ -397,7 +397,7 @@
     "test_command": "./test-offline.sh",
     "docs": [
       "node@26.13.0+devline.1",
-      "infrastructure@2026.11.07+devline.1"
+      "infrastructure@2026.11.07+devline.2"
     ],
     "verified": true,
     "target": "darwin-arm64"
@@ -504,6 +504,44 @@
     "test_command": "./test-offline.sh",
     "docs": [
       "elixir"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "rust/tauri-desktop",
+    "name": "Tauri Desktop App",
+    "stack": "rust",
+    "version": "1.0.0",
+    "description": "Tauri 2.12.5 text inspector with a Rust command, bundled web assets, and vendored Cargo dependencies.",
+    "app_type": "desktop",
+    "path": "templates/rust/tauri-desktop/1.0.0",
+    "toolchain": "cargo",
+    "minimum_version": "1.99.1",
+    "minimum_macos": "14.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "rust",
+      "tauri@2.12.5+devline.1"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "swift/swiftui-app",
+    "name": "SwiftUI Idea Board",
+    "stack": "swift",
+    "version": "1.0.0",
+    "description": "Native SwiftUI idea board with searchable notes, local JSON persistence, and offline tests. Requires Xcode 16 or later. Official SwiftUI API documentation is imported locally from the selected Xcode SDK.",
+    "app_type": "desktop",
+    "path": "templates/swift/swiftui-app/1.0.0",
+    "toolchain": "swift",
+    "minimum_version": "6.0",
+    "minimum_macos": "14.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "swift@6.4.0+devline.1",
+      "swiftui"
     ],
     "verified": true,
     "target": "darwin-arm64"

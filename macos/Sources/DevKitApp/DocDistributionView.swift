@@ -45,6 +45,8 @@ struct DocDistributionView: View {
                     .buttonStyle(.borderedProminent).disabled(checking)
             }.padding(18)
             Divider()
+            LocalSDKReferenceView(model: model).padding(.horizontal, 18).padding(.vertical, 8)
+            Divider()
             if let failure = error ?? updates?.error {
                 Label(failure, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange)
                     .frame(maxWidth: .infinity, alignment: .leading).padding(16)
@@ -137,6 +139,10 @@ struct DocsetInfoView: View {
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
             Text(pack.description).foregroundStyle(.secondary)
+            if pack.localOnly {
+                Label("Imported from this Mac’s Xcode SDK. Recreate on another Mac using its own Xcode installation.", systemImage: "desktopcomputer")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
             LabeledContent("Snapshot", value: displayDocVersion(pack.version))
             LabeledContent("Upstream Version", value: pack.upstreamVersion ?? "Not recorded for this snapshot")
             LabeledContent("Snapshot Date", value: pack.snapshotDate ?? "Not recorded for this snapshot")

@@ -95,7 +95,7 @@ struct TemplatesView: View {
 
     private func familyRow(_ family: StarterFamily) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: family.latest.appType == "cli" ? "terminal" : "curlybraces")
+            Image(systemName: family.latest.appType == "desktop" ? "macwindow" : family.latest.appType == "cli" ? "terminal" : "curlybraces")
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
                 .accessibilityHidden(true)

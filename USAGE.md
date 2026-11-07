@@ -16,7 +16,7 @@ In **Settings → Lookup from Any App**, choose a global shortcut. The default *
 
 ## Match documentation to a project
 
-Open a project folder with **⌘O**. **Current Project** brings together its references, readiness, and local services. Use **Project References** in **Documentation** to see detected dependencies, chosen docset versions, and any mismatch. Devline reads supported manifests and lockfiles for Python, C# and .NET, Java, Ruby, Go, Rust, Elixir, and Node.js. Resolved framework versions take priority over manifest constraints. Pin choices stay in the local library and are shared with the CLI.
+Open a project folder with **⌘O**. **Current Project** brings together its references, readiness, and local services. Use **Project References** in **Documentation** to see detected dependencies, chosen docset versions, and any mismatch. Devline reads supported manifests and lockfiles for Python, C# and .NET, Java, Ruby, Go, Rust, Elixir, Node.js, and Swift. Resolved framework versions take priority over manifest constraints. Pin choices stay in the local library and are shared with the CLI.
 
 ```sh
 devline project --path ./service
@@ -37,7 +37,46 @@ devline --offline project --path ./service readiness
 devline --offline project --path ./service run -- python -m pytest -q
 ```
 
-Preparation supports conventional single-runtime projects using Go modules, Cargo, Python registry requirements or static project dependencies, Bundler, Maven, NuGet, Mix/Hex, or npm with `package-lock.json`. The selected adapter checks its prerequisites. Install the matching toolchain and any reported native build tools first. Open independently locked projects at their individual roots.
+Preparation supports conventional single-runtime projects using Go modules, Cargo, Python registry requirements or static project dependencies, Bundler, Maven, NuGet, Mix/Hex, npm with `package-lock.json`, or dependency-free Swift packages with `Package.swift`. Swift packages with external dependencies are currently rejected with an explanation; Devline does not mark them ready. The selected adapter checks its prerequisites. Install the matching toolchain and any reported native build tools first. Open independently locked projects at their individual roots.
+
+## Build a desktop app
+
+The **Tauri Desktop App** starter is a text inspector with a Rust command and a small HTML/CSS/JavaScript interface. Its Cargo dependencies and web assets are included. It needs Rust/Cargo and Apple’s native build tools; no Node.js installation or frontend server is required.
+
+The **SwiftUI Idea Board** starter is a native Mac app with notes, search, local JSON persistence, and model tests. It uses the Swift compiler, macOS SDK, and Swift Testing from a locally installed Xcode 16 or later. Select Xcode in **Settings → Locations → Command Line Tools**, or set `DEVELOPER_DIR`. Devline discovers those tools with `xcrun`; it does not download or manage them.
+
+```sh
+devline prepare rust/tauri-desktop
+devline prepare swift/swiftui-app
+devline --offline new rust/tauri-desktop ./text-inspector
+devline --offline new swift/swiftui-app ./idea-board
+devline --offline project --path ./idea-board run -- ./run.sh
+devline --offline docs search 'tauri:commands'
+```
+
+Both projects include `run.sh`, `build-app.sh`, and `test-offline.sh`. Build output stays under `target/` for Tauri and `.build/` for SwiftUI. The generated `.app` is signed locally for development. Tauri’s recipe refreshes compatible 2.x dependencies, vendors them, and verifies the result. The SwiftUI recipe rebuilds against the selected local SDK.
+
+![Tauri desktop starter inspecting Unicode text](press/tauri-starter.jpg)
+
+![SwiftUI Idea Board with locally saved notes](press/swiftui-starter-dark.png)
+
+The desktop documentation includes an official Tauri snapshot and **The Swift Programming Language**.
+
+### Prepare the SwiftUI SDK reference
+
+In **Docset Library → From This Mac** or **Updates → Documentation**, find **SwiftUI · Apple API Reference** and choose **Prepare from Xcode**. If **Current Project** reports missing SwiftUI documentation, choose **Prepare SwiftUI Reference** there. The import reads the selected macOS SDK locally and works offline.
+
+```sh
+devline docs local
+devline --offline docs install swiftui --background
+devline --offline docs search 'swiftui:View'
+```
+
+![Documentation Updates showing the official SwiftUI SDK reference with 8,796 locally indexed symbols](press/swiftui-reference-library.jpg)
+
+Follow the import in **Activity** or with `devline jobs status JOB_ID --follow`. Search after the job succeeds. Use the same card or import command after selecting a newer Xcode SDK. The card shows **Refresh from Xcode** when the selected snapshot is already installed. Devline keeps earlier installed snapshots available for project pins.
+
+The reference comes from public declarations and original documentation comments in Apple’s SwiftUI module and, where available, SwiftUICore. It includes the examples found in those comments. Some APIs have a declaration only. Apple Developer website tutorials, articles, and illustrations are outside the SDK snapshot. Devline stores the extracted content locally and excludes it from app releases, downloadable docsets, and portable exports. Prepare it separately on each Mac. [Apple’s SwiftUI reference](https://developer.apple.com/documentation/swiftui/)
 
 ## Use the terminal
 
@@ -134,7 +173,7 @@ devline infra import ./project-images.devlineimages
 devline --offline infra restore postgres@18.6
 ```
 
-The destination needs Docker, the project toolchains, and dependencies. Importing an image pin outside the known catalog requires explicit trust. Move service data and credentials separately. [Volume backup guide](scripts/infrastructure-docs/portable-toolbox.md)
+The destination needs Docker, the project toolchains, and dependencies. Importing an image pin outside the known catalog requires explicit trust. Move service data and credentials separately. [Volume backup guide](data/help/infrastructure/portable-toolbox.md)
 
 ## Updates
 
@@ -148,9 +187,13 @@ devline docs rollback go@1.27.3+devline.2
 devline updates check                # upstream starter and runtime checks
 ```
 
-Runtime updates open official installation pages. **Devline → Check for App Updates…** uses Sparkle. The app requires Ed25519-signed update archives and appcast feeds. Automatic checks are optional and start off. A signed appcast is unavailable for 0.4.0. Install or upgrade this release using the GitHub DMG. The CLI’s separate `updates` status can link to the public app release. [Download Devline 0.4.0](https://github.com/fpl0/devline/releases/download/v0.4.0/Devline-macos-arm64.dmg)
+Runtime updates open official installation pages. **Devline → Check for App Updates…** uses Sparkle. The app requires Ed25519-signed update archives and appcast feeds. Automatic checks are optional and start off. A signed appcast is unavailable for 0.5.0. Install or upgrade this release using the GitHub DMG. The CLI’s separate `updates` status can link to the public app release. [Download Devline 0.5.0](https://github.com/fpl0/devline/releases/download/v0.5.0/Devline-macos-arm64.dmg)
 
 Infrastructure also checks publishers for newer compatible images. `devline infra updates check` refreshes observations, and `devline infra update SERVICE` prepares the checked release alongside its predecessor. App updates can include newer catalog entries. Existing project configurations retain their exact pins and archived releases.
+
+## Devline help and reference coverage
+
+Use **Read Devline Guide** in Infrastructure, or `devline guide`, for Devline’s own setup instructions. These guides are separate from official publisher references. The infrastructure reference pack currently includes five PostgreSQL pages and one SeaweedFS API guide. The service screen identifies the other offline reference gaps and links to each publisher’s documentation. [Documentation policy](DOCUMENTATION-POLICY.md)
 
 ## Build and validate
 
@@ -167,6 +210,6 @@ python3 scripts/check-infrastructure.py
 
 The build uses checked-in catalog snapshots and may download locked Rust dependencies and Sparkle. The app defaults to `~/Library/Application Support/DevKit`. Use `DEVKIT_HOME` or `--home` to isolate the library and `DEVKIT_CATALOG` or `--catalog` to select another catalog.
 
-The bundled library includes 21 docsets and keeps earlier Go and Chi revisions for pinned projects. Its Node ecosystem references cover Node.js core APIs, TypeScript, Playwright, React, and Vite. The starter catalog spans eight runtimes. [Validation and coverage](UX-VALIDATION.md) · [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+The bundled library includes 23 docsets and keeps earlier Go and Chi revisions for pinned projects. Its Node ecosystem references cover Node.js core APIs, TypeScript, Playwright, React, and Vite. The starter catalog spans nine runtimes. [Validation and coverage](UX-VALIDATION.md) · [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
-Documentation source versions and licenses are recorded in each pack’s `SOURCES.md`. Rebuild Markdown snapshots with Pandoc 3.13 and `scripts/fetch-docs.py`. `scripts/doc-release.py` builds and verifies independently downloadable pack archives. [GitHub Actions](https://github.com/fpl0/devline/actions)
+Documentation source versions and licenses are recorded in each pack’s `SOURCES.md`. Rebuild Markdown snapshots with Pandoc 3.13 and `scripts/fetch-docs.py`. `scripts/fetch-desktop-docs.py --help` describes the pinned inputs for rebuilding Tauri and Swift packs into a fresh staging directory. `scripts/doc-release.py` builds and verifies independently downloadable pack archives. [GitHub Actions](https://github.com/fpl0/devline/actions)

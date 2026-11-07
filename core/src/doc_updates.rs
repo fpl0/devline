@@ -223,6 +223,9 @@ fn validate_manifest(manifest: &Manifest) -> Result<()> {
     let mut unique = BTreeSet::new();
     for release in &manifest.releases {
         valid_pack(&release.pack)?;
+        if release.pack.local_only || release.pack.id == crate::apple_docs::PACK_ID {
+            bail!("Local-only documentation cannot be distributed through a release channel");
+        }
         https_url(&release.url)?;
         if release.url.contains("/releases/latest/")
             || !release.url.ends_with(".tar.gz")
@@ -461,6 +464,7 @@ pub(crate) fn status(ctx: &Context) -> Result<Value> {
         .keys()
         .map(String::as_str)
         .chain(listed.keys().copied())
+        .filter(|id| *id != crate::apple_docs::PACK_ID)
         .collect::<BTreeSet<_>>();
     let mut packs = Vec::new();
     for id in known {
@@ -972,6 +976,9 @@ pub(crate) fn install_with_progress(
     mut progress: impl FnMut(&str, u64, u64) -> Result<()>,
 ) -> Result<Value> {
     let (id, version) = reference(id, version)?;
+    if id == crate::apple_docs::PACK_ID {
+        bail!("SwiftUI documentation is prepared from the selected local macOS SDK");
+    }
     let state = feed(ctx)?;
     let manifest = state
         .manifest

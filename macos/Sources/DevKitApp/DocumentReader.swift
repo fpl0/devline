@@ -705,6 +705,25 @@ func safeExternalURL(_ value: String) -> URL? {
     return url
 }
 
+struct DevlineHelpArticle: View {
+    let html, title, sourceURL: String
+    let anchor: String?
+    let navigation: UUID
+    let navigate: (URL) -> Void
+    @State private var request: ReaderRequest?
+
+    var body: some View {
+        OfflineArticle(html: html, title: title, sourceURL: sourceURL, scale: 1,
+                       request: request, report: { _, _ in }, reportSections: { _ in },
+                       navigate: navigate, reportPosition: { _, _, _, _ in })
+            .task(id: navigation) {
+                let action = anchor.map { ReaderRequest.Action.jump(ReaderSection(title: "", target: .anchor($0))) }
+                    ?? .restore(0, anchor: nil, offset: nil)
+                request = ReaderRequest(action: action)
+            }
+    }
+}
+
 private struct OfflineArticle: NSViewRepresentable {
     let html: String
     let title: String

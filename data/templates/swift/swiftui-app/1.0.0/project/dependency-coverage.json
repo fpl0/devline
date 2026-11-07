@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "starter": "swift/swiftui-app@1.0.0",
+  "target": "darwin-arm64",
+  "toolchain": {
+    "swift": "6.0 or later",
+    "xcode": "16 or later for Swift Testing",
+    "macos_sdk": "locally installed, with macOS 14 deployment support"
+  },
+  "vendored_packages": [],
+  "sdk_modules": [
+    "Foundation",
+    "SwiftUI",
+    "Testing"
+  ],
+  "offline_test": "./test-offline.sh",
+  "vendor_bytes": 0
+}

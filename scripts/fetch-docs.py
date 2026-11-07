@@ -103,12 +103,13 @@ CONTENT_REVISION = "devline.1"
 CONTENT_REVISIONS = {
     "csharp": "devline.5", "aspnet": "devline.4", "python": "devline.2",
     "go": "devline.3", "java": "devline.2", "rails": "devline.2", "ruby": "devline.2",
+    "infrastructure": "devline.2",
 }
 REFRESHED_SNAPSHOTS = {
     ("csharp", "2026.11.06+devline.5"), ("aspnet", "2026.11.06+devline.4"),
     ("go", "1.27.3+devline.3"), ("java", "26.0.2.1+devline.2"),
     ("chi", "5.5.0+devline.1"),
-    ("infrastructure", "2026.11.07+devline.1"),
+    ("infrastructure", "2026.11.07+devline.2"),
     ("node", "26.13.0+devline.1"), ("typescript", "7.0.2+devline.1"),
     ("playwright", "1.65.0+devline.1"), ("react", "19.3.1+devline.1"), ("vite", "8.3.6+devline.1"),
 }
@@ -133,8 +134,8 @@ PACK_SCOPE = {
     "elixir": ("Language guides and core and standard library APIs", "Erlang/OTP documentation is separate"),
     "phoenix": ("Framework guides and Phoenix API modules", "External Phoenix packages have separate documentation"),
     "ecto": ("Ecto guides and database library API modules", "External adapters and Ecto SQL documentation are separate"),
-    "infrastructure": ("Service runbooks, app connections, portable images and volumes, selected PostgreSQL and SeaweedFS references",
-                       "Cluster administration, production deployments, and complete product manuals are outside this snapshot"),
+    "infrastructure": ("Five official PostgreSQL 18.6 manual pages and the official SeaweedFS 4.52 REST API guide",
+                       "Other infrastructure services and the rest of the PostgreSQL and SeaweedFS manuals are outside this snapshot"),
     "node": ("Official Node.js APIs for file I/O, HTTP, streams, SQLite, tests, modules, workers, and related core libraries",
              "Unselected Node APIs, release history, and npm packages are outside this snapshot"),
     "typescript": ("The official TypeScript Handbook and selected TSConfig compiler options",
@@ -1674,37 +1675,18 @@ def hex_pack(cache, scratch, reference, name):
     return pack
 
 
-def infrastructure_pack(source, catalog_file):
-    catalog = json.loads(read_text(catalog_file))
-    base_url = "https://github.com/fpl0/devline/blob/main/scripts/infrastructure-docs"
+def infrastructure_pack(upstream):
     pack = Pack(
-        "infrastructure", "Local Infrastructure", "infrastructure", "2026.11.07",
-        "Offline runbooks for ten prepared services, app connections, and portable data.",
-        base_url + "/overview.md", "Devline runbooks; PostgreSQL License and Apache-2.0 for upstream references",
-        "Devline service guides are based on the tagged image configuration and upstream references "
-        "listed in each article. Full selected PostgreSQL 18 manual entries and the SeaweedFS 4.52 "
-        "REST API guide are included under their original licenses.",
+        "infrastructure", "Infrastructure References", "infrastructure", "2026.11.07",
+        "Selected official PostgreSQL and SeaweedFS references.",
+        "https://www.postgresql.org/docs/18/", "PostgreSQL License and Apache-2.0",
+        "Source snapshot date: 2026-11-07. The PostgreSQL Global Development Group published "
+        "the included PostgreSQL 18.6 manual entries at https://www.postgresql.org/docs/18/. "
+        "The SeaweedFS contributors published the included REST API guide under the 4.52 tag at "
+        "https://github.com/seaweedfs/seaweedfs/blob/4.52/REST_API.md. "
+        "Each record is extracted from its respective publisher's documentation. "
+        "Devline's infrastructure setup instructions are published separately as Devline Help.",
     )
-    for name, title, aliases in (
-        ("overview", "Local infrastructure overview", ("offline services", "service setup")),
-        ("portable-toolbox", "Save images and back up service volumes", ("docker save", "docker load", "compose offline", "volume restore")),
-        ("application-connections", "Connect an application to local services", ("DATABASE_URL", "AMQP_URL", "SQL transaction", "AMQP publish")),
-    ):
-        raw = read_text(source / f"{name}.md")
-        pack.add_markdown(name, title, f"# {title}\n\n{raw}", f"{base_url}/{name}.md", aliases)
-
-    for service in catalog["services"]:
-        name = service["id"]
-        title = f"{service['name']} {service['version']} · Local runbook"
-        image = service["image"]
-        reference = f"{image['registry']}/{image['repository']}:{image['tag']}"
-        ports = ", ".join(f"`{port['host_port']}` for {port['name']}" for port in service["ports"])
-        intro = f"**Image** `{reference}` for Linux arm64. **Default host ports** {ports}."
-        raw = read_text(source / f"{name}.md")
-        pack.add_markdown(name, title, f"# {title}\n\n{intro}\n\n{raw}", f"{base_url}/{name}.md",
-                          (service["name"], name, reference, service["category"]))
-
-    upstream = source / "upstream"
     pack.notice(upstream / "postgresql-COPYRIGHT", "LICENSE-POSTGRESQL")
     pack.notice(upstream / "seaweedfs-LICENSE", "LICENSE-SEAWEEDFS")
     for name, title, aliases in (
@@ -2109,7 +2091,7 @@ def main():
             "phoenix": (("phoenix-LICENSE",), lambda: hex_pack(cache, scratch, reference, "phoenix")),
             "ecto": (("ecto-LICENSE",), lambda: hex_pack(cache, scratch, reference, "ecto")),
             "infrastructure": ((), lambda: infrastructure_pack(
-                project / "scripts/infrastructure-docs", project / "data/infrastructure.json")),
+                project / "scripts/infrastructure-docs/upstream")),
             "node": (tuple(NODE_DOWNLOADS), lambda: node_pack(cache)),
             "typescript": (("typescript-docs-a3ed0be.tar.gz",), lambda: typescript_pack(cache)),
             "playwright": (("playwright-v1.65.0.tar.gz",), lambda: playwright_pack(cache)),

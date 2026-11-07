@@ -20,17 +20,39 @@ def check_catalog(data):
     if catalog["schema_version"] != 1:
         raise ValueError("Unsupported infrastructure catalog schema")
     packs = json.loads((data / "docs-catalog.json").read_text())
-    doc_refs = {
-        f"{pack['id']}@{pack['version']}/{record['id']}"
-        for pack in packs if pack["id"] == "infrastructure"
-        for record in json.loads((data / pack["path"] / "documents.json").read_text())
-    }
+    doc_refs = set()
+    for pack in packs:
+        if pack["id"] != "infrastructure":
+            continue
+        for record in json.loads((data / pack["path"] / "documents.json").read_text()):
+            source = urlsplit(record["source_url"])
+            publisher = (
+                record["id"].startswith("reference/postgresql/")
+                and source.hostname == "www.postgresql.org"
+                and source.path.startswith("/docs/18/")
+            ) or (
+                record["id"].startswith("reference/seaweedfs/")
+                and source.hostname == "github.com"
+                and source.path.startswith("/seaweedfs/seaweedfs/blob/")
+            )
+            if not publisher or source.scheme != "https" or record["category"] != "reference":
+                raise ValueError(f"Non-publisher infrastructure reference: {record['id']}")
+            doc_refs.add(f"{pack['id']}@{pack['version']}/{record['id']}")
     releases = set()
     for service in catalog["services"]:
         name = f"{service['id']}@{service['version']}"
         image = service["image"]
-        if name in releases or service["docs_ref"] not in doc_refs:
-            raise ValueError(f"{name}: duplicate release or missing offline runbook")
+        if name in releases:
+            raise ValueError(f"{name}: duplicate release")
+        reference = service.get("docs_ref")
+        if reference is not None and reference not in doc_refs:
+            raise ValueError(f"{name}: missing official offline reference")
+        help_ref = service.get("help_ref", "")
+        if not re.fullmatch(r"[a-z][a-z0-9-]*", help_ref):
+            raise ValueError(f"{name}: invalid Devline help ID")
+        guide = data / "help" / "infrastructure" / f"{help_ref}.md"
+        if not guide.is_file() or not guide.read_text().startswith("# "):
+            raise ValueError(f"{name}: missing Devline help page")
         releases.add(name)
         if (image["platform"] != "linux/arm64" or not image["compressed_bytes"] > 0
                 or not all(DIGEST.fullmatch(image[key]) for key in ("index_digest", "digest", "config_digest"))):
@@ -98,7 +120,7 @@ def main():
     if options.registry:
         with ThreadPoolExecutor(max_workers=5) as pool:
             list(pool.map(check_registry, services))
-    print(f"Verified catalog and offline runbooks for {len(services)} service releases")
+    print(f"Verified service catalog, separate Devline help, and official reference links for {len(services)} releases")
 
 
 if __name__ == "__main__":

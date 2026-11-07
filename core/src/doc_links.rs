@@ -11,6 +11,9 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use std::sync::OnceLock;
 
+pub(super) const SDK_LINK_PREFIX: &str =
+    "https://developer.apple.com/documentation/swiftui#devline-sdk-symbol-";
+
 struct Location {
     id: String,
     pack: String,
@@ -58,6 +61,14 @@ pub(super) fn resolve(ctx: &Context, request: &Value) -> Result<Value> {
     if let Some((id, release, _)) = &origin {
         pack = id;
         version = release;
+    }
+    if let Some(hash) = raw.strip_prefix(SDK_LINK_PREFIX) {
+        return match &origin {
+            Some((pack, version, _)) if pack == crate::apple_docs::PACK_ID => {
+                resolve_sdk_symbol(&db, pack, version, hash)
+            }
+            _ => Ok(Value::Null),
+        };
     }
 
     let target = if let Ok(url) = Iri::parse(raw) {
@@ -113,6 +124,30 @@ pub(super) fn resolve(ctx: &Context, request: &Value) -> Result<Value> {
         return Ok(reference(&page.id, Some(&anchor), None));
     }
     Ok(Value::Null)
+}
+
+fn resolve_sdk_symbol(db: &Connection, pack: &str, version: &str, hash: &str) -> Result<Value> {
+    if hash.len() != 64
+        || !hash
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        || !crate::doc_updates::installed_metadata(db)?
+            .get(&(pack.to_owned(), version.to_owned()))
+            .is_some_and(|metadata| metadata.local_only)
+    {
+        return Ok(Value::Null);
+    }
+    let id = format!("{pack}@{version}/symbol/{hash}");
+    let exists = db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM documents WHERE id=?1 AND pack_id=?2 AND version=?3)",
+        params![id, pack, version],
+        |row| row.get::<_, bool>(0),
+    )?;
+    Ok(if exists {
+        reference(&id, None, None)
+    } else {
+        Value::Null
+    })
 }
 
 fn reference(id: &str, anchor: Option<&str>, focus: Option<&str>) -> Value {
@@ -286,4 +321,68 @@ fn locate(
     }
 
     Ok(candidates.into_iter().next())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{doc_updates, templates::Stage, Catalog, DocPack};
+
+    #[test]
+    fn sdk_links_require_an_installed_local_origin_and_stay_in_its_revision() -> Result<()> {
+        let stage = Stage::new(&std::env::temp_dir())?;
+        let ctx = Context {
+            home: stage.0.clone(),
+            catalog_dir: stage.0.clone(),
+            catalog: Catalog {
+                schema_version: 1,
+                docs: Vec::new(),
+                templates: Vec::new(),
+            },
+        };
+        let db = ctx.database()?;
+        let hash = "a".repeat(64);
+        let target = format!("swiftui@27.2/symbol/{hash}");
+        for (version, local_only) in [("27.2", true), ("27.1", true), ("27.0", false)] {
+            let pack: DocPack = serde_json::from_value(json!({
+                "id":"swiftui","name":"SwiftUI","stack":"swift","version":version,
+                "description":"SDK fixture","source_url":"https://developer.apple.com/documentation/swiftui",
+                "license":"Fixture","path":format!("docs/swiftui/{version}"),"local_only":local_only,
+            }))?;
+            db.execute(
+                "INSERT INTO packs VALUES('swiftui',?1,'digest',1)",
+                [version],
+            )?;
+            doc_updates::record_installed(&db, &pack)?;
+            db.execute(
+                "INSERT INTO documents(id,pack_id,version,source_url) VALUES(?1,'swiftui',?2,?3)",
+                params![
+                    format!("swiftui@{version}/origin"),
+                    version,
+                    pack.source_url
+                ],
+            )?;
+            if version != "27.1" {
+                db.execute(
+                    "INSERT INTO documents(id,pack_id,version,source_url) VALUES(?1,'swiftui',?2,?3)",
+                    params![format!("swiftui@{version}/symbol/{hash}"), version, pack.source_url],
+                )?;
+            }
+        }
+        let url = format!("{SDK_LINK_PREFIX}{hash}");
+        assert_eq!(
+            resolve(&ctx, &json!({"url":url,"id":"swiftui@27.2/origin"}))?,
+            reference(&target, None, None)
+        );
+        for request in [
+            json!({"url":url,"id":"swiftui@27.1/origin"}),
+            json!({"url":url,"id":"swiftui@27.0/origin"}),
+            json!({"url":url,"id":"swiftui@27.1/origin","version":"27.2"}),
+            json!({"url":url,"pack_id":"swiftui","version":"27.2"}),
+            json!({"url":format!("{SDK_LINK_PREFIX}{}", hash.to_uppercase()),"id":"swiftui@27.2/origin"}),
+        ] {
+            assert_eq!(resolve(&ctx, &request)?, Value::Null, "{request}");
+        }
+        Ok(())
+    }
 }

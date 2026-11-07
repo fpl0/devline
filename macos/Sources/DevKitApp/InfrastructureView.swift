@@ -11,6 +11,11 @@ struct InfrastructureView: View {
     @State private var archivedOnly = false
     @State private var removing: InfrastructureService?
     @State private var importPath: String?
+    @State private var helpRequest: HelpRequest?
+
+    private struct HelpRequest: Identifiable {
+        let id: String
+    }
 
     private var services: [InfrastructureService] {
         (library.catalog?.services ?? []).filter {
@@ -81,6 +86,7 @@ struct InfrastructureView: View {
             if let importPath { ImageImportView(path: importPath, model: model) }
         }
         .onChange(of: model.jobs.filter { !$0.isActive }.map(\.id)) { _, _ in Task { await library.refresh() } }
+        .sheet(item: $helpRequest) { DevlineHelpView(id: $0.id) }
         .confirmationDialog("Remove the archived image?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible, presenting: removing) { service in
             Button("Remove Archive", role: .destructive) {
                 Task {
@@ -128,7 +134,22 @@ struct InfrastructureView: View {
                     Text("Use in a project").font(.headline)
                     Text("Add this service when creating a project, or open an existing project and choose Configure Services. Devline keeps the version pinned and gives each project its own data volumes.")
                         .font(.callout).foregroundStyle(.secondary)
-                    Button("Read Offline Guide") { openDocs(service.docsRef ?? "infrastructure \(service.id)") }
+                    HStack {
+                        if let help = service.helpRef {
+                            Button("Read Devline Guide") { helpRequest = HelpRequest(id: help) }
+                        }
+                        if let reference = service.docsRef {
+                            Button("Read Offline Reference") { openDocs(reference) }
+                        }
+                    }
+                    if service.docsRef == nil {
+                        Text("Official offline reference unavailable for this release.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let publisher = service.provenance.docsUrl.flatMap(safeExternalURL) {
+                        Link("Publisher Documentation", destination: publisher)
+                            .help("Open publisher documentation in your browser")
+                    }
                 }
                 if let receipt = image?.receipt {
                     LabeledContent("Last archive verification", value: Date(timeIntervalSince1970: receipt.verifiedAt).formatted(date: .abbreviated, time: .shortened))

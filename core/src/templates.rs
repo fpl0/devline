@@ -529,6 +529,7 @@ pub(crate) fn runtime_reports(ctx: &Context, selected: &[String]) -> Result<Valu
                 "python" => "Python",
                 "ruby" => "Ruby",
                 "rust" => "Rust",
+                "swift" => "Swift and SwiftUI",
                 "node" => "JavaScript and TypeScript / Node.js",
                 _ => stack,
             };
@@ -781,6 +782,9 @@ fn candidate_paths(tool: &str) -> Vec<PathBuf> {
     if let Some(path) = env::var_os(override_name) {
         return vec![PathBuf::from(path)];
     }
+    if tool == "swift" {
+        paths.extend(xcode_path(&["--find", "swift"]));
+    }
     if let Some(path) = env::var_os("PATH") {
         paths.extend(
             env::split_paths(&path)
@@ -836,7 +840,10 @@ fn candidate_paths(tool: &str) -> Vec<PathBuf> {
 }
 
 fn known_executable(path: &Path, tool: &str) -> Option<PathBuf> {
-    if !path.is_absolute() || (tool == "python3" && path == Path::new("/usr/bin/python3")) {
+    if !path.is_absolute()
+        || (tool == "python3" && path == Path::new("/usr/bin/python3"))
+        || (tool == "swift" && path == Path::new("/usr/bin/swift"))
+    {
         return None;
     }
     let actual = path.canonicalize().ok()?;
@@ -849,7 +856,24 @@ fn known_executable(path: &Path, tool: &str) -> Option<PathBuf> {
     {
         return None;
     }
-    Some(actual)
+    // Swift dispatches its driver mode using argv[0]. Resolving its symlink to
+    // swift-frontend would make `swift package` and `swift build` stop working.
+    Some(if tool == "swift" {
+        path.to_owned()
+    } else {
+        actual
+    })
+}
+
+fn xcode_path(args: &[&str]) -> Option<PathBuf> {
+    let output = Command::new("/usr/bin/xcrun")
+        .arg("--no-cache")
+        .args(args)
+        .stdin(Stdio::null())
+        .output()
+        .ok()?;
+    let path = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
+    (output.status.success() && path.is_absolute() && path.exists()).then_some(path)
 }
 
 fn erlang_bin() -> Option<PathBuf> {
@@ -901,6 +925,20 @@ pub(crate) fn tool_environment(command: &mut Command, tool: &str, path: &Path) -
         .map(PathBuf::from),
     );
     command.env("PATH", env::join_paths(directories)?);
+    if matches!(tool, "swift" | "cargo") {
+        for key in ["DEVELOPER_DIR", "TOOLCHAINS"] {
+            if let Some(value) = env::var_os(key) {
+                command.env(key, value);
+            }
+        }
+        let sdk = xcode_path(&["--sdk", "macosx", "--show-sdk-path"]);
+        if tool == "swift" && sdk.is_none() {
+            bail!("SwiftUI requires a local macOS SDK. Select Xcode or Command Line Tools with xcode-select; Devline does not install toolchains.");
+        }
+        if let Some(sdk) = sdk {
+            command.env("SDKROOT", sdk);
+        }
+    }
     if tool == "mvn" {
         if let Some(java) = jdk_home() {
             command.env("JAVA_HOME", java);
@@ -946,7 +984,13 @@ fn probe(tool: &str, path: &Path) -> Result<String> {
     if !output.status.success() {
         bail!("Version check failed")
     }
-    Ok(text.trim().lines().take(6).collect::<Vec<_>>().join(" "))
+    let mut detail = text.trim().lines().take(6).collect::<Vec<_>>().join(" ");
+    if matches!(tool, "swift" | "cargo") {
+        if let Some(sdk) = xcode_path(&["--sdk", "macosx", "--show-sdk-path"]) {
+            detail.push_str(&format!("; SDK {}", sdk.display()));
+        }
+    }
+    Ok(detail)
 }
 
 fn runtime_numbers(value: &str) -> Option<Vec<u64>> {
@@ -969,10 +1013,10 @@ fn meets_minimum(template: &Template, observed: &str) -> bool {
     if template.minimum_version.is_empty() {
         return true;
     }
-    let line = if template.toolchain == "elixir" {
-        observed.split("Elixir ").nth(1).unwrap_or(observed)
-    } else {
-        observed
+    let line = match template.toolchain.as_str() {
+        "elixir" => observed.split("Elixir ").nth(1).unwrap_or(observed),
+        "swift" => observed.split("Swift version ").nth(1).unwrap_or(observed),
+        _ => observed,
     };
     let Some(mut actual) = runtime_numbers(line) else {
         return false;
@@ -1006,6 +1050,18 @@ fn toolchain(template: &Template) -> (Option<PathBuf>, String) {
     if tool.is_empty() || tool.contains('/') || tool.contains('\\') {
         return (None, "Invalid executable name".to_owned());
     }
+    if template.id == "rust/tauri-desktop"
+        && xcode_path(&["--sdk", "macosx", "--show-sdk-path"]).is_none()
+    {
+        return (None, "The Tauri desktop starter needs Apple’s macOS SDK and native build tools. Select an installed Xcode or Command Line Tools with xcode-select. Devline only detects these tools.".into());
+    }
+    if template.id == "swift/swiftui-app"
+        && !xcode_path(&["--find", "xcodebuild"])
+            .and_then(|path| path.ancestors().nth(3).map(Path::to_owned))
+            .is_some_and(|developer| developer.join("Platforms/MacOSX.platform/Developer/Library/Frameworks/Testing.framework/Modules/Testing.swiftmodule").is_dir())
+    {
+        return (None, "This SwiftUI starter needs Xcode 16 or newer, including Swift Testing and a macOS SDK. Select an installed Xcode in Settings → Locations → Command Line Tools, or set DEVELOPER_DIR. Devline only detects these tools.".into());
+    }
     let mut incompatible = None;
     let mut visited = std::collections::BTreeSet::new();
     for candidate in candidate_paths(tool) {
@@ -1029,6 +1085,7 @@ fn toolchain(template: &Template) -> (Option<PathBuf>, String) {
         "mvn" => " with JDK 26",
         "elixir" => " with Erlang/OTP 29",
         "dotnet" => " in the same SDK feature band",
+        "swift" => " with Xcode and a macOS SDK selected by xcode-select",
         _ => "",
     };
     (
@@ -1175,6 +1232,7 @@ pub(crate) fn validate_portable(template: &Template) -> Result<()> {
         "python" => "python3",
         "ruby" => "ruby",
         "rust" => "cargo",
+        "swift" => "swift",
         "node" => "node",
         _ => bail!("Unsupported starter stack {stack}"),
     };
@@ -1208,6 +1266,7 @@ pub(crate) fn toolchain_report(template: &Template) -> Value {
         let version = match template.toolchain.as_str() {
             "elixir" => actual.split("Elixir ").nth(1)?,
             "mvn" => actual.split("Java version: ").nth(1)?,
+            "swift" => actual.split("Swift version ").nth(1)?,
             _ => actual,
         };
         Some(
@@ -1679,6 +1738,28 @@ pub(crate) fn build_latest_job(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn swift_version_uses_compiler_version_and_preserves_driver_alias() -> Result<()> {
+        let fixture = Fixture::new()?;
+        let mut template = fixture.ctx.catalog.templates[0].clone();
+        template.toolchain = "swift".into();
+        template.minimum_version = "6.0".into();
+        let observed = "swift-driver version: 1.168.6 Apple Swift version 6.4.2 (swiftlang) Target: arm64-apple-macosx27.2";
+        assert!(meets_minimum(&template, observed));
+        template.minimum_version = "6.5".into();
+        assert!(!meets_minimum(&template, observed));
+        #[cfg(unix)]
+        {
+            let frontend = fixture._root.0.join("swift-frontend");
+            let driver = fixture._root.0.join("swift");
+            fs::copy("/usr/bin/true", &frontend)?;
+            std::os::unix::fs::symlink(&frontend, &driver)?;
+            assert_eq!(known_executable(&driver, "swift"), Some(driver));
+            assert_eq!(known_executable(Path::new("/usr/bin/swift"), "swift"), None);
+        }
+        Ok(())
+    }
     use crate::Catalog;
 
     #[cfg(unix)]

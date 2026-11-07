@@ -16,6 +16,7 @@ pub fn matches(pack: &str, path: &str, rules: Option<&[String]>) -> bool {
     match pack {
         "fastapi" | "csharp" | "aspnet" | "rails" => true,
         "chi" => path == "README.md",
+        "swiftui" => path.starts_with("symbol/"),
         "ruby" => path.ends_with(".md") || path.starts_with("api/") || path.starts_with("method/"),
         _ => false,
     }

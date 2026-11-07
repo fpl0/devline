@@ -13,6 +13,7 @@ struct InfrastructureService: Decodable, Identifiable, Sendable {
     }
     struct Provenance: Decodable, Sendable {
         let publisher, imageUrl, sourceUrl, license: String
+        let docsUrl: String?
     }
     struct Port: Decodable, Identifiable, Sendable {
         let id, name: String
@@ -22,7 +23,7 @@ struct InfrastructureService: Decodable, Identifiable, Sendable {
     let image: Image
     let ports: [Port]
     let provenance: Provenance
-    let docsRef, quickStart: String?
+    let docsRef, helpRef, quickStart: String?
     var reference: String { "\(id)@\(version)" }
     var symbol: String {
         switch id {

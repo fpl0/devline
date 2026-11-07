@@ -229,7 +229,7 @@ private struct WorkspaceView: View {
                         }, showInfrastructure: { workspace = .infrastructure })
                         .id(projectContext?.path)
                 case .infrastructure:
-                    InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureGuide)
+                    InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureReference)
                 case .docs:
                     DocsView(
                         model: model,
@@ -389,14 +389,16 @@ private struct WorkspaceView: View {
         ForEach(pages) { page in Label(page.title, systemImage: page.icon).tag(page) }
     }
 
-    private func openInfrastructureGuide(_ reference: String) {
+    private func openInfrastructureReference(_ reference: String) {
         Task {
-            let pack = model.catalog?.docs.filter { $0.id == "infrastructure" }.max {
-                $0.version.compare($1.version, options: .numeric) == .orderedAscending
+            let release = reference.split(separator: "/", maxSplits: 1).first.map(String.init)
+            guard let pack = model.catalog?.docs.first(where: { $0.reference == release }) else {
+                model.error = "The official offline reference is unavailable for this release."
+                return
             }
-            if let pack, !pack.installed {
+            if !pack.installed {
                 guard await model.mutate([CoreRequest("docs.install", id: pack.id, version: pack.version)],
-                    label: "Preparing infrastructure guides", completion: "Infrastructure guides available offline.") else { return }
+                    label: "Preparing infrastructure reference", completion: "Infrastructure reference available offline.") else { return }
             }
             beginNavigation()
             reading.open(ReferenceLocation(id: reference))

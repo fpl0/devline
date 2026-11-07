@@ -19,10 +19,10 @@ audit = script("check-doc-packs")
 ASSET_BASE = "https://github.com/example/devline/releases/download/docsets-2026.11.07"
 
 
-def fixture(data, markup):
+def fixture(data, markup, *, pack_id="fixture", version="1.0.0+devline.1"):
     pack = {
-        "id": "fixture", "version": "1.0.0+devline.1", "name": "Fixture",
-        "path": "docs/fixture/1.0.0+devline.1", "upstream_version": "1.0.0",
+        "id": pack_id, "version": version, "name": "Fixture",
+        "path": f"docs/{pack_id}/{version}", "upstream_version": "1.0.0",
         "snapshot_date": "2026-11-07", "coverage": ["Fixture"], "omissions": ["Other pages"],
     }
     source = data / pack["path"]
@@ -54,6 +54,24 @@ class DocDistributionTests(unittest.TestCase):
                 releases.build(data, first, ASSET_BASE, previous=prior)
             self.assertEqual(file.read_bytes(), original)
 
+    def test_channel_refresh_drops_retired_mixed_infrastructure_release(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            data, historical, current = root / "data", root / "historical", root / "current"
+            fixture(data, "<p>Historical help</p>",
+                    pack_id="infrastructure", version="2026.11.07+devline.1")
+            previous = releases.build(data, historical, ASSET_BASE)
+            historical_bytes = previous.read_bytes()
+
+            fixture(data, "<p>Publisher reference</p>",
+                    pack_id="infrastructure", version="2026.11.07+devline.2")
+            manifest = releases.build(data, current, ASSET_BASE, previous=previous)
+            versions = [release["pack"]["version"] for release in json.loads(manifest.read_text())["releases"]]
+            self.assertEqual(versions, ["2026.11.07+devline.2"])
+            self.assertEqual(previous.read_bytes(), historical_bytes)
+            releases.verify(historical)
+            releases.verify(current)
+
     def test_rejects_links_and_mismatched_asset_bytes(self):
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
@@ -68,6 +86,31 @@ class DocDistributionTests(unittest.TestCase):
             next(output.glob("*.tar.gz")).write_bytes(b"tampered")
             with self.assertRaisesRegex(ValueError, "checksum or size"):
                 releases.verify(output)
+
+    def test_local_sdk_content_cannot_be_published_even_with_forged_flag(self):
+        for pack_id, local_only in (("swiftui", False), ("fixture", True)):
+            with self.subTest(pack_id=pack_id), tempfile.TemporaryDirectory() as scratch:
+                root = Path(scratch)
+                data, output = root / "data", root / "assets"
+                fixture(data, "<p>Private SDK material</p>")
+                catalog = json.loads((data / "docs-catalog.json").read_text())
+                catalog[0].update(id=pack_id, local_only=local_only)
+                (data / "docs-catalog.json").write_text(json.dumps(catalog))
+                with self.assertRaisesRegex(ValueError, "Local SDK documentation"):
+                    releases.build(data, output, ASSET_BASE)
+                self.assertFalse(list(output.glob("*.tar.gz")))
+
+    def test_rejects_symlinked_catalog_pack_parent(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            data, output = root / "data", root / "assets"
+            source = fixture(data, "<p>Device-only content</p>")
+            cache = data / "device-cache"
+            source.parent.rename(cache)
+            source.parent.symlink_to(cache, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, "Links are unsupported in docset paths"):
+                releases.build(data, output, ASSET_BASE)
+            self.assertFalse(list(output.glob("*.tar.gz")))
 
     def test_audit_counts_examples_and_regressions_beyond_baseline(self):
         with tempfile.TemporaryDirectory() as scratch:

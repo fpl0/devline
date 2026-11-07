@@ -432,11 +432,23 @@ fn catalog_services(ctx: &Context, index: &Index) -> Result<Vec<Service>> {
             bail!("Duplicate infrastructure release");
         }
     }
+    let help: BTreeMap<_, _> = entries
+        .values()
+        .filter_map(|item| Some((item.id.clone(), item.extra.get("help_ref")?.clone())))
+        .collect();
     for (key, stored) in index {
         if let Some(item) = entries.get(key) {
             stored.receipt.validate(item)?;
         } else {
-            entries.insert(key.clone(), stored.service.clone());
+            let mut service = stored.service.clone();
+            // Older archives can contain product help in their reference metadata.
+            // Official references apply only to exact catalog releases.
+            service.docs_ref = None;
+            service.extra.remove("help_ref");
+            if let Some(reference) = help.get(&service.id) {
+                service.extra.insert("help_ref".into(), reference.clone());
+            }
+            entries.insert(key.clone(), service);
         }
     }
     Ok(entries.into_values().collect())

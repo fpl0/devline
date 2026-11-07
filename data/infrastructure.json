@@ -62,7 +62,8 @@
         "license": "PostgreSQL",
         "license_url": "https://www.postgresql.org/about/licence/"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/postgres",
+      "help_ref": "postgres",
+      "docs_ref": "infrastructure@2026.11.07+devline.2/reference/postgresql/app-psql",
       "connection": "postgresql://devline:{{secret:password}}@127.0.0.1:{{port:database}}/devline",
       "credentials": [
         {
@@ -132,7 +133,7 @@
         "license": "GPL-2.0-only with Universal FOSS Exception (Community Server)",
         "license_url": "https://github.com/mysql/mysql-server/blob/mysql-8.4.11/LICENSE"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/mysql",
+      "help_ref": "mysql",
       "connection": "mysql://devline:{{secret:password}}@127.0.0.1:{{port:database}}/devline",
       "credentials": [
         {
@@ -210,7 +211,7 @@
         "license": "MPL-2.0",
         "license_url": "https://github.com/rabbitmq/rabbitmq-server/blob/v4.3.7/LICENSE-MPL-RabbitMQ"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/rabbitmq",
+      "help_ref": "rabbitmq",
       "connection": "amqp://devline:{{secret:password}}@127.0.0.1:{{port:amqp}}/devline",
       "credentials": [
         {
@@ -278,7 +279,7 @@
         "license": "AGPL-3.0-only OR RSALv2 OR SSPL-1.0",
         "license_url": "https://redis.io/legal/licenses/"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/redis",
+      "help_ref": "redis",
       "connection": "redis://:{{secret:password}}@127.0.0.1:{{port:redis}}/0",
       "credentials": [
         {
@@ -356,7 +357,7 @@
         "license": "SSPL-1.0",
         "license_url": "https://www.mongodb.com/legal/licensing/server-side-public-license"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/mongodb",
+      "help_ref": "mongodb",
       "connection": "mongodb://devline:{{secret:password}}@127.0.0.1:{{port:database}}/devline?authSource=admin",
       "credentials": [
         {
@@ -438,7 +439,7 @@
         "license": "Apache-2.0",
         "license_url": "https://github.com/nats-io/nats-server/blob/v2.15.2/LICENSE"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/nats",
+      "help_ref": "nats",
       "connection": "nats://devline:{{secret:password}}@127.0.0.1:{{port:nats}}",
       "credentials": [
         {
@@ -509,7 +510,7 @@
         "license": "MIT",
         "license_url": "https://github.com/axllent/mailpit/blob/v1.33.0/LICENSE"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/mailpit",
+      "help_ref": "mailpit",
       "connection": "smtp://127.0.0.1:{{port:smtp}}",
       "credentials": []
     },
@@ -572,7 +573,7 @@
         "license": "MIT (Community Edition)",
         "license_url": "https://github.com/meilisearch/meilisearch/blob/v1.56.1/LICENSE"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/meilisearch",
+      "help_ref": "meilisearch",
       "connection": "http://127.0.0.1:{{port:http}}",
       "credentials": [
         {
@@ -643,7 +644,8 @@
         "license": "Apache-2.0",
         "license_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/LICENSE"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/seaweedfs",
+      "help_ref": "seaweedfs",
+      "docs_ref": "infrastructure@2026.11.07+devline.2/reference/seaweedfs/rest-api",
       "connection": "http://127.0.0.1:{{port:s3}}",
       "credentials": [
         {
@@ -718,7 +720,7 @@
         "license": "Apache-2.0",
         "license_url": "https://github.com/keycloak/keycloak/blob/26.8.2/LICENSE.txt"
       },
-      "docs_ref": "infrastructure@2026.11.07+devline.1/keycloak",
+      "help_ref": "keycloak",
       "connection": "http://127.0.0.1:{{port:http}}/realms/devline",
       "credentials": [
         {

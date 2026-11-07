@@ -575,11 +575,13 @@ fn alias_candidates(
         );
         let mut stmt = db.prepare(&sql)?;
         let rows = stmt.query_map(params![scope.releases, key, upper, window], |row| {
+            let hit = summary(row)?;
             let depth = row.get::<_, u32>(9)?;
             let label = row.get::<_, String>(8)?;
             let tier = if !row.get::<_, bool>(10)? {
                 5
-            } else if label.eq_ignore_ascii_case(query) {
+            } else if hit.pack_id != crate::apple_docs::PACK_ID && label.eq_ignore_ascii_case(query)
+            {
                 0
             } else if depth == 0 {
                 1
@@ -587,7 +589,7 @@ fn alias_candidates(
                 2
             };
             Ok(AliasMatch {
-                hit: summary(row)?,
+                hit,
                 label,
                 tier,
                 depth,

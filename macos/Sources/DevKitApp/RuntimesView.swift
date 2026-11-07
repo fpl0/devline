@@ -126,7 +126,7 @@ struct RuntimesView: View {
                             Text(path).font(.system(.caption, design: .monospaced))
                         }
                         Text(probeOutput(runtime))
-                        Text("Discovery checks PATH, standard Homebrew locations, mise installations, and Rust toolchain directories. Devline runs version probes and compares them with starter requirements. Java/Maven and Elixir/Erlang are checked together.")
+                        Text("Discovery checks PATH, standard Homebrew locations, mise installations, and Rust toolchain directories. Devline runs version probes and compares them with starter requirements. Java/Maven and Elixir/Erlang are checked together. Swift uses the compiler and macOS SDK selected by xcode-select or DEVELOPER_DIR; the SwiftUI starter also requires Xcode’s Swift Testing framework.")
                     }
                     .font(.callout).foregroundStyle(.secondary)
                     .textSelection(.enabled)

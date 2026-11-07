@@ -12,10 +12,12 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
+mod apple_docs;
 mod doc_index;
 mod doc_links;
 mod doc_search;
 mod doc_updates;
+mod guides;
 mod infrastructure;
 mod markdown;
 mod offline;
@@ -49,6 +51,8 @@ pub struct DocPack {
     pub coverage: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub omissions: Vec<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub local_only: bool,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Template {
@@ -205,11 +209,23 @@ pub(crate) fn validate_doc_identity(id: &str, version: &str) -> Result<()> {
 }
 
 fn install_docs(ctx: &Context, id: &str, version: Option<&str>) -> Result<Value> {
+    install_docs_job(ctx, id, version, None)
+}
+
+fn install_docs_job(
+    ctx: &Context,
+    id: &str,
+    version: Option<&str>,
+    job: Option<&mut tasks::Job>,
+) -> Result<Value> {
     if !valid_doc_id(id) {
         bail!("Invalid documentation pack ID");
     }
     if let Some(version) = version {
         validate_doc_identity(id, version)?;
+    }
+    if id == apple_docs::PACK_ID {
+        return apple_docs::install(ctx, version, job);
     }
     let pack = ctx
         .catalog
@@ -359,7 +375,11 @@ pub(crate) fn install_doc_pack(ctx: &Context, pack: &DocPack, directory: &Path) 
     let _lock = lock_library(ctx)?;
     let mut db = ctx.database()?;
     let tx = db.transaction()?;
-    let result = import_doc_pack(&tx, pack, directory)?;
+    let mut result = import_doc_pack(&tx, pack, directory)?;
+    if pack.local_only {
+        doc_updates::prefer_release(&tx, &pack.id, &pack.version)?;
+        result["local_only"] = json!(true);
+    }
     tx.commit()?;
     Ok(result)
 }
@@ -578,6 +598,15 @@ pub fn execute(request: &Value) -> Result<Value> {
             text_arg(request, "id")?,
         ),
         "docs.distribution.status" => doc_updates::status(&ctx),
+        "docs.local.status" => {
+            if request["id"]
+                .as_str()
+                .is_some_and(|id| id != apple_docs::PACK_ID)
+            {
+                bail!("Unknown local documentation family");
+            }
+            apple_docs::status(&ctx)
+        }
         "docs.distribution.check" => doc_updates::check(&ctx),
         "docs.distribution.install" => doc_updates::install(&ctx, request),
         "docs.distribution.rollback" => doc_updates::rollback(&ctx, request),
@@ -602,6 +631,8 @@ pub fn execute(request: &Value) -> Result<Value> {
         "docs.search" => doc_search::search(&ctx, request),
         "docs.show" => doc_search::show(&ctx, request),
         "docs.resolve" => doc_links::resolve(&ctx, request),
+        "guide.list" => guides::list(&ctx),
+        "guide.show" => guides::show(&ctx, text_arg(request, "id")?),
         "reading.list" => reference::list(&ctx),
         "reading.visit" => reference::visit(
             &ctx,

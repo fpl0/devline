@@ -170,13 +170,12 @@ fn article_text(article: &Value, formatted: bool) -> (String, Option<usize>) {
     let version = value(article, "version");
     let source = value(article, "source_url");
     let body = value(article, "body");
+    let custom_label = article["terminal_label"].as_str();
     if !formatted {
-        return (
-            format!("{title}\n{pack} · {version}\n{source}\n\n{body}"),
-            None,
-        );
+        let label = custom_label.map_or_else(|| format!("{pack} · {version}"), str::to_owned);
+        return (format!("{title}\n{label}\n{source}\n\n{body}"), None);
     }
-    let mut label = format!("{pack}@{version}");
+    let mut label = custom_label.map_or_else(|| format!("{pack}@{version}"), str::to_owned);
     if let (Some(part), Some(parts)) = (article["part"].as_u64(), article["parts"].as_u64()) {
         if parts > 1 {
             label.push_str(&format!(" · Part {part} of {parts}"));

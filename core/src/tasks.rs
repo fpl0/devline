@@ -424,7 +424,12 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
             }
             "docs_prepare" => {
                 job.stage("Installing local documentation")?;
-                crate::install_docs(&ctx, text_arg(&request, "id")?, request["version"].as_str())
+                crate::install_docs_job(
+                    &ctx,
+                    text_arg(&request, "id")?,
+                    request["version"].as_str(),
+                    Some(&mut job),
+                )
             }
             "project_prepare" => crate::project_prepare::prepare(&ctx, &request, Some(&mut job)),
             kind if kind.starts_with("infra_") => {

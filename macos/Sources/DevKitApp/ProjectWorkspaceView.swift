@@ -144,7 +144,7 @@ struct ProjectWorkspaceView: View {
     private func readinessPanel(_ project: ProjectContext) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Label(projectReadiness?.readyOffline == true ? "Project verified offline" : "Prepare this project for offline work", systemImage: projectReadiness?.readyOffline == true ? "checkmark.shield.fill" : "checkmark.shield")
+                Label(projectReadiness?.readyOffline == true ? "Build verified offline" : "Prepare this project for offline work", systemImage: projectReadiness?.readyOffline == true ? "checkmark.shield.fill" : "checkmark.shield")
                     .font(.headline)
                 Spacer()
                 if checking { ProgressView().controlSize(.small) }
@@ -160,6 +160,16 @@ struct ProjectWorkspaceView: View {
                     readinessItem("Project Dependencies", ready: projectReadiness?.readyOffline == true)
                     if !readiness.images.isEmpty { readinessItem("Image Archives", ready: readiness.images.allSatisfy(\.verifiedArchive)) }
                 }.font(.caption)
+                if let gap = project.docsets?.first(where: { $0.id == "swiftui" && $0.version == nil && $0.availableVersions.isEmpty }) {
+                    Text(gap.detail).font(.callout).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Button("Prepare SwiftUI Reference") {
+                            Task { await model.startJob(CoreRequest("jobs.start", id: "swiftui", kind: "docs_prepare")) }
+                        }.disabled(model.jobs.contains { $0.isActive && $0.kind == "docs_prepare" })
+                        Link("Apple’s Website", destination: URL(string: "https://developer.apple.com/documentation/swiftui/")!)
+                    }.font(.callout)
+                }
                 if !readiness.images.isEmpty, readiness.docker?.available != true {
                     Text("Start your local Docker engine to run this project’s services.").font(.caption).foregroundStyle(.orange)
                 }

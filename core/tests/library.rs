@@ -41,6 +41,47 @@ impl Drop for Fixture {
     }
 }
 #[test]
+fn devline_guides_are_readable_and_separate_from_reference_search() {
+    let fixture = Fixture::new();
+    let directory = fixture.root.join("catalog/help/infrastructure");
+    fs::create_dir_all(&directory).unwrap();
+    fs::write(
+        directory.join("postgres.md"),
+        "# PostgreSQL in Devline\n\n## Connect Offline\n\nPrivateQuasarGuide\n\n[Another guide](portable-toolbox.md#volumes)\n\n<script>unsafe()</script>\n",
+    ).unwrap();
+    fixture
+        .call(json!({"command":"docs.install","id":"go"}))
+        .unwrap();
+    let check = json!({"command":"offline.status","docs":["go@1.0"]});
+    let before = fixture.call(check.clone()).unwrap();
+
+    let list = fixture.call(json!({"command":"guide.list"})).unwrap();
+    assert_eq!(
+        list,
+        json!([{"id":"postgres","title":"PostgreSQL in Devline"}])
+    );
+    let guide = fixture
+        .call(json!({"command":"guide.show","id":"postgres"}))
+        .unwrap();
+    let html = guide["html"].as_str().unwrap();
+    assert!(html.contains("id=\"connect-offline\""));
+    assert!(html.contains("/data/help/infrastructure/portable-toolbox.md#volumes"));
+    assert!(!html.contains("<script"));
+    assert!(fixture
+        .call(json!({"command":"guide.show","id":"../postgres"}))
+        .is_err());
+    assert_eq!(
+        fixture
+            .call(json!({"command":"docs.search","query":"PrivateQuasarGuide"}))
+            .unwrap(),
+        json!([])
+    );
+    let after = fixture.call(check).unwrap();
+    assert_eq!(after, before);
+    assert_eq!(after["docs"].as_array().unwrap().len(), 1);
+}
+
+#[test]
 fn install_search_read_and_remove_offline() {
     let f = Fixture::new();
     assert_eq!(

@@ -202,6 +202,36 @@ impl Tree {
             let input = entry.path();
             let meta = fs::symlink_metadata(&input)?;
             let relative = input.strip_prefix(root)?;
+            if stack == "swift" && relative == Path::new(".build") {
+                continue;
+            }
+            if stack == "rust"
+                && relative.parent() == Some(Path::new("gen/schemas"))
+                && matches!(
+                    name,
+                    "acl-manifests.json"
+                        | "capabilities.json"
+                        | "desktop-schema.json"
+                        | "macOS-schema.json"
+                )
+                && meta.is_file()
+                && root.join("tauri.conf.json").is_file()
+            {
+                continue;
+            }
+            if stack == "rust"
+                && matches!(relative.to_str(), Some("gen" | "gen/schemas"))
+                && meta.is_dir()
+                && root.join("tauri.conf.json").is_file()
+            {
+                if let Some(copy) = copy {
+                    fs::create_dir(copy.join(relative))?;
+                }
+                // Track any user files here, but creation of the container for
+                // Tauri's generated schemas alone does not change the source.
+                self.visit(stack, root, &input, copy, digest)?;
+                continue;
+            }
             if stack == "elixir" {
                 let mut components = relative.iter();
                 if components.next().is_some_and(|name| name == "vendor")
@@ -424,7 +454,23 @@ fn invoke(
     } else {
         ""
     };
-    let policy = format!("(version 1)(allow default)(deny file-write*)(allow file-write* (subpath {sandbox_path}) (literal \"/dev/null\")){dotnet_mutex}{network}");
+    // Apple's atomic file writer uses the user's TemporaryItems directory even
+    // when SwiftPM receives an isolated TMPDIR and scratch/cache directories.
+    let swift_atomic = if tool_name == "swift" {
+        let output = Command::new("/usr/bin/getconf")
+            .arg("DARWIN_USER_TEMP_DIR")
+            .output()?;
+        anyhow::ensure!(
+            output.status.success(),
+            "Locate Swift build scratch directory"
+        );
+        let temp = Path::new(String::from_utf8_lossy(&output.stdout).trim()).canonicalize()?;
+        let path = serde_json::to_string(&temp.join("TemporaryItems"))?;
+        format!("(allow file-write* (subpath {path}))")
+    } else {
+        String::new()
+    };
+    let policy = format!("(version 1)(allow default)(deny file-write*)(allow file-write* (subpath {sandbox_path}) (literal \"/dev/null\")){dotnet_mutex}{swift_atomic}{network}");
     let mut command = Command::new("/usr/bin/sandbox-exec");
     command.args(["-p", &policy, "/bin/sh"]);
     let home = stage.join(if verify {
@@ -811,6 +857,34 @@ pub(crate) fn verify_generated(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn desktop_build_outputs_do_not_hide_source_changes() -> Result<()> {
+        let stage = private_stage(&std::env::temp_dir().canonicalize()?)?;
+        fs::write(stage.0.join("Package.swift"), "// swift-tools-version: 6.0")?;
+        let swift = proof_fingerprint("swift", &stage.0, true)?;
+        fs::create_dir(stage.0.join(".build"))?;
+        fs::write(stage.0.join(".build/output"), "generated")?;
+        assert_eq!(swift, proof_fingerprint("swift", &stage.0, true)?);
+        fs::create_dir_all(stage.0.join(".swiftpm/configuration"))?;
+        fs::write(
+            stage.0.join(".swiftpm/configuration/mirrors.json"),
+            "changed",
+        )?;
+        assert_ne!(swift, proof_fingerprint("swift", &stage.0, true)?);
+
+        fs::write(stage.0.join("tauri.conf.json"), "{}")?;
+        let rust = proof_fingerprint("rust", &stage.0, true)?;
+        fs::create_dir_all(stage.0.join("gen/schemas"))?;
+        fs::write(stage.0.join("gen/schemas/desktop-schema.json"), "generated")?;
+        assert_eq!(rust, proof_fingerprint("rust", &stage.0, true)?);
+        fs::write(stage.0.join("gen/schemas/user.json"), "user schema")?;
+        assert_ne!(rust, proof_fingerprint("rust", &stage.0, true)?);
+        fs::remove_file(stage.0.join("gen/schemas/user.json"))?;
+        fs::write(stage.0.join("gen/user.rs"), "user source")?;
+        assert_ne!(rust, proof_fingerprint("rust", &stage.0, true)?);
+        Ok(())
+    }
 
     #[test]
     fn trusted_manifestless_origin_does_not_mask_a_real_manifest() -> Result<()> {

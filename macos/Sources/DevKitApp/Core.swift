@@ -15,11 +15,12 @@ struct DocPack: Decodable, Hashable, Sendable {
     let upstreamVersion, snapshotDate: String?
     let coverage, omissions: [String]?
     let active: Bool?
+    let localOnly: Bool
 
     var reference: String { "\(id)@\(version)" }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, stack, version, description, sourceUrl, installed, upstreamVersion, snapshotDate, coverage, omissions, active
+        case id, name, stack, version, description, sourceUrl, installed, upstreamVersion, snapshotDate, coverage, omissions, active, localOnly
     }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -35,7 +36,15 @@ struct DocPack: Decodable, Hashable, Sendable {
         coverage = try values.decodeIfPresent([String].self, forKey: .coverage)
         omissions = try values.decodeIfPresent([String].self, forKey: .omissions)
         active = try values.decodeIfPresent(Bool.self, forKey: .active)
+        localOnly = try values.decodeIfPresent(Bool.self, forKey: .localOnly) ?? false
     }
+}
+
+struct LocalDocumentationStatus: Decodable, Sendable {
+    let id: String
+    let available, installed: Bool
+    let version, sdkVersion, sdkBuild, toolchainVersion, detail: String?
+    let count: Int?
 }
 
 struct Starter: Decodable, Hashable, Sendable {
@@ -103,7 +112,7 @@ struct ProjectPin: Decodable, Sendable {
 
 struct ProjectDocset: Decodable, Identifiable, Sendable {
     let id, state, detail: String
-    let installedVersions: [String]
+    let installedVersions, availableVersions: [String]
     let version, requirement: String?
     let compatible: Bool?
     var needsAttention: Bool { ["unmatched", "uninstalled", "unversioned"].contains(state) || compatible == false

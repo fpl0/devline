@@ -79,6 +79,13 @@ fn exact(reference: &str) -> Result<&str> {
         .with_context(|| format!("Choose an exact release for {reference}"))
 }
 
+fn require_portable_doc(id: &str, local_only: bool) -> Result<()> {
+    if local_only || id == crate::apple_docs::PACK_ID {
+        bail!("Documentation {id} is local-only. Choose portable docsets for this bundle.");
+    }
+    Ok(())
+}
+
 fn pack_source(ctx: &Context, id: &str, version: &str) -> Result<Option<(DocPack, PathBuf)>> {
     if let Some(pack) = ctx
         .catalog
@@ -240,6 +247,7 @@ fn validate_manifest(manifest: &Manifest) -> Result<u64> {
     }
     let mut roots = BTreeSet::new();
     for pack in &manifest.docs {
+        require_portable_doc(&pack.id, pack.local_only)?;
         doc_reference(&format!("{}@{}", pack.id, pack.version))?;
         if pack.path != doc_directory(pack)
             || !(1..=1024).contains(&pack.shards.unwrap_or(1))
@@ -312,14 +320,23 @@ pub(crate) fn export_job(
     request: &Value,
     mut job: Option<&mut Job>,
 ) -> Result<Value> {
+    let selected = references(request, "docs")?;
+    let releases = selected
+        .iter()
+        .map(|reference| {
+            let (id, _) = doc_reference(reference)?;
+            require_portable_doc(id, false)?;
+            Ok((reference, id, exact(reference)?))
+        })
+        .collect::<Result<Vec<_>>>()?;
     stage(&mut job, "Selecting and hashing pinned releases")?;
     let mut docs = Vec::new();
     let mut starters = Vec::new();
     let mut files = BTreeMap::new();
-    for reference in references(request, "docs")? {
-        let (id, _) = doc_reference(&reference)?;
-        let (mut pack, root) = pack_source(ctx, id, exact(&reference)?)?
+    for (reference, id, version) in releases {
+        let (mut pack, root) = pack_source(ctx, id, version)?
             .with_context(|| format!("Original files for {reference} are unavailable. Select a bundled or cached release."))?;
+        require_portable_doc(&pack.id, pack.local_only)?;
         pack.path = doc_directory(&pack);
         inventory(&root, &pack.path, &mut files, &mut job)?;
         docs.push(pack);
@@ -1046,6 +1063,78 @@ mod tests {
     }
 
     #[test]
+    fn local_only_and_reserved_docs_cannot_cross_bundle_boundaries() -> Result<()> {
+        let work = templates::Stage::new(&std::env::temp_dir())?;
+        let home = work.0.join("home");
+        fs::create_dir(&home)?;
+        let pack = |id: &str, local_only: bool| {
+            serde_json::from_value::<DocPack>(json!({
+                "id":id,"name":"Sample","stack":"swift","version":"1.0.0",
+                "description":"Sample documentation","source_url":"https://example.com",
+                "license":"Example","path":format!("docs/{id}/1.0.0"),"local_only":local_only,
+            }))
+        };
+        let reserved = pack("swiftui", false)?;
+        let local = pack("device-reference", true)?;
+        let local_source = work.0.join(&local.path);
+        fs::create_dir_all(&local_source)?;
+        fs::write(
+            local_source.join("documents.json"),
+            serde_json::to_vec(&json!([{
+                "id":"sample","title":"Sample","body":"This reference stays on the device.",
+                "source_url":"https://example.com/sample",
+            }]))?,
+        )?;
+        let ctx = Context {
+            home,
+            catalog_dir: work.0.clone(),
+            catalog: Catalog {
+                schema_version: 1,
+                docs: vec![pack("go", false)?, reserved.clone(), local.clone()],
+                templates: Vec::new(),
+            },
+        };
+        let output = work.0.join("output.devlinebundle");
+        // Both original paths are absent. The reserved ID must be caught before
+        // discovery of even an earlier, otherwise portable, selection.
+        for docs in [
+            vec!["go@1.0.0", "swiftui@1.0.0"],
+            vec!["device-reference@1.0.0"],
+        ] {
+            let error = export(&ctx, &json!({"path":output,"docs":docs})).unwrap_err();
+            assert!(error.to_string().contains("local-only"), "{error:#}");
+            assert!(!output.exists());
+        }
+        for pack in [reserved, local.clone()] {
+            let manifest = json!({
+                "schema_version":1,"starters":[],
+                "files":[{"path":pack.path,"bytes":0,"digest":null,"executable":false}],
+                "docs":[pack],
+            });
+            let encoded = serde_json::to_vec(&manifest)?;
+            let input = work.0.join("input.devlinebundle");
+            let mut file = File::create(&input)?;
+            file.write_all(MAGIC)?;
+            file.write_all(&(encoded.len() as u64).to_le_bytes())?;
+            file.write_all(&encoded)?;
+            file.write_all(b"invalid gzip payload")?;
+            drop(file);
+
+            // Manifest policy must win before either path reads the payload.
+            let request = json!({"path":input,"trust_starters":true});
+            for action in [inspect, import] {
+                let error = action(&ctx, &request).unwrap_err();
+                assert!(error.to_string().contains("local-only"), "{error:#}");
+            }
+            assert!(fs::read_dir(&ctx.home)?.next().is_none());
+        }
+        crate::install_doc_pack(&ctx, &local, &local_source)?;
+        let ready = status(&ctx, &json!({"docs":["device-reference@1.0.0"]}))?;
+        assert_eq!(ready["ready_offline"], true);
+        Ok(())
+    }
+
+    #[test]
     fn bundle_round_trip_checks_trust_digests_and_installed_content() -> Result<()> {
         let work = templates::Stage::new(&std::env::temp_dir())?;
         let catalog_dir = work.0.join("catalog");
@@ -1064,6 +1153,7 @@ mod tests {
             snapshot_date: None,
             coverage: Vec::new(),
             omissions: Vec::new(),
+            local_only: false,
         };
         let template = Template {
             id: "go/sample".into(),
