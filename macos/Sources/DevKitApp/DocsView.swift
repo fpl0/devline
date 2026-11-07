@@ -408,9 +408,15 @@ struct DocsView: View {
     }
 
     private func groupPacks(_ name: String) -> [DocPack] {
-        Dictionary(grouping: packs.filter { $0.stack == name }, by: \.id).values
-            .compactMap { versions in versions.first { $0.active == true } ?? versions.max { $0.version.compare($1.version, options: .numeric) == .orderedAscending } }
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        let matching = packs.filter { $0.stack == name }
+        let byPack: [String: [DocPack]] = Dictionary(grouping: matching, by: \.id)
+        let preferred: [DocPack] = byPack.values.compactMap { versions in
+            if let active = versions.first(where: { $0.active == true }) { return active }
+            return versions.max { earlier, later in
+                earlier.version.compare(later.version, options: .numeric) == .orderedAscending
+            }
+        }
+        return preferred.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
     private var searchResults: some View {
