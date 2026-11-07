@@ -137,9 +137,15 @@ enum Commands {
         #[arg(long)]
         /// Check the selected release and destination before creating files.
         dry_run: bool,
+        /// Create in a cancellable background job and print its ID.
+        #[arg(long, conflicts_with = "dry_run")]
+        background: bool,
         /// Add an exact local service release. Repeat for more services.
         #[arg(long = "service", value_name = "SERVICE@VERSION", value_parser = cli_infra::release)]
         services: Vec<String>,
+        /// Add a recommended service client only when explicitly selected.
+        #[arg(long = "client", value_name = "STACK:SERVICE")]
+        clients: Vec<String>,
         /// Override a service's published localhost port.
         #[arg(long = "port", value_name = "SERVICE:PORT=HOST_PORT", value_parser = cli_infra::port)]
         ports: Vec<cli_infra::Port>,
@@ -320,9 +326,24 @@ enum Project {
     },
     #[command(about = "Run a command using this project's prepared offline dependencies")]
     Run {
-        #[arg(required = true, last = true, value_name = "COMMAND")]
+        #[arg(last = true, value_name = "COMMAND")]
         command: Vec<std::ffi::OsString>,
     },
+    #[command(
+        about = "Start the app and its configured local services with internet access blocked"
+    )]
+    Start,
+    #[command(about = "Stop the app while keeping local services and their data")]
+    Stop,
+    #[command(about = "Show the running app's local status")]
+    AppStatus,
+    #[command(about = "Read the app's recent output")]
+    Logs {
+        #[arg(long, default_value_t = 200)]
+        tail: u32,
+    },
+    #[command(about = "Show run and test commands for this project")]
+    Commands,
     #[command(about = "Pin an exact documentation release for this project")]
     Pin {
         #[arg(value_name = "PACK@VERSION")]
@@ -1527,25 +1548,22 @@ fn run_project(cli: &Cli, path: &std::path::Path, arguments: &[std::ffi::OsStrin
     if cli.json {
         bail!("Project commands own their standard output. Remove --json for project run.");
     }
-    let runner = request(cli, json!({"command":"project.runner","path":path}))?;
-    let mut command = if cli.offline {
-        let mut command = Command::new("/usr/bin/sandbox-exec");
-        command.args(["-p", "(version 1)(allow default)(deny network-outbound)(allow network-outbound (remote ip \"localhost:*\"))", "/bin/sh"]);
-        command
-    } else {
-        Command::new("/bin/sh")
-    };
-    let status = command
-        .arg(s(&runner, "adapter"))
-        .arg("run")
-        .arg(s(&runner, "path"))
-        .arg(s(&runner, "cache"))
-        .arg(s(&runner, "toolchain_path"))
-        .args(arguments)
-        .current_dir(s(&runner, "path"))
-        .status()
-        .context("Could not run the prepared project command")?;
-    Ok(status.code().unwrap_or(1))
+    let mut request = json!({"path":path});
+    if let Some(home) = &cli.home {
+        request["home"] = json!(home);
+    }
+    if let Some(catalog) = &cli.catalog {
+        request["catalog"] = json!(catalog);
+    }
+    let arguments = arguments
+        .iter()
+        .map(|arg| {
+            arg.to_str()
+                .map(str::to_owned)
+                .context("Project command must be UTF-8")
+        })
+        .collect::<Result<Vec<_>>>()?;
+    devkit_core::project_run::foreground(&request, &arguments)
 }
 
 fn run(cli: &Cli) -> Result<i32> {
@@ -1574,6 +1592,49 @@ fn run(cli: &Cli) -> Result<i32> {
         },
         Some(Commands::Project { path, command }) => {
             let path = path.clone().map_or_else(std::env::current_dir, Ok)?;
+            let app_action = match command {
+                Some(Project::Start) => Some("project.start"),
+                Some(Project::Stop) => Some("project.stop"),
+                Some(Project::AppStatus) => Some("project.status"),
+                Some(Project::Logs { .. }) => Some("project.logs"),
+                Some(Project::Commands) => Some("project.commands"),
+                _ => None,
+            };
+            if let Some(action) = app_action {
+                let tail = match command {
+                    Some(Project::Logs { tail }) => Some(*tail),
+                    _ => None,
+                };
+                let data = request(
+                    cli,
+                    json!({"command":action,"path":path,"tail":tail,"offline":true}),
+                )?;
+                if cli.json {
+                    println!("{}", json!({"ok":true,"data":data}));
+                } else if action == "project.logs" {
+                    println!("{}", terminal::safe_text(s(&data, "log")));
+                } else if action == "project.commands" {
+                    if let Some(value) = data["run_command"].as_str() {
+                        println!("Run\n  {}", terminal::safe_text(value));
+                    }
+                    if let Some(value) = data["test_command"].as_str() {
+                        println!("Test\n  {}", terminal::safe_text(value));
+                    }
+                    println!("{}", terminal::safe_text(s(&data, "detail")));
+                } else {
+                    println!(
+                        "Project  {}\n{}",
+                        terminal::safe_text(s(&data, "path")),
+                        terminal::safe_text(s(&data, "detail"))
+                    );
+                    if data["running"] == true {
+                        if let Some(url) = data["url"].as_str() {
+                            println!("App  {}", terminal::safe_text(url));
+                        }
+                    }
+                }
+                return Ok(if data["state"] == "failed" { 1 } else { 0 });
+            }
             let payload = match command {
                 None | Some(Project::Status) => json!({"command":"project.context","path":path}),
                 Some(Project::Readiness) => json!({"command":"project.readiness","path":path}),
@@ -1595,6 +1656,7 @@ fn run(cli: &Cli) -> Result<i32> {
                 Some(Project::Unpin { id }) => {
                     json!({"command":"project.unpin","path":path,"id":id})
                 }
+                _ => unreachable!("App lifecycle commands handled above"),
             };
             let mut project = request(cli, payload)?;
             if matches!(command, Some(Project::Readiness)) {
@@ -1979,7 +2041,9 @@ fn run(cli: &Cli) -> Result<i32> {
             id,
             destination,
             dry_run,
+            background,
             services,
+            clients,
             ports,
         }) => {
             let selected = match id {
@@ -2007,13 +2071,13 @@ fn run(cli: &Cli) -> Result<i32> {
                 Some(p) => p.clone(),
                 None => PathBuf::from(ask("Project directory (for example ./status-api):")?),
             };
-            (
+            run_operation(
+                cli,
                 "new",
-                request(
-                    cli,
-                    json!({"command":"new.ready","id":selected,"destination":path,"dry_run":dry_run,"offline":cli.offline,"services":services,"ports":cli_infra::port_overrides(ports)?}),
-                )?,
-            )
+                "new_project",
+                *background,
+                json!({"command":"new.ready","id":selected,"destination":path,"dry_run":dry_run,"offline":cli.offline,"services":services,"clients":clients,"ports":cli_infra::port_overrides(ports)?}),
+            )?
         }
     };
     let ready = match action {

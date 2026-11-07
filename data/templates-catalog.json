@@ -545,5 +545,24 @@
     ],
     "verified": true,
     "target": "darwin-arm64"
+  },
+  {
+    "id": "dotnet/aspnet-api",
+    "name": "ASP.NET Core API",
+    "stack": "dotnet",
+    "version": "1.2.0",
+    "description": "A working notes app with PostgreSQL persistence, RabbitMQ delivery, SQLite fallback, and locked offline packages. Includes a browser interface and live service health.",
+    "app_type": "api",
+    "path": "templates/dotnet/aspnet-api/1.2.0",
+    "toolchain": "dotnet",
+    "minimum_version": "10.0.400",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "csharp",
+      "aspnet",
+      "infrastructure"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
   }
 ]

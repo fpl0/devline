@@ -47,6 +47,7 @@ jobs:
         run: |
           python3 scripts/check-doc-packs.py
           python3 scripts/check-infrastructure.py
+          python3 scripts/seal-service-client-packs.py --check
 
       - name: Test reference navigation
         run: |

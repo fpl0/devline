@@ -5,7 +5,9 @@ project=${2:?staged project}
 cache=${3:?staged cache}
 ruby=${4:?Ruby executable}
 shift 4
+adapters=$(cd "$(dirname "$0")" && pwd)
 cd "$project"
+export PATH="$(dirname "$ruby"):$PATH"
 if [ "$mode" = run ] && [ ! -f "$cache/Gemfile.lock" ] && [ -f "$project/.devkit-origin.json" ]; then
   if [ ! -f "$project/Gemfile" ]; then
     [ "$#" -gt 0 ] || { echo 'Choose a command to run.' >&2; exit 2; }
@@ -66,6 +68,10 @@ case "$mode" in
     fi
     mkdir -p "$cache"
     cp Gemfile "$cache/Gemfile"
+    if [ -d "$project/vendor/cache" ]; then
+      mkdir -p "$cache/vendor/cache"
+      cp "$project"/vendor/cache/*.gem "$cache/vendor/cache/"
+    fi
     if [ -f .ruby-version ]; then cp .ruby-version "$cache/.ruby-version"; fi
     if [ -f Gemfile.lock ]; then
       cp Gemfile.lock "$cache/Gemfile.lock"
@@ -73,7 +79,11 @@ case "$mode" in
     fi
     bundler_version
     platform=$("$ruby" -rrubygems -e 'puts Gem::Platform.local')
-    bundle lock --add-platform "$platform" --add-checksums
+    if [ "${DEVLINE_OFFLINE:-0}" = 1 ]; then
+      "$ruby" "$adapters/../service-clients/lock-ruby-offline.rb"
+    else
+      bundle lock --add-platform "$platform" --add-checksums
+    fi
     registry_lock
     if [ -f Gemfile.lock ]; then
       "$ruby" -rbundler - "$project/Gemfile.lock" "$cache/Gemfile.lock" <<'RUBY'
@@ -86,7 +96,7 @@ end
 abort "Pinned gems changed while adding the current platform: #{changed.join(', ')}" unless changed.empty?
 RUBY
     fi
-    bundle cache --no-install
+    if [ "${DEVLINE_OFFLINE:-0}" != 1 ]; then bundle cache --no-install; fi
     ;;
   verify|run)
     if [ ! -f "$cache/Gemfile" ] || [ ! -f "$cache/Gemfile.lock" ] || [ ! -d "$cache/vendor/cache" ]; then
@@ -124,8 +134,7 @@ RUBY
     fi
     if [ "$mode" = run ]; then
       [ "$#" -gt 0 ] || { echo 'Choose a command to run.' >&2; exit 2; }
-      install_gems >&2
-      bundle exec "$@"
+      "$ruby" "$adapters/ruby-runtime-cache.rb" "$project/.devline-offline/ruby-runtime" "$cache" "$ruby" "$BUNDLER_VERSION" "$@"
       exit
     fi
     install_gems

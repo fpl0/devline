@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "stack": "go",
+  "packages": [
+    {
+      "name": "github.com/jackc/pgx/v5",
+      "version": "v5.12.0"
+    },
+    {
+      "name": "github.com/go-sql-driver/mysql",
+      "version": "v1.10.1"
+    },
+    {
+      "name": "github.com/rabbitmq/amqp091-go",
+      "version": "v1.16.0"
+    },
+    {
+      "name": "github.com/redis/go-redis/v9",
+      "version": "v9.23.0"
+    },
+    {
+      "name": "go.mongodb.org/mongo-driver/v2",
+      "version": "v2.10.0",
+      "imports": [
+        "go.mongodb.org/mongo-driver/v2/mongo"
+      ]
+    },
+    {
+      "name": "github.com/nats-io/nats.go",
+      "version": "v1.55.0"
+    },
+    {
+      "name": "github.com/meilisearch/meilisearch-go",
+      "version": "v0.36.3"
+    },
+    {
+      "name": "github.com/aws/aws-sdk-go-v2/service/s3",
+      "version": "v1.114.9"
+    },
+    {
+      "name": "github.com/aws/aws-sdk-go-v2/credentials",
+      "version": "v1.20.16"
+    },
+    {
+      "name": "github.com/coreos/go-oidc/v3",
+      "version": "v3.21.0",
+      "imports": [
+        "github.com/coreos/go-oidc/v3/oidc"
+      ]
+    }
+  ],
+  "verification": "native client graph resolved and checked with outbound networking denied",
+  "inventory_sha256": "4169b08da7ff35dc0481db1d71ce5e4792d82fc1173a853682b961ab5d8ea348"
+}

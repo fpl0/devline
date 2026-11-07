@@ -1,0 +1,165 @@
+{
+  "stack": "java",
+  "integrations": [
+    {
+      "id": "java:postgres",
+      "service": "postgres",
+      "name": "PostgreSQL JDBC",
+      "packages": [
+        {
+          "name": "org.postgresql:postgresql",
+          "version": "42.7.14"
+        }
+      ],
+      "source_url": "https://jdbc.postgresql.org/",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "java:mysql",
+      "service": "mysql",
+      "name": "MySQL Connector/J",
+      "packages": [
+        {
+          "name": "com.mysql:mysql-connector-j",
+          "version": "9.7.0"
+        }
+      ],
+      "source_url": "https://dev.mysql.com/doc/connector-j/en/",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "java:rabbitmq",
+      "service": "rabbitmq",
+      "name": "RabbitMQ Java Client",
+      "packages": [
+        {
+          "name": "com.rabbitmq:amqp-client",
+          "version": "5.30.0"
+        }
+      ],
+      "source_url": "https://www.rabbitmq.com/client-libraries/java-client",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "java:redis",
+      "service": "redis",
+      "name": "Lettuce",
+      "packages": [
+        {
+          "name": "io.lettuce:lettuce-core",
+          "version": "7.5.2.RELEASE"
+        }
+      ],
+      "source_url": "https://redis.io/docs/latest/develop/clients/lettuce/",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "java:mongodb",
+      "service": "mongodb",
+      "name": "MongoDB Java Driver",
+      "packages": [
+        {
+          "name": "org.mongodb:mongodb-driver-sync",
+          "version": "5.14.0"
+        }
+      ],
+      "source_url": "https://www.mongodb.com/docs/drivers/java/sync/current/",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "java:nats",
+      "service": "nats",
+      "name": "NATS Java Client",
+      "packages": [
+        {
+          "name": "io.nats:jnats",
+          "version": "2.26.4"
+        }
+      ],
+      "source_url": "https://github.com/nats-io/nats.java",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "java:mailpit",
+      "service": "mailpit",
+      "name": "Jakarta Mail \u00b7 Angus",
+      "packages": [
+        {
+          "name": "org.eclipse.angus:jakarta.mail",
+          "version": "2.0.5"
+        }
+      ],
+      "source_url": "https://eclipse-ee4j.github.io/angus-mail/",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "java:meilisearch",
+      "service": "meilisearch",
+      "name": "Meilisearch Java Client",
+      "packages": [
+        {
+          "name": "com.meilisearch.sdk:meilisearch-java",
+          "version": "0.22.1"
+        }
+      ],
+      "source_url": "https://github.com/meilisearch/meilisearch-java",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "java:seaweedfs",
+      "service": "seaweedfs",
+      "name": "AWS SDK for Java \u00b7 S3",
+      "packages": [
+        {
+          "name": "software.amazon.awssdk:s3",
+          "version": "2.57.11"
+        }
+      ],
+      "source_url": "https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/home.html",
+      "support": "publisher",
+      "detail": "S3-compatible client for SeaweedFS. Configure its local endpoint and path-style bucket access.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "java:keycloak",
+      "service": "keycloak",
+      "name": "Nimbus OpenID Connect",
+      "packages": [
+        {
+          "name": "com.nimbusds:oauth2-oidc-sdk",
+          "version": "11.39"
+        }
+      ],
+      "source_url": "https://connect2id.com/products/nimbus-oauth-openid-connect-sdk",
+      "support": "community",
+      "detail": "Standards-based OpenID Connect client for Keycloak. Configure your realm, client ID, and redirect URI in the application.",
+      "builtin": false,
+      "supported": true
+    }
+  ]
+}

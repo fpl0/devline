@@ -1,0 +1,164 @@
+{
+  "stack": "python",
+  "integrations": [
+    {
+      "id": "python:postgres",
+      "service": "postgres",
+      "name": "Psycopg",
+      "packages": [
+        {
+          "name": "psycopg[binary]",
+          "version": "3.3.8"
+        }
+      ],
+      "source_url": "https://www.psycopg.org/psycopg3/docs/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "python:mysql",
+      "service": "mysql",
+      "name": "PyMySQL",
+      "packages": [
+        {
+          "name": "PyMySQL[rsa]",
+          "version": "1.2.3"
+        }
+      ],
+      "source_url": "https://pymysql.readthedocs.io/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "python:rabbitmq",
+      "service": "rabbitmq",
+      "name": "Pika",
+      "packages": [
+        {
+          "name": "pika",
+          "version": "1.4.4"
+        }
+      ],
+      "source_url": "https://www.rabbitmq.com/tutorials/tutorial-one-python",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "python:redis",
+      "service": "redis",
+      "name": "redis-py",
+      "packages": [
+        {
+          "name": "redis",
+          "version": "8.1.0"
+        }
+      ],
+      "source_url": "https://redis.io/docs/latest/develop/clients/redis-py/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "python:mongodb",
+      "service": "mongodb",
+      "name": "PyMongo",
+      "packages": [
+        {
+          "name": "pymongo",
+          "version": "4.19.0"
+        }
+      ],
+      "source_url": "https://www.mongodb.com/docs/languages/python/pymongo-driver/current/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "python:nats",
+      "service": "nats",
+      "name": "NATS.py",
+      "packages": [
+        {
+          "name": "nats-py",
+          "version": "2.16.0"
+        }
+      ],
+      "source_url": "https://github.com/nats-io/nats.py",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "python:mailpit",
+      "service": "mailpit",
+      "name": "smtplib",
+      "packages": [],
+      "source_url": "https://docs.python.org/3/library/smtplib.html",
+      "support": "builtin",
+      "detail": "Use the runtime SMTP library with the local Mailpit host and port; no package is needed.",
+      "builtin": true,
+      "supported": true
+    },
+    {
+      "id": "python:meilisearch",
+      "service": "meilisearch",
+      "name": "Meilisearch",
+      "packages": [
+        {
+          "name": "meilisearch",
+          "version": "0.43.0"
+        }
+      ],
+      "source_url": "https://github.com/meilisearch/meilisearch-python",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "python:seaweedfs",
+      "service": "seaweedfs",
+      "name": "Boto3 S3",
+      "packages": [
+        {
+          "name": "boto3",
+          "version": "1.43.126"
+        }
+      ],
+      "source_url": "https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "python:keycloak",
+      "service": "keycloak",
+      "name": "Authlib OpenID Connect",
+      "packages": [
+        {
+          "name": "Authlib",
+          "version": "1.9.5"
+        },
+        {
+          "name": "requests",
+          "version": "2.34.2"
+        }
+      ],
+      "source_url": "https://docs.authlib.org/en/latest/client/frameworks.html",
+      "support": "maintainer",
+      "detail": "Adds Authlib and its Requests HTTP transport, then locks and vendors the complete dependency graph. Configure an OpenID Connect client in the local realm; this does not register users or applications.",
+      "builtin": false,
+      "supported": true
+    }
+  ]
+}

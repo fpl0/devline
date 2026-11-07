@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "stack": "node",
+  "packages": [
+    {
+      "name": "pg",
+      "version": "8.23.1"
+    },
+    {
+      "name": "mysql2",
+      "version": "3.24.6"
+    },
+    {
+      "name": "amqplib",
+      "version": "2.2.1"
+    },
+    {
+      "name": "redis",
+      "version": "6.3.1"
+    },
+    {
+      "name": "mongodb",
+      "version": "7.8.0"
+    },
+    {
+      "name": "@nats-io/transport-node",
+      "version": "3.4.0"
+    },
+    {
+      "name": "nodemailer",
+      "version": "10.3.1"
+    },
+    {
+      "name": "meilisearch",
+      "version": "0.62.0"
+    },
+    {
+      "name": "@aws-sdk/client-s3",
+      "version": "3.1164.0"
+    },
+    {
+      "name": "openid-client",
+      "version": "6.8.9"
+    }
+  ],
+  "verification": "native client graph resolved and checked with outbound networking denied",
+  "inventory_sha256": "45addbc32b29f27cb08f1b7a49eabe363f91c5893ca13934a692626d0e70e86a"
+}

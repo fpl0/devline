@@ -1,0 +1,165 @@
+{
+  "stack": "ruby",
+  "integrations": [
+    {
+      "id": "ruby:postgres",
+      "service": "postgres",
+      "name": "Ruby pg",
+      "packages": [
+        {
+          "name": "pg",
+          "version": "1.7.0"
+        }
+      ],
+      "source_url": "https://github.com/ged/ruby-pg",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "ruby:mysql",
+      "service": "mysql",
+      "name": "Trilogy",
+      "packages": [
+        {
+          "name": "trilogy",
+          "version": "2.13.3"
+        }
+      ],
+      "source_url": "https://github.com/trilogy-libraries/trilogy",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "ruby:rabbitmq",
+      "service": "rabbitmq",
+      "name": "Bunny",
+      "packages": [
+        {
+          "name": "bunny",
+          "version": "3.5.0"
+        }
+      ],
+      "source_url": "https://www.rabbitmq.com/client-libraries/devtools",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "ruby:redis",
+      "service": "redis",
+      "name": "redis-rb",
+      "packages": [
+        {
+          "name": "redis",
+          "version": "6.0.0"
+        }
+      ],
+      "source_url": "https://github.com/redis/redis-rb",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "ruby:mongodb",
+      "service": "mongodb",
+      "name": "MongoDB Ruby Driver",
+      "packages": [
+        {
+          "name": "mongo",
+          "version": "2.26.1"
+        }
+      ],
+      "source_url": "https://www.mongodb.com/docs/ruby-driver/current/",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "ruby:nats",
+      "service": "nats",
+      "name": "NATS Ruby Client",
+      "packages": [
+        {
+          "name": "nats-pure",
+          "version": "2.7.0"
+        }
+      ],
+      "source_url": "https://docs.nats.io/concepts/ecosystem",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "ruby:mailpit",
+      "service": "mailpit",
+      "name": "Net::SMTP",
+      "packages": [
+        {
+          "name": "net-smtp",
+          "version": "0.5.2"
+        }
+      ],
+      "source_url": "https://github.com/ruby/net-smtp",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "ruby:meilisearch",
+      "service": "meilisearch",
+      "name": "Meilisearch Ruby Client",
+      "packages": [
+        {
+          "name": "meilisearch",
+          "version": "0.33.0"
+        }
+      ],
+      "source_url": "https://github.com/meilisearch/meilisearch-ruby",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "ruby:seaweedfs",
+      "service": "seaweedfs",
+      "name": "AWS SDK for Ruby \u00b7 S3",
+      "packages": [
+        {
+          "name": "aws-sdk-s3",
+          "version": "1.239.0"
+        }
+      ],
+      "source_url": "https://docs.aws.amazon.com/sdk-for-ruby/v3/api/Aws/S3/Client.html",
+      "support": "publisher",
+      "detail": "S3-compatible client for SeaweedFS. Configure its local endpoint and path-style bucket access.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "ruby:keycloak",
+      "service": "keycloak",
+      "name": "OpenID Connect",
+      "packages": [
+        {
+          "name": "openid_connect",
+          "version": "2.5.0"
+        }
+      ],
+      "source_url": "https://github.com/nov/openid_connect",
+      "support": "community",
+      "detail": "Standards-based OpenID Connect client for Keycloak. Configure your realm, client ID, and redirect URI in the application.",
+      "builtin": false,
+      "supported": true
+    }
+  ]
+}

@@ -1,0 +1,316 @@
+{
+  "schema_version": 1,
+  "stack": "dotnet",
+  "files": [
+    {
+      "path": "feed/awssdk.core.4.0.102.19.nupkg",
+      "bytes": 2301164,
+      "sha256": "cc4784ff9e0b082e115d9dcea62f9ed0bab424b987b128baef7c6bba365f941b"
+    },
+    {
+      "path": "feed/awssdk.s3.4.0.104.11.nupkg",
+      "bytes": 3602565,
+      "sha256": "2cb2e9192c57c8415a56308a239b77d04d76165211da106115a6ffee22e8eae0"
+    },
+    {
+      "path": "feed/bouncycastle.cryptography.2.7.0.nupkg",
+      "bytes": 8730569,
+      "sha256": "f091ffccab4d03993e660bace277659a79dee0972f54d7f1f4bd46d680966241"
+    },
+    {
+      "path": "feed/dnsclient.1.6.1.nupkg",
+      "bytes": 585991,
+      "sha256": "dc07014d8e0884c9ca52a62c66c60a87cb2e1f6b3e970bf91f5f555c40370c2f"
+    },
+    {
+      "path": "feed/mailkit.4.18.2.nupkg",
+      "bytes": 5931510,
+      "sha256": "cbf71985160f24ae80a2b020a96870782a1606bda6cf1130fe55d735b29d2355"
+    },
+    {
+      "path": "feed/meilisearch.0.20.0.nupkg",
+      "bytes": 116381,
+      "sha256": "779d124b603de749b3f7395cd678f69838a6f26330911895ce5248b4e3797a8d"
+    },
+    {
+      "path": "feed/microsoft.aspnetcore.authentication.openidconnect.10.0.14.nupkg",
+      "bytes": 98840,
+      "sha256": "bb462a61d26f03c0e17c1b1429815a7aea96730f67786fbc2c279b43c5042bf6"
+    },
+    {
+      "path": "feed/microsoft.bcl.cryptography.10.0.2.nupkg",
+      "bytes": 771019,
+      "sha256": "f8e62d716b1dd6a65c11769d61e038b7afa9c800e0d403d00b1a4a52d3f4d363"
+    },
+    {
+      "path": "feed/microsoft.extensions.configuration.abstractions.8.0.0.nupkg",
+      "bytes": 149230,
+      "sha256": "e1e0690e47fb309a334d99cec10bf071f81129019c3577b42bf905fa1e5197ca"
+    },
+    {
+      "path": "feed/microsoft.extensions.dependencyinjection.abstractions.10.0.0.nupkg",
+      "bytes": 285647,
+      "sha256": "f62a1d5cfdfd62a831a269ce3cec5dfe6cdb1b425f3925f3168354de8993d8fb"
+    },
+    {
+      "path": "feed/microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg",
+      "bytes": 276886,
+      "sha256": "ef92b31065a36d110b7332690a226e6fe96d35430c6f3e40ff529053ee5d80ff"
+    },
+    {
+      "path": "feed/microsoft.extensions.dependencyinjection.abstractions.8.0.2.nupkg",
+      "bytes": 278862,
+      "sha256": "51f2df1100245f10da54f0bb7e813f277155117777d4fbbab902214e27372606"
+    },
+    {
+      "path": "feed/microsoft.extensions.diagnostics.abstractions.8.0.0.nupkg",
+      "bytes": 152735,
+      "sha256": "5120f9b9939a6a132a8babbba30356c7f2d1e040eb3b0a8fac00229bb891a496"
+    },
+    {
+      "path": "feed/microsoft.extensions.fileproviders.abstractions.8.0.0.nupkg",
+      "bytes": 113833,
+      "sha256": "b904979ade3b5f61c6a159e26af8cb2026cfb43d9179039840c832de5d31b8c5"
+    },
+    {
+      "path": "feed/microsoft.extensions.hosting.abstractions.8.0.0.nupkg",
+      "bytes": 230753,
+      "sha256": "d09071fb0c2de69d523df3b89b8f4ac4d3973c0cc053403ef2d11cfe2b6fa501"
+    },
+    {
+      "path": "feed/microsoft.extensions.logging.abstractions.10.0.0.nupkg",
+      "bytes": 822954,
+      "sha256": "067860199734d47c134b1a206afabb51eab857b88c037c0f9db7d1c10e118469"
+    },
+    {
+      "path": "feed/microsoft.extensions.logging.abstractions.2.0.0.nupkg",
+      "bytes": 36310,
+      "sha256": "70104d72844421d0839f066d9d31be0680059956fbd4fd678453801f4ed4b1f4"
+    },
+    {
+      "path": "feed/microsoft.extensions.logging.abstractions.6.0.1.nupkg",
+      "bytes": 461337,
+      "sha256": "bf7156a6e297941216e4dc2a431d057dbeb2e7c4657af2323bf6f2a9e2e9849f"
+    },
+    {
+      "path": "feed/microsoft.extensions.logging.abstractions.8.0.0.nupkg",
+      "bytes": 795935,
+      "sha256": "26675d8de83c5394be8814f046554054b7881f1738cabacd82a54c381ec48cce"
+    },
+    {
+      "path": "feed/microsoft.extensions.logging.abstractions.8.0.2.nupkg",
+      "bytes": 801164,
+      "sha256": "707a5ef17d818186b90f3ba565fab6e2b83c3b62b92e6ab63a22e1a320158097"
+    },
+    {
+      "path": "feed/microsoft.extensions.options.8.0.0.nupkg",
+      "bytes": 492963,
+      "sha256": "9f69b82527a040a51394eb0a2d95141c728cabddba789d30f4df46f88dc5a05c"
+    },
+    {
+      "path": "feed/microsoft.extensions.options.8.0.2.nupkg",
+      "bytes": 494417,
+      "sha256": "02372575d75d76d37ff5a1fda60ec2944672716b451cb8bd20f7b518684d432b"
+    },
+    {
+      "path": "feed/microsoft.extensions.primitives.6.0.0.nupkg",
+      "bytes": 144250,
+      "sha256": "020bf2b2cce9435d40893049164bd2cbc267c085938f5e4f7de93b4fb4e151ce"
+    },
+    {
+      "path": "feed/microsoft.extensions.primitives.8.0.0.nupkg",
+      "bytes": 209772,
+      "sha256": "154f2a8f70d1f1b0dd73573e59e199c7f3c265eaaa9ddc1e64cf5ea5ca578d2a"
+    },
+    {
+      "path": "feed/microsoft.identitymodel.abstractions.8.19.2.nupkg",
+      "bytes": 128864,
+      "sha256": "bcd18aeaee95f92d0c21a61383eb129111785d48ccd4af9c2ae4756bd69108bb"
+    },
+    {
+      "path": "feed/microsoft.identitymodel.jsonwebtokens.8.16.0.nupkg",
+      "bytes": 554258,
+      "sha256": "09cb5fda2b885cb324953b82bf35afef6d6fda61ecd07101038ec1a802a1a7d2"
+    },
+    {
+      "path": "feed/microsoft.identitymodel.jsonwebtokens.8.19.2.nupkg",
+      "bytes": 554318,
+      "sha256": "8fd6a2d0dae0cad0ec7d08888a3a7521be234465fd960444401a04e975bd48e7"
+    },
+    {
+      "path": "feed/microsoft.identitymodel.logging.8.16.0.nupkg",
+      "bytes": 197926,
+      "sha256": "df9e6efb72c89ff41f8821c53170fede2a5d4539db5cb0103730b8b161056a94"
+    },
+    {
+      "path": "feed/microsoft.identitymodel.logging.8.19.2.nupkg",
+      "bytes": 197620,
+      "sha256": "8daf0f01850dc257c8ae42fa10eb99ed28197d127020e4461bf1130c3d41b511"
+    },
+    {
+      "path": "feed/microsoft.identitymodel.protocols.8.19.2.nupkg",
+      "bytes": 246017,
+      "sha256": "b2800311442c3a9d47cadb75a8ba3e8ce39eabbbb2ec8eed50e5a88177905c56"
+    },
+    {
+      "path": "feed/microsoft.identitymodel.protocols.openidconnect.8.19.2.nupkg",
+      "bytes": 425215,
+      "sha256": "b92acde71946f925e5c60e0d002154d854a50b7577858a2376153c95473af3ba"
+    },
+    {
+      "path": "feed/microsoft.identitymodel.tokens.8.16.0.nupkg",
+      "bytes": 1335903,
+      "sha256": "eacf192e72b0df65baf8a6e76a10957b5bfd633a687a69e91cd43755b1525783"
+    },
+    {
+      "path": "feed/microsoft.identitymodel.tokens.8.19.2.nupkg",
+      "bytes": 1380100,
+      "sha256": "3ce8b74b370adfe881df5d38c17621de8a150f519b96dc1351ff8a323fff5185"
+    },
+    {
+      "path": "feed/mimekit.4.18.2.nupkg",
+      "bytes": 7351710,
+      "sha256": "006060be3ea016787c51d04003959724c201f538fa02473487a23d946a3920cf"
+    },
+    {
+      "path": "feed/mongodb.bson.3.13.0.nupkg",
+      "bytes": 915026,
+      "sha256": "47426fa6040e6e77a143c79e951fb61c34be11500b5db1029958b30b8f4ba8d4"
+    },
+    {
+      "path": "feed/mongodb.driver.3.13.0.nupkg",
+      "bytes": 3364195,
+      "sha256": "55df3ce416f2f0e5afe9cfe77e5b61fec37f6eb51240ae63da9d6417faae9968"
+    },
+    {
+      "path": "feed/mysqlconnector.2.6.2.nupkg",
+      "bytes": 3842388,
+      "sha256": "3d8758d29d2b19a5efa9f78cfac9cae824a870aaf88e2e3adc40bce3cddac748"
+    },
+    {
+      "path": "feed/nats.client.abstractions.3.3.2.nupkg",
+      "bytes": 52499,
+      "sha256": "3cab65cf47b0664341cdfb28c5ac22f58f9fd78ed895b5d2e342cc8580797e12"
+    },
+    {
+      "path": "feed/nats.client.core.3.3.2.nupkg",
+      "bytes": 703452,
+      "sha256": "f3c63a240b67d08b32001b133529c9f71f577a9a5a0b25600f577d073dc97926"
+    },
+    {
+      "path": "feed/nats.client.hosting.3.3.2.nupkg",
+      "bytes": 47998,
+      "sha256": "2c81e82375e97c09cb7f5846c812cd2157e5eeaa62cb594aba469f23aa6cb0a7"
+    },
+    {
+      "path": "feed/nats.client.jetstream.3.3.2.nupkg",
+      "bytes": 1091696,
+      "sha256": "cabd1e74830be896cf6168ab2914534d61971bbc92af1e9dd7d0cd6b717e0304"
+    },
+    {
+      "path": "feed/nats.client.keyvaluestore.3.3.2.nupkg",
+      "bytes": 227619,
+      "sha256": "080357125d87106b8a9e4201e76c23804b8b13b0d9fad7baa5876566687a4221"
+    },
+    {
+      "path": "feed/nats.client.objectstore.3.3.2.nupkg",
+      "bytes": 185885,
+      "sha256": "ac103b7ec70479e544edc372f1b12f50156295c78ff16b112e92770dfd9c0c3c"
+    },
+    {
+      "path": "feed/nats.client.serializers.json.3.3.2.nupkg",
+      "bytes": 49454,
+      "sha256": "6dceef9432f167ead1883d35880829fa92fd9d7cd38c58743b3eb0dbd985178e"
+    },
+    {
+      "path": "feed/nats.client.services.3.3.2.nupkg",
+      "bytes": 190220,
+      "sha256": "a5d66ecc883d712b300d5002b1001805098d62c3d12174a4438bad5329e3aa1d"
+    },
+    {
+      "path": "feed/nats.client.simplified.3.3.2.nupkg",
+      "bytes": 51879,
+      "sha256": "eedfadc416f314787b6d950597d1055a6ec5d9d6a9de38da28908708bd928a57"
+    },
+    {
+      "path": "feed/nats.extensions.microsoft.dependencyinjection.3.3.2.nupkg",
+      "bytes": 62931,
+      "sha256": "1cb591dcee899e2c7366a4517477fdc0c9e7d015101166fdcb20cf7e149e5816"
+    },
+    {
+      "path": "feed/nats.net.3.3.2.nupkg",
+      "bytes": 38992,
+      "sha256": "034c5fa02e343987d43d1b5596efbfeeb9c58df5aa6eaec66db55965da837f05"
+    },
+    {
+      "path": "feed/nats.nkeys.1.0.1.nupkg",
+      "bytes": 347570,
+      "sha256": "838cab9b9bf5b2ba8d49a38a5f408b153c106ade05f0d9dda9414dc04c7f5ba1"
+    },
+    {
+      "path": "feed/npgsql.10.0.3.nupkg",
+      "bytes": 1847911,
+      "sha256": "75d0970923a8c9fcbbd37e4ebe72fee0b10362a1e36723e86777df1b6728316d"
+    },
+    {
+      "path": "feed/pipelines.sockets.unofficial.2.2.16.nupkg",
+      "bytes": 649505,
+      "sha256": "7276be770eac6f0638986a74dd56e200cda7224155acc304254c6ee7e3621a2d"
+    },
+    {
+      "path": "feed/rabbitmq.client.7.2.2.nupkg",
+      "bytes": 362472,
+      "sha256": "fa217255b5c8a77de197a73170804ee83a965df0eb984b84fd04d06de697f582"
+    },
+    {
+      "path": "feed/sharpcompress.0.48.1.nupkg",
+      "bytes": 9262182,
+      "sha256": "635947d53af106e6b7531eadad151019e49f623137aa577a4d00f3fc0072e96b"
+    },
+    {
+      "path": "feed/snappier.1.3.1.nupkg",
+      "bytes": 141449,
+      "sha256": "3bfbb68035e13b06ddd91550be5f3c161c80b379c52c19cb07944a71067a16e0"
+    },
+    {
+      "path": "feed/stackexchange.redis.2.13.23.nupkg",
+      "bytes": 3957097,
+      "sha256": "75f50c05b0a64c663b20091312c86eb58fbaf6ee670641553819d56d77b882dd"
+    },
+    {
+      "path": "feed/system.identitymodel.tokens.jwt.8.16.0.nupkg",
+      "bytes": 391676,
+      "sha256": "c0212450f9ca0e33bb2a97ebd6fa6be4872f93af6014780459c48b6c5b43ea98"
+    },
+    {
+      "path": "feed/system.identitymodel.tokens.jwt.8.19.2.nupkg",
+      "bytes": 392265,
+      "sha256": "904a9f1225a4a2d7c3503a619f432c32a84e73cdaa40b5e56e8e57620e7cfe2a"
+    },
+    {
+      "path": "feed/system.io.hashing.10.0.2.nupkg",
+      "bytes": 207892,
+      "sha256": "109267c0615bde9036e556d4a977cafe9d61d3bbcfa31a18ab3dc689a187b8ff"
+    },
+    {
+      "path": "feed/system.security.cryptography.pkcs.10.0.13.nupkg",
+      "bytes": 1147618,
+      "sha256": "54ed24578ead34b5b50d259084243432f11733e2754b8b196e799d3418d304a7"
+    },
+    {
+      "path": "feed/system.threading.ratelimiting.8.0.0.nupkg",
+      "bytes": 248864,
+      "sha256": "28e11612de99b61bd91c9d96a7bd1df6706106b3eaa1b1900e2dadc2529887fc"
+    },
+    {
+      "path": "feed/zstdsharp.port.0.7.3.nupkg",
+      "bytes": 994795,
+      "sha256": "b87989cc37873c0af4bb7e652b0043c16828c9b3347243f481f48d0e64d67069"
+    },
+    {
+      "path": "packages.lock.json",
+      "bytes": 15945,
+      "sha256": "29ec122455537fcb527ab24c34aa54b646fd97dbe370f9faaddc2d74e90e0114"
+    }
+  ]
+}

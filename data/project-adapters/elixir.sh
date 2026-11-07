@@ -7,6 +7,9 @@ tool=${4:?Elixir executable}
 shift 4
 adapters=$(cd "$(dirname "$0")" && pwd)
 toolkit="$adapters/../templates/elixir/phoenix-api/1.0.0/project/vendor-tools"
+project=$(cd "$project" && pwd -P)
+cache=$(python3 -c 'from pathlib import Path;import sys;print(Path(sys.argv[1]).resolve())' "$cache")
+export TMPDIR="$(cd "${TMPDIR:?}" && pwd -P)/"
 cd "$project"
 if [ ! -f mix.exs ]; then
     printf '%s\n' 'Choose the Mix project directory containing mix.exs.' >&2
@@ -51,7 +54,7 @@ case "$action" in
         trap 'rm -f "$before"' EXIT
         trap 'exit 130' HUP INT TERM
         if [ -f mix.lock ]; then cp mix.lock "$before"; fi
-        HEX_OFFLINE=0 "$tool" -S mix deps.get
+        HEX_OFFLINE=${DEVLINE_OFFLINE:-0} "$tool" -S mix deps.get
         if [ -f mix.lock ] && ! cmp -s "$before" mix.lock; then
             printf '%s\n' 'Resolve and save the intended Mix dependency versions in mix.lock, then prepare again.' >&2
             exit 1

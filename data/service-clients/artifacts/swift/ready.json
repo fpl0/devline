@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "stack": "swift",
+  "packages": [
+    {
+      "name": "postgres-nio",
+      "version": "1.33.3",
+      "url": "https://github.com/vapor/postgres-nio.git",
+      "products": [
+        "PostgresNIO"
+      ]
+    },
+    {
+      "name": "mysql-nio",
+      "version": "1.9.3",
+      "url": "https://github.com/vapor/mysql-nio.git",
+      "products": [
+        "MySQLNIO"
+      ]
+    },
+    {
+      "name": "bunny-swift",
+      "version": "0.13.0",
+      "url": "https://github.com/michaelklishin/bunny-swift.git",
+      "products": [
+        "BunnySwift"
+      ]
+    },
+    {
+      "name": "redistack",
+      "version": "1.6.3",
+      "url": "https://github.com/swift-server/RediStack.git",
+      "products": [
+        "RediStack"
+      ]
+    },
+    {
+      "name": "mongokitten",
+      "version": "7.16.3",
+      "url": "https://github.com/orlandos-nl/MongoKitten.git",
+      "products": [
+        "MongoKitten"
+      ]
+    },
+    {
+      "name": "nats.swift",
+      "version": "0.4.0",
+      "url": "https://github.com/nats-io/nats.swift.git",
+      "products": [
+        "Nats"
+      ]
+    },
+    {
+      "name": "meilisearch-swift",
+      "version": "0.17.0",
+      "url": "https://github.com/meilisearch/meilisearch-swift.git",
+      "products": [
+        "MeiliSearch"
+      ]
+    },
+    {
+      "name": "soto",
+      "version": "7.17.0",
+      "url": "https://github.com/soto-project/soto.git",
+      "products": [
+        "SotoS3"
+      ]
+    },
+    {
+      "name": "appauth-ios",
+      "version": "3.0.0",
+      "url": "https://github.com/openid/AppAuth-iOS.git",
+      "products": [
+        "AppAuth"
+      ]
+    }
+  ],
+  "verification": "Added nine package clients using native SwiftPM commands, resolved all dependencies from compact local Git snapshots, built under outbound network denial with empty HOME, and executed a public-type proof for every package. Foundation builds the Mailpit HTTP request.",
+  "inventory_sha256": "eca0904269ba52968e9a4ba2d0c771651ea8d48e2193ba1ad5d015bebfeffc1c"
+}

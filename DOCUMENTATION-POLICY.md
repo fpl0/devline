@@ -31,6 +31,12 @@ may be authored for Devline. Label and present them as Devline help, separately
 from official language, framework, and service references. Adding an official
 source link to an authored article does not make the article official.
 
+## Service client recommendations
+
+A service client package and an official reference pack are different content types. Devline may recommend publisher-maintained or community-maintained clients, or a runtime’s standard HTTP, SMTP, or cryptography APIs, when their scope is clearly identified. Record the maintainer source, exact package version, and support category in the client catalog. A general HTTP client must not be described as a dedicated service SDK.
+
+Client package archives, source code, license notices, and Devline’s integration instructions do not fill a service’s missing official documentation coverage. The reference-pack requirements above continue to apply unchanged. Offline client tests prove the recorded package/build/API checks; successful live service integration requires a separate test that actually connects to that service.
+
 ## Current audit — 7 November 2026
 
 The current catalog records official upstream sources for all 23 bundled reference families. This is a provenance audit, not a blanket legal clearance or a byte-for-byte comparison of every transformed article.

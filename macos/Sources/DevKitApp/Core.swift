@@ -156,6 +156,7 @@ struct CoreRequest: Encodable, Sendable {
     var jobId: String?
     var images: [String]?
     var services: [String]?
+    var clients: [String]?
     var tail: Int?
     var ports: [String: Int]?
     var offline: Bool?
@@ -168,7 +169,7 @@ struct CoreRequest: Encodable, Sendable {
         destination: String? = nil, path: String? = nil, dryRun: Bool? = nil, url: String? = nil,
         anchor: String? = nil, focusText: String? = nil, category: String? = nil, projectStack: String? = nil,
         projectPath: String? = nil, kind: String? = nil, docs: [String]? = nil, starters: [String]? = nil, trustStarters: Bool? = nil,
-        jobId: String? = nil, images: [String]? = nil, services: [String]? = nil, tail: Int? = nil, ports: [String: Int]? = nil, offline: Bool? = nil, trustImages: Bool? = nil, manifestSha256: String? = nil
+        jobId: String? = nil, images: [String]? = nil, services: [String]? = nil, clients: [String]? = nil, tail: Int? = nil, ports: [String: Int]? = nil, offline: Bool? = nil, trustImages: Bool? = nil, manifestSha256: String? = nil
     ) {
         self.command = command
         self.catalog = Self.catalogPath
@@ -195,6 +196,7 @@ struct CoreRequest: Encodable, Sendable {
         self.jobId = jobId
         self.images = images
         self.services = services
+        self.clients = clients
         self.tail = tail
         self.ports = ports
         self.offline = offline

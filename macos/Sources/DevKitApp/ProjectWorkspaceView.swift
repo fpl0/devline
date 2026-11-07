@@ -34,9 +34,13 @@ struct ProjectWorkspaceView: View {
     @State private var configuring = false
     @State private var log: String?
     @State private var copied = false
+    @State private var helpRequest: ProjectHelpTarget?
     private var refreshKey: String { (project?.path ?? "") + model.jobs.filter { !$0.isActive }.map(\.id).joined() }
     private var projectJob: JobRecord? {
         model.jobs.first { $0.targetPath == project?.path && ["toolbox_prepare", "project_prepare"].contains($0.kind) }
+    }
+    private var serviceJob: JobRecord? {
+        model.jobs.first { $0.targetPath == project?.path && ["infra_stack_up", "infra_stack_down", "infra_stack_add", "service_clients_add"].contains($0.kind) }
     }
     private var projectReadiness: ProjectReadiness? {
         guard let project, let dependencies = readiness?.projectDependencies else { return nil }
@@ -63,12 +67,13 @@ struct ProjectWorkspaceView: View {
         .task(id: refreshKey) { await refresh() }
         .sheet(isPresented: $configuring) {
             if let project {
-                ConfigureServicesView(library: infrastructure, path: project.path, suggested: project.origin == nil ? [] : (model.catalog?.templates.first { $0.reference == project.origin?.reference }?.services ?? [])) {
+                ConfigureServicesView(model: model, library: infrastructure, path: project.path, runtime: project.stack, existing: stack,
+                    suggested: project.origin == nil ? [] : (model.catalog?.templates.first { $0.reference == project.origin?.reference }?.services ?? [])) {
                     configuring = false
-                    Task { await refresh() }
                 }
             }
         }
+        .sheet(item: $helpRequest) { DevlineHelpView(id: $0.id) }
         .sheet(isPresented: Binding(get: { log != nil }, set: { if !$0 { log = nil } })) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack { Text("Service Logs").font(.title2.weight(.semibold)); Spacer(); Button("Done") { log = nil }.keyboardShortcut(.cancelAction) }
@@ -100,19 +105,33 @@ struct ProjectWorkspaceView: View {
                         Button("Close Project", action: closeProject)
                     } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Project actions")
                 }
+                ProjectRunView(path: project.path, preparationRevision: refreshKey, refreshServices: { Task { await refresh() } })
                 readinessPanel(project)
                 VStack(alignment: .leading, spacing: 15) {
                     HStack {
                         Text("Local services").font(.title3.weight(.semibold))
                         Spacer()
-                        if stack?.configured != true { Button("Configure Services…") { configuring = true } }
+                        Button(stack?.configured == true ? "Add Services…" : "Choose Services…") { configuring = true }
+                            .disabled(checking || serviceJob?.isActive == true)
                         Button { Task { await refresh() } } label: { Image(systemName: "arrow.clockwise") }.help("Refresh project status").accessibilityLabel("Refresh project status")
+                    }
+                    if let job = serviceJob, job.isActive || job.needsAttention {
+                        HStack(spacing: 10) {
+                            if job.isActive { ProgressView().controlSize(.small) }
+                            else { Image(systemName: job.icon).foregroundStyle(.orange) }
+                            Text(job.isActive ? job.stage : job.error ?? job.stateLabel).font(.callout).foregroundStyle(.secondary).lineLimit(2)
+                            Spacer()
+                            if job.isActive {
+                                Button("Cancel") { Task { await cancel(job) } }.controlSize(.small)
+                            }
+                            Button("View Activity") { model.inspectedJob = job }.controlSize(.small)
+                        }
                     }
                     if let stack, stack.configured {
                         HStack(spacing: 10) {
                             Button(stack.running == true ? "Start / Reconcile" : "Start Services") { job("infra_stack_up", project.path) }
-                                .buttonStyle(.borderedProminent).disabled(infrastructure.status?.docker.available != true)
-                            Button("Stop Services") { job("infra_stack_down", project.path) }.disabled(infrastructure.status?.docker.available != true)
+                                .buttonStyle(.borderedProminent).disabled(infrastructure.status?.docker.available != true || serviceJob?.isActive == true)
+                            Button("Stop Services") { job("infra_stack_down", project.path) }.disabled(infrastructure.status?.docker.available != true || serviceJob?.isActive == true || stack.running != true)
                             Button("View Logs") { Task { await loadLogs(project.path) } }.disabled(infrastructure.status?.docker.available != true)
                             Spacer()
                             Text(stack.statusError != nil ? "Status Unavailable" : stack.healthy == true ? "All Services Healthy" : stack.running == true ? "Starting or Needs Attention" : "Stopped").font(.caption).foregroundStyle(.secondary)
@@ -122,7 +141,7 @@ struct ProjectWorkspaceView: View {
                         }
                         ForEach(stack.services) { service in serviceRow(service) }
                         HStack {
-                            Text("Stopping keeps your project’s data volumes.").font(.caption).foregroundStyle(.secondary)
+                            Text("Run Offline supplies these connection settings to your app. Stopping services keeps their data.").font(.caption).foregroundStyle(.secondary)
                             Spacer()
                             Button(copied ? "Copied" : "Copy Credentials") { Task { await copyCredentials(project.path) } }.controlSize(.small)
                         }
@@ -132,6 +151,7 @@ struct ProjectWorkspaceView: View {
                             Text("Choose databases, queues, storage, search, and authentication. Each project gets pinned images, local ports, credentials, and its own data volumes.")
                                 .font(.callout).foregroundStyle(.secondary)
                             Button("Choose Services…") { configuring = true }
+                                .disabled(checking || serviceJob?.isActive == true)
                         }.padding(20).frame(maxWidth: .infinity, alignment: .leading).background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
@@ -232,6 +252,9 @@ struct ProjectWorkspaceView: View {
                 }
             }
             Spacer()
+            if let help = catalog?.helpRef {
+                Button("Setup Guide") { helpRequest = ProjectHelpTarget(id: help) }.controlSize(.small)
+            }
             if image?.verifiedArchive == true { Label("Archived", systemImage: "archivebox").font(.caption).foregroundStyle(.secondary) }
             else if image?.archived == true {
                 Button("Verify Archive") { Task { await model.startJob(CoreRequest("jobs.start", id: service.reference, kind: "infra_verify")) } }.controlSize(.small)
@@ -258,7 +281,11 @@ struct ProjectWorkspaceView: View {
         } catch is CancellationError {}
         catch { if refreshToken == token { self.error = error.localizedDescription } }
     }
-    private func job(_ kind: String, _ path: String) { Task { await model.startJob(CoreRequest("jobs.start", path: path, kind: kind)) } }
+    private func job(_ kind: String, _ path: String) { Task { await model.startJob(CoreRequest("jobs.start", path: path, kind: kind), inspect: false) } }
+    private func cancel(_ job: JobRecord) async {
+        do { let _: Acknowledgment = try await Core.request(CoreRequest("jobs.cancel", jobId: job.id)); await model.refreshJobs() }
+        catch { self.error = error.localizedDescription }
+    }
     private func loadLogs(_ path: String) async {
         do {
             let result: InfrastructureStack = try await Core.request(CoreRequest("infra.stack.logs", path: path, tail: 120))
@@ -267,48 +294,79 @@ struct ProjectWorkspaceView: View {
     }
     private func copy(_ text: String) { NSPasteboard.general.clearContents(); copied = NSPasteboard.general.setString(text, forType: .string) }
     private func copyCredentials(_ path: String) async {
-        struct Credentials: Decodable { let credentials: [String: String] }
+        struct Credentials: Decodable { let credentials: [String: String]; let environment: [String: String]? }
         do {
             let result: Credentials = try await Core.request(CoreRequest("infra.stack.credentials", path: path))
-            copy(result.credentials.sorted { $0.key < $1.key }.map { "\($0.key)=\(shellQuote($0.value))" }.joined(separator: "\n"))
+            copy((result.environment ?? result.credentials).sorted { $0.key < $1.key }.map { "export \($0.key)=\(shellQuote($0.value))" }.joined(separator: "\n"))
         } catch { self.error = error.localizedDescription }
     }
 }
 
+private struct ProjectHelpTarget: Identifiable { let id: String }
+
 struct ConfigureServicesView: View {
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject var model: WorkspaceModel
     @ObservedObject var library: InfrastructureLibrary
     let path: String
+    let runtime: String?
+    let existing: InfrastructureStack?
     let suggested: [String]
     let completion: () -> Void
     @State private var selected: Set<String> = []
+    @State private var clients: Set<String> = []
     @State private var ports: [String: Int] = [:]
     @State private var saving = false
     @State private var error: String?
+    private var existingIDs: Set<String> { Set(existing?.services.map(\.id) ?? []) }
+    private var adding: Bool { existing?.configured == true }
+    private var selectedServices: [InfrastructureService] {
+        (library.catalog?.services ?? []).filter { selected.contains($0.reference) && !existingIDs.contains($0.id) }
+    }
+    private var portError: String? {
+        let newPorts = selectedServices.flatMap { service in service.ports.compactMap { ports["\(service.id):\($0.id)"] } }
+        if newPorts.contains(where: { !(1...65535).contains($0) }) { return "Use a host port between 1 and 65535." }
+        let allPorts = newPorts + (existing?.services.flatMap { $0.ports.map(\.hostPort) } ?? [])
+        if Set(allPorts).count != allPorts.count { return "An edited port conflicts with another edited or configured port. Choose a different port." }
+        return nil
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Configure Local Services").font(.title2.weight(.semibold))
-            Text("Choose what this project needs. Images can be prepared now or later; starting services uses only your saved archives.")
+            Text(adding ? "Add Local Services" : "Choose Local Services").font(.title2.weight(.semibold))
+            Text(adding ? "Keep your existing services, ports, credentials, and data. Devline prepares the new image archives after adding them." : "Choose what your app needs. Devline saves exact versions and prepares their image archives so they can start offline.")
                 .font(.callout).foregroundStyle(.secondary)
-            ServiceSelectionView(library: library, selected: $selected, ports: $ports).frame(height: 340)
-            if let error { Text(error).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
+            if let existing, !existing.services.isEmpty {
+                Text("Already configured: " + existing.services.map { service in
+                    let name = library.catalog?.services.first { $0.id == service.id }?.name ?? service.id
+                    return "\(name) \(service.version)"
+                }.joined(separator: ", ")).font(.caption).foregroundStyle(.secondary)
+            }
+            ServiceSelectionView(library: library, selected: $selected, ports: $ports, clients: $clients,
+                required: Set(existing?.services.map(\.reference) ?? []), runtime: runtime, projectPath: path,
+                configuredServices: existing?.services ?? []).frame(height: 340)
+            if let error = error ?? portError { Text(error).font(.callout).foregroundStyle(.red).textSelection(.enabled) }
             HStack {
-                Text("Ports bind to 127.0.0.1.").font(.caption).foregroundStyle(.secondary)
+                Text("Local connections only · 127.0.0.1").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if saving { ProgressView().controlSize(.small) }
                 Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction).disabled(saving)
-                Button("Configure") { Task { await save() } }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(selected.isEmpty || saving)
+                Button(adding ? "Add & Prepare" : "Configure & Prepare") { Task { await save() } }
+                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+                    .disabled((selected.subtracting(Set(existing?.services.map(\.reference) ?? [])).isEmpty && clients.isEmpty) || saving || portError != nil)
             }
-        }.padding(24).frame(width: 620).interactiveDismissDisabled(saving)
-            .task { selected = Set(suggested); await library.refresh() }
+        }.padding(24).frame(width: 660).interactiveDismissDisabled(saving)
+            .task {
+                selected = Set(existing?.services.map(\.reference) ?? [])
+                selected.formUnion(suggested.filter { reference in !existingIDs.contains(String(reference.split(separator: "@", maxSplits: 1)[0])) })
+                await library.refresh()
+            }
     }
     private func save() async {
         saving = true; error = nil
         defer { saving = false }
-        do {
-            let _: InfrastructureStack = try await Core.request(CoreRequest("infra.stack.create", path: path, services: selected.sorted(), ports: ports))
+        if await model.startJob(CoreRequest("jobs.start", path: path, kind: "infra_stack_add", services: selected.sorted(), clients: clients.sorted(), ports: ports), inspect: false) {
             completion()
-        } catch { self.error = error.localizedDescription }
+        } else { error = model.error }
     }
 }
 
@@ -316,32 +374,111 @@ struct ServiceSelectionView: View {
     @ObservedObject var library: InfrastructureLibrary
     @Binding var selected: Set<String>
     @Binding var ports: [String: Int]
+    @Binding var clients: Set<String>
     var required: Set<String> = []
+    var runtime: String?
+    var projectPath: String?
+    var starterReference: String?
+    var configuredServices: [InfrastructureStack.Service] = []
+    @State private var query = ""
+    @State private var clientCatalog: ServiceClientCatalog?
+    @State private var clientError: String?
+    @State private var loadingClients = false
+    private var clientContext: String { [runtime, projectPath, starterReference].compactMap { $0 }.joined(separator: "|") }
+    private var services: [InfrastructureService] {
+        (library.catalog?.services ?? []).filter { service in
+            !configuredServices.contains(where: { $0.id == service.id && $0.reference != service.reference }) &&
+            (query.isEmpty || "\(service.name) \(service.category) \(service.description)".localizedCaseInsensitiveContains(query))
+        }
+    }
     var body: some View {
-        List(library.catalog?.services ?? [], id: \.reference) { service in
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Service images run locally. Select optional client libraries below when you want to add them to your code.")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("Shown ports are preferred. Devline chooses a free port when needed unless you edit it.")
+                .font(.caption).foregroundStyle(.secondary)
+            TextField("Find a service", text: $query).textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Find a local service")
+            List(services, id: \.reference) { service in
             VStack(alignment: .leading, spacing: 8) {
                 Toggle(isOn: Binding(get: { selected.contains(service.reference) }, set: { select(service, enabled: $0) })) {
                     HStack {
                         Label(service.name, systemImage: service.symbol)
                         Spacer()
                         Text(service.version).font(.caption).foregroundStyle(.secondary)
-                        if required.contains(service.reference) { Text("Required").font(.caption).foregroundStyle(.secondary) }
+                        if required.contains(service.reference) {
+                            Text(configuredServices.contains { $0.reference == service.reference } ? "Configured" : "Required").font(.caption).foregroundStyle(.secondary)
+                        }
                         Text(imageStatus(service)).font(.caption).foregroundStyle(.secondary)
                     }
                 }.toggleStyle(.checkbox)
                     .disabled(required.contains(service.reference) || required.contains { $0.hasPrefix(service.id + "@") && $0 != service.reference })
+                Text(service.description).font(.caption).foregroundStyle(.secondary).lineLimit(2).padding(.leading, 22)
                 if selected.contains(service.reference) {
+                    clientOptions(service)
                     ForEach(service.ports) { port in
                         HStack {
                             Text("\(port.name) port").font(.caption).foregroundStyle(.secondary)
                             Spacer()
-                            TextField("Port", value: Binding(get: { ports["\(service.id):\(port.id)"] ?? port.hostPort }, set: { ports["\(service.id):\(port.id)"] = $0 }), format: .number.grouping(.never))
+                            TextField("Port", value: Binding(get: { ports["\(service.id):\(port.id)"] ?? configuredServices.first { $0.id == service.id }?.ports.first { $0.id == port.id }?.hostPort ?? port.hostPort }, set: { ports["\(service.id):\(port.id)"] = $0 }), format: .number.grouping(.never))
                                 .textFieldStyle(.roundedBorder).frame(width: 90).accessibilityLabel("\(service.name) \(port.name) host port")
+                                .disabled(configuredServices.contains { $0.id == service.id })
                         }.padding(.leading, 22)
                     }
                 }
             }.padding(.vertical, 5)
-        }.listStyle(.inset).overlay { if library.loading && library.catalog == nil { ProgressView() } }
+            }.listStyle(.inset)
+                .overlay {
+                    if library.loading && library.catalog == nil { ProgressView() }
+                    else if services.isEmpty { Text("No matching services").font(.callout).foregroundStyle(.secondary) }
+                }
+            if let clientError { Text(clientError).font(.caption).foregroundStyle(.orange) }
+        }
+        .task(id: clientContext) { await loadClients() }
+    }
+
+    @ViewBuilder private func clientOptions(_ service: InfrastructureService) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            if loadingClients {
+                Text("Checking optional client libraries…").font(.caption).foregroundStyle(.secondary)
+            } else if let entry = clientCatalog?.services.first(where: { $0.id == service.id }) {
+                ForEach(entry.libraries) { client in
+                    VStack(alignment: .leading, spacing: 4) {
+                        if client.builtin {
+                            Label("\(client.name) · Built into the runtime", systemImage: "checkmark.circle")
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else if client.installed {
+                            Label("\(client.name) · \(starterReference == nil ? "Already in this project" : "Included in starter")", systemImage: "checkmark.circle")
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else if client.supported {
+                            Toggle("Add \(client.name) to project", isOn: Binding(get: { clients.contains(client.id) }, set: {
+                                if $0 { clients.insert(client.id) } else { clients.remove(client.id) }
+                            })).toggleStyle(.checkbox).font(.callout)
+                            Text(client.offlineAvailable ? "Packages available offline" : "A connection is needed to prepare these packages")
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Text(client.name).font(.caption.weight(.medium))
+                        }
+                        if !client.installed && !client.packageSummary.isEmpty { Text(client.packageSummary).font(.caption.monospaced()).foregroundStyle(.secondary) }
+                        if !client.installed || client.builtin {
+                            Text(client.detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+        }.padding(.leading, 22)
+    }
+
+    private func loadClients() async {
+        guard let runtime else { return }
+        loadingClients = true
+        clientError = nil
+        defer { loadingClients = false }
+        do {
+            let next: ServiceClientCatalog = try await Core.request(CoreRequest("infra.clients", id: starterReference, stack: runtime, path: projectPath))
+            guard !Task.isCancelled else { return }
+            clientCatalog = next
+        } catch is CancellationError {} catch { self.clientError = "Client suggestions are unavailable: \(error.localizedDescription)" }
     }
     private func select(_ service: InfrastructureService, enabled: Bool) {
         let portPrefix = service.id + ":"
@@ -352,6 +489,7 @@ struct ServiceSelectionView: View {
             ports = ports.filter { !$0.key.hasPrefix(portPrefix) || availablePorts.contains($0.key) }
         } else {
             selected.remove(service.reference)
+            clients.subtract(clientCatalog?.services.first { $0.id == service.id }?.libraries.map(\.id) ?? [])
             ports = ports.filter { !$0.key.hasPrefix(portPrefix) }
         }
     }

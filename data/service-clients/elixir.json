@@ -1,0 +1,185 @@
+{
+  "stack": "elixir",
+  "integrations": [
+    {
+      "id": "elixir:postgres",
+      "service": "postgres",
+      "name": "Postgrex",
+      "packages": [
+        {
+          "name": "postgrex",
+          "version": "0.22.4"
+        },
+        {
+          "name": "jason",
+          "version": "1.4.5"
+        }
+      ],
+      "source_url": "https://github.com/elixir-ecto/postgrex",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "elixir:mysql",
+      "service": "mysql",
+      "name": "MyXQL",
+      "packages": [
+        {
+          "name": "myxql",
+          "version": "0.9.0"
+        },
+        {
+          "name": "jason",
+          "version": "1.4.5"
+        }
+      ],
+      "source_url": "https://github.com/elixir-ecto/myxql",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "elixir:rabbitmq",
+      "service": "rabbitmq",
+      "name": "AMQP",
+      "packages": [
+        {
+          "name": "amqp",
+          "version": "4.3.0"
+        }
+      ],
+      "source_url": "https://github.com/pma/amqp",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "elixir:redis",
+      "service": "redis",
+      "name": "Redix",
+      "packages": [
+        {
+          "name": "redix",
+          "version": "1.10.0"
+        }
+      ],
+      "source_url": "https://github.com/whatyouhide/redix",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "elixir:mongodb",
+      "service": "mongodb",
+      "name": "MongoDB Elixir Driver",
+      "packages": [
+        {
+          "name": "mongodb_driver",
+          "version": "1.6.4"
+        }
+      ],
+      "source_url": "https://www.mongodb.com/docs/drivers/",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "elixir:nats",
+      "service": "nats",
+      "name": "Gnat",
+      "packages": [
+        {
+          "name": "gnat",
+          "version": "1.19.1"
+        }
+      ],
+      "source_url": "https://docs.nats.io/concepts/ecosystem",
+      "support": "publisher",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "elixir:mailpit",
+      "service": "mailpit",
+      "name": "Erlang SMTP",
+      "packages": [
+        {
+          "name": "gen_smtp",
+          "version": "1.3.0"
+        }
+      ],
+      "source_url": "https://github.com/gen-smtp/gen_smtp",
+      "support": "community",
+      "detail": "Adds the client library and prepares its dependencies for offline use. Your application controls its connection and behavior.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "elixir:meilisearch",
+      "service": "meilisearch",
+      "name": "Req \u00b7 Meilisearch REST",
+      "packages": [
+        {
+          "name": "req",
+          "version": "0.7.5"
+        }
+      ],
+      "source_url": "https://hexdocs.pm/req/readme.html",
+      "support": "community",
+      "detail": "Req provides the HTTP client for Meilisearch\u2019s documented REST API; this is not a dedicated Meilisearch SDK.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "elixir:seaweedfs",
+      "service": "seaweedfs",
+      "name": "ExAws S3",
+      "packages": [
+        {
+          "name": "ex_aws_s3",
+          "version": "2.5.9"
+        },
+        {
+          "name": "hackney",
+          "version": "4.9.1"
+        },
+        {
+          "name": "sweet_xml",
+          "version": "0.7.5"
+        },
+        {
+          "name": "jason",
+          "version": "1.4.5"
+        }
+      ],
+      "source_url": "https://github.com/ex-aws/ex_aws_s3",
+      "support": "community",
+      "detail": "ExAws S3 with its default HTTP adapter, XML response parser, and JSON codec. Configure the local S3 endpoint and path-style bucket access.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "elixir:keycloak",
+      "service": "keycloak",
+      "name": "OIDCC",
+      "packages": [
+        {
+          "name": "oidcc",
+          "version": "3.9.2"
+        }
+      ],
+      "source_url": "https://github.com/erlef/oidcc",
+      "support": "community",
+      "detail": "Standards-based OpenID Connect client for Keycloak. Configure your realm, client ID, and redirect URI in the application.",
+      "builtin": false,
+      "supported": true
+    }
+  ]
+}

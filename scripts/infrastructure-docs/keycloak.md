@@ -1,5 +1,7 @@
 ## Create a local realm and client
 
+Devline supplies the running server address as `DEVLINE_KEYCLOAK_URL`. A new server has only the `master` administration realm; your application realm and client need to be configured locally. Do not use `master` as your application issuer.
+
 Open the Admin Console at `http://127.0.0.1:8180` by default and use the bootstrap credentials shown in Devline. Create the `devline` realm, then add a client for your application's local callback URL. Use Authorization Code with PKCE for a browser or native public client. Set exact redirect URIs and web origins.
 
 ```sh

@@ -40,7 +40,11 @@ export JDK_JAVA_OPTIONS="${JDK_JAVA_OPTIONS:-} -Duser.home=\"$HOME\" -Djava.io.t
 case "$action" in
     prepare)
         mkdir -p "$cache/repository"
-        "$tool" -B -ntp "-Dmaven.repo.local=$cache/repository" clean verify
+        if [ "${DEVLINE_OFFLINE:-0}" = 1 ]; then
+            "$tool" -o -B -ntp "-Dmaven.repo.local=$cache/repository" clean verify
+        else
+            "$tool" -B -ntp "-Dmaven.repo.local=$cache/repository" clean verify
+        fi
         ;;
     verify)
         if [ ! -d "$cache/repository" ]; then

@@ -1,0 +1,226 @@
+{
+  "stack": "rust",
+  "integrations": [
+    {
+      "id": "rust:postgres",
+      "service": "postgres",
+      "name": "SQLx PostgreSQL",
+      "packages": [
+        {
+          "name": "sqlx",
+          "version": "0.9.0",
+          "default_features": false,
+          "features": [
+            "runtime-tokio",
+            "tls-rustls-ring-webpki",
+            "postgres"
+          ]
+        }
+      ],
+      "source_url": "https://docs.rs/sqlx/latest/sqlx/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "rust:mysql",
+      "service": "mysql",
+      "name": "SQLx MySQL",
+      "packages": [
+        {
+          "name": "sqlx",
+          "version": "0.9.0",
+          "default_features": false,
+          "features": [
+            "runtime-tokio",
+            "tls-rustls-ring-webpki",
+            "mysql",
+            "mysql-rsa"
+          ]
+        }
+      ],
+      "source_url": "https://docs.rs/sqlx/latest/sqlx/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "rust:rabbitmq",
+      "service": "rabbitmq",
+      "name": "amqprs",
+      "packages": [
+        {
+          "name": "amqprs",
+          "version": "2.1.5",
+          "features": [
+            "urispec"
+          ]
+        }
+      ],
+      "source_url": "https://www.rabbitmq.com/client-libraries/devtools",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "rust:redis",
+      "service": "redis",
+      "name": "redis-rs",
+      "packages": [
+        {
+          "name": "redis",
+          "version": "1.8.1",
+          "default_features": false,
+          "features": [
+            "tokio-rustls-comp",
+            "tls-rustls-webpki-roots"
+          ]
+        }
+      ],
+      "source_url": "https://redis.io/docs/latest/develop/clients/rust/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "rust:mongodb",
+      "service": "mongodb",
+      "name": "MongoDB Rust driver",
+      "packages": [
+        {
+          "name": "mongodb",
+          "version": "3.10.0"
+        }
+      ],
+      "source_url": "https://www.mongodb.com/docs/drivers/rust/current/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "rust:nats",
+      "service": "nats",
+      "name": "async-nats",
+      "packages": [
+        {
+          "name": "async-nats",
+          "version": "0.52.0",
+          "default_features": false,
+          "features": [
+            "ring",
+            "jetstream"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/nats-io/nats.rs",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "rust:mailpit",
+      "service": "mailpit",
+      "name": "Lettre",
+      "packages": [
+        {
+          "name": "lettre",
+          "version": "0.11.23",
+          "default_features": false,
+          "features": [
+            "builder",
+            "smtp-transport",
+            "tokio1-rustls-tls"
+          ]
+        }
+      ],
+      "source_url": "https://docs.rs/lettre/latest/lettre/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "rust:meilisearch",
+      "service": "meilisearch",
+      "name": "Meilisearch",
+      "packages": [
+        {
+          "name": "meilisearch-sdk",
+          "version": "0.33.0"
+        }
+      ],
+      "source_url": "https://github.com/meilisearch/meilisearch-rust",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "rust:seaweedfs",
+      "service": "seaweedfs",
+      "name": "object_store S3",
+      "packages": [
+        {
+          "name": "object_store",
+          "version": "0.14.2",
+          "default_features": false,
+          "features": [
+            "aws-base",
+            "reqwest",
+            "ring"
+          ]
+        },
+        {
+          "name": "reqwest",
+          "version": "0.13.5",
+          "default_features": false,
+          "features": [
+            "json",
+            "rustls-no-provider"
+          ]
+        },
+        {
+          "name": "rustls",
+          "version": "0.23.46",
+          "default_features": false,
+          "features": [
+            "ring",
+            "std"
+          ]
+        }
+      ],
+      "source_url": "https://docs.rs/object_store/latest/object_store/aws/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "rust:keycloak",
+      "service": "keycloak",
+      "name": "openidconnect",
+      "packages": [
+        {
+          "name": "openidconnect",
+          "version": "4.1.0",
+          "default_features": false,
+          "features": [
+            "reqwest",
+            "rustls-tls"
+          ]
+        }
+      ],
+      "source_url": "https://docs.rs/openidconnect/latest/openidconnect/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project. Configure an OpenID Connect client in the local realm; this does not register users or applications.",
+      "builtin": false,
+      "supported": true
+    }
+  ]
+}

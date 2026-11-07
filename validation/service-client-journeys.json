@@ -1,0 +1,1086 @@
+{
+  "schema_version": 1,
+  "release": "0.7.0",
+  "status": "passed",
+  "scope": "Actual opt-in CLI dependency transactions, isolated local package preparation and executed public APIs with outbound networking denied. Each runtime project selected all recommended clients together. Live server compatibility is not claimed for every runtime/service combination. Separate reports cover live operations for all ten services through Python, plus the .NET and Elixir app journeys.",
+  "reproduce": "python3 scripts/test-service-client-journeys.py --cli core/target/release/devline --output /tmp/devline-client-journeys-fresh",
+  "harness_sha256": "c4d80e841eb52c9a433628d925bc8a6dced4c5d0fed602008ae348f676c01fa5",
+  "summary": {
+    "runtimes": 9,
+    "service_capabilities": 90,
+    "passed": 90,
+    "failed": 0,
+    "mutation_guard_runtimes": 9
+  },
+  "method": [
+    "Create ordinary projects with empty HOME and isolated tool caches.",
+    "Add an image without clients and verify source and manifests stay unchanged.",
+    "Explicitly add all non-builtin suggested clients through the public CLI.",
+    "Execute public client APIs through project run; verify the network boundary rejects external connections.",
+    "Repeat client selections and verify the original project fingerprint is unchanged."
+  ],
+  "provenance": [
+    {
+      "runtime": "dotnet",
+      "run_id": "client-journeys-04",
+      "result_sha256": "7c0181c98cc719da0d53ef453c1b898ab89e8fb58f4eaa76113e8f492bc0b954",
+      "cases": 10,
+      "elapsed_seconds": 24.58,
+      "pack_inventory_sha256_at_report": "d631cf90ca7017a88b7d5687cf2cb065be620e3c00d7d856a5801ccf61aae54c",
+      "steps": [
+        {
+          "name": "network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "no-selection",
+          "exit_code": 2,
+          "log_sha256": "9dc7d8085fa7a27c146949f05bcc342d01881e0f5fa1667f98a746f454014733"
+        },
+        {
+          "name": "invalid-selection",
+          "exit_code": 1,
+          "log_sha256": "e48634957704715a658a7eb96d0b31cd6056ded9271a9f9c2289b0eafb975a3a"
+        },
+        {
+          "name": "image-only-no-clients",
+          "exit_code": 0,
+          "log_sha256": "ec1c8b0fc22e42ec8aeb0a2eea52733887c016e7c36bcd768bd1694159de5c2f"
+        },
+        {
+          "name": "suggestions",
+          "exit_code": 0,
+          "log_sha256": "074c1faf0c4ece6cf69860f7ae1d509247131218b6b788e22659cffb9f7da07c"
+        },
+        {
+          "name": "add-clients",
+          "exit_code": 0,
+          "log_sha256": "4483154ce9836949c62b0a865cef9d05baaab1963ef602d555e366cb5ad91474"
+        },
+        {
+          "name": "project-network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "execute-client-apis",
+          "exit_code": 0,
+          "log_sha256": "2f0e46063ab6f56cafd68ff4b350e11528f31021ea6f523a44d8761b9b11b24d"
+        },
+        {
+          "name": "repeat-selection",
+          "exit_code": 0,
+          "log_sha256": "598013f417b5c13799b31f6c946523bb64fccbe27cc5766204f8ccd5a01884c0"
+        }
+      ]
+    },
+    {
+      "runtime": "elixir",
+      "run_id": "client-journeys-06",
+      "result_sha256": "53dce2243b79c6de1d28f2ae38c456102a5c3a9748aa12ba474813aca6f67888",
+      "cases": 10,
+      "elapsed_seconds": 75.5,
+      "pack_inventory_sha256_at_report": "aef7dd1e24395ecb4a99dcdf85872d96d1f1eb23c708d382b40dd88d01b12994",
+      "steps": [
+        {
+          "name": "network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "no-selection",
+          "exit_code": 2,
+          "log_sha256": "9dc7d8085fa7a27c146949f05bcc342d01881e0f5fa1667f98a746f454014733"
+        },
+        {
+          "name": "invalid-selection",
+          "exit_code": 1,
+          "log_sha256": "56e1b4ee66c25f8c0caa2cfbf66f5fe9d90ecc10af99525b9e9ad97cba497970"
+        },
+        {
+          "name": "image-only-no-clients",
+          "exit_code": 0,
+          "log_sha256": "c36b20421cb731aac8d7c3dd3fc8058626c1f6c9c79c500f44bce2ba5122ca00"
+        },
+        {
+          "name": "suggestions",
+          "exit_code": 0,
+          "log_sha256": "08c239f828d67349eb424cfe3cac81354c9141c9bf5f5276893a0973548fc4c5"
+        },
+        {
+          "name": "add-clients",
+          "exit_code": 0,
+          "log_sha256": "2da4be1ab1c4816d8c782eb15d5e64a4f48d9f9029f7a7737e792ee66606ae45"
+        },
+        {
+          "name": "project-network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "execute-client-apis",
+          "exit_code": 0,
+          "log_sha256": "69bc864268fa65a9d8ab4f09ac4b4f6ca0d75e19e4df19d843a4604354c17cf2"
+        },
+        {
+          "name": "repeat-selection",
+          "exit_code": 0,
+          "log_sha256": "35d37901820ade7ef71e8f8b07519b59accf07b3b9247c901aad441a4769ac4d"
+        }
+      ]
+    },
+    {
+      "runtime": "go",
+      "run_id": "client-journeys-05",
+      "result_sha256": "803252841c37f5c64c8b3013847f967e2661d05f322b060a6be67ae95125a64f",
+      "cases": 10,
+      "elapsed_seconds": 44.09,
+      "pack_inventory_sha256_at_report": "4169b08da7ff35dc0481db1d71ce5e4792d82fc1173a853682b961ab5d8ea348",
+      "steps": [
+        {
+          "name": "network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "no-selection",
+          "exit_code": 2,
+          "log_sha256": "9dc7d8085fa7a27c146949f05bcc342d01881e0f5fa1667f98a746f454014733"
+        },
+        {
+          "name": "invalid-selection",
+          "exit_code": 1,
+          "log_sha256": "d32915568e0d859f5372b58726bb94981dbe9819cbc81dfe98c0ce03a855606c"
+        },
+        {
+          "name": "image-only-no-clients",
+          "exit_code": 0,
+          "log_sha256": "32ed39b646b1845bc57a8e01d3c473a0f83ab0bf249331fbce357ecede2b3aa9"
+        },
+        {
+          "name": "suggestions",
+          "exit_code": 0,
+          "log_sha256": "fe1cce063404572b9531f4c29583ef47a563ba68c65ecf3ad680d24704b40836"
+        },
+        {
+          "name": "add-clients",
+          "exit_code": 0,
+          "log_sha256": "b36b840a403d9ad6b00ad307f7550d5d35c5091b89bcffc87a0349de8ef5fd51"
+        },
+        {
+          "name": "project-network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "execute-client-apis",
+          "exit_code": 0,
+          "log_sha256": "cf47f95d2164103259f90b9aeab187851b49d207fad88acbf23af27424345988"
+        },
+        {
+          "name": "repeat-selection",
+          "exit_code": 0,
+          "log_sha256": "581bf3cc5419c63fc6e6c40de88c923cabd27f1fcca25c385f4dadd9a8f774ec"
+        }
+      ]
+    },
+    {
+      "runtime": "java",
+      "run_id": "client-journeys-05",
+      "result_sha256": "803252841c37f5c64c8b3013847f967e2661d05f322b060a6be67ae95125a64f",
+      "cases": 10,
+      "elapsed_seconds": 16.94,
+      "pack_inventory_sha256_at_report": "9b200a43efb74346a712fa0e8353e4b7b22e3407e7d5e9be2af4426185b06787",
+      "steps": [
+        {
+          "name": "network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "no-selection",
+          "exit_code": 2,
+          "log_sha256": "9dc7d8085fa7a27c146949f05bcc342d01881e0f5fa1667f98a746f454014733"
+        },
+        {
+          "name": "invalid-selection",
+          "exit_code": 1,
+          "log_sha256": "7f8440d55dd7ae7a634477c165a8e050e74925449658ab03eb9903e0ebd195bc"
+        },
+        {
+          "name": "image-only-no-clients",
+          "exit_code": 0,
+          "log_sha256": "78e7ca2b27c0f86194c5f13105008292d311b361b5e699f53c9553a4c508cc20"
+        },
+        {
+          "name": "suggestions",
+          "exit_code": 0,
+          "log_sha256": "9444e349fb566aa8263e217f8862999fd19f7059ef9b76527c037b5561bdaac4"
+        },
+        {
+          "name": "add-clients",
+          "exit_code": 0,
+          "log_sha256": "59799925b8d023f2c44489dd6135714230db4fa4d9db1b167fe567637f5cf62c"
+        },
+        {
+          "name": "project-network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "execute-client-apis",
+          "exit_code": 0,
+          "log_sha256": "931b8b0207acb55981a801a8b0c03f0c47dba524d022c3178c1cf322cb69b7a6"
+        },
+        {
+          "name": "repeat-selection",
+          "exit_code": 0,
+          "log_sha256": "15587a75e68217cc9735135b98b5be3ee93173f98774b5dd9ffc7ddc72cf6535"
+        }
+      ]
+    },
+    {
+      "runtime": "node",
+      "run_id": "client-journeys-05",
+      "result_sha256": "803252841c37f5c64c8b3013847f967e2661d05f322b060a6be67ae95125a64f",
+      "cases": 10,
+      "elapsed_seconds": 19.76,
+      "pack_inventory_sha256_at_report": "45addbc32b29f27cb08f1b7a49eabe363f91c5893ca13934a692626d0e70e86a",
+      "steps": [
+        {
+          "name": "network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "no-selection",
+          "exit_code": 2,
+          "log_sha256": "9dc7d8085fa7a27c146949f05bcc342d01881e0f5fa1667f98a746f454014733"
+        },
+        {
+          "name": "invalid-selection",
+          "exit_code": 1,
+          "log_sha256": "e492d2286214e8b3c40e2e749711616a3e7ee5284adc99b50e5cd319b083fe42"
+        },
+        {
+          "name": "image-only-no-clients",
+          "exit_code": 0,
+          "log_sha256": "51c9d2fd87beef8ec43461f96a77f12640659688e6b8b3ecb0fb72d6e7222da4"
+        },
+        {
+          "name": "suggestions",
+          "exit_code": 0,
+          "log_sha256": "c4f5451d6f23725121d4559a2fc19f63bf22901f4a37e95234a3d4ce1b9ad9b1"
+        },
+        {
+          "name": "add-clients",
+          "exit_code": 0,
+          "log_sha256": "e3897d279480a14e6499c05cc76cef2bc764a4834adab3aebe0523082d7956d9"
+        },
+        {
+          "name": "project-network-boundary",
+          "exit_code": 0,
+          "log_sha256": "3f1f1ae6b661c40397862c2c00e28586013b58ded291c9c5f43510260093170b"
+        },
+        {
+          "name": "execute-client-apis",
+          "exit_code": 0,
+          "log_sha256": "cf47f95d2164103259f90b9aeab187851b49d207fad88acbf23af27424345988"
+        },
+        {
+          "name": "repeat-selection",
+          "exit_code": 0,
+          "log_sha256": "c7ebc768d9f2c64c178f1b02a63b631488140c96e59cc430c6f44cc03ba83194"
+        }
+      ]
+    },
+    {
+      "runtime": "python",
+      "run_id": "client-journeys-04",
+      "result_sha256": "7c0181c98cc719da0d53ef453c1b898ab89e8fb58f4eaa76113e8f492bc0b954",
+      "cases": 10,
+      "elapsed_seconds": 23.91,
+      "pack_inventory_sha256_at_report": "93cdd0d434de39b44573820d2f7b0f785001d2ef6a33d1791017662dfc3aeab3",
+      "steps": [
+        {
+          "name": "network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "no-selection",
+          "exit_code": 2,
+          "log_sha256": "9dc7d8085fa7a27c146949f05bcc342d01881e0f5fa1667f98a746f454014733"
+        },
+        {
+          "name": "invalid-selection",
+          "exit_code": 1,
+          "log_sha256": "2dcd0236b9c7b1d05eee62a44dbce194df69d7924c5a9db211460a3ff641be20"
+        },
+        {
+          "name": "image-only-no-clients",
+          "exit_code": 0,
+          "log_sha256": "251f59243018f2ff649684299784356a5a063d32ba0cdbeb6268841c8013ff5d"
+        },
+        {
+          "name": "staged-failure-preserves-original",
+          "exit_code": 1,
+          "log_sha256": "3336c98150c759b952baad071c569be70ecffc7ab9615dc593ab636dad7b4439"
+        },
+        {
+          "name": "suggestions",
+          "exit_code": 0,
+          "log_sha256": "c9e3098f43b36dc1805278eeba0580552ee4cba6789a21f6c13939e8a7b31a9f"
+        },
+        {
+          "name": "add-clients",
+          "exit_code": 0,
+          "log_sha256": "1b005b6e1d8e295b8c3e1fe02657f3bf1e10cc5d89fc862b9d246625f0e0dd26"
+        },
+        {
+          "name": "project-network-boundary",
+          "exit_code": 0,
+          "log_sha256": "7a66c363f7652d858c0f15a04a2bbabd8bc208680306b75e7f97f37b900f30c0"
+        },
+        {
+          "name": "execute-client-apis",
+          "exit_code": 0,
+          "log_sha256": "5b8a70ca4d9b8d4282af08d322db32a38d70e2b4a503956585603a084d763dce"
+        },
+        {
+          "name": "repeat-selection",
+          "exit_code": 0,
+          "log_sha256": "168c3113b79cea00cdd029b600049bac8e5a4d4055f5bfd9bdfe1384cb463814"
+        }
+      ]
+    },
+    {
+      "runtime": "ruby",
+      "run_id": "client-journeys-04",
+      "result_sha256": "7c0181c98cc719da0d53ef453c1b898ab89e8fb58f4eaa76113e8f492bc0b954",
+      "cases": 10,
+      "elapsed_seconds": 146.29,
+      "pack_inventory_sha256_at_report": "587cccced8aaa5624a5a24fa8a5df50046c3cc4891a9dfc113e40e1d63305b34",
+      "steps": [
+        {
+          "name": "network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "no-selection",
+          "exit_code": 2,
+          "log_sha256": "9dc7d8085fa7a27c146949f05bcc342d01881e0f5fa1667f98a746f454014733"
+        },
+        {
+          "name": "invalid-selection",
+          "exit_code": 1,
+          "log_sha256": "d1b24b265125fbf3f5508dd3a299117f00bcecdd473e635a7f20c170fd67ba66"
+        },
+        {
+          "name": "image-only-no-clients",
+          "exit_code": 0,
+          "log_sha256": "db2e29e5113b834a37b34cb51a84079c86a051b306f6f0d72bcd687d102e9786"
+        },
+        {
+          "name": "suggestions",
+          "exit_code": 0,
+          "log_sha256": "3ff6780fc3fb7066536d0410fa6e6124c0bbe05ca1b849c100e51b1369ed1cc4"
+        },
+        {
+          "name": "add-clients",
+          "exit_code": 0,
+          "log_sha256": "b990f3ab1e9934f7c0944574cbce49ab67fe90b9f58d0ce78b7dfbd9ab678bd9"
+        },
+        {
+          "name": "project-network-boundary",
+          "exit_code": 0,
+          "log_sha256": "162340205ab56f60fbdb6ab2764912ea1b29364521e86ceca5255e439fecfa34"
+        },
+        {
+          "name": "execute-client-apis",
+          "exit_code": 0,
+          "log_sha256": "ced4d23de5d0bda5575c9bdb23609115c06fc3b638655777365bb5a31803571e"
+        },
+        {
+          "name": "repeat-selection",
+          "exit_code": 0,
+          "log_sha256": "2536fdd7721540109bf436409f3f844241b267adc350554de4f094b27bf65141"
+        }
+      ]
+    },
+    {
+      "runtime": "rust",
+      "run_id": "client-journeys-04",
+      "result_sha256": "7c0181c98cc719da0d53ef453c1b898ab89e8fb58f4eaa76113e8f492bc0b954",
+      "cases": 10,
+      "elapsed_seconds": 167.67,
+      "pack_inventory_sha256_at_report": "550fc8559f1e9ecd2cc4e6ffa8da76e657b44c0a2d186a4dca23a3dc22b77362",
+      "steps": [
+        {
+          "name": "network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "no-selection",
+          "exit_code": 2,
+          "log_sha256": "9dc7d8085fa7a27c146949f05bcc342d01881e0f5fa1667f98a746f454014733"
+        },
+        {
+          "name": "invalid-selection",
+          "exit_code": 1,
+          "log_sha256": "35102559e0aa0c1a6cc1b22c44d2347ae6079fffce2a206cb306aebcbe09e153"
+        },
+        {
+          "name": "image-only-no-clients",
+          "exit_code": 0,
+          "log_sha256": "9dd42e2d07a2deb15e713590b76e2fcf70a4044a163b2cf5afd767789256055b"
+        },
+        {
+          "name": "suggestions",
+          "exit_code": 0,
+          "log_sha256": "ac05acc3c7f26971548b33f8e30e94a3330038dd02ba4ff610ec030c508a8620"
+        },
+        {
+          "name": "add-clients",
+          "exit_code": 0,
+          "log_sha256": "8ef460bc637b4ac6d6ca86e32abc4adb47c5eb972d7231508290502b27fcd21f"
+        },
+        {
+          "name": "project-network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "execute-client-apis",
+          "exit_code": 0,
+          "log_sha256": "cf47f95d2164103259f90b9aeab187851b49d207fad88acbf23af27424345988"
+        },
+        {
+          "name": "repeat-selection",
+          "exit_code": 0,
+          "log_sha256": "22432270b8fffe3a65769fd52acd34e5968af221cf2d505cb8924415f8231f8f"
+        }
+      ]
+    },
+    {
+      "runtime": "swift",
+      "run_id": "client-journeys-06",
+      "result_sha256": "53dce2243b79c6de1d28f2ae38c456102a5c3a9748aa12ba474813aca6f67888",
+      "cases": 10,
+      "elapsed_seconds": 382.2,
+      "pack_inventory_sha256_at_report": "eca0904269ba52968e9a4ba2d0c771651ea8d48e2193ba1ad5d015bebfeffc1c",
+      "steps": [
+        {
+          "name": "network-boundary",
+          "exit_code": 0,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "name": "no-selection",
+          "exit_code": 2,
+          "log_sha256": "9dc7d8085fa7a27c146949f05bcc342d01881e0f5fa1667f98a746f454014733"
+        },
+        {
+          "name": "invalid-selection",
+          "exit_code": 1,
+          "log_sha256": "749838682771a00f5cd0f14ff9f3e5f73996f928d1ca413fa29831c5200054a8"
+        },
+        {
+          "name": "image-only-no-clients",
+          "exit_code": 0,
+          "log_sha256": "de1e274b18b27bc93065e192e1197bcc498c6c34b93a147ae866e065b8ebc887"
+        },
+        {
+          "name": "suggestions",
+          "exit_code": 0,
+          "log_sha256": "a109e20b82b1772eea4d9997c2bd761a1da2968f7bd776684e58d535a8af2977"
+        },
+        {
+          "name": "add-clients",
+          "exit_code": 0,
+          "log_sha256": "91469832a8cdcbe62b64d71fb7b5ddcfceadf0533f054bca697ea8d2ad372389"
+        },
+        {
+          "name": "project-network-boundary",
+          "exit_code": 0,
+          "log_sha256": "5749c414bc9d1edbf48bce653a2b9f5797377f7471f3b40d78ab9849e0120989"
+        },
+        {
+          "name": "execute-client-apis",
+          "exit_code": 0,
+          "log_sha256": "cc52212468ce7ccc02f6a2b60bc7be42bc01dfc22268153b747a4e5595e99856"
+        },
+        {
+          "name": "repeat-selection",
+          "exit_code": 0,
+          "log_sha256": "ff74db76f257b92dffb144d67c58a745c31fdd0632a67e09c7ef12a950d05512"
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "runtime": "dotnet",
+      "service": "keycloak",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "dotnet",
+      "service": "mailpit",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "dotnet",
+      "service": "meilisearch",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "dotnet",
+      "service": "mongodb",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "dotnet",
+      "service": "mysql",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "dotnet",
+      "service": "nats",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "dotnet",
+      "service": "postgres",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "dotnet",
+      "service": "rabbitmq",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "dotnet",
+      "service": "redis",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "dotnet",
+      "service": "seaweedfs",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "keycloak",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "mailpit",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "meilisearch",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "mongodb",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "mysql",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "nats",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "postgres",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "rabbitmq",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "redis",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "elixir",
+      "service": "seaweedfs",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "go",
+      "service": "keycloak",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "go",
+      "service": "mailpit",
+      "state": "passed",
+      "builtin": true
+    },
+    {
+      "runtime": "go",
+      "service": "meilisearch",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "go",
+      "service": "mongodb",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "go",
+      "service": "mysql",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "go",
+      "service": "nats",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "go",
+      "service": "postgres",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "go",
+      "service": "rabbitmq",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "go",
+      "service": "redis",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "go",
+      "service": "seaweedfs",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "keycloak",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "mailpit",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "meilisearch",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "mongodb",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "mysql",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "nats",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "postgres",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "rabbitmq",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "redis",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "java",
+      "service": "seaweedfs",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "keycloak",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "mailpit",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "meilisearch",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "mongodb",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "mysql",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "nats",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "postgres",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "rabbitmq",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "redis",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "node",
+      "service": "seaweedfs",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "python",
+      "service": "keycloak",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "python",
+      "service": "mailpit",
+      "state": "passed",
+      "builtin": true
+    },
+    {
+      "runtime": "python",
+      "service": "meilisearch",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "python",
+      "service": "mongodb",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "python",
+      "service": "mysql",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "python",
+      "service": "nats",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "python",
+      "service": "postgres",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "python",
+      "service": "rabbitmq",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "python",
+      "service": "redis",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "python",
+      "service": "seaweedfs",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "keycloak",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "mailpit",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "meilisearch",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "mongodb",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "mysql",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "nats",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "postgres",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "rabbitmq",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "redis",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "ruby",
+      "service": "seaweedfs",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "keycloak",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "mailpit",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "meilisearch",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "mongodb",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "mysql",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "nats",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "postgres",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "rabbitmq",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "redis",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "rust",
+      "service": "seaweedfs",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "swift",
+      "service": "keycloak",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "swift",
+      "service": "mailpit",
+      "state": "passed",
+      "builtin": true
+    },
+    {
+      "runtime": "swift",
+      "service": "meilisearch",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "swift",
+      "service": "mongodb",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "swift",
+      "service": "mysql",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "swift",
+      "service": "nats",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "swift",
+      "service": "postgres",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "swift",
+      "service": "rabbitmq",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "swift",
+      "service": "redis",
+      "state": "passed",
+      "builtin": false
+    },
+    {
+      "runtime": "swift",
+      "service": "seaweedfs",
+      "state": "passed",
+      "builtin": false
+    }
+  ],
+  "mutation_guards": {
+    "run_id": "client-guards-01",
+    "result_sha256": "ec64b8a2eec7f7b0f38137588bbf0c34c022413d67f7d12e769b49efae0b98e8",
+    "checks": [
+      "No client/service selection rejected without changes",
+      "Invalid mixed selection rejected without changes",
+      "Image-only addition preserves all source and dependency declarations",
+      "Python staged verification failure preserves original project"
+    ]
+  },
+  "ruby_runtime_cache": {
+    "cold_seconds": 41.328,
+    "warm_seconds": 1.623,
+    "all_ten_apis_passed_both_runs": true,
+    "log_sha256": [
+      "023794735060212e37248187d1ada69093d4bcf4cdf0484b21cbfed83969136e",
+      "de635e27d7abddc8ee12f17ab61268c8d3289880eda820b99c64a4ae42286836"
+    ]
+  },
+  "evidence_note": "Run IDs identify retained validation logs. This compact report carries their hashes without host paths. Reruns replace only affected runtimes; initial fixture failures remain in the original local evidence. Pack inventory hashes describe the final report snapshot."
+}

@@ -108,7 +108,14 @@ restore_locked() {
 
 case "$action" in
     prepare)
-        restore_locked
+        if [ "${DEVLINE_OFFLINE:-false}" = true ]; then
+            config=$(mktemp "$TMPDIR/dotnet-offline-config.XXXXXX")
+            printf '%s\n' '<configuration><packageSources><clear /></packageSources></configuration>' > "$config"
+            restore_locked --configfile "$config"
+            rm -f "$config"
+        else
+            restore_locked
+        fi
         ;;
     verify)
         config=$(mktemp "$TMPDIR/dotnet-config.XXXXXX")

@@ -1,0 +1,4836 @@
+{
+  "schema_version": 1,
+  "stack": "swift",
+  "files": [
+    {
+      "path": ".build/.buildSystem_debug",
+      "bytes": 10,
+      "sha256": "cd1ba1c9604b794d71cd3cb482cc02e4c16bdea56c361333fabe801a74db2b90"
+    },
+    {
+      "path": ".build/.lock",
+      "bytes": 5,
+      "sha256": "58072c62be0b3e2e5ef29b7e9f79d7f01712060ce286cf35a2d601d529e0601d"
+    },
+    {
+      "path": ".build/CACHEDIR.TAG",
+      "bytes": 209,
+      "sha256": "61833598201b8d9bb6a18003b6be9fd00ae014cfbd583253c1f23b746bf035d1"
+    },
+    {
+      "path": "Package.resolved",
+      "bytes": 11130,
+      "sha256": "ea5a70f7841332742d0fc5989491ee3a4ddd2cac39ee779827daeb675a4a0c84"
+    },
+    {
+      "path": "Package.swift",
+      "bytes": 1416,
+      "sha256": "b38584c4be915b9978bc3b26982e174f5b6f71de62c14b927da2b6de36505bd2"
+    },
+    {
+      "path": "Sources/DevlineClients/main.swift",
+      "bytes": 1149,
+      "sha256": "f146d16c003976709f3acc07a5481bf424b983f7e4c403242d0dfec802e9bbb6"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/HEAD",
+      "bytes": 41,
+      "sha256": "e350a57b71fa0ea1706dda0bbc0b8ea5d57c68839f50b14b8e8481d1c44313b3"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/config",
+      "bytes": 178,
+      "sha256": "86c877c104badbcd8c30d54d413902bf394bddaa1036aa146f104810040f1205"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/objects/pack/pack-37012b1b93df3b90cbdb6cf587cc8197ff09bdf5.idx",
+      "bytes": 10900,
+      "sha256": "d2a6ad06c2cadd2299b4e5dce0a9ad1e39d035bdda918cd09b09d0e8e8ad1ff0"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/objects/pack/pack-37012b1b93df3b90cbdb6cf587cc8197ff09bdf5.pack",
+      "bytes": 628985,
+      "sha256": "c7d585843950e5062ab1f3bdabf2f899538d7ae0d77dbb1cd8e6d5d6646933d4"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/objects/pack/pack-37012b1b93df3b90cbdb6cf587cc8197ff09bdf5.rev",
+      "bytes": 1456,
+      "sha256": "fdf4efa652cd94f96dab2696c1fd3e7e85c0026bdf72843046b3ed181de0a3b9"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/packed-refs",
+      "bytes": 103,
+      "sha256": "c4cd98f6cb49d3b77fb5bfca3c52e9611c16acec92da521026818322ff451304"
+    },
+    {
+      "path": "cache/repositories/AppAuth-iOS-8fae7662/shallow",
+      "bytes": 41,
+      "sha256": "e350a57b71fa0ea1706dda0bbc0b8ea5d57c68839f50b14b8e8481d1c44313b3"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/HEAD",
+      "bytes": 41,
+      "sha256": "1d2cc7a0dbbcd949e216774c35aa17748f551905566d49522d2023cd8aa20a28"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/config",
+      "bytes": 176,
+      "sha256": "26feccb21c2a939d8319bfd01229bdc9e60abdb134b897730dad0325d130acc4"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/objects/pack/pack-b3f1047829eca12140536cec9d877bfa496ff029.idx",
+      "bytes": 3200,
+      "sha256": "1e24120becf88a193dbfb0908d46fdd75a8edfe4a9fdfc26c307379ba35e479f"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/objects/pack/pack-b3f1047829eca12140536cec9d877bfa496ff029.pack",
+      "bytes": 65063,
+      "sha256": "6828c6c2df7464270653e98870d8799fedaa726591f06bb2ed68b4ce447b8098"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/objects/pack/pack-b3f1047829eca12140536cec9d877bfa496ff029.rev",
+      "bytes": 356,
+      "sha256": "426e1ad181d6e75272291e28bc43f9086020cd6845d378529d7ab963fbdc956f"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/packed-refs",
+      "bytes": 103,
+      "sha256": "6ac7599abf7a6191ffb91db6a3692c781fef6ffe72a56735cb1e97993b7cf851"
+    },
+    {
+      "path": "cache/repositories/BSON-34ff900c/shallow",
+      "bytes": 41,
+      "sha256": "1d2cc7a0dbbcd949e216774c35aa17748f551905566d49522d2023cd8aa20a28"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/HEAD",
+      "bytes": 41,
+      "sha256": "e1eb8e69ed700d34ceb73982c1ec635f502a245861adbb80f2c7eea0475393fd"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/config",
+      "bytes": 169,
+      "sha256": "724181e60269ffc7a127679089adff2717ef746e06b83413b5001218d219da36"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/objects/pack/pack-fe21baaf5b0a197cb79a9efba4c9359d1570e230.idx",
+      "bytes": 2276,
+      "sha256": "e5e8d535cf911e998865c7235db20cae90f0aa759e9c4867d4a5fbfdf9d7a515"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/objects/pack/pack-fe21baaf5b0a197cb79a9efba4c9359d1570e230.pack",
+      "bytes": 23175,
+      "sha256": "853b60cfdb1a1a56e989c36c7317c7b2c7da55cefb12dfff9641afe13c8718eb"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/objects/pack/pack-fe21baaf5b0a197cb79a9efba4c9359d1570e230.rev",
+      "bytes": 224,
+      "sha256": "81da30a011f5a17a540006471116d1898ff8547bf10ec2b29b598155285a7dee"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/packed-refs",
+      "bytes": 105,
+      "sha256": "bc4b031f8c6b36d220fbce33bdc4a4ea82395e5ed3ae6261ee8191ada0583e85"
+    },
+    {
+      "path": "cache/repositories/Base32-b9e972ce/shallow",
+      "bytes": 41,
+      "sha256": "e1eb8e69ed700d34ceb73982c1ec635f502a245861adbb80f2c7eea0475393fd"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/HEAD",
+      "bytes": 41,
+      "sha256": "c8fb04eaa89d9bd138e628dc2941fb6f43e756503b03eac786e174a0f956f00d"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/config",
+      "bytes": 181,
+      "sha256": "eee51725ff0cffff3440ccd40fac793dca63c2c30b16ca91e1afb83b24f9d0fe"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/objects/pack/pack-4bc9b768cf5ebb3c7bb8c86ab5d0533706124e7d.idx",
+      "bytes": 2444,
+      "sha256": "27285e17b419c579e31928e9b4b254ab14b67de086c74e82fae2d392eaabfdad"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/objects/pack/pack-4bc9b768cf5ebb3c7bb8c86ab5d0533706124e7d.pack",
+      "bytes": 48790,
+      "sha256": "ecd7ca65bbb121803d6e67eec930b544c921e8204c95b6991cb63244a5d2c5a6"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/objects/pack/pack-4bc9b768cf5ebb3c7bb8c86ab5d0533706124e7d.rev",
+      "bytes": 248,
+      "sha256": "3820d1c36c2cc61bd09cc84a8470c15b79bb06bf9532399782fc1b22c15476f7"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/packed-refs",
+      "bytes": 103,
+      "sha256": "63e1e9e5cc448a0de02d0b38638e4aa6513eac3c490a1544754f012b5ae09254"
+    },
+    {
+      "path": "cache/repositories/DNSClient-fb208a96/shallow",
+      "bytes": 41,
+      "sha256": "c8fb04eaa89d9bd138e628dc2941fb6f43e756503b03eac786e174a0f956f00d"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/HEAD",
+      "bytes": 41,
+      "sha256": "1c9efe7f0fe9e8a06f840b49646b65cbb93757a2804524679828dbd17fc840bc"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/config",
+      "bytes": 183,
+      "sha256": "984ce812269b84e5242b9e390a9e891c95d4028eb3941d7800ab3cd648ef7853"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/objects/pack/pack-ccac9b6b434c359d4bef5193e411c626ca74cf6c.idx",
+      "bytes": 6980,
+      "sha256": "78de8ac31de4c6fa1bbd019e84e90503e5173f9ee74742c83eb63241a85f8cd1"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/objects/pack/pack-ccac9b6b434c359d4bef5193e411c626ca74cf6c.pack",
+      "bytes": 225063,
+      "sha256": "cc7b79cfdfb157c83a28b091216ab264e6dc4715d158a65098425b3a36e8ca82"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/objects/pack/pack-ccac9b6b434c359d4bef5193e411c626ca74cf6c.rev",
+      "bytes": 896,
+      "sha256": "139a1b8a0037d2ce4864c72cafc49f3e2d22b1026b088890f60f57072da77cdb"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/packed-refs",
+      "bytes": 104,
+      "sha256": "fbfacbb11cab4a9b19ca16ba98faee0f0b9b48393118219a57bd3a8c4bf912e0"
+    },
+    {
+      "path": "cache/repositories/MongoKitten-01dad7e0/shallow",
+      "bytes": 41,
+      "sha256": "1c9efe7f0fe9e8a06f840b49646b65cbb93757a2804524679828dbd17fc840bc"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/HEAD",
+      "bytes": 41,
+      "sha256": "d2e1db7e04c45d1696e5b683944d8fb4ec657da9777c499995f1d40cb95cb3b5"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/config",
+      "bytes": 182,
+      "sha256": "9a58ae67291db351d6d473f04e139bc3fcd6dacf96ee952c36130bd8d0aba29a"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/objects/pack/pack-07ef4bc7d148155d52cd56bbd04d5c7dfdd75ffc.idx",
+      "bytes": 4824,
+      "sha256": "7ce933df039a9ccade79cd60a8fc92cdeec17a1ec73fa6a57a8c117cb7a7738a"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/objects/pack/pack-07ef4bc7d148155d52cd56bbd04d5c7dfdd75ffc.pack",
+      "bytes": 172843,
+      "sha256": "7d2259d7aa4d7a15f2db496ed5173a10aae1837e384a7c1463daeb697a5811bf"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/objects/pack/pack-07ef4bc7d148155d52cd56bbd04d5c7dfdd75ffc.rev",
+      "bytes": 588,
+      "sha256": "b02f2b2db79efb025048e1adeafc6529dc8a9a70dceffa18b9f0b4f43c71c4d8"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/packed-refs",
+      "bytes": 103,
+      "sha256": "9769f0bb40afa3ddfb4690e3898dcf42db06e83171113823b2bd80b326a2585a"
+    },
+    {
+      "path": "cache/repositories/RediStack-ac8d1b49/shallow",
+      "bytes": 41,
+      "sha256": "d2e1db7e04c45d1696e5b683944d8fb4ec657da9777c499995f1d40cb95cb3b5"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/HEAD",
+      "bytes": 41,
+      "sha256": "1b59a3746f3d44d9505eea1721c2fc2b00455dfbc75bcc762d6d4388897c56c2"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/config",
+      "bytes": 190,
+      "sha256": "6f14e76d4f70bb89066da2579ae4a57c4a28cc8853cae0ce21e0a12f2d2e0f0b"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/objects/pack/pack-83382b1c3841c5025a569b71ffafb63d7e648b8c.idx",
+      "bytes": 6644,
+      "sha256": "7db12041b168558b73a4138cdde5828b2c257b32f925224827ca0a15fce4abec"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/objects/pack/pack-83382b1c3841c5025a569b71ffafb63d7e648b8c.pack",
+      "bytes": 387062,
+      "sha256": "a9e800e4c8e8bb3cbb928ea4cded51537f962041ca8e5f0dc63a0bb24af0a038"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/objects/pack/pack-83382b1c3841c5025a569b71ffafb63d7e648b8c.rev",
+      "bytes": 848,
+      "sha256": "bbd79949b5e74dbfd1895a92c3015d75815c7a194354d76c46c38d59fac20e59"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/packed-refs",
+      "bytes": 104,
+      "sha256": "312d36d1919a48eb8480e7c445c4b955dbfff85416554f6d9728c0206b774d03"
+    },
+    {
+      "path": "cache/repositories/async-http-client-afefb790/shallow",
+      "bytes": 41,
+      "sha256": "1b59a3746f3d44d9505eea1721c2fc2b00455dfbc75bcc762d6d4388897c56c2"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/HEAD",
+      "bytes": 41,
+      "sha256": "38eda835c222060eeb4ad4de984c333a1ea783bdd3d950cd860debb5da98afe7"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/config",
+      "bytes": 186,
+      "sha256": "11f58d3f9b0669f42f9ff0675ed03e3b4e4d266fcb23e7720640e7a643310104"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/objects/pack/pack-9cf1224a78e639a39dbd0dd1ea1184842a8cae1b.idx",
+      "bytes": 3452,
+      "sha256": "b7b6774bcb90c7ce1082c9ff8c352c5e44bca37839f70dc0c6e1bbbff54857d2"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/objects/pack/pack-9cf1224a78e639a39dbd0dd1ea1184842a8cae1b.pack",
+      "bytes": 111567,
+      "sha256": "4991a1642acbad90365f7f712335ff74c969b7aed4531531d3909888289ea75e"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/objects/pack/pack-9cf1224a78e639a39dbd0dd1ea1184842a8cae1b.rev",
+      "bytes": 392,
+      "sha256": "b511aaa2e5921e456ad3faed081e1c9f9f12be4c34b5c979e857682bb164dceb"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/packed-refs",
+      "bytes": 104,
+      "sha256": "29247083f19d85a77e37389f0ee40f6dc0d78534fb8e8c59d8e1d58425c15228"
+    },
+    {
+      "path": "cache/repositories/bunny-swift-d94040a5/shallow",
+      "bytes": 41,
+      "sha256": "38eda835c222060eeb4ad4de984c333a1ea783bdd3d950cd860debb5da98afe7"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/HEAD",
+      "bytes": 41,
+      "sha256": "15415166be4c43cf063c98e0519558408973d9466ea8aa5518954301f59bbf6d"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/config",
+      "bytes": 183,
+      "sha256": "56d8e334c75bdb6b40e88690258456d11101b9027633a5939905533cfe91d05e"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/objects/pack/pack-aef9f5f6ef2136e7a1d42c25327edd331bbf8ddb.idx",
+      "bytes": 2304,
+      "sha256": "eb44e566fda1bacf55ab60783d8b8afdeaf917518c2c6ff7ed6a911e6cc03a00"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/objects/pack/pack-aef9f5f6ef2136e7a1d42c25327edd331bbf8ddb.pack",
+      "bytes": 53295,
+      "sha256": "af8c52fe518ec21d9be4fe4c3bdc05cbf9cd7a957a5a0cc888db7a65f1be3646"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/objects/pack/pack-aef9f5f6ef2136e7a1d42c25327edd331bbf8ddb.rev",
+      "bytes": 228,
+      "sha256": "266e0a7e8fce1c6c01dca3e069f0c4f30424e48fd9481711d47e2428e325844a"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/packed-refs",
+      "bytes": 103,
+      "sha256": "c151740bd24946920094021a03342f6ac67ba41875c4d1ef62d35f818dc9019a"
+    },
+    {
+      "path": "cache/repositories/jmespath.swift-470bb8e5/shallow",
+      "bytes": 41,
+      "sha256": "15415166be4c43cf063c98e0519558408973d9466ea8aa5518954301f59bbf6d"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/HEAD",
+      "bytes": 41,
+      "sha256": "164fc20919f4a11c86604ce4d7d09c940d553c860ed74fc79d2d4dcf9b33a001"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/config",
+      "bytes": 189,
+      "sha256": "2f56e10139c934ee71494845e59e5213999afabe595bcaff75cc1315a556cf8f"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/objects/pack/pack-d9a6ddea73a057f0bd60b75ed2e4a2c20fd8cc7e.idx",
+      "bytes": 5608,
+      "sha256": "80125d3f16a419ffefe066138805d5774945544c7da55ec634a8b45806989979"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/objects/pack/pack-d9a6ddea73a057f0bd60b75ed2e4a2c20fd8cc7e.pack",
+      "bytes": 111004,
+      "sha256": "daf7ff7a8efe55633490ad67d5244814684dac0c44de960a241883ad49e704f9"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/objects/pack/pack-d9a6ddea73a057f0bd60b75ed2e4a2c20fd8cc7e.rev",
+      "bytes": 700,
+      "sha256": "731ee919a328b86c1a9a69e0e1989e8e560715a4b81d386202bb03f486ebcde2"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/packed-refs",
+      "bytes": 104,
+      "sha256": "9ee2b9d61ee1037be6c03d520a11a7c7494421e160ae63ea45c61bf199466934"
+    },
+    {
+      "path": "cache/repositories/meilisearch-swift-d0afe89e/shallow",
+      "bytes": 41,
+      "sha256": "164fc20919f4a11c86604ce4d7d09c940d553c860ed74fc79d2d4dcf9b33a001"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/HEAD",
+      "bytes": 41,
+      "sha256": "c40f15d66fd5804b0b764f5b6a95f9a0ec35ad6e2a06f8b766afa368add7acb1"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/config",
+      "bytes": 175,
+      "sha256": "5cba0c8f45cc4738f7b1b5d16ab5db5435412dc4da34fb5026daadcdcfb59b9e"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/objects/pack/pack-476edd88ef8ff2f10ce9593c39189c66e8d8478d.idx",
+      "bytes": 2976,
+      "sha256": "6e618631b9441072f46c3022b7a6c4098500f71d4fbeb35280bd242410e2f0f9"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/objects/pack/pack-476edd88ef8ff2f10ce9593c39189c66e8d8478d.pack",
+      "bytes": 92283,
+      "sha256": "6ce9907e17fadc78e70ef01c899594a85c544b1a0f2e1923d676bcba05968873"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/objects/pack/pack-476edd88ef8ff2f10ce9593c39189c66e8d8478d.rev",
+      "bytes": 324,
+      "sha256": "98d280de502025674d43cd80720abd7663b2470b18ec57a845a3858531b62717"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/packed-refs",
+      "bytes": 103,
+      "sha256": "731e5584415a5a49f33421f6305266af2b1dca8e8bb69fb9f18cfaf3af8e94d3"
+    },
+    {
+      "path": "cache/repositories/mysql-nio-16955893/shallow",
+      "bytes": 41,
+      "sha256": "c40f15d66fd5804b0b764f5b6a95f9a0ec35ad6e2a06f8b766afa368add7acb1"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/HEAD",
+      "bytes": 41,
+      "sha256": "e8899740d03d2e2fa064533c646bbb85908e090ab4694b100f2be4a5793150a8"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/config",
+      "bytes": 178,
+      "sha256": "efb6cc2a827011255224bc318764fbd35b76cef6d08a25eea114e025db45edce"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/objects/pack/pack-1137bf7b26f2f0c953ecc21b8d180cd2ef43e589.idx",
+      "bytes": 4236,
+      "sha256": "fe250f7c359cf30d83cb770ff6da425e80ca487a8be702eb4a86330199108174"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/objects/pack/pack-1137bf7b26f2f0c953ecc21b8d180cd2ef43e589.pack",
+      "bytes": 181504,
+      "sha256": "648dc553b72f4933150ef75ad7e6f55a5fb22ae0b38be7cbe06f27357ab782c5"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/objects/pack/pack-1137bf7b26f2f0c953ecc21b8d180cd2ef43e589.rev",
+      "bytes": 504,
+      "sha256": "4d7b6a60d507a00817dd2ad9ada82525acd912ba44302484c71bd1f44fb6c4ad"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/packed-refs",
+      "bytes": 104,
+      "sha256": "2eb8c8e826dc93ae78285f1ecccdbc29ce8fae60fb06ee083a4d5dc0864530e2"
+    },
+    {
+      "path": "cache/repositories/nats.swift-ddff9845/shallow",
+      "bytes": 41,
+      "sha256": "e8899740d03d2e2fa064533c646bbb85908e090ab4694b100f2be4a5793150a8"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/HEAD",
+      "bytes": 41,
+      "sha256": "217aafd35e956bf6b6eae24cdfe706c772b9db925202e6dfd8a9fc623b2037d7"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/config",
+      "bytes": 179,
+      "sha256": "0e11307a2559d9364f86dab9eea45d8a5b55008d05c8efd99dc9fe0f27631997"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/objects/pack/pack-902f1bfc997e5ea90083fcc14b5a2a21a5cc28bc.idx",
+      "bytes": 1744,
+      "sha256": "ac6f459468e3078c4fd56e07e0586dabf269bfac6443372c0385cc2ce0824e21"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/objects/pack/pack-902f1bfc997e5ea90083fcc14b5a2a21a5cc28bc.pack",
+      "bytes": 16081,
+      "sha256": "d81b8ab82b6458082cab47720d56643da28f51b043545df1efdea8c457257303"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/objects/pack/pack-902f1bfc997e5ea90083fcc14b5a2a21a5cc28bc.rev",
+      "bytes": 148,
+      "sha256": "67ae9094aa3dbc758f4654c74db6174c53f2b23523a64d9fe8ad828eaedf480e"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/packed-refs",
+      "bytes": 104,
+      "sha256": "82089048cae3144c20dbbd97e63c7b15b5ac19ee7bcfc390ca8bbdb5c832bc38"
+    },
+    {
+      "path": "cache/repositories/nkeys.swift-bf649255/shallow",
+      "bytes": 41,
+      "sha256": "217aafd35e956bf6b6eae24cdfe706c772b9db925202e6dfd8a9fc623b2037d7"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/HEAD",
+      "bytes": 41,
+      "sha256": "2b03f107e0ff521f5ac55fd345627d670226dbdcdad2a4042cf51efdb531c66f"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/config",
+      "bytes": 178,
+      "sha256": "5a8a320ecb85d237ce806f67cd766cfb2e9798a76dcde0522e8e4b5d3ad8618d"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/objects/pack/pack-e1b3f02e820199493cfac2d9ef3b7e8f05888e68.idx",
+      "bytes": 9192,
+      "sha256": "60fe6d68e341b764e3a8d335fefc972af0684191a2e8739d4189e55e73d9276e"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/objects/pack/pack-e1b3f02e820199493cfac2d9ef3b7e8f05888e68.pack",
+      "bytes": 324374,
+      "sha256": "532e3d4c646cba28e50bfcd7122ed268a04c206feef42b024649030d4e748985"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/objects/pack/pack-e1b3f02e820199493cfac2d9ef3b7e8f05888e68.rev",
+      "bytes": 1212,
+      "sha256": "a0db4971c4a3af1fb3e29a788bd9a11980429c1ac5724e41f7a085fb4a5b136e"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/packed-refs",
+      "bytes": 104,
+      "sha256": "f1f3d80d0fef5768466dc234b4ce192d64b0c60d6ef2faa3324e16bbb112ea02"
+    },
+    {
+      "path": "cache/repositories/postgres-nio-934462e6/shallow",
+      "bytes": 41,
+      "sha256": "2b03f107e0ff521f5ac55fd345627d670226dbdcdad2a4042cf51efdb531c66f"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/HEAD",
+      "bytes": 41,
+      "sha256": "5df911bfb1fbb9b3a8c2d7e08bd9f39c2163501f4cd8ba9790663690e6b0cdd7"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/config",
+      "bytes": 182,
+      "sha256": "c0f2b508158f88a0dbbfb2818f7d231ce57407434dba58343c6c082f2f50ad00"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/objects/pack/pack-5d07e12c60af3acb02eeb0810f35348075c62ca7.idx",
+      "bytes": 8912,
+      "sha256": "7a444140780ac4fcabf170c4f30a9157d4e360d96a63d0702a987b3e566c6e86"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/objects/pack/pack-5d07e12c60af3acb02eeb0810f35348075c62ca7.pack",
+      "bytes": 430298,
+      "sha256": "4f3a9cc8ef3534f0a12466366adb8d6df67eb5655ff9f96be136ae655fa60b99"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/objects/pack/pack-5d07e12c60af3acb02eeb0810f35348075c62ca7.rev",
+      "bytes": 1172,
+      "sha256": "fde3d4ab97751908e103fbe8f7711b284247d28e192229172c07b7ca3a6c8a33"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/packed-refs",
+      "bytes": 104,
+      "sha256": "33ac1374bc61f19052eed42b2ff5af43757d80a7462480b37eb1c1cff3c09456"
+    },
+    {
+      "path": "cache/repositories/soto-core-0b9495a7/shallow",
+      "bytes": 41,
+      "sha256": "5df911bfb1fbb9b3a8c2d7e08bd9f39c2163501f4cd8ba9790663690e6b0cdd7"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/HEAD",
+      "bytes": 41,
+      "sha256": "dc81a4e903f9b5b333bb3335d5c4a512b9697847e79c0ee4b9c2f04bccbcd550"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/config",
+      "bytes": 177,
+      "sha256": "923db7f513fc73514cefdf40cea93ed5c1b9c26e76f3f03d544334b822a2aa5f"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/objects/pack/pack-c5e0394ee81f9e30fe4fc99f8f040c0035b2120e.idx",
+      "bytes": 40300,
+      "sha256": "4f8701a28390c845d10da631407b446a2779b7f1528303fdc18502d11d653888"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/objects/pack/pack-c5e0394ee81f9e30fe4fc99f8f040c0035b2120e.pack",
+      "bytes": 20471813,
+      "sha256": "973fc09e889f55aae8680ae7e6b07f91eb0158b4cc4fbf4fb6ab6bbf3e3cf3e2"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/objects/pack/pack-c5e0394ee81f9e30fe4fc99f8f040c0035b2120e.rev",
+      "bytes": 5656,
+      "sha256": "9817275de18115af8a9d705c89b192a2ba0fb89559b444ff54694a77fc40af72"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/packed-refs",
+      "bytes": 104,
+      "sha256": "39d8f5958593c51b0350539b23640890f32facced633c098a1d1c8e8471f4407"
+    },
+    {
+      "path": "cache/repositories/soto-d3fb4bb9/shallow",
+      "bytes": 41,
+      "sha256": "dc81a4e903f9b5b333bb3335d5c4a512b9697847e79c0ee4b9c2f04bccbcd550"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/HEAD",
+      "bytes": 41,
+      "sha256": "3297ac82be794434e477acd79f5ddf76cff327aa9bcb6b83a11e6f040dbe241a"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/config",
+      "bytes": 182,
+      "sha256": "c00b2e8a2ba7af171ffcf72389052884d3468d9179757ab93418c87e9d81ccf9"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/objects/pack/pack-37a1327fff36b18cc20c1c008b59a72e868c0eeb.idx",
+      "bytes": 4936,
+      "sha256": "80e21f76327b5a7b88485e7a3ac9f5e4c7a258c3a3800266f87ef5f143c95792"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/objects/pack/pack-37a1327fff36b18cc20c1c008b59a72e868c0eeb.pack",
+      "bytes": 294128,
+      "sha256": "e6f4d8eab0cb7e3f013df318f1aa07126bab91e5ec314a44d2acd44d9ebdaff1"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/objects/pack/pack-37a1327fff36b18cc20c1c008b59a72e868c0eeb.rev",
+      "bytes": 604,
+      "sha256": "f5df31c083ff843834d48390a614484e68a1c9cbd52085d90e5069aecbfd9c69"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/packed-refs",
+      "bytes": 103,
+      "sha256": "ab46dfe8f49ba8665598c03d7d5b2b4334ce172a88d0c5e652e999374aa47583"
+    },
+    {
+      "path": "cache/repositories/swift-algorithms-bf5a01cd/shallow",
+      "bytes": 41,
+      "sha256": "3297ac82be794434e477acd79f5ddf76cff327aa9bcb6b83a11e6f040dbe241a"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/HEAD",
+      "bytes": 41,
+      "sha256": "5ada2619287e9e81cecb90bb70dc25316fa045bb8852f5c5653dd89eb7000219"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/config",
+      "bytes": 176,
+      "sha256": "0f00d6aeb3d355ed64db0dd313ef4cb3cc06f8815477905aa4b987c0c980b05b"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/objects/pack/pack-64c73a952801c3627be97c3ee92b749043565c17.idx",
+      "bytes": 7316,
+      "sha256": "9a6889620e8d4d7974f2d496855d7e40c980aee238ac21e9f3c43a0fe81fe525"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/objects/pack/pack-64c73a952801c3627be97c3ee92b749043565c17.pack",
+      "bytes": 376746,
+      "sha256": "84bfd45f6b4a6cbbc70b66937c98fc8b608d8f03a9dc8637f47b59cc68972b44"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/objects/pack/pack-64c73a952801c3627be97c3ee92b749043565c17.rev",
+      "bytes": 944,
+      "sha256": "ec91b716d5f1d26d6a41f3cb7733505f76184b66c858434413db2c37bca1b573"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/packed-refs",
+      "bytes": 103,
+      "sha256": "2b972f335dcefccf38f98a53efbebe012d0eabe008c7489544b889058b4c7084"
+    },
+    {
+      "path": "cache/repositories/swift-asn1-7065ad2c/shallow",
+      "bytes": 41,
+      "sha256": "5ada2619287e9e81cecb90bb70dc25316fa045bb8852f5c5653dd89eb7000219"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/HEAD",
+      "bytes": 41,
+      "sha256": "385e783426e9669c3dcb70c6a577c148b5a10a583b0d7de177f530d67aadeb1f"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/config",
+      "bytes": 188,
+      "sha256": "e86a562b47911f4c539c24e3d21799a129dd0ae9d47287c7f51de508c4cd81fc"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/objects/pack/pack-1579be9370d4c92f99488a8e4f44993dd37879b2.idx",
+      "bytes": 8128,
+      "sha256": "7fb2cf106792ecce958360d60cfa899de50ad5d7a328cc1854d055d9882c2fc1"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/objects/pack/pack-1579be9370d4c92f99488a8e4f44993dd37879b2.pack",
+      "bytes": 310845,
+      "sha256": "45e87b81e627036983aba1b81265241a15c83f883b29ec78d9b505ee0230fca1"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/objects/pack/pack-1579be9370d4c92f99488a8e4f44993dd37879b2.rev",
+      "bytes": 1060,
+      "sha256": "e87d07e604d1b11f584a804106679ecb9479035558f6d753055d1b9a5e6e6132"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/packed-refs",
+      "bytes": 103,
+      "sha256": "cc3d8919ac3bbf225b01424aef5e2df6d6073c947954f0433ca6b206b0c806cf"
+    },
+    {
+      "path": "cache/repositories/swift-async-algorithms-c3a8d752/shallow",
+      "bytes": 41,
+      "sha256": "385e783426e9669c3dcb70c6a577c148b5a10a583b0d7de177f530d67aadeb1f"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/HEAD",
+      "bytes": 41,
+      "sha256": "8e8693c70e5a1d5d0852f235224dffb1430483d7737c5b787bda0ebe3748748d"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/config",
+      "bytes": 179,
+      "sha256": "a342978aac49e04c6c73939e513d83f683f8f39dbf0fa060d8fbc9065317b9eb"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/objects/pack/pack-635e811e9406f7b49d222e91d6fc58a48c1c4d55.idx",
+      "bytes": 6084,
+      "sha256": "05f0a96348cbb67b9b414a76ae6674d833ce0da1debc017edfa992f02de896a5"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/objects/pack/pack-635e811e9406f7b49d222e91d6fc58a48c1c4d55.pack",
+      "bytes": 187930,
+      "sha256": "ad4a1afd7b94747dac284d1ea089517efb16c489abd637410e6ad80d6e714910"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/objects/pack/pack-635e811e9406f7b49d222e91d6fc58a48c1c4d55.rev",
+      "bytes": 768,
+      "sha256": "f139fff7890d7759b555c1ff5e320fc2d7a6c31f41f00154807a37f8613ede46"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/packed-refs",
+      "bytes": 103,
+      "sha256": "6ae8af832b357a4ce6446e7d1c63a112448f32f25d2f9d59bbb3d2fce3aa6d61"
+    },
+    {
+      "path": "cache/repositories/swift-atomics-7429e549/shallow",
+      "bytes": 41,
+      "sha256": "8e8693c70e5a1d5d0852f235224dffb1430483d7737c5b787bda0ebe3748748d"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/HEAD",
+      "bytes": 41,
+      "sha256": "7f37d09c250ce5c0902052791f81a1fe80170e67141ab769f7d4723c5d73caa6"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/config",
+      "bytes": 184,
+      "sha256": "eba9975563e596340a4408fab520890eac847c6e958d9a18cb827046d915280f"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/objects/pack/pack-9a3a32988cbb037f5c4421168a26a7487f21a27f.idx",
+      "bytes": 11908,
+      "sha256": "8b48ef05fb95edd53704e7a31783421ca891829d52581e64f37cbf43098ee844"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/objects/pack/pack-9a3a32988cbb037f5c4421168a26a7487f21a27f.pack",
+      "bytes": 607663,
+      "sha256": "7cae51a9ae9be5fc7b3886999579494b24cd6815e667177b182fac276e5630b1"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/objects/pack/pack-9a3a32988cbb037f5c4421168a26a7487f21a27f.rev",
+      "bytes": 1600,
+      "sha256": "19c218e017caca72c384daade01f02d2da3f7f07ed8a95b869ee6f8be184b89e"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/packed-refs",
+      "bytes": 104,
+      "sha256": "b51afc41ea13572d8ef24ffc67a31e80fff147fbd53c280a4f9aad7ba2233bd6"
+    },
+    {
+      "path": "cache/repositories/swift-certificates-b091bbdc/shallow",
+      "bytes": 41,
+      "sha256": "7f37d09c250ce5c0902052791f81a1fe80170e67141ab769f7d4723c5d73caa6"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/HEAD",
+      "bytes": 41,
+      "sha256": "bdb2fae75936ab731e38d6db2726664e829144bbaeb250bdfca82f017884b5e0"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/config",
+      "bytes": 183,
+      "sha256": "e6eaef0ae023b90b3cdc775142f65192203585d194465e85450088ee5770e110"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/objects/pack/pack-fa7f26d00a4f67a6c8ebe4eb36c34a44abc9a8ad.idx",
+      "bytes": 30024,
+      "sha256": "260d7ed9303446a6ef55c11b14d0f01fded742c335f219965cbe23b8f9060549"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/objects/pack/pack-fa7f26d00a4f67a6c8ebe4eb36c34a44abc9a8ad.pack",
+      "bytes": 6206813,
+      "sha256": "3273db06b4285a93e4cad174ccf0753d01fadcb0b83c97baa49816e1221e1d1b"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/objects/pack/pack-fa7f26d00a4f67a6c8ebe4eb36c34a44abc9a8ad.rev",
+      "bytes": 4188,
+      "sha256": "b6e32db3c0c393d013e3ccda94d5f70584443aed3d90170faf09ed3bfa9b6747"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/packed-refs",
+      "bytes": 103,
+      "sha256": "5fde5c75c11ad722686941ef5105c68bb8263136b3db24decb524bbba0896080"
+    },
+    {
+      "path": "cache/repositories/swift-collections-9a58d5cf/shallow",
+      "bytes": 41,
+      "sha256": "bdb2fae75936ab731e38d6db2726664e829144bbaeb250bdfca82f017884b5e0"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/HEAD",
+      "bytes": 41,
+      "sha256": "07cd9c553bb80535a31a9db86fa025466416f44fd5ba7fe390b15f1f77d9bc51"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/config",
+      "bytes": 185,
+      "sha256": "4aba51dd0bd871ede8d361ce6e206491773e10605e0809b247962a69580ab4aa"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/objects/pack/pack-75a06fb248e64c3a2254bd5ef154768256d77ea0.idx",
+      "bytes": 9360,
+      "sha256": "c6bfc11b3831867bf5fb1ed62bfbc7aa6a4b32ead336de11d6460a966f1fab78"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/objects/pack/pack-75a06fb248e64c3a2254bd5ef154768256d77ea0.pack",
+      "bytes": 299355,
+      "sha256": "36ba95ea5a269f7d2cc951391af7e03922e7f0229c69eeaf78c5e5f0a4d4a9a4"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/objects/pack/pack-75a06fb248e64c3a2254bd5ef154768256d77ea0.rev",
+      "bytes": 1236,
+      "sha256": "a0f9702ac4c8e313715942a12d5a424fae52675da0ee95d43f2af91f50d32c3d"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/packed-refs",
+      "bytes": 103,
+      "sha256": "5fc762f52892ccf6d895b61fdedb6f4ec2eeeca8c6c412a6b79cee9fd921ec7a"
+    },
+    {
+      "path": "cache/repositories/swift-configuration-80a4e428/shallow",
+      "bytes": 41,
+      "sha256": "07cd9c553bb80535a31a9db86fa025466416f44fd5ba7fe390b15f1f77d9bc51"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/HEAD",
+      "bytes": 41,
+      "sha256": "6c624ea37fd9e5091fe2a6671daa7074aa30b849f28a856c9a900066143a2eb3"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/config",
+      "bytes": 178,
+      "sha256": "2e96180ca3b3b5e78492780c6b6a834abd2c9efcee67eebccbe2f98feec4de5d"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/objects/pack/pack-7753d1946842c20a764234f068d099f0676ae625.idx",
+      "bytes": 35848,
+      "sha256": "a9934ba5c0af2d2b6e0b4618f323141bb101bd6670d8d8f1c289acc85920f39e"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/objects/pack/pack-7753d1946842c20a764234f068d099f0676ae625.pack",
+      "bytes": 10310897,
+      "sha256": "6c3aa68fa8c2f19bfd3d5ef2e332caff40c64acf925ac1e51ca51350dc399f48"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/objects/pack/pack-7753d1946842c20a764234f068d099f0676ae625.rev",
+      "bytes": 5020,
+      "sha256": "a7ab6a453321dd06e0c8c38260983afc012707e0ebb0d4233e25f37ae1f6c4bd"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/packed-refs",
+      "bytes": 103,
+      "sha256": "f3ad9c3ecf5ba53acd853ebe902f53f4159055e2cb5542160aad75bbe99bdd2f"
+    },
+    {
+      "path": "cache/repositories/swift-crypto-7e0614ea/shallow",
+      "bytes": 41,
+      "sha256": "6c624ea37fd9e5091fe2a6671daa7074aa30b849f28a856c9a900066143a2eb3"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/HEAD",
+      "bytes": 41,
+      "sha256": "cfb3276e5975789003f25a7ad9f4e86ae30fde3be5cd03710b0cf3dd3991e55d"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/config",
+      "bytes": 191,
+      "sha256": "b059175255c17b4eca4b2094ddeaaeb48232b79555790731093cfb02aefe5336"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/objects/pack/pack-d243bc6407d8e52c9623a1349b8a225dbd2c3cb7.idx",
+      "bytes": 5664,
+      "sha256": "5f94eef9e96b1a83aa8bb2117000d989ce127940a8f77a440d3f15b8c5827b35"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/objects/pack/pack-d243bc6407d8e52c9623a1349b8a225dbd2c3cb7.pack",
+      "bytes": 1107133,
+      "sha256": "389090fd943bb5055de0ab9ee353bb4a42d27a7828d4c24ac264e5193cdd5d52"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/objects/pack/pack-d243bc6407d8e52c9623a1349b8a225dbd2c3cb7.rev",
+      "bytes": 708,
+      "sha256": "365894f63e66f8c3247908e6ac004edbed3c23c2eaa5d6e164d2ca7e283bcdc3"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/packed-refs",
+      "bytes": 103,
+      "sha256": "baa925b6fe55cfbd73a9f0b3e9fba4e40ebd8cc2afa2d21bf51430cbbee3e337"
+    },
+    {
+      "path": "cache/repositories/swift-distributed-tracing-85e5637e/shallow",
+      "bytes": 41,
+      "sha256": "cfb3276e5975789003f25a7ad9f4e86ae30fde3be5cd03710b0cf3dd3991e55d"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/HEAD",
+      "bytes": 41,
+      "sha256": "abe0e14fa65fa448a4c334ec052d2ad3fd4aee12eab37f78885b8c3241a3556f"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/config",
+      "bytes": 195,
+      "sha256": "4a6e0fe4f45787b53efa3bbad4a013a1465a3d3e2260144d369aeebea70320ae"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/objects/pack/pack-10bd15cd4c8982ddfc1c2f16d2982c148b4db7d7.idx",
+      "bytes": 3480,
+      "sha256": "6fad00ee2ec47cef453df9c81a896ddd839fe9d325ad995dc3a8ccbf469ddbc4"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/objects/pack/pack-10bd15cd4c8982ddfc1c2f16d2982c148b4db7d7.pack",
+      "bytes": 107641,
+      "sha256": "c9509b59e3ab65abb2fc0196f2bf9559ae1580e2215a6169cc0455cc992a1d75"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/objects/pack/pack-10bd15cd4c8982ddfc1c2f16d2982c148b4db7d7.rev",
+      "bytes": 396,
+      "sha256": "e645cf0b40ae5212444ca29390f4c7059a698150ca01242a6c294170d4f370d8"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/packed-refs",
+      "bytes": 103,
+      "sha256": "924ebdaf1c3d2651c51c595105294830c99e827ca891108e13418ec56a62f29b"
+    },
+    {
+      "path": "cache/repositories/swift-http-structured-headers-efdd7ab3/shallow",
+      "bytes": 41,
+      "sha256": "abe0e14fa65fa448a4c334ec052d2ad3fd4aee12eab37f78885b8c3241a3556f"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/HEAD",
+      "bytes": 41,
+      "sha256": "3217c7fc5f8f8cdcd4b4274c1009c4129c9ea1931d28c430540ec7f7fe7cceca"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/config",
+      "bytes": 182,
+      "sha256": "c475de063b4490cea8dc21f9b053a97f68c69dcd656140c4740600878ea97f5e"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/objects/pack/pack-8baed2076e036dba6012149ed454032160b5a4fe.idx",
+      "bytes": 3648,
+      "sha256": "27da9c8cb0a42e752d931c332b54695dd4c60480eaca9664eda40ba6bba03143"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/objects/pack/pack-8baed2076e036dba6012149ed454032160b5a4fe.pack",
+      "bytes": 71794,
+      "sha256": "cb3aac471ea595515dd3d35fbdf2a417094ccef6029afe8cdd3f59e057dea737"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/objects/pack/pack-8baed2076e036dba6012149ed454032160b5a4fe.rev",
+      "bytes": 420,
+      "sha256": "1f59d5863a5978753af8690f1b268fa155082ea7d6fee12a041ca798dbf84c29"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/packed-refs",
+      "bytes": 103,
+      "sha256": "c660064d89e2423236d1924e478509a0b8af3500485f666f5ecff0397bb79917"
+    },
+    {
+      "path": "cache/repositories/swift-http-types-ddff8b60/shallow",
+      "bytes": 41,
+      "sha256": "3217c7fc5f8f8cdcd4b4274c1009c4129c9ea1931d28c430540ec7f7fe7cceca"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/HEAD",
+      "bytes": 41,
+      "sha256": "31863c5e311a8442d4f74f720fbbab40b63c71f110ab6377f221dc2611dabb30"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/config",
+      "bytes": 175,
+      "sha256": "591b14b40f0c9265b7f64b08dd3d2d28cf0bc656ae886aa9f0790c8f72d69130"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/objects/pack/pack-3ad60e2cb27b639903e0d686bfd6e9893892a73d.idx",
+      "bytes": 5916,
+      "sha256": "81bdceaf5b0345724d2af50f2d27637e1a37a60ce91e4814186616671204867a"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/objects/pack/pack-3ad60e2cb27b639903e0d686bfd6e9893892a73d.pack",
+      "bytes": 146674,
+      "sha256": "76ffe925984297f48e12ee0fbf8cf53d5f7f53d4b517dede6c22aed4bd9c14b5"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/objects/pack/pack-3ad60e2cb27b639903e0d686bfd6e9893892a73d.rev",
+      "bytes": 744,
+      "sha256": "41da983b7c7c6469942f7dd402d193dfb06fafb4d8b30e7ae2ca7429f6cfd03e"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/packed-refs",
+      "bytes": 104,
+      "sha256": "08da70cc4973419bea1fac874248490b19f45ce609133a4f1d80abfa9743adfd"
+    },
+    {
+      "path": "cache/repositories/swift-log-ba8887eb/shallow",
+      "bytes": 41,
+      "sha256": "31863c5e311a8442d4f74f720fbbab40b63c71f110ab6377f221dc2611dabb30"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/HEAD",
+      "bytes": 41,
+      "sha256": "c21c6401ae86102e948e997881de3307e92ff2fb6896e3bcdf8bf98ce90d25ec"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/config",
+      "bytes": 179,
+      "sha256": "e01d7125cc946758bb1ff72191e0aeee58f7528d9bf8d8c25ebe8e8af54c20b8"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/objects/pack/pack-5e4bc38e406b6626880227ac14814b6e10f5288c.idx",
+      "bytes": 3424,
+      "sha256": "b2ec8ba182ebaeba70fb3f1c5ce501d9eb0b34b7359837afed983f9c09d204a3"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/objects/pack/pack-5e4bc38e406b6626880227ac14814b6e10f5288c.pack",
+      "bytes": 83619,
+      "sha256": "3b251ff140c3673d48df0d6d29bc2b3a497449f48d395867d3359ee7985a2e1b"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/objects/pack/pack-5e4bc38e406b6626880227ac14814b6e10f5288c.rev",
+      "bytes": 388,
+      "sha256": "b656c527eb4b31f3ffe4b07b8fb913a80eae3c2bc55127bc8a84b362e452b644"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/packed-refs",
+      "bytes": 104,
+      "sha256": "45e4ebe14172f53ecc11c9003ff7426ce6cc4c49d0295acb2b01f579f83565fb"
+    },
+    {
+      "path": "cache/repositories/swift-metrics-cea9cd4a/shallow",
+      "bytes": 41,
+      "sha256": "c21c6401ae86102e948e997881de3307e92ff2fb6896e3bcdf8bf98ce90d25ec"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/HEAD",
+      "bytes": 41,
+      "sha256": "e499f08fedf0df2f7f80fd2c916201499297617f1ff6700a881e54a9bbca9389"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/config",
+      "bytes": 175,
+      "sha256": "143aa24386cbdb41fd17ed55b369988d13038c962565e38795640fa4c09cf2b0"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/objects/pack/pack-785b511f0415daedbcb22f553a4b9b277759b42a.idx",
+      "bytes": 26020,
+      "sha256": "25245316b3b6820172cf018a0c5bdd8bd624d1166c3abc9d74d9c837de3ae1f9"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/objects/pack/pack-785b511f0415daedbcb22f553a4b9b277759b42a.pack",
+      "bytes": 1629553,
+      "sha256": "2225f7480e63cce374f554298eadcfdb81dcc6287d19f243a7e5bf713cac6558"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/objects/pack/pack-785b511f0415daedbcb22f553a4b9b277759b42a.rev",
+      "bytes": 3616,
+      "sha256": "3e576ccd58e5abede92ec0cfe5963bebd4711334239cbdae4087e2e7212018be"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/packed-refs",
+      "bytes": 105,
+      "sha256": "ca954c3d301981534e62759cc1f5679d86b4f5a57287de425c25c0a1d34f6450"
+    },
+    {
+      "path": "cache/repositories/swift-nio-a9bb6d62/shallow",
+      "bytes": 41,
+      "sha256": "e499f08fedf0df2f7f80fd2c916201499297617f1ff6700a881e54a9bbca9389"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/HEAD",
+      "bytes": 41,
+      "sha256": "a57121ad0ead84a829edee4064ee77745cc444d81dc7290fbe92a47ce965ee57"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/config",
+      "bytes": 182,
+      "sha256": "d88a1fb67e104d77b82b91cc80921100d383456b9a814e46a5b6eb5dff0a8037"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/objects/pack/pack-d7090545c2332de113430afd4e127f7e800fbcac.idx",
+      "bytes": 7288,
+      "sha256": "2f490d17ea9cdc374e6db451720a2154c3ddb62da1573776a1fe6aaf0e2cdb5c"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/objects/pack/pack-d7090545c2332de113430afd4e127f7e800fbcac.pack",
+      "bytes": 590568,
+      "sha256": "d43b94c0269ac4b6b8ae3b7b5ade445621b6beda1a263cec14411c41bd8c4ce5"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/objects/pack/pack-d7090545c2332de113430afd4e127f7e800fbcac.rev",
+      "bytes": 940,
+      "sha256": "f1c4dda6861a449e2a55607efeb4f1ae44a8633f7ab034550649b3dc4eaf3c9a"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/packed-refs",
+      "bytes": 104,
+      "sha256": "b6db56d4314db9e2647df52601c2a36310ce5f30846c1307d4b1e572d1229c7e"
+    },
+    {
+      "path": "cache/repositories/swift-nio-extras-ee9c8e34/shallow",
+      "bytes": 41,
+      "sha256": "a57121ad0ead84a829edee4064ee77745cc444d81dc7290fbe92a47ce965ee57"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/HEAD",
+      "bytes": 41,
+      "sha256": "9ec66754c7947dc010a539bea2c5298dcedddc5afb9b5e8b860caf97ba23ac14"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/config",
+      "bytes": 181,
+      "sha256": "e831854f3604b1919ad52a174c27667524110401faac047772ce372f52893673"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/objects/pack/pack-8cf27cb87264ccd3fbe338c5aefea51e2c0b753d.idx",
+      "bytes": 19048,
+      "sha256": "38bd7cb2366b1de8de701dabf63acbbac7b9c8a29a85901fa4ad2ff8d06ddc17"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/objects/pack/pack-8cf27cb87264ccd3fbe338c5aefea51e2c0b753d.pack",
+      "bytes": 2655045,
+      "sha256": "bcbd79d49ac6aeee9064fbb526a28494536c58e13a5f3982d26e2c9cce982120"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/objects/pack/pack-8cf27cb87264ccd3fbe338c5aefea51e2c0b753d.rev",
+      "bytes": 2620,
+      "sha256": "2e9b4063aff18f0bcaaef6d59bbc15234bb6f22f1e0b58dbd4f0e1c6f484d5e0"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/packed-refs",
+      "bytes": 104,
+      "sha256": "b135f48edcaf0ca80aaaf28f1388c3f7a02de39d2eb44b9a7e3b9410af311533"
+    },
+    {
+      "path": "cache/repositories/swift-nio-http2-440d95c6/shallow",
+      "bytes": 41,
+      "sha256": "9ec66754c7947dc010a539bea2c5298dcedddc5afb9b5e8b860caf97ba23ac14"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/HEAD",
+      "bytes": 41,
+      "sha256": "b37d50ab3e0dfc44e390988dec742be8e6695d96bdc42d47beb2f85e5ab73591"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/config",
+      "bytes": 179,
+      "sha256": "e3cc2037e908120f27be256c8d087b3ff54ff4242f0893cd9ec27b0b9f01e4c0"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/objects/pack/pack-ee87f9a49f9f37c8b41991afe15ca348058d3650.idx",
+      "bytes": 26356,
+      "sha256": "9a8350e58318c3ed04833297e5028e4944ef15b1d2fe63390cc73ba33a1fc2de"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/objects/pack/pack-ee87f9a49f9f37c8b41991afe15ca348058d3650.pack",
+      "bytes": 3348592,
+      "sha256": "cd666800cc92660b6d84fa30fe63be1523aed1e6403f091a2ef0f5f693888b31"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/objects/pack/pack-ee87f9a49f9f37c8b41991afe15ca348058d3650.rev",
+      "bytes": 3664,
+      "sha256": "6f7ac90f11fc733510d24f7a0f2f62629b866f3d8ba51cb7c518cc73cf9a6622"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/packed-refs",
+      "bytes": 104,
+      "sha256": "004faaa1b6a5c24ed1c44aab9ee942a921ae4d77680ec36b40ba8a7b49005127"
+    },
+    {
+      "path": "cache/repositories/swift-nio-ssl-3eddd832/shallow",
+      "bytes": 41,
+      "sha256": "b37d50ab3e0dfc44e390988dec742be8e6695d96bdc42d47beb2f85e5ab73591"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/HEAD",
+      "bytes": 41,
+      "sha256": "9c3e11817220c5bf2c3d2e7aa51107ed80e7c35bde58a5021cca3886751b1e5c"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/config",
+      "bytes": 194,
+      "sha256": "182388ddbaa2eb27c8b7525702ad9871dd0bde1da832269aa863d3e6c506333c"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/objects/pack/pack-b50c3367098066c0016313bcb010f068eed8155c.idx",
+      "bytes": 3172,
+      "sha256": "cd022156f5dcc9e611b948a4203c73f596f0b9949c79effa638a817174383070"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/objects/pack/pack-b50c3367098066c0016313bcb010f068eed8155c.pack",
+      "bytes": 104877,
+      "sha256": "9be72d70855e9a8b5518a0a594e659b5dfcab87dbe7972b61d38f20ed10ef755"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/objects/pack/pack-b50c3367098066c0016313bcb010f068eed8155c.rev",
+      "bytes": 352,
+      "sha256": "a1469d21289a32b60ff3b1d2d1df31695a9ff2bf09c33db07ecdf4fdcf5c4cbe"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/packed-refs",
+      "bytes": 104,
+      "sha256": "93c4c33a21723df8e43accc3bdc8bf2f026e7cfd44ba7110e768dc9e120061d1"
+    },
+    {
+      "path": "cache/repositories/swift-nio-transport-services-195621bb/shallow",
+      "bytes": 41,
+      "sha256": "9c3e11817220c5bf2c3d2e7aa51107ed80e7c35bde58a5021cca3886751b1e5c"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/HEAD",
+      "bytes": 41,
+      "sha256": "e53fc2cfb269ce383cbe0ce4b2c3165f27350a2a9af5ee0d1102826e04ed2a00"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/config",
+      "bytes": 177,
+      "sha256": "bfddf2717fa1a8873fbc91da8f33bcd2244e1690bbd3005137406cca24d21d16"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/objects/pack/pack-005b2dd40512bf70d1738e4f72871adb7f36cf84.idx",
+      "bytes": 1632,
+      "sha256": "2ad95bb380db63fe0c21bf160a67a44409d2db1b0f32d3dcec89266cdde21973"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/objects/pack/pack-005b2dd40512bf70d1738e4f72871adb7f36cf84.pack",
+      "bytes": 10755,
+      "sha256": "afd7fd1004d7e6e59738cec49240595930e38fd916d0b1301ceffdcaa316962f"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/objects/pack/pack-005b2dd40512bf70d1738e4f72871adb7f36cf84.rev",
+      "bytes": 132,
+      "sha256": "b4fac916eaa2b796afbc04c3f5d66321e8e728ab152645ed23cf4bac21df0a32"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/packed-refs",
+      "bytes": 104,
+      "sha256": "febc7bca7f9b573330c75b67ef421c465654908457709a07ae1c8f75b6b082a6"
+    },
+    {
+      "path": "cache/repositories/swift-nuid-4827bb4d/shallow",
+      "bytes": 41,
+      "sha256": "e53fc2cfb269ce383cbe0ce4b2c3165f27350a2a9af5ee0d1102826e04ed2a00"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/HEAD",
+      "bytes": 41,
+      "sha256": "d462f34670b57c60523a9c4c568ee8e93491b80b52d09d042276f901e408fed4"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/config",
+      "bytes": 180,
+      "sha256": "936cac8e1e5d4ea2bf22652067b09f4c981f5c83c0e32d736e043ac11657ec36"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/objects/pack/pack-e7536c9da3d58ad4c72bf5d74d90aa2c94719d68.idx",
+      "bytes": 3536,
+      "sha256": "5ab83355cf8bbc4348d484c134ee296f49f9fe46ebde5bf7e1703db3ebe143f1"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/objects/pack/pack-e7536c9da3d58ad4c72bf5d74d90aa2c94719d68.pack",
+      "bytes": 93667,
+      "sha256": "81a717f8a6216e808c7b41fb93558eecd74cee2d80625d0a8001ca7d64d5b278"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/objects/pack/pack-e7536c9da3d58ad4c72bf5d74d90aa2c94719d68.rev",
+      "bytes": 404,
+      "sha256": "21dee0c5d40095056fe774b76911b50c26dc9f5b062a9d17e9494c19aac688e4"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/packed-refs",
+      "bytes": 103,
+      "sha256": "e327a4f5483b332ec2f8a2a67c5a9b8644b5bb8f05264de4ecf746c90341cfe6"
+    },
+    {
+      "path": "cache/repositories/swift-numerics-d936ec6c/shallow",
+      "bytes": 41,
+      "sha256": "d462f34670b57c60523a9c4c568ee8e93491b80b52d09d042276f901e408fed4"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/HEAD",
+      "bytes": 41,
+      "sha256": "9dee5510a53f48ec9da294bdc38ae56f229a49a4b45a205fd5df2855480a9b7d"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/config",
+      "bytes": 187,
+      "sha256": "e9485b3b7b8ea6d1810413734a30bb51012a5062224c98c67dfaf8b52c8ba53d"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/objects/pack/pack-7b3d7bd21676f1e73de49f84624869d1a1201f3b.idx",
+      "bytes": 2444,
+      "sha256": "d356b970748c815823d132bbf1c22e1dd400bf90907b1abb7fc09607053fa676"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/objects/pack/pack-7b3d7bd21676f1e73de49f84624869d1a1201f3b.pack",
+      "bytes": 20042,
+      "sha256": "eccc4e6bb61a031e7b99cc1f8364b600a6cdceb9c1cd051acdc8dc3cdc4bfba3"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/objects/pack/pack-7b3d7bd21676f1e73de49f84624869d1a1201f3b.rev",
+      "bytes": 248,
+      "sha256": "981d40ec18801acb554dabe7891d35cd91f1a78ebabf758169a2c24b69039839"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/packed-refs",
+      "bytes": 103,
+      "sha256": "b3c46deb175766366afcfc49a36201fc5ef094f45bd975d9203f16711e4c4c44"
+    },
+    {
+      "path": "cache/repositories/swift-service-context-29630b35/shallow",
+      "bytes": 41,
+      "sha256": "9dee5510a53f48ec9da294bdc38ae56f229a49a4b45a205fd5df2855480a9b7d"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/HEAD",
+      "bytes": 41,
+      "sha256": "a428b79552d7bd979654842c4c4db683258ca626e47aae21c674a192fcbda688"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/config",
+      "bytes": 196,
+      "sha256": "80153794868433deed5f0e4dd442ecfb636202d0ea0a26201a99aeb225ed662f"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/objects/pack/pack-154ac76f965f2993a97220e2901bc54641841e9c.idx",
+      "bytes": 2920,
+      "sha256": "7df5415b211530197ab3bd422adea14e862a95ad0ec1f639091ee195820b3b1d"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/objects/pack/pack-154ac76f965f2993a97220e2901bc54641841e9c.pack",
+      "bytes": 60471,
+      "sha256": "7f035d53b0eb3fbf455f4cdf096ba89875e9443b9baa546b8e2163590f54c75d"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/objects/pack/pack-154ac76f965f2993a97220e2901bc54641841e9c.rev",
+      "bytes": 316,
+      "sha256": "40a14e7e28bb817d3f57cdb7fe4819e11f88dc5829cf23e925446e3b0cd0d9cb"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/packed-refs",
+      "bytes": 104,
+      "sha256": "317afe8b3becc194a3a067d39d72c0a22d3efb34397a53c9db7d865ef19c03a8"
+    },
+    {
+      "path": "cache/repositories/swift-service-lifecycle-0ea726b6/shallow",
+      "bytes": 41,
+      "sha256": "a428b79552d7bd979654842c4c4db683258ca626e47aae21c674a192fcbda688"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/HEAD",
+      "bytes": 41,
+      "sha256": "94119304e79498f65ef6f12ccaa95675e6f1807fc6028866de9e3c886f6bdebb"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/config",
+      "bytes": 181,
+      "sha256": "1e88f3f15d9d3e8089d5f044b29db62fb83a14ce2be01a9190442d5bdea8e96f"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/objects/pack/pack-4c5b882d1582d3a70848d5f6d2e61b67d7c4b770.idx",
+      "bytes": 7232,
+      "sha256": "3f7ae2e95524e070513e7c04a8e72aa64271e79c44675b0ebeb90daadbad35c9"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/objects/pack/pack-4c5b882d1582d3a70848d5f6d2e61b67d7c4b770.pack",
+      "bytes": 2073423,
+      "sha256": "51fd638e550e354b6f1f26d9d25a5869cf548c47696f3d8264fdd9719850c39c"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/objects/pack/pack-4c5b882d1582d3a70848d5f6d2e61b67d7c4b770.rev",
+      "bytes": 932,
+      "sha256": "e39273f5fc7f79048b4cb0830f1bf04fcdaaae9d3dcba6ef6023ae998f96a85d"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/packed-refs",
+      "bytes": 146,
+      "sha256": "c528fc5af754ad94df3132964a1b6fa4de626638ddee32e00f647c24d1dbb0f5"
+    },
+    {
+      "path": "cache/repositories/swift-sodium-f6dc96ef/shallow",
+      "bytes": 41,
+      "sha256": "94119304e79498f65ef6f12ccaa95675e6f1807fc6028866de9e3c886f6bdebb"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/HEAD",
+      "bytes": 41,
+      "sha256": "5d1075aa56c1e0a498095fdc227a7814ad0b95edd3faf56bb2c1110a87ccd409"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/config",
+      "bytes": 178,
+      "sha256": "6c0f909efbed4baa64a4dd4190d8acbf84caea97d328468648978d326b6b0c2f"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/description",
+      "bytes": 73,
+      "sha256": "85ab6c163d43a17ea9cf7788308bca1466f1b0a8d1cc92e26e9bf63da4062aee"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/applypatch-msg.sample",
+      "bytes": 478,
+      "sha256": "0223497a0b8b033aa58a3a521b8629869386cf7ab0e2f101963d328aa62193f7"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/commit-msg.sample",
+      "bytes": 1972,
+      "sha256": "efc1401b0e99d1ff51494d154d98b46c1e99059bcd8bf9f73cecde19fd3eb23b"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/fsmonitor-watchman.sample",
+      "bytes": 4611,
+      "sha256": "9159720099ad5595b8e66645cbfd47763c1e920f46e0b50ae75e642bbec57ef0"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/post-update.sample",
+      "bytes": 189,
+      "sha256": "81765af2daef323061dcbc5e61fc16481cb74b3bac9ad8a174b186523586f6c5"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/pre-applypatch.sample",
+      "bytes": 424,
+      "sha256": "e15c5b469ea3e0a695bea6f2c82bcf8e62821074939ddd85b77e0007ff165475"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/pre-commit.sample",
+      "bytes": 1649,
+      "sha256": "57185b7b9f05239d7ab52db045f5b89eb31348d7b2177eab214f5eb872e1971b"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/pre-merge-commit.sample",
+      "bytes": 416,
+      "sha256": "d3825a70337940ebbd0a5c072984e13245920cdf8898bd225c8d27a6dfc9cb53"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/pre-push.sample",
+      "bytes": 1374,
+      "sha256": "ecce9c7e04d3f5dd9d8ada81753dd1d549a9634b26770042b58dda00217d086a"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/pre-rebase.sample",
+      "bytes": 4898,
+      "sha256": "4febce867790052338076f4e66cc47efb14879d18097d1d61c8261859eaaa7b3"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/pre-receive.sample",
+      "bytes": 544,
+      "sha256": "a4c3d2b9c7bb3fd8d1441c31bd4ee71a595d66b44fcf49ddb310252320169989"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/prepare-commit-msg.sample",
+      "bytes": 1492,
+      "sha256": "e9ddcaa4189fddd25ed97fc8c789eca7b6ca16390b2392ae3276f0c8e1aa4619"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/push-to-checkout.sample",
+      "bytes": 2783,
+      "sha256": "a53d0741798b287c6dd7afa64aee473f305e65d3f49463bb9d7408ec3b12bf5f"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/sendemail-validate.sample",
+      "bytes": 2308,
+      "sha256": "44ebfc923dc5466bc009602f0ecf067b9c65459abfe8868ddc49b78e6ced7a92"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/hooks/update.sample",
+      "bytes": 3650,
+      "sha256": "8d5f2fa83e103cf08b57eaa67521df9194f45cbdbcb37da52ad586097a14d106"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/info/exclude",
+      "bytes": 240,
+      "sha256": "6671fe83b7a07c8932ee89164d1f2793b2318058eb8b98dc5c06ee0a5a3b0ec1"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/objects/pack/pack-1b8ae0f8f644f84c7a50bbc45d4cb923738b107b.idx",
+      "bytes": 4404,
+      "sha256": "b6130ed3b5b01c7e67c0e89d17f269aa0cae522bacf3297e418a12d3df3c13e0"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/objects/pack/pack-1b8ae0f8f644f84c7a50bbc45d4cb923738b107b.pack",
+      "bytes": 185212,
+      "sha256": "57b8272415c3e0c514cebd501628244615537b10d57b417c463c0b4f8ec74dc6"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/objects/pack/pack-1b8ae0f8f644f84c7a50bbc45d4cb923738b107b.rev",
+      "bytes": 528,
+      "sha256": "93ad72577fd57ec76dbc56c99866e386d9ccaed89fca1339bc65ec0eb3abaa6b"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/packed-refs",
+      "bytes": 103,
+      "sha256": "f85ab6feca04d28f2926a4dada402fedce69520b15f7804ef9af8023619fdaa3"
+    },
+    {
+      "path": "cache/repositories/swift-system-5815d4b7/shallow",
+      "bytes": 41,
+      "sha256": "5d1075aa56c1e0a498095fdc227a7814ad0b95edd3faf56bb2c1110a87ccd409"
+    },
+    {
+      "path": "licenses/AppAuth-iOS-8fae7662.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/BSON-34ff900c.txt",
+      "bytes": 1084,
+      "sha256": "1ccca906641aae71e75ed3248d81981579715de6ae569422e4a7e93f6881a3c6"
+    },
+    {
+      "path": "licenses/Base32-b9e972ce.txt",
+      "bytes": 1079,
+      "sha256": "052f87959abbba71e73e1a133ca1fc2f94d169a94d2c54c4bd608f9323d11fb6"
+    },
+    {
+      "path": "licenses/DNSClient-fb208a96.txt",
+      "bytes": 1081,
+      "sha256": "db58da09f9db63cd0315793eeaf02f1881e00910cb4e6eb5d549556e8413786e"
+    },
+    {
+      "path": "licenses/MongoKitten-01dad7e0.txt",
+      "bytes": 1084,
+      "sha256": "0e8887c5d34f0b5c0038342029eeaf0c9df1239fb5fb8eeaf5d3fbde15f8f71d"
+    },
+    {
+      "path": "licenses/RediStack-ac8d1b49.txt",
+      "bytes": 11361,
+      "sha256": "f9946796a8a5bd5981565142fa42e3b0cc36aef6f80e86beaf5905b3c0fef1b5"
+    },
+    {
+      "path": "licenses/async-http-client-afefb790.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/bunny-swift-d94040a5.txt",
+      "bytes": 10776,
+      "sha256": "daa1ceb76cbebe6a2b27281b62b0bf872ab3359b89bebce5e62c56ff6ec845cc"
+    },
+    {
+      "path": "licenses/jmespath.swift-470bb8e5.txt",
+      "bytes": 11341,
+      "sha256": "87bc2763399c06ad2f058e05173046bd9db2c5b87a123b37e9b8dee288d9e797"
+    },
+    {
+      "path": "licenses/meilisearch-swift-d0afe89e.txt",
+      "bytes": 1109,
+      "sha256": "646e6bc13b5f2da571746af52bc875498759d3c323a7555030d928222e3ce58b"
+    },
+    {
+      "path": "licenses/mysql-nio-16955893.txt",
+      "bytes": 1070,
+      "sha256": "ad6fc9c3139bfbe3d08220849974817197cdb7453dc9ce1c679fcc5acb7fc216"
+    },
+    {
+      "path": "licenses/nats.swift-ddff9845.txt",
+      "bytes": 11346,
+      "sha256": "41ca691a950d59425cd1de0f3082e120f1b6f3d6442ad832c70e7107c109d749"
+    },
+    {
+      "path": "licenses/nkeys.swift-bf649255.txt",
+      "bytes": 11346,
+      "sha256": "41ca691a950d59425cd1de0f3082e120f1b6f3d6442ad832c70e7107c109d749"
+    },
+    {
+      "path": "licenses/postgres-nio-934462e6.txt",
+      "bytes": 1070,
+      "sha256": "306aaf598da31a66f6aa3c1cac42e197e5bdd3004da0244abd1bde1bbea6d318"
+    },
+    {
+      "path": "licenses/soto-core-0b9495a7.txt",
+      "bytes": 11342,
+      "sha256": "c6076edfc0f7f226468c6e835c1ec5f76f62b58eac1915b9f9634ac0e16be5d5"
+    },
+    {
+      "path": "licenses/soto-d3fb4bb9.txt",
+      "bytes": 11343,
+      "sha256": "24c3dfb62caf15d7fdcb15c0ed3aef2bd1b39986e95b4aa7a3fb098c1f736723"
+    },
+    {
+      "path": "licenses/swift-algorithms-bf5a01cd.txt",
+      "bytes": 11751,
+      "sha256": "770af8291f708538d8ff885a0bbc4e045cd700531741c4f99528d435c14d7f55"
+    },
+    {
+      "path": "licenses/swift-asn1-7065ad2c.txt",
+      "bytes": 11359,
+      "sha256": "8c6db340475136df3c1201d458fa5755698eace76e510471ecc9d857d6083dac"
+    },
+    {
+      "path": "licenses/swift-async-algorithms-c3a8d752.txt",
+      "bytes": 11751,
+      "sha256": "770af8291f708538d8ff885a0bbc4e045cd700531741c4f99528d435c14d7f55"
+    },
+    {
+      "path": "licenses/swift-atomics-7429e549.txt",
+      "bytes": 11751,
+      "sha256": "770af8291f708538d8ff885a0bbc4e045cd700531741c4f99528d435c14d7f55"
+    },
+    {
+      "path": "licenses/swift-certificates-b091bbdc.txt",
+      "bytes": 11359,
+      "sha256": "8c6db340475136df3c1201d458fa5755698eace76e510471ecc9d857d6083dac"
+    },
+    {
+      "path": "licenses/swift-collections-9a58d5cf.txt",
+      "bytes": 11751,
+      "sha256": "770af8291f708538d8ff885a0bbc4e045cd700531741c4f99528d435c14d7f55"
+    },
+    {
+      "path": "licenses/swift-configuration-80a4e428.txt",
+      "bytes": 11359,
+      "sha256": "8c6db340475136df3c1201d458fa5755698eace76e510471ecc9d857d6083dac"
+    },
+    {
+      "path": "licenses/swift-crypto-7e0614ea.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-distributed-tracing-85e5637e.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-http-structured-headers-efdd7ab3.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-http-types-ddff8b60.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-log-ba8887eb.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-metrics-cea9cd4a.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-nio-a9bb6d62.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-nio-extras-ee9c8e34.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-nio-http2-440d95c6.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-nio-ssl-3eddd832.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-nio-transport-services-195621bb.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-nuid-4827bb4d.txt",
+      "bytes": 11346,
+      "sha256": "41ca691a950d59425cd1de0f3082e120f1b6f3d6442ad832c70e7107c109d749"
+    },
+    {
+      "path": "licenses/swift-numerics-d936ec6c.txt",
+      "bytes": 11751,
+      "sha256": "770af8291f708538d8ff885a0bbc4e045cd700531741c4f99528d435c14d7f55"
+    },
+    {
+      "path": "licenses/swift-service-context-29630b35.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-service-lifecycle-0ea726b6.txt",
+      "bytes": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "path": "licenses/swift-sodium-f6dc96ef.txt",
+      "bytes": 773,
+      "sha256": "65bdb1ccfab986d20315fe5384c09c9eadabaa7128eac584e1daf6bc558346d3"
+    },
+    {
+      "path": "licenses/swift-system-5815d4b7.txt",
+      "bytes": 11750,
+      "sha256": "2245a990b635558be210fb3eb4f8a6f7a49aebc0fefbf5859146a65ddc7ddcf3"
+    }
+  ]
+}

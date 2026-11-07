@@ -13,6 +13,13 @@ type Output = (&'static str, Value);
 pub(super) enum Infra {
     #[command(about = "Browse the supported container images and exact releases")]
     Catalog,
+    #[command(about = "Show recommended optional client libraries for a project or runtime")]
+    Clients {
+        #[arg(value_hint = ValueHint::DirPath)]
+        path: Option<PathBuf>,
+        #[arg(long)]
+        stack: Option<String>,
+    },
     #[command(about = "Read cached image updates or explicitly check publishers online")]
     Updates {
         #[command(subcommand)]
@@ -84,6 +91,25 @@ pub(super) enum Infra {
         /// Override a published localhost port. Repeat for multiple ports.
         #[arg(long = "port", value_name = "SERVICE:PORT=HOST_PORT", value_parser = port)]
         ports: Vec<Port>,
+        /// Explicitly add a recommended runtime client and prepare its dependencies.
+        #[arg(long = "client", value_name = "STACK:SERVICE")]
+        clients: Vec<String>,
+    },
+    #[command(about = "Add services without changing existing pins, ports, credentials, or data")]
+    Add {
+        #[arg(default_value = ".", value_hint = ValueHint::DirPath)]
+        path: PathBuf,
+        /// Exact service release. Repeating an existing selection is safe.
+        #[arg(long = "service", value_name = "SERVICE@VERSION", value_parser = release, required_unless_present = "clients")]
+        services: Vec<String>,
+        /// Choose a localhost port for a newly added service.
+        #[arg(long = "port", value_name = "SERVICE:PORT=HOST_PORT", value_parser = port)]
+        ports: Vec<Port>,
+        /// Add only these explicitly selected client dependencies; repeat for more.
+        #[arg(long = "client", value_name = "STACK:SERVICE")]
+        clients: Vec<String>,
+        #[arg(long)]
+        background: bool,
     },
     #[command(
         visible_alias = "up",
@@ -110,6 +136,14 @@ pub(super) enum Infra {
     },
     #[command(about = "Show this project's generated local credentials explicitly")]
     Credentials {
+        #[arg(default_value = ".", value_hint = ValueHint::DirPath)]
+        path: PathBuf,
+    },
+    #[command(
+        about = "Print shell exports for local client connections (includes credentials)",
+        after_long_help = "Use eval \"$(devline infra env .)\" before running your app. Exports include DEVLINE_<SERVICE>_URL and supported .NET ConnectionStrings__ keys. Nothing is written to your project or shell automatically."
+    )]
+    Env {
         #[arg(default_value = ".", value_hint = ValueHint::DirPath)]
         path: PathBuf,
     },
@@ -253,6 +287,20 @@ pub(super) fn run(cli: &Cli, command: Option<&Infra>) -> Result<Output> {
             "infra-catalog",
             request(cli, json!({"command":"infra.catalog"}))?,
         )),
+        Some(Infra::Clients { path, stack }) => {
+            let path = if path.is_none() && stack.is_none() {
+                Some(std::env::current_dir()?)
+            } else {
+                path.clone()
+            };
+            Ok((
+                "infra-clients",
+                request(
+                    cli,
+                    json!({"command":"infra.clients","path":path,"stack":stack}),
+                )?,
+            ))
+        }
         Some(Infra::Updates { command }) => {
             let checking = matches!(command, Some(UpdateStatus::Check));
             if checking && cli.offline {
@@ -380,15 +428,45 @@ pub(super) fn run(cli: &Cli, command: Option<&Infra>) -> Result<Output> {
             path,
             services,
             ports,
+            clients,
         }) => {
             let overrides = port_overrides(ports)?;
             Ok((
                 "infra-configured",
                 request(
                     cli,
-                    json!({"command":"infra.stack.create","path":path,"services":services,"ports":overrides}),
+                    json!({"command":"infra.stack.create","path":path,"services":services,"ports":overrides,"clients":clients,"offline":cli.offline}),
                 )?,
             ))
+        }
+        Some(Infra::Add {
+            path,
+            services,
+            ports,
+            clients,
+            background,
+        }) => {
+            let overrides = port_overrides(ports)?;
+            if services.is_empty() {
+                if !overrides.is_empty() {
+                    bail!("Port overrides require a selected service.");
+                }
+                run_operation(
+                    cli,
+                    "infra-clients-added",
+                    "service_clients_add",
+                    *background,
+                    json!({"command":"service_clients.add","path":path,"clients":clients,"offline":cli.offline}),
+                )
+            } else {
+                run_operation(
+                    cli,
+                    "infra-configured",
+                    "infra_stack_add",
+                    *background,
+                    json!({"command":"infra.stack.add","path":path,"services":services,"ports":overrides,"clients":clients,"offline":cli.offline}),
+                )
+            }
         }
         Some(Infra::Run(job)) => run_operation(
             cli,
@@ -417,6 +495,7 @@ pub(super) fn run(cli: &Cli, command: Option<&Infra>) -> Result<Output> {
         Some(Infra::Credentials { path }) => {
             stack(cli, "infra-credentials", "infra.stack.credentials", path)
         }
+        Some(Infra::Env { path }) => stack(cli, "infra-env", "infra.stack.credentials", path),
     }
 }
 
@@ -583,6 +662,37 @@ fn render_stack(value: &Value) {
 
 pub(super) fn render(action: &str, value: &Value) {
     match action {
+        "infra-clients" => {
+            println!("Optional {} service clients", s(value, "stack"));
+            for service in items(value, "services") {
+                for library in items(service, "libraries") {
+                    let state = if library["installed"] == true {
+                        "Already included"
+                    } else if library["offline_available"] == true {
+                        "Available locally"
+                    } else {
+                        "Needs preparation while connected"
+                    };
+                    println!(
+                        "  {}  ·  {}  ·  {state}",
+                        terminal::safe_text(s(library, "id")),
+                        terminal::safe_text(s(library, "name"))
+                    );
+                    println!("    {}", terminal::safe_text(s(library, "detail")));
+                }
+            }
+            println!("Select explicitly with devline infra add PATH --client STACK:SERVICE.");
+        }
+        "infra-clients-added" => {
+            println!(
+                "{}",
+                if value["changed"] == true {
+                    "Selected client libraries added and verified offline."
+                } else {
+                    "Selected client libraries are already included. No dependencies changed."
+                }
+            );
+        }
         "infra-updates" => {
             println!("Image updates");
             if value["checked_at"].is_null() {
@@ -719,6 +829,17 @@ pub(super) fn render(action: &str, value: &Value) {
                         "{}={}",
                         terminal::safe_text(name),
                         shell_quote(secret.as_str().unwrap_or_default())
+                    );
+                }
+            }
+        }
+        "infra-env" => {
+            if let Some(environment) = value["environment"].as_object() {
+                for (name, value) in environment {
+                    println!(
+                        "export {}={}",
+                        name,
+                        shell_quote(value.as_str().unwrap_or_default())
                     );
                 }
             }

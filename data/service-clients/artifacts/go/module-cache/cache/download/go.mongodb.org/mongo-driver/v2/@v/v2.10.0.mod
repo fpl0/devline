@@ -1,0 +1,23 @@
+module go.mongodb.org/mongo-driver/v2
+
+go 1.25.0
+
+require (
+	github.com/davecgh/go-spew v1.1.1
+	github.com/google/go-cmp v0.7.0
+	github.com/klauspost/compress v1.20.3
+	github.com/xdg-go/scram v1.4.0
+	github.com/xdg-go/stringprep v1.0.4
+	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
+	golang.org/x/crypto v0.54.0
+	golang.org/x/sync v0.22.0
+)
+
+require golang.org/x/text v0.41.0 // indirect
+
+replace golang.org/x/net/http2 => golang.org/x/net/http2 v0.23.0 // GODRIVER-3225
+
+// Ignore the .evergreen directory so that Go modules contained in the
+// .evergreen/drivers-evergreen-tools submodule are not included in Go commands
+// and not formatted with gofumpt.
+ignore ./.evergreen

@@ -24,7 +24,9 @@ mod markdown;
 mod offline;
 mod project;
 mod project_prepare;
+pub mod project_run;
 mod reference;
+mod service_clients;
 pub mod tasks;
 pub mod templates;
 mod toolbox;
@@ -138,9 +140,22 @@ impl Context {
         })
     }
     pub fn database(&self) -> Result<Connection> {
+        // First launch requests several panels concurrently. SQLite cannot
+        // always wait when two connections both change the journal mode.
+        // Serialize only bootstrap/migration; returned readers stay concurrent.
+        let bootstrap = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(self.home.join("database-bootstrap.lock"))?;
+        bootstrap.lock_exclusive()?;
         let mut db = Connection::open(self.home.join("library.sqlite3"))?;
         db.busy_timeout(Duration::from_secs(10))?;
-        db.pragma_update(None, "journal_mode", "WAL")?;
+        let journal: String = db.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
+        if !journal.eq_ignore_ascii_case("wal") {
+            db.pragma_update(None, "journal_mode", "WAL")?;
+        }
         db.execute_batch("CREATE TABLE IF NOT EXISTS packs(id TEXT, version TEXT, digest TEXT NOT NULL, count INTEGER, PRIMARY KEY(id,version));
             CREATE TABLE IF NOT EXISTS documents(id TEXT PRIMARY KEY, pack_id TEXT, title TEXT, body TEXT, html TEXT, stack TEXT, version TEXT, source_url TEXT, category TEXT);
             CREATE TABLE IF NOT EXISTS aliases(alias TEXT, document_id TEXT);
@@ -579,6 +594,8 @@ pub fn project_context(path: &Path) -> Value {
 pub fn execute(request: &Value) -> Result<Value> {
     let ctx = Context::new(request)?;
     match text_arg(request, "command")? {
+        "infra.clients" => service_clients::catalog(&ctx, request),
+        "service_clients.add" => service_clients::add(&ctx, request, None),
         command if command.starts_with("infra.") => infrastructure::execute(&ctx, request, None),
         "toolbox.status" => toolbox::status(&ctx, request, false),
         "toolbox.check" => toolbox::status(&ctx, request, true),
@@ -587,6 +604,11 @@ pub fn execute(request: &Value) -> Result<Value> {
         "project.readiness" => project_prepare::readiness(&ctx, request),
         "project.prepare" => project_prepare::prepare(&ctx, request, None),
         "project.runner" => project_prepare::runner(&ctx, request),
+        "project.commands" => project_run::commands(&ctx, request),
+        "project.start" => project_run::start(&ctx, request),
+        "project.stop" => project_run::stop(&ctx, request),
+        "project.status" => project_run::status(&ctx, request),
+        "project.logs" => project_run::logs(&ctx, request),
         "new.ready" => project_prepare::create(&ctx, request),
         "project.pin" => project::pin(
             &ctx,
@@ -726,6 +748,42 @@ pub unsafe extern "C" fn devkit_free(pointer: *mut c_char) {
 #[cfg(test)]
 mod installation_tests {
     use super::*;
+
+    #[test]
+    fn a_fresh_library_can_open_concurrent_panels() -> Result<()> {
+        let stage = templates::Stage::new(&std::env::temp_dir())?;
+        let ctx = Context {
+            home: stage.0.clone(),
+            catalog_dir: stage.0.clone(),
+            catalog: Catalog {
+                schema_version: 1,
+                docs: vec![],
+                templates: vec![],
+            },
+        };
+        let barrier = std::sync::Barrier::new(12);
+        std::thread::scope(|scope| -> Result<()> {
+            let mut joins = Vec::new();
+            for _ in 0..12 {
+                joins.push(scope.spawn(|| -> Result<()> {
+                    barrier.wait();
+                    let db = ctx.database()?;
+                    let mode: String =
+                        db.pragma_query_value(None, "journal_mode", |row| row.get(0))?;
+                    assert_eq!(mode, "wal");
+                    assert_eq!(
+                        db.query_row("SELECT count(*) FROM packs", [], |row| row.get::<_, u64>(0))?,
+                        0
+                    );
+                    Ok(())
+                }));
+            }
+            for join in joins {
+                join.join().expect("database thread")?;
+            }
+            Ok(())
+        })
+    }
 
     #[test]
     fn a_cached_exact_version_cannot_replace_the_bundled_documentation() -> Result<()> {

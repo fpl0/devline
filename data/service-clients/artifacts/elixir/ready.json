@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "stack": "elixir",
+  "packages": [
+    {
+      "name": "postgrex",
+      "version": "0.22.4"
+    },
+    {
+      "name": "jason",
+      "version": "1.4.5"
+    },
+    {
+      "name": "myxql",
+      "version": "0.9.0"
+    },
+    {
+      "name": "amqp",
+      "version": "4.3.0"
+    },
+    {
+      "name": "redix",
+      "version": "1.10.0"
+    },
+    {
+      "name": "mongodb_driver",
+      "version": "1.6.4"
+    },
+    {
+      "name": "gnat",
+      "version": "1.19.1"
+    },
+    {
+      "name": "gen_smtp",
+      "version": "1.3.0"
+    },
+    {
+      "name": "req",
+      "version": "0.7.5"
+    },
+    {
+      "name": "ex_aws_s3",
+      "version": "2.5.9"
+    },
+    {
+      "name": "hackney",
+      "version": "4.9.1"
+    },
+    {
+      "name": "sweet_xml",
+      "version": "0.7.5"
+    },
+    {
+      "name": "oidcc",
+      "version": "3.9.2"
+    }
+  ],
+  "verification": "Added all ten client choices to a fresh Mix project, resolved Hex entirely from the local cache, compiled all dependencies, and passed a test loading every client including the ExAws HTTP adapter and XML/JSON codecs, with empty HOME and outbound network denied.",
+  "inventory_sha256": "aef7dd1e24395ecb4a99dcdf85872d96d1f1eb23c708d382b40dd88d01b12994"
+}

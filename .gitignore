@@ -1,4 +1,5 @@
 # Build and editor artifacts
+/.build/
 /core/target/
 /macos/.build/
 /macos/.swiftpm/

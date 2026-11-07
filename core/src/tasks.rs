@@ -15,6 +15,33 @@ const DEFAULT_TIMEOUT: u64 = 30 * 60;
 const MAX_LOG_READ: u64 = 64 * 1024;
 static SERIAL: AtomicU64 = AtomicU64::new(0);
 
+/// A native host can ignore or block SIGCHLD. Preserve its signal policy in the
+/// app, but give launched tools normal child-exit delivery before exec. .NET's
+/// process watcher otherwise hangs waiting for compiler children to finish.
+pub(crate) fn normalize_child_signals(command: &mut Command) {
+    #[cfg(unix)]
+    unsafe {
+        use std::os::unix::process::CommandExt;
+        command.pre_exec(|| {
+            let mut action: libc::sigaction = std::mem::zeroed();
+            action.sa_sigaction = libc::SIG_DFL;
+            if libc::sigemptyset(&mut action.sa_mask) == -1
+                || libc::sigaction(libc::SIGCHLD, &action, std::ptr::null_mut()) == -1
+            {
+                return Err(std::io::Error::last_os_error());
+            }
+            let mut child_signal: libc::sigset_t = std::mem::zeroed();
+            if libc::sigemptyset(&mut child_signal) == -1
+                || libc::sigaddset(&mut child_signal, libc::SIGCHLD) == -1
+                || libc::sigprocmask(libc::SIG_UNBLOCK, &child_signal, std::ptr::null_mut()) == -1
+            {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+}
+
 #[derive(Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 enum State {
@@ -126,12 +153,24 @@ fn timeout(request: &Value) -> Result<Duration> {
 pub fn start(ctx: &Context, request: &Value) -> Result<Value> {
     let kind = text_arg(request, "kind")?;
     match kind {
+        "new_project" => {
+            text_arg(request, "id")?;
+            text_arg(request, "destination")?;
+        }
         "build" | "verify" | "prepare" | "docs_install" | "docs_prepare" | "infra_prepare"
         | "infra_restore" | "infra_verify" | "infra_update" => {
             text_arg(request, "id")?;
         }
-        "bundle_export" | "bundle_import" | "infra_export" | "infra_import" | "infra_stack_up"
-        | "infra_stack_down" | "project_prepare" | "toolbox_prepare" => {
+        "bundle_export"
+        | "bundle_import"
+        | "infra_export"
+        | "infra_import"
+        | "infra_stack_up"
+        | "infra_stack_down"
+        | "infra_stack_add"
+        | "service_clients_add"
+        | "project_prepare"
+        | "toolbox_prepare" => {
             text_arg(request, "path")?;
         }
         "content_check" | "content_update" => {}
@@ -157,6 +196,11 @@ pub fn start(ctx: &Context, request: &Value) -> Result<Value> {
     fs::create_dir(&path)?;
     let started = (|| -> Result<Value> {
         let mut request = request.clone();
+        if kind == "new_project" {
+            let destination = std::path::absolute(text_arg(&request, "destination")?)?;
+            request["destination"] = json!(destination);
+            request["path"] = json!(destination);
+        }
         if let Some(input) = request.get_mut("path") {
             if let Some(value) = input.as_str() {
                 let absolute =
@@ -194,6 +238,7 @@ pub fn start(ctx: &Context, request: &Value) -> Result<Value> {
             .stderr(Stdio::null());
         #[cfg(unix)]
         std::os::unix::process::CommandExt::process_group(&mut command, 0);
+        normalize_child_signals(&mut command);
         let mut child = command.spawn().context("Start the Devline job worker")?;
         // Reap in long-lived desktop processes. The detached worker survives CLI exit.
         std::thread::spawn(move || {
@@ -353,6 +398,7 @@ impl Job {
             .stderr(Stdio::from(self.log.try_clone()?));
         #[cfg(unix)]
         std::os::unix::process::CommandExt::process_group(command, 0);
+        normalize_child_signals(command);
         let mut child = command
             .spawn()
             .with_context(|| format!("Could not start {label}"))?;
@@ -416,6 +462,9 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Value> {
         job.stage("Preparing job")?;
         match kind.as_str() {
+            "new_project" => {
+                crate::project_prepare::create_with_job(&ctx, &request, Some(&mut job))
+            }
             "build" => templates::build_latest_job(&ctx, text_arg(&request, "id")?, Some(&mut job)),
             "verify" => templates::verify_offline(&ctx, text_arg(&request, "id")?, Some(&mut job)),
             "prepare" => templates::prepare(&ctx, text_arg(&request, "id")?, Some(&mut job)),
@@ -441,6 +490,7 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
             }
             "project_prepare" => crate::project_prepare::prepare(&ctx, &request, Some(&mut job)),
             "toolbox_prepare" => crate::toolbox::prepare(&ctx, &request, Some(&mut job)),
+            "service_clients_add" => crate::service_clients::add(&ctx, &request, Some(&mut job)),
             "content_check" => crate::content_updates::check(&ctx, &request, Some(&mut job)),
             "content_update" => crate::content_updates::apply(&ctx, &request, Some(&mut job)),
             kind if kind.starts_with("infra_") => {
@@ -452,6 +502,7 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
                     "infra_import" => "infra.import",
                     "infra_stack_up" => "infra.stack.up",
                     "infra_stack_down" => "infra.stack.down",
+                    "infra_stack_add" => "infra.stack.add",
                     "infra_update" => "infra.update",
                     _ => bail!("Unknown infrastructure job"),
                 };
@@ -503,6 +554,74 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn launched_tools_receive_child_exit_signals() -> Result<()> {
+        use std::os::unix::process::CommandExt;
+        let mut command = Command::new(std::env::current_exe()?);
+        command
+            .args([
+                "--exact",
+                "tasks::tests::child_exit_signal_probe",
+                "--nocapture",
+            ])
+            .env("DEVLINE_CHILD_SIGNAL_PROBE", "1");
+        // Model a native host's ignored disposition and a dispatch thread's
+        // blocked signal without changing the test runner or its other threads.
+        unsafe {
+            command.pre_exec(|| {
+                let mut action: libc::sigaction = std::mem::zeroed();
+                action.sa_sigaction = libc::SIG_IGN;
+                libc::sigemptyset(&mut action.sa_mask);
+                if libc::sigaction(libc::SIGCHLD, &action, std::ptr::null_mut()) == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                let mut mask: libc::sigset_t = std::mem::zeroed();
+                libc::sigemptyset(&mut mask);
+                libc::sigaddset(&mut mask, libc::SIGCHLD);
+                if libc::sigprocmask(libc::SIG_BLOCK, &mask, std::ptr::null_mut()) == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+        normalize_child_signals(&mut command);
+        let output = command.output()?;
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("CHILD_EXIT_SIGNALS_READY"));
+        Ok(())
+    }
+
+    #[test]
+    fn child_exit_signal_probe() {
+        if std::env::var_os("DEVLINE_CHILD_SIGNAL_PROBE").is_none() {
+            return;
+        }
+        unsafe {
+            let mut action: libc::sigaction = std::mem::zeroed();
+            assert_eq!(
+                libc::sigaction(libc::SIGCHLD, std::ptr::null(), &mut action),
+                0
+            );
+            assert_eq!(action.sa_sigaction, libc::SIG_DFL);
+            let mut mask: libc::sigset_t = std::mem::zeroed();
+            assert_eq!(
+                libc::sigprocmask(libc::SIG_BLOCK, std::ptr::null(), &mut mask),
+                0
+            );
+            assert_eq!(libc::sigismember(&mask, libc::SIGCHLD), 0);
+        }
+        let mut child = Command::new("/bin/sh")
+            .args(["-c", "exit 17"])
+            .spawn()
+            .unwrap();
+        assert_eq!(child.wait().unwrap().code(), Some(17));
+        println!("CHILD_EXIT_SIGNALS_READY");
+    }
 
     #[test]
     fn cancellation_stops_descendants_and_keeps_streamed_output() -> Result<()> {

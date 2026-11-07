@@ -203,6 +203,22 @@ impl Tree {
             let input = entry.path();
             let meta = fs::symlink_metadata(&input)?;
             let relative = input.strip_prefix(root)?;
+            if stack == "ruby" && relative == Path::new(".devline-offline/ruby-runtime") {
+                continue;
+            }
+            if stack == "ruby" && relative == Path::new(MANAGED) && meta.is_dir() {
+                let mut contents = fs::read_dir(&input)?;
+                if contents
+                    .next()
+                    .transpose()?
+                    .is_some_and(|entry| entry.file_name() == "ruby-runtime")
+                    && contents.next().is_none()
+                {
+                    // An otherwise absent managed directory containing only
+                    // derived runtime output must not change a generated proof.
+                    continue;
+                }
+            }
             if stack == "swift" && relative == Path::new(".build") {
                 continue;
             }
@@ -336,6 +352,31 @@ fn fingerprint_tree(
     }
     .visit(stack, root, root, copy, &mut digest)?;
     Ok(format!("{:x}", digest.finalize()))
+}
+
+/// Reuse the same safe source/dependency boundary for opt-in client mutations.
+pub(crate) fn mutation_snapshot(stack: &str, root: &Path, copy: Option<&Path>) -> Result<String> {
+    fingerprint_tree(stack, root, copy, false, false)
+}
+
+/// Publish a proof only when the original now exactly matches a tested copy.
+pub(crate) fn record_mutation(ctx: &Context, destination: &Path, verified: &Path) -> Result<Value> {
+    let project = Project::from_request(ctx, &json!({"path":destination}))?;
+    let staged = Project::known(verified, &project.stack);
+    let receipt = read_receipt(ctx, &staged)?
+        .context("Client dependency mutation has no verification receipt")?;
+    if receipt.generated
+        || proof_fingerprint(&project.stack, destination, false)? != receipt.fingerprint
+    {
+        bail!("Project no longer matches the verified client dependency change");
+    }
+    record(ctx, &project, &receipt)?;
+    Ok(report(
+        &project,
+        Some(&receipt),
+        "ready_offline",
+        "Selected client dependencies passed with external networking denied.",
+    ))
 }
 
 fn report(project: &Project, receipt: Option<&Receipt>, status: &str, detail: &str) -> Value {
@@ -628,7 +669,11 @@ pub(crate) fn lock_project(
     request: &Value,
     job: &Option<&mut Job>,
 ) -> Result<fs::File> {
-    lock(ctx, &Project::from_request(ctx, request)?, job)
+    let path = Path::new(text_arg(request, "path")?).canonicalize()?;
+    if !path.is_dir() {
+        bail!("Choose an existing project directory");
+    }
+    lock(ctx, &Project::known(&path, ""), job)
 }
 
 pub(crate) fn prepare(ctx: &Context, request: &Value, job: Option<&mut Job>) -> Result<Value> {
@@ -642,6 +687,7 @@ pub(crate) fn prepare_locked(
     request: &Value,
     mut job: Option<&mut Job>,
 ) -> Result<Value> {
+    crate::service_clients::recover(ctx, &Path::new(text_arg(request, "path")?).canonicalize()?)?;
     let project = Project::from_request(ctx, request)?;
     if project.path.starts_with(ctx.home.canonicalize()?) {
         bail!("Choose a project outside the Devline library");
@@ -654,6 +700,10 @@ pub(crate) fn prepare_locked(
     let copy = stage.0.join("project");
     fs::create_dir(&copy)?;
     let generated = offline
+        && request["force_adapter"] != true
+        && (!project.path.join(MANAGED).is_dir()
+            || project.stack == "ruby"
+                && !project.path.join(MANAGED).join("Gemfile.lock").is_file())
         && project::origin(&project.path).is_some()
         && fs::symlink_metadata(project.path.join("test-offline.sh"))
             .is_ok_and(|meta| meta.is_file());
@@ -747,6 +797,17 @@ pub(crate) fn runner(ctx: &Context, request: &Value) -> Result<Value> {
 }
 
 pub(crate) fn create(ctx: &Context, request: &Value) -> Result<Value> {
+    create_with_job(ctx, request, None)
+}
+
+pub(crate) fn create_with_job(
+    ctx: &Context,
+    request: &Value,
+    mut job: Option<&mut Job>,
+) -> Result<Value> {
+    if let Some(job) = job.as_deref_mut() {
+        job.stage("Planning the project and selected services")?;
+    }
     let id = text_arg(request, "id")?;
     let destination = Path::new(text_arg(request, "destination")?);
     let mut plan = templates::create(ctx, id, destination, true)?;
@@ -796,6 +857,25 @@ pub(crate) fn create(ctx: &Context, request: &Value) -> Result<Value> {
         plan["services"] = json!(services);
         plan["service_plan"] = service_plan;
         plan["offline"] = json!(offline);
+        if request["clients"]
+            .as_array()
+            .is_some_and(|clients| !clients.is_empty())
+        {
+            let clients = crate::service_clients::catalog(ctx, &json!({"id":exact}))?;
+            for chosen in request["clients"].as_array().unwrap() {
+                let client = clients["services"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .flat_map(|service| service["libraries"].as_array().into_iter().flatten())
+                    .find(|client| client["id"] == *chosen)
+                    .context("Client selection does not match the selected starter runtime")?;
+                if offline && client["installed"] != true && client["offline_available"] != true {
+                    plan["can_create"] = json!(false);
+                }
+            }
+            plan["client_dependencies"] = clients;
+        }
         return Ok(plan);
     }
     if !compatible_docker {
@@ -811,16 +891,19 @@ pub(crate) fn create(ctx: &Context, request: &Value) -> Result<Value> {
     }
     for service in &services {
         let verify = json!({"command":"infra.verify","id":service});
-        if let Err(error) = crate::infrastructure::execute(ctx, &verify, None) {
+        if let Err(error) = crate::infrastructure::execute(ctx, &verify, job.as_deref_mut()) {
             if offline {
                 return Err(error).with_context(||format!("Archive {service} before creating this project. Prepare it online with devline infra prepare {service}, or import a vault bundle"));
             }
             crate::infrastructure::execute(
                 ctx,
                 &json!({"command":"infra.prepare","id":service}),
-                None,
+                job.as_deref_mut(),
             )?;
         }
+    }
+    if let Some(job) = job.as_deref_mut() {
+        job.stage("Installing the starter and its documentation")?;
     }
     templates::install(ctx, &exact)?;
     for doc in plan["docs"].as_array().into_iter().flatten() {
@@ -830,30 +913,44 @@ pub(crate) fn create(ctx: &Context, request: &Value) -> Result<Value> {
         let (id, version) = doc
             .split_once('@')
             .map_or((doc, None), |(id, version)| (id, Some(version)));
-        crate::install_docs(ctx, id, version)?;
+        crate::install_docs_job(ctx, id, version, job.as_deref_mut())?;
     }
-    let mut result = templates::create(ctx, &exact, &path, false)?;
+    let mut result = templates::create_with_job(ctx, &exact, &path, false, job.as_deref_mut())?;
+    if request["clients"]
+        .as_array()
+        .is_some_and(|clients| !clients.is_empty())
+    {
+        match crate::service_clients::add(
+            ctx,
+            &json!({"path":path,"clients":request["clients"],"offline":offline}),
+            job.as_deref_mut(),
+        ) {
+            Ok(clients) => result["client_dependencies"] = clients,
+            Err(error) => {
+                let removed = rollback_created(ctx, &path, text_arg(&result, "creation_digest")?)?;
+                return Err(error).with_context(|| if removed {
+                    "Could not prepare the explicitly selected client dependencies; the new project was removed".to_owned()
+                } else {
+                    format!("Could not prepare the explicitly selected client dependencies. Files changed during creation and were preserved at {}", path.display())
+                });
+            }
+        }
+    }
     if !services.is_empty() {
         let configured = crate::infrastructure::execute(
             ctx,
             &json!({"command":"infra.stack.create","path":path,"services":services,"ports":request["ports"]}),
-            None,
+            job,
         );
         match configured {
             Ok(configured) => result["infrastructure"] = configured,
             Err(error) => {
-                let project = Project::from_request(ctx, &json!({"path":path}))?;
-                if read_receipt(ctx, &project)?.is_some_and(|receipt| {
-                    proof_fingerprint(&project.stack, &path, receipt.generated)
-                        .is_ok_and(|hash| hash == receipt.fingerprint)
-                }) {
-                    let rollback =
-                        private_stage(path.parent().context("Project destination has no parent")?)?;
-                    templates::rename_exclusive(&path, &rollback.0.join("project"))?;
-                    let _ = fs::remove_file(receipt_path(ctx, &project)?);
-                }
-                return Err(error)
-                    .context("Could not configure the starter's required infrastructure");
+                let removed = rollback_created(ctx, &path, text_arg(&result, "creation_digest")?)?;
+                return Err(error).with_context(|| if removed {
+                    "Could not configure the starter's required infrastructure; the new project was removed".to_owned()
+                } else {
+                    format!("Could not configure the starter's required infrastructure. Files changed during creation and were preserved at {}", path.display())
+                });
             }
         }
     }
@@ -862,6 +959,33 @@ pub(crate) fn create(ctx: &Context, request: &Value) -> Result<Value> {
     Ok(result)
 }
 
+fn rollback_created(ctx: &Context, path: &Path, creation_digest: &str) -> Result<bool> {
+    let _lock = lock_project(ctx, &json!({"path":path}), &None)?;
+    if !templates::complete_tree_digest(path).is_ok_and(|digest| digest == creation_digest) {
+        return Ok(false);
+    }
+    let rollback = private_stage(path.parent().context("Project destination has no parent")?)?;
+    let moved = rollback.0.join("project");
+    templates::rename_exclusive(path, &moved)?;
+    // Check again after the atomic move to catch edits made between the first
+    // snapshot and publication into rollback staging. Never delete those edits.
+    if !templates::complete_tree_digest(&moved).is_ok_and(|digest| digest == creation_digest) {
+        if let Err(error) = templates::rename_exclusive(&moved, path) {
+            std::mem::forget(rollback);
+            return Err(error).with_context(|| {
+                format!(
+                    "Project changed during creation rollback; all files were preserved at {}",
+                    moved.display()
+                )
+            });
+        }
+        return Ok(false);
+    }
+    let _ = fs::remove_file(receipt_path(ctx, &Project::known(path, ""))?);
+    Ok(true)
+}
+
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn verify_generated(
     ctx: &Context,
     source: &Path,
@@ -870,6 +994,7 @@ pub(crate) fn verify_generated(
     tool_name: &str,
     tool: &Path,
     detail: &str,
+    mut job: Option<&mut Job>,
 ) -> Result<()> {
     let project = Project::known(destination, stack);
     let stage = private_stage(&records(ctx)?)?;
@@ -887,8 +1012,11 @@ pub(crate) fn verify_generated(
         tool,
         tool_name,
         &stage.0,
-        &mut None,
+        &mut job,
     )?;
+    if proof_fingerprint(stack, &copy, true)? != tested {
+        bail!("The starter test changed source files or vendored dependencies; the original project was not verified");
+    }
     if proof_fingerprint(stack, source, true)? != tested {
         bail!("Project source changed before verification could be saved");
     }
@@ -908,6 +1036,144 @@ mod tests {
     use super::*;
 
     #[cfg(target_os = "macos")]
+    #[test]
+    fn starter_test_cannot_repair_source_or_dependencies_only_in_its_copy() -> Result<()> {
+        let root = templates::Stage::new(&std::env::temp_dir().canonicalize()?)?;
+        let home = root.0.join("home");
+        let source = root.0.join("source");
+        fs::create_dir(&home)?;
+        fs::create_dir_all(source.join("vendor"))?;
+        fs::write(source.join("main.rs"), "original source")?;
+        fs::write(source.join("vendor/client.rs"), "original dependency")?;
+        let ctx = Context {
+            home,
+            catalog_dir: root.0.clone(),
+            catalog: crate::Catalog {
+                schema_version: 1,
+                docs: vec![],
+                templates: vec![],
+            },
+        };
+        for (index, changed) in ["main.rs", "vendor/client.rs"].iter().enumerate() {
+            fs::write(
+                source.join("test-offline.sh"),
+                format!("#!/bin/sh\nprintf repaired > {changed}\nexit 0\n"),
+            )?;
+            let destination = root.0.join(format!("project-{index}"));
+            let error = verify_generated(
+                &ctx,
+                &source,
+                &destination,
+                "rust",
+                "rustc",
+                Path::new("/bin/sh"),
+                "fixture",
+                None,
+            )
+            .unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("test changed source files or vendored dependencies"),
+                "{error:#}"
+            );
+            assert!(read_receipt(&ctx, &Project::known(&destination, "rust"))?.is_none());
+            assert!(!destination.exists());
+        }
+        assert_eq!(
+            fs::read_to_string(source.join("main.rs"))?,
+            "original source"
+        );
+        assert_eq!(
+            fs::read_to_string(source.join("vendor/client.rs"))?,
+            "original dependency"
+        );
+        // Real build output is still permitted and excluded from source proof.
+        fs::write(
+            source.join("test-offline.sh"),
+            "#!/bin/sh\nmkdir target\nprintf built > target/output\n",
+        )?;
+        let destination = root.0.join("valid-project");
+        verify_generated(
+            &ctx,
+            &source,
+            &destination,
+            "rust",
+            "rustc",
+            Path::new("/bin/sh"),
+            "fixture",
+            None,
+        )?;
+        assert!(read_receipt(&ctx, &Project::known(&destination, "rust"))?.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn creation_rollback_preserves_new_git_history_and_ignored_files() -> Result<()> {
+        let root = templates::Stage::new(&std::env::temp_dir().canonicalize()?)?;
+        let home = root.0.join("home");
+        fs::create_dir(&home)?;
+        let ctx = Context {
+            home,
+            catalog_dir: root.0.clone(),
+            catalog: crate::Catalog {
+                schema_version: 1,
+                docs: vec![],
+                templates: vec![],
+            },
+        };
+        for (index, extra) in [
+            ".git/objects/new-history",
+            "target/user-notes",
+            ".devline-offline/ruby-runtime/custom",
+            "installed.json",
+        ]
+        .iter()
+        .enumerate()
+        {
+            let staging = templates::Stage::new(&root.0)?;
+            fs::write(staging.0.join("main.rs"), "fn main() {}")?;
+            let digest = templates::complete_tree_digest(&staging.0)?;
+            let destination = root.0.join(format!("project-{index}"));
+            staging.publish(&destination)?;
+            let extra = destination.join(extra);
+            fs::create_dir_all(extra.parent().unwrap())?;
+            fs::write(&extra, "new user data")?;
+            assert!(!rollback_created(&ctx, &destination, &digest)?);
+            assert_eq!(fs::read_to_string(extra)?, "new user data");
+            assert!(destination.join("main.rs").is_file());
+        }
+        let staging = templates::Stage::new(&root.0)?;
+        fs::write(staging.0.join("main.rs"), "fn main() {}")?;
+        let digest = templates::complete_tree_digest(&staging.0)?;
+        let destination = root.0.join("unchanged");
+        staging.publish(&destination)?;
+        assert!(rollback_created(&ctx, &destination, &digest)?);
+        assert!(!destination.exists());
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn compiled_ruby_runtime_cache_does_not_change_project_proof() -> Result<()> {
+        let root = templates::Stage::new(&std::env::temp_dir())?;
+        fs::write(root.0.join("Gemfile"), "source 'https://rubygems.org'\n")?;
+        let before = proof_fingerprint("ruby", &root.0, true)?;
+        fs::create_dir_all(root.0.join(".devline-offline/ruby-runtime/key"))?;
+        fs::write(
+            root.0
+                .join(".devline-offline/ruby-runtime/key/compiled.bundle"),
+            "derived native output",
+        )?;
+        assert_eq!(before, proof_fingerprint("ruby", &root.0, true)?);
+        fs::write(
+            root.0.join(".devline-offline/Gemfile.lock"),
+            "authoritative lock",
+        )?;
+        assert_ne!(before, proof_fingerprint("ruby", &root.0, true)?);
+        Ok(())
+    }
+
     #[test]
     fn starter_verification_and_existing_projects_keep_distinct_java_environments() -> Result<()> {
         const CHILD: &str = "DEVLINE_JAVA_ENV_REGRESSION_CHILD";
@@ -970,6 +1236,7 @@ mod tests {
             "mvn",
             Path::new("/bin/sh"),
             "fixture Maven toolchain",
+            None,
         )?;
         fs::write(
             &script,

@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "stack": "python",
+  "files": [
+    {
+      "path": "wheelhouse/annotated_types-0.8.0-py3-none-any.whl",
+      "bytes": 13427,
+      "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0"
+    },
+    {
+      "path": "wheelhouse/authlib-1.9.5-py2.py3-none-any.whl",
+      "bytes": 267074,
+      "sha256": "e32a63e3d869196b61816b2602231862179a2ffc29358c009d1f022c8b86a8b2"
+    },
+    {
+      "path": "wheelhouse/boto3-1.43.126-py3-none-any.whl",
+      "bytes": 140043,
+      "sha256": "dd701a973b02a73930e546a6a15d13edbfbedc3180bb3d55b0a88678c284ccd6"
+    },
+    {
+      "path": "wheelhouse/botocore-1.43.126-py3-none-any.whl",
+      "bytes": 16235818,
+      "sha256": "2f2239a47025a2fa173cd145ab8803ac02b76114864bf5b66475ff1cb88e6b0a"
+    },
+    {
+      "path": "wheelhouse/camel_converter-6.0.0-py3-none-any.whl",
+      "bytes": 6909,
+      "sha256": "ca5e712b57dd3139ee12f6959e32dd37cfa32ea27f120c281f2aa3930d2dc853"
+    },
+    {
+      "path": "wheelhouse/certifi-2026.10.23-py3-none-any.whl",
+      "bytes": 135082,
+      "sha256": "e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1"
+    },
+    {
+      "path": "wheelhouse/cffi-2.1.1-cp315-cp315-macosx_11_0_arm64.whl",
+      "bytes": 185002,
+      "sha256": "2ae64be792b8966f2c69538199728b290e34726562896df1e5dc8ffd8d8188e8"
+    },
+    {
+      "path": "wheelhouse/charset_normalizer-3.5.2-cp315-cp315-macosx_10_15_universal2.whl",
+      "bytes": 367676,
+      "sha256": "87475fabc8d9996fd9c27debb395e642e8c838d78a00b6e932227a0e06b81e26"
+    },
+    {
+      "path": "wheelhouse/cryptography-50.0.2-cp315-abi3.abi3t-macosx_11_0_arm64.whl",
+      "bytes": 4133708,
+      "sha256": "edc3342adf8f697fc5f59c887a304356f147b397809440ed64e2fa6af2f50f37"
+    },
+    {
+      "path": "wheelhouse/dnspython-2.9.2-py3-none-any.whl",
+      "bytes": 360455,
+      "sha256": "af15f7d385a6ae2fb35a796fde2138004c8c42c7389090e2addc83e3b3340fd8"
+    },
+    {
+      "path": "wheelhouse/idna-3.20-py3-none-any.whl",
+      "bytes": 69583,
+      "sha256": "ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c"
+    },
+    {
+      "path": "wheelhouse/jmespath-1.1.0-py3-none-any.whl",
+      "bytes": 20419,
+      "sha256": "a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64"
+    },
+    {
+      "path": "wheelhouse/joserfc-1.8.0-py3-none-any.whl",
+      "bytes": 73147,
+      "sha256": "176b836ac7ed9a46a88629e24076314b475f33a75d0bad7f26146e572eed7c79"
+    },
+    {
+      "path": "wheelhouse/meilisearch-0.43.0-py3-none-any.whl",
+      "bytes": 34638,
+      "sha256": "4226734a510211f0183c2f16af7b6077d239f0c4ec310a58ef564ae704cabe26"
+    },
+    {
+      "path": "wheelhouse/nats_py-2.16.0-py3-none-any.whl",
+      "bytes": 93578,
+      "sha256": "aeb1ff123966c05833d26c7df7e1d54c1c6d32b612428b21677a2e921f1fecae"
+    },
+    {
+      "path": "wheelhouse/pika-1.4.4-py3-none-any.whl",
+      "bytes": 165275,
+      "sha256": "48de960c97a93b55db06b8be4c53eb977c9c8a2754c57cdae9097abcbd70ce04"
+    },
+    {
+      "path": "wheelhouse/psycopg-3.3.8-py3-none-any.whl",
+      "bytes": 216209,
+      "sha256": "ca50af6072ba9ea6866f33021975230c2555d7bfdb9d8f94ca3af5c3d1bf2167"
+    },
+    {
+      "path": "wheelhouse/psycopg_binary-3.3.8-cp315-cp315-macosx_11_0_arm64.whl",
+      "bytes": 4785164,
+      "sha256": "f31dea98f8c5c6c60e8e049388f24eec14088518e2ded0f892d96c785401e688"
+    },
+    {
+      "path": "wheelhouse/pycparser-3.12-py3-none-any.whl",
+      "bytes": 62600,
+      "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e"
+    },
+    {
+      "path": "wheelhouse/pydantic-2.14.3-py3-none-any.whl",
+      "bytes": 494071,
+      "sha256": "3f7b347782ab7e4cf4c798496ae3a82787d9f21ec12676a9c564355eeef8daa8"
+    },
+    {
+      "path": "wheelhouse/pydantic_core-2.50.4-cp315-cp315-macosx_11_0_arm64.whl",
+      "bytes": 2112412,
+      "sha256": "930ad463d3fb7a340d323bcc496ec32dae469ec9974c29ff569f19806b6b03b4"
+    },
+    {
+      "path": "wheelhouse/pymongo-4.19.0-cp315-cp315-macosx_11_0_arm64.whl",
+      "bytes": 827513,
+      "sha256": "b602baef46ec5cd876fdf45dfdf864a58f5a507129393b93b8248249008f9a70"
+    },
+    {
+      "path": "wheelhouse/pymysql-1.2.3-py3-none-any.whl",
+      "bytes": 46740,
+      "sha256": "14f1c68e2ed859243ae5ca41ffbe677027fc46bc136a9f0be8a4e928e5e7415a"
+    },
+    {
+      "path": "wheelhouse/python_dateutil-2.9.0.post0-py2.py3-none-any.whl",
+      "bytes": 229892,
+      "sha256": "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427"
+    },
+    {
+      "path": "wheelhouse/redis-8.1.0-py3-none-any.whl",
+      "bytes": 560618,
+      "sha256": "a4fe1aac3d3b3cc791d4b3d5931c5a956045dc951ee74d1c913ee3ac4d2ee9fb"
+    },
+    {
+      "path": "wheelhouse/requests-2.34.2-py3-none-any.whl",
+      "bytes": 73075,
+      "sha256": "2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0"
+    },
+    {
+      "path": "wheelhouse/s3transfer-0.19.3-py3-none-any.whl",
+      "bytes": 90252,
+      "sha256": "24eb7535804306355e31c952a90022bf5b2f9d760f9a11062c7493a217c08553"
+    },
+    {
+      "path": "wheelhouse/six-1.17.0-py2.py3-none-any.whl",
+      "bytes": 11050,
+      "sha256": "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274"
+    },
+    {
+      "path": "wheelhouse/tomlkit-0.15.2-py3-none-any.whl",
+      "bytes": 52225,
+      "sha256": "05562412163a3037b94497385fb7f9204c637bc605af7a48199e41cf2272f437"
+    },
+    {
+      "path": "wheelhouse/typing_extensions-4.16.0-py3-none-any.whl",
+      "bytes": 45571,
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+    },
+    {
+      "path": "wheelhouse/typing_inspection-0.4.5-py3-none-any.whl",
+      "bytes": 14874,
+      "sha256": "bc210535442b39e1bf2805e0c7a17dfd6a4ace760c84c7f7d16245d23a6b1c39"
+    },
+    {
+      "path": "wheelhouse/urllib3-2.8.0-py3-none-any.whl",
+      "bytes": 135717,
+      "sha256": "0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
+    }
+  ]
+}

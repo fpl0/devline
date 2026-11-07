@@ -16,7 +16,7 @@ In **Settings → Lookup from Any App**, choose a global shortcut. The default *
 
 ## Match documentation to a project
 
-Open a project folder with **⌘O**. **Current Project** brings together its references, readiness, and local services. Use **Project References** in **Documentation** to see detected dependencies, chosen docset versions, and any mismatch. Devline reads supported manifests and lockfiles for Python, C# and .NET, Java, Ruby, Go, Rust, Elixir, Node.js, and Swift. Resolved framework versions take priority over manifest constraints. Pin choices stay in the local library and are shared with the CLI.
+Open a project folder with **⌘O**. **Current Project** brings together its references, readiness, local services, and app controls. Use **Project References** in **Documentation** to see detected dependencies, chosen docset versions, and any mismatch. Devline reads supported manifests and lockfiles for Python, C# and .NET, Java, Ruby, Go, Rust, Elixir, Node.js, and Swift. Resolved framework versions take priority over manifest constraints. Pin choices stay in the local library and are shared with the CLI.
 
 Return through **Toolbox → Recent Projects** or **File → Open Recent**. **Browse Project Docs** clears unrelated searches and opens the project's reference scope. A generated project's origin links back to its exact starter release; the starter's reference links use its included versions.
 
@@ -43,7 +43,43 @@ devline --offline project --path ./service run -- python -m pytest -q
 
 `devline toolbox prepare --path ./service` runs the same complete preparation. Add `--offline` to require local resources; missing downloads are reported rather than fetched. `project readiness` checks dependency evidence only, while `toolbox status` and `toolbox check` include references, toolchains, and services. Removing the original starter from the library does not invalidate an already created project.
 
-Preparation supports conventional single-runtime projects using Go modules, Cargo, Python registry requirements or static project dependencies, Bundler, Maven, NuGet, Mix/Hex, npm with `package-lock.json`, or dependency-free Swift packages with `Package.swift`. Swift packages with external dependencies are currently rejected with an explanation; Devline does not mark them ready. The selected adapter checks its prerequisites. Install the matching toolchain and any reported native build tools first. Open independently locked projects at their individual roots.
+Preparation supports conventional single-runtime projects using Go modules, Cargo, Python registry requirements or static project dependencies, Bundler, Maven, NuGet, Mix/Hex, npm with `package-lock.json`, or Swift packages with `Package.swift`. Swift packages can use external source dependencies: keep their versions locked in `Package.resolved`, and Devline prepares the source repositories in the project's managed cache for offline builds. The selected adapter checks its prerequisites. Install the matching toolchain and any reported native build tools first. Open independently locked projects at their individual roots.
+
+### Edit and run a project
+
+In **Current Project → Develop & Run**, choose **Open in Editor** or **Read Project Guide**, make your changes, then choose **Run Offline**. Devline starts configured services from their saved image archives and runs the app with prepared dependencies. It supplies the project's local service connection settings automatically. Internet access is blocked for the app; connections to local services remain available.
+
+The panel shows **Starting** while the app builds or waits for its configured readiness check. **Open App** becomes available when the local web app is ready. Use **App Logs** to inspect output. **Stop App** stops the app process; services and their data stay available until you stop them separately in **Local Services**.
+
+The CLI shares the same managed app process with Devline:
+
+```sh
+devline --offline project --path ./service start
+devline project --path ./service app-status
+devline project --path ./service logs --tail 100
+devline project --path ./service stop
+devline project --path ./service commands
+```
+
+Use `devline --offline project --path ./service run` to run the configured app in your terminal instead. An explicit command after `--` uses the same prepared dependencies and connection settings; it does not automatically start services. For example, `devline --offline project --path ./service run -- ./test-offline.sh` runs the project's tests.
+
+A project's `devline.json` can declare its commands and local web address:
+
+```json
+{
+  "schema_version": 1,
+  "run": {
+    "command": ["./run.sh"],
+    "url": "http://127.0.0.1:5080",
+    "health_path": "/health/ready"
+  },
+  "test": { "command": ["./test-offline.sh"] }
+}
+```
+
+Commands are argument arrays and run from the project folder. Keep the app in the foreground so Devline can track and stop it. The optional `url` must use HTTP with a loopback address and an explicit port; configure the app to listen there. Devline supplies this address as `ASPNETCORE_URLS` for ASP.NET Core. The optional `health_path` must return HTTP 200 before **Open App** is enabled; without it, Devline checks that the port accepts connections. Omit both fields for command-line or native desktop apps.
+
+Without `devline.json`, Devline looks for `run.sh`, then a .NET project in the selected folder. It also recognizes `test-offline.sh`. Other projects can add a configuration or run an explicit CLI command. Devline detects the required runtime on your Mac; it does not install or upgrade it.
 
 ## Build a desktop app
 
@@ -118,6 +154,8 @@ devline new go/chi-api@1.2.0 ./status-api
 
 Use the ID printed by `prepare` when following or cancelling a job. Generated projects include an offline test script. Creating a project prepares its selected documentation and required service archives, then verifies the generated files with external networking denied. `devline --offline new` requires those service archives to be present already. A recipe can refresh its supported upstream dependencies online and verify the new release offline before installing it.
 
+The app shows creation progress and lets you cancel while it prepares downloads and verifies the project. Use `devline new STARTER@VERSION ./project --background` for the same durable job in the CLI, followed by `devline jobs status JOB_ID --follow` or `devline jobs cancel JOB_ID`. A cancelled attempt keeps completed library downloads for the next attempt.
+
 ```sh
 devline templates build go/chi-api --refresh-deps --background
 devline templates verify go/chi-api@1.2.0 --background
@@ -153,7 +191,34 @@ Inspect unfamiliar bundles before trusting their executable starter files. The i
 
 Open **Infrastructure** to browse PostgreSQL, MySQL, RabbitMQ, Redis, MongoDB, NATS, Mailpit, Meilisearch, SeaweedFS S3, and Keycloak. Each release shows its image publisher, license, exact tag, platform digest, and offline runbook. **Download for Offline Use** saves a verified arm64 archive in Devline's image vault independently of Docker's cache. Install and start a compatible local Docker engine with Compose before using the vault to run services.
 
-In **Current Project**, choose the services your project needs. Devline gives the stack exact release pins, loopback ports, local credentials, and dedicated data volumes. Start, stop, and view service logs from that workspace. Stopping keeps the project's data. **Toolbox** shows your local inventory, and **Offline Library** checks the selected docs, starters, and image archives.
+Choose services when creating a project, or use **Current Project → Add Services** later. Devline gives the stack exact release pins, loopback ports, local credentials, and dedicated data volumes. Adding a service preserves existing selections, credentials, ports, and data. The app then prepares the project's dependencies, documentation, and image archives together. Start, stop, and view service logs from the same workspace. Stopping keeps the project's data. **Toolbox** shows your local inventory, and **Offline Library** checks the selected docs, starters, and image archives.
+
+Service networks disable outbound NAT and use local DNS settings by default while keeping their published ports reachable from your Mac. **Run Offline** separately denies the app process external networking. Custom Docker routing or engine configuration can change container connectivity; the app's network boundary does not rely on those Docker defaults.
+
+A service image runs the server. A client library lets your code talk to that server. The service picker shows client suggestions for the project's runtime, including package versions, offline availability, and anything already included. Optional libraries start unchecked: select **Add … to project** only when you want Devline to add that dependency. Selecting an image alone does not change your code dependencies. Built-in capabilities and unsupported combinations are identified without offering an unsuitable package.
+
+For example, the ASP.NET Core API starter already includes PostgreSQL and RabbitMQ clients. Select the two services when creating it, then open the project and choose **Run Offline**. Its notes app stores notes in PostgreSQL and processes them through RabbitMQ. The project guide explains the code, tests, and the SQLite fallback when no services are configured.
+
+```sh
+devline new dotnet/aspnet-api@1.2.0 ./notes \
+  --service postgres@18.6 --service rabbitmq@4.3.7
+devline --offline project --path ./notes start
+```
+
+For a starter that does not already declare a supported client, add an explicit selection such as `--client dotnet:postgres` to `devline new`. New client choices modify the project's dependency declarations and prepare their offline closure. Leave the flag out to keep the starter's dependencies unchanged.
+
+To see suggestions for an existing project, use `devline infra clients ./project`; use `devline infra clients --stack dotnet` to browse without a project. You can add an image and its client together, or add a client to a project that already has its services:
+
+```sh
+devline infra clients ./service
+devline infra add ./service --service postgres@18.6 --client dotnet:postgres
+devline infra add ./service --client dotnet:rabbitmq
+devline toolbox prepare --path ./service
+```
+
+An explicit client addition resolves dependencies in a staged copy, prepares their local vendor directory or cache, and verifies with external networking denied before publishing the changes. Use `--offline` to require locally available artifacts. Adding a service without `--client` only changes its service configuration; `toolbox prepare` saves the selected image archives and checks the complete project.
+
+Add `--background` to `infra add` for a cancellable job. The app's **Add & Prepare** action shows this progress in the project, then prepares the matching docs and image archives after the additions succeed. Preferred ports are selected automatically when free; edit a port only when you need a specific value.
 
 ```sh
 devline infra catalog
@@ -200,7 +265,7 @@ devline --offline updates            # read saved status
 
 Follow either background operation with `devline jobs status JOB_ID --follow`. Completed work is retained if another item fails, and the result identifies the remaining items. Retry after resolving the reported prerequisite. Updating library content does not rewrite projects, change their service pins, or start their containers.
 
-Runtime updates open official installation pages. Devline 0.6.0 uses direct downloads: the app-update section and CLI link to the checked public release. Install or upgrade using the GitHub DMG. The signed Sparkle updater remains disabled in this build because no signed appcast is published. A future build can enable it only with its signing key and Ed25519-signed feed and archives. [Download Devline 0.6.0](https://github.com/fpl0/devline/releases/download/v0.6.0/Devline-macos-arm64.dmg)
+Runtime updates open official installation pages. Devline 0.7.0 uses direct downloads: the app-update section and CLI link to the checked public release. Install or upgrade using the GitHub DMG. The signed Sparkle updater remains disabled in this build because no signed appcast is published. A future build can enable it only with its signing key and Ed25519-signed feed and archives. [Download Devline 0.7.0](https://github.com/fpl0/devline/releases/download/v0.7.0/Devline-macos-arm64.dmg)
 
 Infrastructure also checks publishers for newer compatible images. `devline infra updates check` refreshes observations, and `devline infra update SERVICE` prepares the checked release alongside its predecessor. App updates can include newer catalog entries. Existing project configurations retain their exact pins and archived releases.
 

@@ -377,11 +377,34 @@ pub(crate) fn copy_tree(from: &Path, to: &Path, name: Option<&str>) -> Result<()
 }
 
 pub(crate) fn tree_digest(root: &Path) -> Result<String> {
-    fn walk(root: &Path, relative: &Path, hash: &mut Sha256, buffer: &mut [u8]) -> Result<()> {
+    digest_tree(root, true)
+}
+
+/// Creation rollback must compare every entry, including Git history, build
+/// output and a project file named installed.json. Release digests intentionally
+/// omit their own installed.json marker; that exclusion is unsafe for deletion.
+pub(crate) fn complete_tree_digest(root: &Path) -> Result<String> {
+    if !fs::symlink_metadata(root)?.is_dir() {
+        bail!("The created project is no longer a regular directory");
+    }
+    digest_tree(root, false)
+}
+
+fn digest_tree(root: &Path, exclude_release_marker: bool) -> Result<String> {
+    fn walk(
+        root: &Path,
+        relative: &Path,
+        hash: &mut Sha256,
+        buffer: &mut [u8],
+        exclude_release_marker: bool,
+    ) -> Result<()> {
         let mut entries: Vec<_> = fs::read_dir(root.join(relative))?.collect::<io::Result<_>>()?;
         entries.sort_by_key(fs::DirEntry::file_name);
         for entry in entries {
-            if relative.as_os_str().is_empty() && entry.file_name() == "installed.json" {
+            if exclude_release_marker
+                && relative.as_os_str().is_empty()
+                && entry.file_name() == "installed.json"
+            {
                 continue;
             }
             let path = relative.join(entry.file_name());
@@ -393,7 +416,7 @@ pub(crate) fn tree_digest(root: &Path) -> Result<String> {
             hash.update(name);
             if metadata.is_dir() {
                 hash.update([0]);
-                walk(root, &path, hash, buffer)?;
+                walk(root, &path, hash, buffer, exclude_release_marker)?;
             } else if metadata.is_file() {
                 hash.update([1, u8::from(executable(&metadata))]);
                 hash.update(metadata.len().to_le_bytes());
@@ -416,7 +439,13 @@ pub(crate) fn tree_digest(root: &Path) -> Result<String> {
     // Swift's cooperative worker threads have small stacks. Reuse one heap buffer
     // instead of reserving 64 KiB for every nested dependency directory.
     let mut buffer = vec![0; 64 * 1024];
-    walk(root, Path::new(""), &mut hash, &mut buffer)?;
+    walk(
+        root,
+        Path::new(""),
+        &mut hash,
+        &mut buffer,
+        exclude_release_marker,
+    )?;
     Ok(format!("{:x}", hash.finalize()))
 }
 
@@ -972,6 +1001,7 @@ fn tool_environment_inner(
     path: &Path,
     starter: bool,
 ) -> Result<()> {
+    tasks::normalize_child_signals(command);
     let mut directories = vec![path
         .parent()
         .context("Invalid toolchain path")?
@@ -1002,6 +1032,15 @@ fn tool_environment_inner(
         .map(PathBuf::from),
     );
     command.env("PATH", env::join_paths(directories)?);
+    if tool == "dotnet" {
+        // Compiler/build servers can outlive a sandboxed verification and wait on
+        // unavailable diagnostics sockets. Keep .NET work in this process tree.
+        command
+            .env("DOTNET_EnableDiagnostics", "0")
+            .env("DOTNET_CLI_USE_MSBUILD_SERVER", "0")
+            .env("MSBUILDDISABLENODEREUSE", "1")
+            .env("UseSharedCompilation", "false");
+    }
     if matches!(tool, "swift" | "cargo") {
         for key in ["DEVELOPER_DIR", "TOOLCHAINS"] {
             if let Some(value) = env::var_os(key) {
@@ -1451,6 +1490,19 @@ fn project_test_wrapper(project: &Path, template: &Template, tool: &Path) -> Res
 }
 
 pub fn create(ctx: &Context, reference: &str, destination: &Path, dry_run: bool) -> Result<Value> {
+    create_with_job(ctx, reference, destination, dry_run, None)
+}
+
+pub(crate) fn create_with_job(
+    ctx: &Context,
+    reference: &str,
+    destination: &Path,
+    dry_run: bool,
+    mut job: Option<&mut tasks::Job>,
+) -> Result<Value> {
+    if let Some(job) = job.as_deref_mut() {
+        job.stage("Checking the project destination and starter")?;
+    }
     let _lock = if dry_run {
         None
     } else {
@@ -1503,6 +1555,7 @@ pub fn create(ctx: &Context, reference: &str, destination: &Path, dry_run: bool)
     } else {
         &template.test_command
     };
+    let mut creation_digest = None;
     if !dry_run {
         let marker = marker.context("Install the selected starter first")?;
         let stage = Stage::new(&parent)?;
@@ -1533,6 +1586,7 @@ pub fn create(ctx: &Context, reference: &str, destination: &Path, dry_run: bool)
             &template.toolchain,
             &tool,
             &detail,
+            job.as_deref_mut(),
         )?;
         {
             let _lock = lock_library(ctx)?;
@@ -1540,10 +1594,15 @@ pub fn create(ctx: &Context, reference: &str, destination: &Path, dry_run: bool)
                 record_verification(ctx, &template, marker.digest, detail)?;
             }
         }
+        if let Some(job) = job {
+            job.stage("Saving the verified project")?;
+        }
+        let digest = complete_tree_digest(&stage.0)?;
         stage.publish(&destination)?;
+        creation_digest = Some(digest);
     }
     Ok(
-        json!({"path":destination,"template":template.id,"version":template.version,"test_command":test_command,"toolchain_path":tool,"services":template.services,"docs":template.docs,"dry_run":dry_run}),
+        json!({"path":destination,"template":template.id,"version":template.version,"test_command":test_command,"toolchain_path":tool,"services":template.services,"docs":template.docs,"dry_run":dry_run,"creation_digest":creation_digest}),
     )
 }
 
@@ -1560,6 +1619,7 @@ pub(crate) fn verify_release(path: &Path) -> Result<Installed> {
 }
 
 fn completed(command: &mut Command, stage: &str) -> Result<()> {
+    tasks::normalize_child_signals(command);
     let result = command
         .stdin(Stdio::null())
         .output()
@@ -1831,6 +1891,37 @@ pub(crate) fn build_latest_job(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn dotnet_environment_disables_persistent_servers_for_starters_and_projects() -> Result<()> {
+        for starter in [true, false] {
+            let mut command = Command::new("/bin/sh");
+            tool_environment_inner(
+                &mut command,
+                "dotnet",
+                Path::new("/usr/local/bin/dotnet"),
+                starter,
+            )?;
+            let environment = command
+                .get_envs()
+                .collect::<std::collections::BTreeMap<_, _>>();
+            for (key, value) in [
+                ("DOTNET_EnableDiagnostics", "0"),
+                ("DOTNET_CLI_USE_MSBUILD_SERVER", "0"),
+                ("MSBUILDDISABLENODEREUSE", "1"),
+                ("UseSharedCompilation", "false"),
+            ] {
+                assert_eq!(
+                    environment
+                        .get(std::ffi::OsStr::new(key))
+                        .copied()
+                        .flatten(),
+                    Some(std::ffi::OsStr::new(value))
+                );
+            }
+        }
+        Ok(())
+    }
 
     #[test]
     fn swift_version_uses_compiler_version_and_preserves_driver_alias() -> Result<()> {

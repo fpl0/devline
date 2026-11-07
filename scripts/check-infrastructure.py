@@ -74,6 +74,8 @@ def check_catalog(data):
         health = service["healthcheck"]["command"]
         if len(health) < 2 or health[0] not in {"CMD", "CMD-SHELL"}:
             raise ValueError(f"{name}: invalid health check")
+        if service["id"] == "keycloak" and service["connection"] != "http://127.0.0.1:{{port:http}}":
+            raise ValueError(f"{name}: advertise the running server address; application realms and clients are configured explicitly")
         credentials = {credential["id"] for credential in service["credentials"]}
         values = [service["connection"], *service["env"].values(), *service["command"], *health]
         for value in values:

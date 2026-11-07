@@ -39,7 +39,7 @@ xcrun actool "$ROOT/macos/Assets/DevKit.icon" \
     --compile "$APP/Contents/Resources" --platform macosx \
     --minimum-deployment-target 14.0 --app-icon DevKit \
     --output-partial-info-plist "$STAGING_ROOT/icon-info.plist"
-rsync -a --delete --exclude='.DS_Store' --exclude='/docs/' "$ROOT/data/" "$APP/Contents/Resources/catalog/"
+rsync -a --delete --exclude='.DS_Store' --exclude='__pycache__/' --exclude='*.pyc' --exclude='*.pyo' --exclude='/docs/' "$ROOT/data/" "$APP/Contents/Resources/catalog/"
 python3 - "$ROOT/data" "$APP/Contents/Resources/catalog" <<'PYTHON'
 import json
 from pathlib import Path

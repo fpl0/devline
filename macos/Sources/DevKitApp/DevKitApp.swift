@@ -111,6 +111,8 @@ struct DevKitMacApp: App {
 @MainActor
 final class WorkspaceModel: ObservableObject {
     @Published private(set) var catalog: Catalog?
+    @Published private(set) var catalogError: String?
+    @Published private(set) var loadingCatalog = false
     @Published private(set) var libraryRevision = 0
     @Published private(set) var operation: String?
     @Published var error: String?
@@ -118,6 +120,9 @@ final class WorkspaceModel: ObservableObject {
     @Published private(set) var jobs: [JobRecord] = []
     @Published var inspectedJob: JobRecord?
     private var jobMonitor: Task<Void, Never>?
+    private var pendingServicePreparations: [String: String] =
+        UserDefaults.standard.dictionary(forKey: "devline.pendingServicePreparations") as? [String: String] ?? [:]
+    private var continuingServicePreparation = false
     @Published private(set) var recentProjects: [RecentProject] = {
         guard let data = UserDefaults.standard.data(forKey: "devline.recentProjects") else { return [] }
         return (try? JSONDecoder().decode([RecentProject].self, from: data)) ?? []
@@ -141,13 +146,17 @@ final class WorkspaceModel: ObservableObject {
     func refresh() async {
         do { try await reload(); await refreshJobs() }
         catch is CancellationError {}
-        catch { self.error = error.localizedDescription }
+        catch { if catalog != nil { self.error = error.localizedDescription } }
     }
 
     @discardableResult
     func startJob(_ request: CoreRequest, inspect: Bool = true) async -> Bool {
         do {
             let job: JobRecord = try await Core.request(request)
+            if job.kind == "infra_stack_add", let path = job.targetPath {
+                pendingServicePreparations[job.id] = path
+                UserDefaults.standard.set(pendingServicePreparations, forKey: "devline.pendingServicePreparations")
+            }
             if inspect { inspectedJob = job }
             await refreshJobs()
             return true
@@ -155,7 +164,7 @@ final class WorkspaceModel: ObservableObject {
     }
 
     func refreshJobs() async {
-        do { jobs = try await Core.request(CoreRequest("jobs.list")) }
+        do { jobs = try await Core.request(CoreRequest("jobs.list")); await continueServicePreparation() }
         catch { return }
         guard jobMonitor == nil, jobs.contains(where: \.isActive) else { return }
         jobMonitor = Task { @MainActor in
@@ -165,10 +174,32 @@ final class WorkspaceModel: ObservableObject {
                 let active = Set(jobs.filter(\.isActive).map(\.id))
                 do {
                     jobs = try await Core.request(CoreRequest("jobs.list"))
+                    await continueServicePreparation()
                     if jobs.contains(where: { active.contains($0.id) && !$0.isActive }) { try await reload() }
                 } catch { self.error = error.localizedDescription; return }
                 if !jobs.contains(where: \.isActive) { return }
             }
+        }
+    }
+
+    private func continueServicePreparation() async {
+        guard !continuingServicePreparation else { return }
+        continuingServicePreparation = true
+        defer { continuingServicePreparation = false }
+        var startedPreparation = false
+        for job in jobs where !job.isActive {
+            guard let path = pendingServicePreparations[job.id] else { continue }
+            if job.state == "succeeded", !job.needsAttention {
+                do {
+                    let _: JobRecord = try await Core.request(CoreRequest("jobs.start", path: path, kind: "toolbox_prepare"))
+                    startedPreparation = true
+                } catch { self.error = error.localizedDescription; continue }
+            }
+            pendingServicePreparations.removeValue(forKey: job.id)
+            UserDefaults.standard.set(pendingServicePreparations, forKey: "devline.pendingServicePreparations")
+        }
+        if startedPreparation, let updated: [JobRecord] = try? await Core.request(CoreRequest("jobs.list")) {
+            jobs = updated
         }
     }
 
@@ -195,11 +226,17 @@ final class WorkspaceModel: ObservableObject {
     }
 
     private func reload() async throws {
-        let updated: Catalog = try await Core.request(CoreRequest("catalog"))
-        let previous = catalog?.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
-        let next = updated.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
-        catalog = updated
-        if previous != next { libraryRevision += 1 }
+        loadingCatalog = true
+        defer { loadingCatalog = false }
+        do {
+            let updated: Catalog = try await Core.request(CoreRequest("catalog"))
+            let previous = catalog?.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
+            let next = updated.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
+            catalog = updated
+            catalogError = nil
+            if previous != next { libraryRevision += 1 }
+        } catch is CancellationError { throw CancellationError() }
+        catch { catalogError = error.localizedDescription; throw error }
     }
 }
 
@@ -253,63 +290,10 @@ private struct WorkspaceView: View {
             .navigationSplitViewColumnWidth(min: 165, ideal: 190, max: 245)
         } detail: {
             Group {
-                switch workspace ?? .toolbox {
-                case .toolbox:
-                    ToolboxView(model: model, infrastructure: infrastructure, project: projectContext,
-                        navigate: { workspace = $0 }, openProject: chooseProjectFolder, openRecent: openProject)
-                case .project:
-                    ProjectWorkspaceView(model: model, infrastructure: infrastructure, project: projectContext,
-                        openProject: chooseProjectFolder, newProject: beginNewProject, showDocs: browseProjectDocs,
-                        showInfrastructure: { workspace = .infrastructure }, showStarter: showStarter,
-                        showToolchains: { workspace = .runtimes }, closeProject: clearProject)
-                        .id(projectContext?.path)
-                case .infrastructure:
-                    InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureReference)
-                case .docs:
-                    DocsView(
-                        model: model,
-                        reading: reading,
-                        query: $query,
-                        stack: $docStack,
-                        packReference: $docPack,
-                        directDocumentID: $directDocumentID,
-                        projectContext: projectContext,
-                        updateProject: { context in
-                            guard !openingProject, projectContext?.path == context.path else { return }
-                            projectRequest = nil
-                            projectContext = context
-                        },
-                        clearProject: clearProject,
-                        focusRequest: focusRequest,
-                        lookupRevision: lookupRevision,
-                        openLibrary: { workspace = .library }
-                    )
-                case .templates:
-                    TemplatesView(model: model, selection: $starterReference, newStarter: $newStarter, openDocs: browseDocset)
-                case .runtimes:
-                    RuntimesView(
-                        model: model,
-                        projectStack: projectContext?.stack,
-                        showStarter: showStarter,
-                        showDocs: { stack in
-                            directDocumentID = nil
-                            docStack = stack
-                            docPack = nil
-                            query = ""
-                            workspace = .docs
-                            focusRequest += 1
-                        },
-                        showLibrary: { workspace = .library }
-                    )
-                case .library:
-                    LibraryView(model: model)
-                case .updates:
-                    UpdatesView(model: model, checkOnOpen: updateCheckRequest > 0)
-                        .id(updateCheckRequest)
-                case .activity:
-                    ActivityView(model: model)
-                case .offline:
-                    OfflineLibraryView(model: model, infrastructure: infrastructure, projectPath: projectContext?.path)
+                if model.catalog == nil {
+                    CatalogLoadingView(model: model)
+                } else {
+                    workspaceContent
                 }
             }
             .navigationTitle((workspace ?? .toolbox).title)
@@ -366,7 +350,7 @@ private struct WorkspaceView: View {
             if let request = notification.object as? LookupRequest { lookUp(request) }
         }
         .sheet(item: $newStarter) { starter in
-            NewProjectView(starter: starter, infrastructure: infrastructure) { path in
+            NewProjectView(model: model, starter: starter, infrastructure: infrastructure) { path in
                 newStarter = nil
                 openProject(path)
             }
@@ -406,6 +390,68 @@ private struct WorkspaceView: View {
             if let path = projectContext?.path { Task { await loadProjectContext(path) } }
         }
         .onOpenURL(perform: handleURL)
+    }
+
+    @ViewBuilder
+    private var workspaceContent: some View {
+        switch workspace ?? .toolbox {
+        case .toolbox:
+            ToolboxView(model: model, infrastructure: infrastructure, project: projectContext,
+                navigate: { workspace = $0 }, openProject: chooseProjectFolder, openRecent: openProject)
+        case .project:
+            ProjectWorkspaceView(model: model, infrastructure: infrastructure, project: projectContext,
+                openProject: chooseProjectFolder, newProject: beginNewProject, showDocs: browseProjectDocs,
+                showInfrastructure: { workspace = .infrastructure }, showStarter: showStarter,
+                showToolchains: { workspace = .runtimes }, closeProject: clearProject)
+                .id(projectContext?.path)
+        case .infrastructure:
+            InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureReference)
+        case .docs:
+            DocsView(
+                model: model,
+                reading: reading,
+                query: $query,
+                stack: $docStack,
+                packReference: $docPack,
+                directDocumentID: $directDocumentID,
+                projectContext: projectContext,
+                updateProject: { context in
+                    guard !openingProject, projectContext?.path == context.path else { return }
+                    projectRequest = nil
+                    projectContext = context
+                },
+                clearProject: clearProject,
+                focusRequest: focusRequest,
+                lookupRevision: lookupRevision,
+                openLibrary: { workspace = .library }
+            )
+        case .templates:
+            TemplatesView(model: model, selection: $starterReference, newStarter: $newStarter, openDocs: browseDocset)
+        case .runtimes:
+            RuntimesView(
+                model: model,
+                projectStack: projectContext?.stack,
+                showStarter: showStarter,
+                showDocs: { stack in
+                    directDocumentID = nil
+                    docStack = stack
+                    docPack = nil
+                    query = ""
+                    workspace = .docs
+                    focusRequest += 1
+                },
+                showLibrary: { workspace = .library }
+            )
+        case .library:
+            LibraryView(model: model)
+        case .updates:
+            UpdatesView(model: model, checkOnOpen: updateCheckRequest > 0)
+                .id(updateCheckRequest)
+        case .activity:
+            ActivityView(model: model)
+        case .offline:
+            OfflineLibraryView(model: model, infrastructure: infrastructure, projectPath: projectContext?.path)
+        }
     }
 
     private func handleURL(_ url: URL) {
@@ -609,6 +655,29 @@ private struct WorkspaceView: View {
 }
 
 extension Starter: Identifiable {}
+
+private struct CatalogLoadingView: View {
+    @ObservedObject var model: WorkspaceModel
+
+    var body: some View {
+        VStack(spacing: 16) {
+            if model.loadingCatalog || model.catalogError == nil {
+                ProgressView()
+                Text("Opening your library…").font(.headline)
+            } else {
+                Image(systemName: "externaldrive.badge.exclamationmark").font(.largeTitle).foregroundStyle(.secondary)
+                Text("Couldn’t Open the Library").font(.title2.weight(.semibold))
+                Text(model.catalogError ?? "Please try again.")
+                    .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    .textSelection(.enabled).frame(maxWidth: 440)
+                Button("Retry") { Task { await model.refresh() } }
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
 
 struct StatusBar: View {
     let text: String

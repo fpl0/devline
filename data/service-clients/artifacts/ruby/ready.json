@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "stack": "ruby",
+  "packages": [
+    {
+      "name": "pg",
+      "version": "1.7.0"
+    },
+    {
+      "name": "trilogy",
+      "version": "2.13.3"
+    },
+    {
+      "name": "bunny",
+      "version": "3.5.0"
+    },
+    {
+      "name": "redis",
+      "version": "6.0.0"
+    },
+    {
+      "name": "mongo",
+      "version": "2.26.1"
+    },
+    {
+      "name": "nats-pure",
+      "version": "2.7.0"
+    },
+    {
+      "name": "net-smtp",
+      "version": "0.5.2"
+    },
+    {
+      "name": "meilisearch",
+      "version": "0.33.0"
+    },
+    {
+      "name": "aws-sdk-s3",
+      "version": "1.239.0"
+    },
+    {
+      "name": "openid_connect",
+      "version": "2.5.0"
+    }
+  ],
+  "verification": "Added all ten clients to a fresh Gemfile, resolved through Bundler from cached gems, installed including native extensions, and required every client with empty HOME and outbound network denied.",
+  "inventory_sha256": "587cccced8aaa5624a5a24fa8a5df50046c3cc4891a9dfc113e40e1d63305b34"
+}

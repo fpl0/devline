@@ -1,0 +1,165 @@
+{
+  "stack": "node",
+  "integrations": [
+    {
+      "id": "node:postgres",
+      "service": "postgres",
+      "name": "node-postgres",
+      "packages": [
+        {
+          "name": "pg",
+          "version": "8.23.1"
+        }
+      ],
+      "source_url": "https://node-postgres.com/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "node:mysql",
+      "service": "mysql",
+      "name": "MySQL2",
+      "packages": [
+        {
+          "name": "mysql2",
+          "version": "3.24.6"
+        }
+      ],
+      "source_url": "https://sidorares.github.io/node-mysql2/docs",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "node:rabbitmq",
+      "service": "rabbitmq",
+      "name": "amqplib",
+      "packages": [
+        {
+          "name": "amqplib",
+          "version": "2.2.1"
+        }
+      ],
+      "source_url": "https://www.rabbitmq.com/tutorials/tutorial-one-javascript",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "node:redis",
+      "service": "redis",
+      "name": "node-redis",
+      "packages": [
+        {
+          "name": "redis",
+          "version": "6.3.1"
+        }
+      ],
+      "source_url": "https://redis.io/docs/latest/develop/clients/nodejs/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "node:mongodb",
+      "service": "mongodb",
+      "name": "MongoDB Node driver",
+      "packages": [
+        {
+          "name": "mongodb",
+          "version": "7.8.0"
+        }
+      ],
+      "source_url": "https://www.mongodb.com/docs/drivers/node/current/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "node:nats",
+      "service": "nats",
+      "name": "NATS.js",
+      "packages": [
+        {
+          "name": "@nats-io/transport-node",
+          "version": "3.4.0"
+        }
+      ],
+      "source_url": "https://github.com/nats-io/nats.js",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "node:mailpit",
+      "service": "mailpit",
+      "name": "Nodemailer",
+      "packages": [
+        {
+          "name": "nodemailer",
+          "version": "10.3.1"
+        }
+      ],
+      "source_url": "https://nodemailer.com/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "node:meilisearch",
+      "service": "meilisearch",
+      "name": "Meilisearch",
+      "packages": [
+        {
+          "name": "meilisearch",
+          "version": "0.62.0"
+        }
+      ],
+      "source_url": "https://github.com/meilisearch/meilisearch-js",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "node:seaweedfs",
+      "service": "seaweedfs",
+      "name": "AWS SDK S3",
+      "packages": [
+        {
+          "name": "@aws-sdk/client-s3",
+          "version": "3.1164.0"
+        }
+      ],
+      "source_url": "https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/javascript_s3_code_examples.html",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "node:keycloak",
+      "service": "keycloak",
+      "name": "openid-client",
+      "packages": [
+        {
+          "name": "openid-client",
+          "version": "6.8.9"
+        }
+      ],
+      "source_url": "https://github.com/panva/openid-client",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project. Configure an OpenID Connect client in the local realm; this does not register users or applications.",
+      "builtin": false,
+      "supported": true
+    }
+  ]
+}

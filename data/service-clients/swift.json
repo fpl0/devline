@@ -1,0 +1,196 @@
+{
+  "stack": "swift",
+  "integrations": [
+    {
+      "id": "swift:postgres",
+      "service": "postgres",
+      "name": "PostgresNIO",
+      "packages": [
+        {
+          "name": "postgres-nio",
+          "version": "1.33.3",
+          "url": "https://github.com/vapor/postgres-nio.git",
+          "products": [
+            "PostgresNIO"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/vapor/postgres-nio",
+      "support": "community",
+      "detail": "Adds the Swift package product to the app target and archives its resolved sources for offline builds.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "swift:mysql",
+      "service": "mysql",
+      "name": "MySQLNIO",
+      "packages": [
+        {
+          "name": "mysql-nio",
+          "version": "1.9.3",
+          "url": "https://github.com/vapor/mysql-nio.git",
+          "products": [
+            "MySQLNIO"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/vapor/mysql-nio",
+      "support": "community",
+      "detail": "Adds the Swift package product to the app target and archives its resolved sources for offline builds.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "swift:rabbitmq",
+      "service": "rabbitmq",
+      "name": "BunnySwift",
+      "packages": [
+        {
+          "name": "bunny-swift",
+          "version": "0.13.0",
+          "url": "https://github.com/michaelklishin/bunny-swift.git",
+          "products": [
+            "BunnySwift"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/michaelklishin/bunny-swift",
+      "support": "publisher",
+      "detail": "Adds the Swift package product to the app target and archives its resolved sources for offline builds.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "swift:redis",
+      "service": "redis",
+      "name": "RediStack",
+      "packages": [
+        {
+          "name": "redistack",
+          "version": "1.6.3",
+          "url": "https://github.com/swift-server/RediStack.git",
+          "products": [
+            "RediStack"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/swift-server/RediStack",
+      "support": "community",
+      "detail": "Adds the Swift package product to the app target and archives its resolved sources for offline builds.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "swift:mongodb",
+      "service": "mongodb",
+      "name": "MongoKitten",
+      "packages": [
+        {
+          "name": "mongokitten",
+          "version": "7.16.3",
+          "url": "https://github.com/orlandos-nl/MongoKitten.git",
+          "products": [
+            "MongoKitten"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/orlandos-nl/MongoKitten",
+      "support": "community",
+      "detail": "Adds the Swift package product to the app target and archives its resolved sources for offline builds.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "swift:nats",
+      "service": "nats",
+      "name": "Nats",
+      "packages": [
+        {
+          "name": "nats.swift",
+          "version": "0.4.0",
+          "url": "https://github.com/nats-io/nats.swift.git",
+          "products": [
+            "Nats"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/nats-io/nats.swift",
+      "support": "publisher",
+      "detail": "Adds the Swift package product to the app target and archives its resolved sources for offline builds.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "swift:mailpit",
+      "service": "mailpit",
+      "name": "Foundation URLSession",
+      "packages": [],
+      "source_url": "https://mailpit.axllent.org/docs/api-v1/",
+      "support": "builtin",
+      "detail": "Use Foundation URLSession with Mailpit\u2019s HTTP API to send and inspect test mail; no Swift package is needed. This is the HTTP API, not an SMTP transport.",
+      "builtin": true,
+      "supported": true
+    },
+    {
+      "id": "swift:meilisearch",
+      "service": "meilisearch",
+      "name": "MeiliSearch",
+      "packages": [
+        {
+          "name": "meilisearch-swift",
+          "version": "0.17.0",
+          "url": "https://github.com/meilisearch/meilisearch-swift.git",
+          "products": [
+            "MeiliSearch"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/meilisearch/meilisearch-swift",
+      "support": "community",
+      "detail": "Adds the Swift package product to the app target and archives its resolved sources for offline builds.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "swift:seaweedfs",
+      "service": "seaweedfs",
+      "name": "SotoS3",
+      "packages": [
+        {
+          "name": "soto",
+          "version": "7.17.0",
+          "url": "https://github.com/soto-project/soto.git",
+          "products": [
+            "SotoS3"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/soto-project/soto",
+      "support": "community",
+      "detail": "Adds the Swift package product to the app target and archives its resolved sources for offline builds.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "swift:keycloak",
+      "service": "keycloak",
+      "name": "AppAuth",
+      "packages": [
+        {
+          "name": "appauth-ios",
+          "version": "3.0.0",
+          "url": "https://github.com/openid/AppAuth-iOS.git",
+          "products": [
+            "AppAuth"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/openid/AppAuth-iOS",
+      "support": "community",
+      "detail": "Adds the Swift package product to the app target and archives its resolved sources for offline builds.",
+      "builtin": false,
+      "supported": true
+    }
+  ]
+}

@@ -33,7 +33,14 @@ case "$mode" in
     export npm_config_cache="$cache/npm-cache"
     npm ci --include=dev --no-audit --no-fund
     if [ -f node_modules/playwright/cli.js ]; then
-        PLAYWRIGHT_BROWSERS_PATH="$cache/browsers" "$tool" node_modules/playwright/cli.js install
+        if [ -f BROWSER.json ] && [ -d browser-archive ] && [ -f test-offline.sh ]; then
+            # The bundled starter's test restores and checks its pinned browser.
+            :
+        elif [ "${DEVLINE_OFFLINE:-false}" = true ]; then
+            [ -d "$cache/browsers" ] || { echo 'Prepare the pinned browser before adding clients offline.' >&2; exit 1; }
+        else
+            PLAYWRIGHT_BROWSERS_PATH="$cache/browsers" "$tool" node_modules/playwright/cli.js install
+        fi
     fi
     rm -rf "$cache/npm-cache/_logs"
     printf '%s\n' "$lock_digest" > "$cache/npm-lock.sha256"

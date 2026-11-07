@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "stack": "rust",
+  "packages": [
+    {
+      "name": "sqlx",
+      "version": "0.9.0",
+      "default_features": false,
+      "features": [
+        "mysql",
+        "mysql-rsa",
+        "postgres",
+        "runtime-tokio",
+        "tls-rustls-ring-webpki"
+      ]
+    },
+    {
+      "name": "amqprs",
+      "version": "2.1.5",
+      "features": [
+        "urispec"
+      ]
+    },
+    {
+      "name": "redis",
+      "version": "1.8.1",
+      "default_features": false,
+      "features": [
+        "tokio-rustls-comp",
+        "tls-rustls-webpki-roots"
+      ]
+    },
+    {
+      "name": "mongodb",
+      "version": "3.10.0"
+    },
+    {
+      "name": "async-nats",
+      "version": "0.52.0",
+      "default_features": false,
+      "features": [
+        "ring",
+        "jetstream"
+      ]
+    },
+    {
+      "name": "lettre",
+      "version": "0.11.23",
+      "default_features": false,
+      "features": [
+        "builder",
+        "smtp-transport",
+        "tokio1-rustls-tls"
+      ]
+    },
+    {
+      "name": "meilisearch-sdk",
+      "version": "0.33.0"
+    },
+    {
+      "name": "object_store",
+      "version": "0.14.2",
+      "default_features": false,
+      "features": [
+        "aws-base",
+        "reqwest",
+        "ring"
+      ]
+    },
+    {
+      "name": "reqwest",
+      "version": "0.13.5",
+      "default_features": false,
+      "features": [
+        "json",
+        "rustls-no-provider"
+      ]
+    },
+    {
+      "name": "rustls",
+      "version": "0.23.46",
+      "default_features": false,
+      "features": [
+        "ring",
+        "std"
+      ]
+    },
+    {
+      "name": "openidconnect",
+      "version": "4.1.0",
+      "default_features": false,
+      "features": [
+        "reqwest",
+        "rustls-tls"
+      ]
+    }
+  ],
+  "verification": "native client graph resolved and checked with outbound networking denied",
+  "inventory_sha256": "550fc8559f1e9ecd2cc4e6ffa8da76e657b44c0a2d186a4dca23a3dc22b77362"
+}

@@ -1,0 +1,980 @@
+# State transitions:
+#  :waiting_for_message => receive PING, send PONG => :waiting_for_message
+#  :waiting_for_message => receive MSG... -> :waiting_for_message
+
+defmodule Gnat do
+  @moduledoc """
+  The primary interface for interacting with NATS
+  """
+  use GenServer
+  require Logger
+  alias Gnat.{Command, Parsec, Validation}
+
+  @type t :: GenServer.server()
+  @type headers :: [{binary(), iodata()}]
+
+  @typedoc """
+  A message received from NATS will be delivered to your process in this form.
+  Please note that the `:reply_to` and `:headers` keys are optional.
+  They will only be present if the message was received from the NATS server with
+  headers or a `reply_to` topic
+
+  * `gnat` - The Gnat connection
+  * `topic` - The topic on which the message arrived
+  * `body` - The raw payload of the message
+  * `sid` - The subscription ID corresponding to this message. You generally won't need to use this value directly.
+  * `reply_to` - A topic supplied for expected replies
+  * `headers` - A set of NATS message headers on the message
+  * `status` - Similar to an HTTP status, this is present for messages with headers and can indicate the specific purpose of a message. Example `status: "408"`
+  * `description` - A string description of the `status`
+  """
+  @type message :: %{
+          required(:gnat) => t(),
+          required(:topic) => binary(),
+          required(:body) => iodata(),
+          required(:sid) => non_neg_integer(),
+          optional(:reply_to) => binary(),
+          optional(:headers) => headers(),
+          optional(:status) => String.t(),
+          optional(:description) => String.t()
+        }
+  @type sent_message :: {:msg, message()}
+
+  @typedoc """
+  * `connection_timeout` - limits how long it can take to establish a connection to a server
+  * `host` - The location of the NATS server
+  * `ping_interval` - The number of milliseconds between sending PING messages to the server to check the health of our connection
+  * `port` - The port the NATS server is listening on
+  * `ssl_opts` - Options for connecting over SSL
+  * `tcp_opts` - Options for connecting over TCP
+  * `tls` - If the server should use a TLS connection
+  * `inbox_prefix` - Prefix to use for the message inbox of this connection
+  * `inbox` - Subscribe to the request inbox on connect. Defaults to `true`. Set it to `false` for a
+    connection that only publishes and subscribes, for example to a server that refuses the inbox
+    subscription; `request/4` and `request_multi/4` then return `{:error, :no_inbox}`
+  * `no_responders` - Enable the no responders behavior (see `Gnat.request/4`)
+  * `name` - The client name reported by NATS monitoring endpoints
+  * `nkey_seed` - The nkey seed used to sign the server's nonce: a zero-arity function that
+    returns the nkey seed as a binary. A binary is also accepted for backward compatibility, but
+    is not recommended, because the seed can then appear in supervisor crash reports.
+  * `username` - The user name for user/password authentication
+  * `password` - The password for user/password authentication: a zero-arity function that
+    returns the password as a binary. A binary is also accepted for backward compatibility, but
+    is not recommended, because the password can then appear in supervisor crash reports.
+  * `token` - The token for token authentication: a zero-arity function that returns the token
+    as a binary. A binary is also accepted for backward compatibility, but is not recommended,
+    because the token can then appear in supervisor crash reports.
+
+  A function is called while the CONNECT message is built, during each connection handshake.
+  The `nkey_seed`, `password`, `token`, `jwt` and `ssl_opts` settings are redacted from
+  formatted process status, crash reports and connection supervisor logs. See
+  `start_link/2` for the limits of diagnostic redaction.
+  """
+  @type connection_settings :: %{
+          optional(:connection_timeout) => non_neg_integer(),
+          optional(:host) => binary(),
+          optional(:inbox_prefix) => binary(),
+          optional(:inbox) => boolean(),
+          optional(:ping_interval) => non_neg_integer(),
+          optional(:port) => non_neg_integer(),
+          optional(:ssl_opts) => list(),
+          optional(:tcp_opts) => list(),
+          optional(:tls) => boolean(),
+          optional(:no_responders) => boolean(),
+          optional(:name) => binary(),
+          optional(:nkey_seed) => binary() | (-> binary()),
+          optional(:username) => binary(),
+          optional(:password) => binary() | (-> binary()),
+          optional(:token) => binary() | (-> binary())
+        }
+
+  @typedoc """
+  [Info Protocol](https://docs.nats.io/reference/reference-protocols/nats-protocol#info)
+
+  Supported top-level fields use atom keys. Unknown fields and all nested objects
+  retain string keys.
+
+  * `acc_is_sys` - Whether the client is connected to the system account
+  * `api_lvl` - The JetStream API level supported by the server
+  * `client_id` - An optional unsigned integer (64 bits) representing the internal client identifier in the server. This can be used to filter client connections in monitoring, correlate with error logs, etc...
+  * `client_ip` - The IP address the client is connecting from
+  * `cluster` - The name of the cluster if any
+  * `cluster_dynamic` - If the cluster is dynamic
+  * `connect_info` - Whether this INFO is a response to CONNECT
+  * `domain` - The configured JetStream domain
+  * `connect_urls` - An optional list of server urls that a client can connect to.
+  * `ws_connect_urls` - An optional list of server urls that a websocket client can connect to.
+  * `git_commit` - The git commit associated with this NATS version
+  * `go` - The version of golang the NATS server was built with
+  * `headers` - If messages can have headers in them
+  * `host` - The IP address used to start the NATS server, by default this will be 0.0.0.0 and can be configured with -client_advertise host:port
+  * `jetstream` - If the server is using JetStream features
+  * `max_payload` - Maximum payload size, in bytes, that the server will accept from the client. A value of `-1` means unlimited.
+  * `port` - The port number the NATS server is configured to listen on
+  * `proto` - An integer indicating the protocol version of the server. The server version 1.2.0 sets this to 1 to indicate that it supports the "Echo" feature.
+  * `remote_account` - The account the client is connected to
+  * `server_id` - The unique identifier of the NATS server
+  * `server_name` - A name for the server
+  * `version` - The version of the NATS server
+  * `xkey` - The server's public X25519 key
+  * `ldm` - If the server supports Lame Duck Mode notifications, and the current server has transitioned to lame duck, ldm will be set to true.
+  * `auth_required` - If this is set, then the client should try to authenticate upon connect.
+  * `tls_required` - If this is set, then the client must perform the TLS/1.2 handshake. Note, this used to be ssl_required and has been updated along with the protocol from SSL to TLS.
+  * `tls_verify` - If this is set, the client must provide a valid certificate during the TLS handshake.
+  * `tls_available` - If the server can use TLS
+  """
+  @type server_info :: %{
+          optional(:acc_is_sys) => boolean(),
+          optional(:api_lvl) => non_neg_integer(),
+          :client_id => non_neg_integer(),
+          :client_ip => binary(),
+          optional(:ip) => binary(),
+          optional(:cluster) => binary(),
+          optional(:cluster_dynamic) => boolean(),
+          optional(:connect_info) => boolean(),
+          optional(:domain) => binary(),
+          optional(:connect_urls) => list(binary()),
+          optional(:ws_connect_urls) => list(binary()),
+          optional(:git_commit) => binary(),
+          :go => binary(),
+          :headers => boolean(),
+          :host => binary(),
+          optional(:jetstream) => boolean(),
+          :max_payload => integer(),
+          optional(:nonce) => binary(),
+          :port => non_neg_integer(),
+          :proto => integer(),
+          optional(:remote_account) => binary(),
+          :server_id => binary(),
+          :server_name => binary(),
+          :version => binary(),
+          optional(:xkey) => binary(),
+          optional(:ldm) => boolean(),
+          optional(:ssl_required) => boolean(),
+          optional(:tls_verify) => boolean(),
+          optional(:tls_available) => boolean(),
+          optional(:tls_required) => boolean(),
+          optional(:auth_required) => boolean(),
+          optional(binary()) => term()
+        }
+
+  @default_connection_settings %{
+    host: ~c"localhost",
+    ping_interval: 10_000,
+    port: 4222,
+    tcp_opts: [:binary],
+    connection_timeout: 3_000,
+    ssl_opts: [],
+    tls: false,
+    inbox_prefix: "_INBOX.",
+    inbox: true,
+    no_responders: false
+  }
+
+  @request_sid 0
+
+  @doc """
+  Starts a connection to a nats broker
+
+  ```
+  {:ok, gnat} = Gnat.start_link(%{host: "127.0.0.1", port: 4222})
+  # if the server requires TLS you can start a connection with:
+  {:ok, gnat} = Gnat.start_link(%{host: "127.0.0.1", port: 4222, tls: true})
+  # if the server requires TLS and a client certificate you can start a connection with:
+  {:ok, gnat} = Gnat.start_link(%{tls: true, ssl_opts: [certfile: "client-cert.pem", keyfile: "client-key.pem"]})
+  # you can customize default "_INBOX." inbox prefix with:
+  {:ok, gnat} = Gnat.start_link(%{host: "127.0.0.1", port: 4222, inbox_prefix: "my_prefix._INBOX."})
+  # a connection that never makes requests can skip the request inbox:
+  {:ok, gnat} = Gnat.start_link(%{host: "127.0.0.1", port: 4222, inbox: false})
+  # you can use IPv6 addresses too
+  {:ok, gnat} = Gnat.start_link(%{host: "::1", port: 4222, tcp_opts: [:inet6, :binary]})
+  ```
+
+  You can also pass arbitrary SSL or TCP options in the `tcp_opts` and `ssl_opts` keys.
+  If you pass custom TCP options please include `:binary`. Gnat uses binary matching to parse messages.
+
+  The `:inbox_prefix` must be a binary without spaces, tabs, carriage returns or
+  line feeds. Invalid values raise `ArgumentError` before connecting.
+
+  Credentials are redacted from connection configuration logs and formatted OTP
+  status and crash reports. Exceptions raised during connection initialization
+  report their class and stack locations, with details and arguments redacted.
+  Raw debugging interfaces still have access to the original settings, including
+  `:sys.get_state/1`, tracing, and the raw debug history returned by
+  `:sys.get_status/1` when `:sys.log/2` is enabled.
+
+  The final `opts` argument will be passed to the `GenServer.start_link` call so you can pass things like `[name: :gnat_connection]`.
+  """
+  @spec start_link(connection_settings(), keyword()) :: GenServer.on_start()
+  def start_link(connection_settings \\ %{}, opts \\ []) do
+    Validation.inbox_prefix!(
+      Map.get(connection_settings, :inbox_prefix, @default_connection_settings.inbox_prefix)
+    )
+
+    GenServer.start_link(__MODULE__, connection_settings, opts)
+  end
+
+  @doc """
+  Gracefully shuts down a connection
+
+  ```
+  {:ok, gnat} = Gnat.start_link()
+  :ok = Gnat.stop(gnat)
+  ```
+  """
+  @spec stop(t()) :: :ok
+  def stop(pid), do: GenServer.call(pid, :stop)
+
+  @doc """
+  Subscribe to a topic
+
+  Supported options:
+    * queue_group: a string that identifies which queue group you want to join
+
+  By default each subscriber will receive a copy of every message on the topic.
+  When a queue_group is supplied messages will be spread among the subscribers
+  in the same group. (see [nats queueing](https://nats.io/documentation/concepts/nats-queueing/))
+
+  Subjects must be non-empty binaries without spaces, tabs, carriage returns or
+  line feeds. Queue groups must be binaries without those characters; an empty
+  queue group means no queue group. The server validates the subject grammar.
+  Invalid values raise `ArgumentError` in the caller before subscribing.
+
+  The subscribed process will begin receiving messages with a structure of `t:sent_message/0`
+
+  ```
+  {:ok, gnat} = Gnat.start_link()
+  {:ok, subscription} = Gnat.sub(gnat, self(), "topic")
+  receive do
+    {:msg, %{topic: "topic", body: body}} ->
+      IO.puts "Received: \#\{body\}"
+  end
+  ```
+  """
+  @spec sub(t(), pid(), String.t(), keyword()) ::
+          {:ok, non_neg_integer()} | {:ok, String.t()} | {:error, String.t()}
+  def sub(pid, subscriber, topic, opts \\ []) do
+    start = :erlang.monotonic_time()
+    Validation.subject!(topic, :subscription)
+
+    if Keyword.has_key?(opts, :queue_group) do
+      Validation.queue_group!(Keyword.fetch!(opts, :queue_group))
+    end
+
+    result = GenServer.call(pid, {:sub, subscriber, topic, opts})
+    latency = :erlang.monotonic_time() - start
+    :telemetry.execute([:gnat, :sub], %{latency: latency}, %{topic: topic})
+    result
+  end
+
+  @doc false
+  def sub_async(pid, subscriber, topic) do
+    Validation.subject!(topic, :subscription)
+    subscription_request(pid, {:sub, subscriber, topic, []}, :sub, %{topic: topic})
+  end
+
+  @doc false
+  def unsub_async(pid, sid) do
+    subscription_request(pid, {:unsub, sid, []}, :unsub, %{})
+  end
+
+  @doc false
+  def subscription_response(message, {request, event, start, metadata}) do
+    case :gen_server.check_response(message, request) do
+      {:reply, _} = response ->
+        :telemetry.execute([:gnat, event], %{latency: :erlang.monotonic_time() - start}, metadata)
+        response
+
+      other ->
+        other
+    end
+  end
+
+  defp subscription_request(pid, message, event, metadata) do
+    start = :erlang.monotonic_time()
+    {:gen_server.send_request(pid, message), event, start, metadata}
+  end
+
+  @doc """
+  Publish a message
+
+  ```
+  {:ok, gnat} = Gnat.start_link()
+  :ok = Gnat.pub(gnat, "characters", "Ron Swanson")
+  ```
+
+  If you want to provide a reply address to receive a response you can pass it as an option.
+  [See request-reply pattern](https://docs.nats.io/nats-concepts/core-nats/reqreply).
+
+  ```
+  {:ok, gnat} = Gnat.start_link()
+  :ok = Gnat.pub(gnat, "characters", "Star Lord", reply_to: "me")
+  ```
+
+  If you want to publish a message with headers you can pass the `:headers` key in the `opts` like this.
+
+  ```
+  {:ok, gnat} = Gnat.start_link()
+  :ok = Gnat.pub(gnat, "listen", "Yo", headers: [{"foo", "bar"}])
+  ```
+
+  The topic and optional reply subject must be non-empty binaries without spaces,
+  tabs, carriage returns or line feeds. Invalid values raise `ArgumentError` in
+  the caller before sending. The server validates the subject grammar.
+
+  Operations issued by one process retain their order on the connection.
+  Operations from different processes can interleave.
+
+  Returns `{:error, :max_payload_exceeded}` without sending when the body plus
+  encoded headers exceed the current server-advertised `max_payload` limit.
+  The header size includes the NATS version line and header delimiters.
+  A `max_payload` value of `-1` disables the size limit.
+
+  Headers must be passed as a `t:headers()` value (a list of tuples).
+  Sending and parsing headers has more overhead than typical nats messages
+  (see [the Nats 2.2 release notes for details](https://docs.nats.io/whats_new_22#message-headers)),
+  so only use them when they are really valuable.
+  """
+  @spec pub(t(), String.t(), iodata(), keyword()) :: :ok | {:error, :max_payload_exceeded}
+  def pub(pid, topic, message, opts \\ []) do
+    start = :erlang.monotonic_time()
+    Validation.subject!(topic, :publish)
+
+    if Keyword.has_key?(opts, :reply_to) do
+      Validation.subject!(Keyword.fetch!(opts, :reply_to), :reply)
+    end
+
+    opts = prepare_headers(opts)
+    result = GenServer.call(pid, {:pub, topic, message, opts})
+    latency = :erlang.monotonic_time() - start
+    :telemetry.execute([:gnat, :pub], %{latency: latency}, %{topic: topic})
+    result
+  end
+
+  @doc """
+  Send a request and listen for a response synchronously
+
+  Following the nats [request-reply pattern](https://docs.nats.io/nats-concepts/core-nats/reqreply) this
+  function generates a one-time topic to receive replies and then sends a message to the provided topic.
+
+  The topic follows the same rules as `pub/4`. Invalid topics raise `ArgumentError`
+  in the caller before registering or sending the request.
+  Requests exceeding the current server-advertised `max_payload` limit return
+  `{:error, :max_payload_exceeded}` without registering or sending the request.
+  Encoded headers count toward the limit as described in `pub/4`.
+
+  Supported options:
+    * `receive_timeout` - An integer number of milliseconds to wait for a response. Defaults to 60_000
+    * `headers` - A set of headers you want to send with the request (see `Gnat.pub/4`)
+
+  ```
+  {:ok, gnat} = Gnat.start_link()
+  case Gnat.request(gnat, "i_can_haz_cheezburger", "plZZZZ?!?!?") do
+    {:ok, %{body: delicious_cheezburger}} -> :yum
+    {:error, :timeout} -> :sad_cat
+  end
+  ```
+
+  ## No Responders
+
+  If you send a request to a topic that has no registered listeners, it is sometimes convenient to find out
+  right away, rather than waiting for a timeout to occur. In order to support this use-case, you can start
+  your Gnat connection with the `no_responders: true` option and this function will return very quickly with
+  an `{:error, :no_responders}` value. This behavior also works with `request_multi/4`
+
+  ## No Inbox
+
+  A connection started with `inbox: false` has no request inbox, so this function returns
+  `{:error, :no_inbox}` without sending the request. So does `request_multi/4`.
+  """
+  @spec request(t(), String.t(), iodata(), keyword()) ::
+          {:ok, message} | {:error, :timeout | :no_responders | :max_payload_exceeded | :no_inbox}
+  def request(pid, topic, body, opts \\ []) do
+    start = :erlang.monotonic_time()
+    Validation.subject!(topic, :publish)
+    receive_timeout = Keyword.get(opts, :receive_timeout, 60_000)
+    req = %{recipient: self(), body: body, topic: topic}
+    opts = prepare_headers(opts)
+
+    req =
+      case Keyword.get(opts, :headers) do
+        nil -> req
+        headers -> Map.put(req, :headers, headers)
+      end
+
+    response =
+      case GenServer.call(pid, {:request, req}) do
+        {:ok, subscription} ->
+          response = receive_request_response(subscription, receive_timeout)
+          :ok = unsub(pid, subscription)
+          response
+
+        {:error, _} = error ->
+          error
+      end
+
+    latency = :erlang.monotonic_time() - start
+    :telemetry.execute([:gnat, :request], %{latency: latency}, %{topic: topic})
+    response
+  end
+
+  @doc """
+  Send a request and listen for multiple responses synchronously
+
+  This function makes it easy to do a scatter-gather operation where you wait for a limited time
+  and optionally a maximum number of replies.
+
+  The topic follows the same rules as `pub/4`. Invalid topics raise `ArgumentError`
+  in the caller before registering or sending the request.
+  Requests exceeding the current server-advertised `max_payload` limit return
+  `{:error, :max_payload_exceeded}` without registering or sending the request.
+  Encoded headers count toward the limit as described in `pub/4`.
+
+  Supported options:
+    * `receive_timeout` - An integer number of milliseconds to wait for responses. Defaults to 60_000
+    * `max_messages` - An integer number of messages to listen for. Defaults to -1 meaning unlimited
+    * `headers` - A set of headers you want to send with the request (see `Gnat.pub/4`)
+
+  ```
+  {:ok, gnat} = Gnat.start_link()
+  {:ok, responses} = Gnat.request_multi(gnat, "i_can_haz_fries", "plZZZZZ!?!?", max_messages: 5)
+  Enum.count(responses) #=> 5
+  ```
+  """
+  @spec request_multi(t(), String.t(), iodata(), keyword()) ::
+          {:ok, list(message())} | {:error, :no_responders | :max_payload_exceeded | :no_inbox}
+  def request_multi(pid, topic, body, opts \\ []) do
+    start = :erlang.monotonic_time()
+    Validation.subject!(topic, :publish)
+    receive_timeout_ms = Keyword.get(opts, :receive_timeout, 60_000)
+    expiration = System.monotonic_time(:millisecond) + receive_timeout_ms
+    max_messages = Keyword.get(opts, :max_messages, -1)
+
+    req = %{recipient: self(), body: body, topic: topic}
+    opts = prepare_headers(opts)
+
+    req =
+      case Keyword.get(opts, :headers) do
+        nil -> req
+        headers -> Map.put(req, :headers, headers)
+      end
+
+    result =
+      case GenServer.call(pid, {:request, req}) do
+        {:ok, subscription} ->
+          result =
+            case receive_multi_request_responses(subscription, expiration, max_messages) do
+              {:error, :no_responders} -> {:error, :no_responders}
+              responses when is_list(responses) -> {:ok, responses}
+            end
+
+          :ok = unsub(pid, subscription)
+          result
+
+        {:error, _} = error ->
+          error
+      end
+
+    latency = :erlang.monotonic_time() - start
+    :telemetry.execute([:gnat, :request_multi], %{latency: latency}, %{topic: topic})
+    result
+  end
+
+  @doc """
+  Unsubscribe from a topic
+
+  Supported options:
+    * `max_messages` - Number of messages to be received before automatically unsubscribed
+
+  This correlates to the [UNSUB](https://docs.nats.io/reference/reference-protocols/nats-protocol#unsub) command in the nats protocol.
+  By default the unsubscribe is affected immediately, but an optional `max_messages` value can be provided which will allow
+  `max_messages` to be received before affecting the unsubscribe.
+  This is especially useful for request/reply patterns.
+
+  ```
+  {:ok, gnat} = Gnat.start_link()
+  {:ok, subscription} = Gnat.sub(gnat, self(), "my_inbox")
+  :ok = Gnat.unsub(gnat, subscription)
+  # OR
+  :ok = Gnat.unsub(gnat, subscription, max_messages: 2)
+  ```
+  """
+  @spec unsub(t(), non_neg_integer() | String.t(), keyword()) :: :ok
+  def unsub(pid, sid, opts \\ []) do
+    start = :erlang.monotonic_time()
+    result = GenServer.call(pid, {:unsub, sid, opts})
+    :telemetry.execute([:gnat, :unsub], %{latency: :erlang.monotonic_time() - start})
+    result
+  end
+
+  @doc """
+  Kept just for backward compatibility for now
+  """
+  @deprecated "Pinging is handled internally by the connection, this function is now a no-op until we remove the function in the 2.x series"
+  def ping(_pid) do
+    :ok
+  end
+
+  @doc "Get the number of active subscriptions"
+  @spec active_subscriptions(t()) :: {:ok, non_neg_integer()}
+  def active_subscriptions(pid) do
+    GenServer.call(pid, :active_subscriptions)
+  end
+
+  @doc """
+  Get information about the NATS server the connection is for.
+
+  Supported top-level fields use atom keys. Unknown fields and all nested objects
+  retain string keys.
+  """
+  @spec server_info(t()) :: server_info()
+  def server_info(name) do
+    GenServer.call(name, :server_info)
+  end
+
+  @impl {:format_status, 1} in GenServer.behaviour_info(:callbacks)
+  def format_status(status), do: Gnat.Redaction.redact(status)
+
+  @impl GenServer
+  def init(connection_settings) do
+    connection_settings = Map.merge(@default_connection_settings, connection_settings)
+
+    case Gnat.Handshake.connect(connection_settings) do
+      {:ok, socket, server_info} ->
+        schedule_ping_check(connection_settings)
+
+        parser = Parsec.new()
+
+        state = %{
+          socket: socket,
+          connection_settings: connection_settings,
+          server_info: server_info,
+          next_sid: 1,
+          receivers: %{},
+          parser: parser,
+          request_receivers: %{},
+          request_inbox_prefix: request_inbox_prefix(connection_settings),
+          waiting_on_pong: false,
+          pending_pubs: []
+        }
+
+        state = create_request_subscription(state)
+        {:ok, state}
+
+      {:error, reason} ->
+        {:stop, reason}
+    end
+  rescue
+    exception ->
+      Gnat.Redaction.reraise_connection_error(exception, __STACKTRACE__)
+  end
+
+  @impl GenServer
+  def handle_info(:timeout, state) do
+    {:noreply, flush_pubs(state)}
+  end
+
+  def handle_info(message, %{pending_pubs: [_ | _]} = state) do
+    handle_info(message, flush_pubs(state))
+  end
+
+  def handle_info(:ping_check, %{waiting_on_pong: true} = state) do
+    error_message =
+      "Closing connection because we did not receive a PONG back within #{state.connection_settings.ping_interval}ms"
+
+    Logger.error(error_message)
+    {:stop, error_message}
+  end
+
+  def handle_info(:ping_check, %{waiting_on_pong: false} = state) do
+    :ok = socket_write(state, "PING\r\n")
+    schedule_ping_check(state.connection_settings)
+    {:noreply, %{state | waiting_on_pong: true}}
+  end
+
+  def handle_info({:tcp, socket, data}, %{socket: socket} = state) do
+    data_packets = receive_additional_tcp_data(socket, [data], 10)
+
+    new_state =
+      Enum.reduce(data_packets, state, fn data, %{parser: parser} = state ->
+        {new_parser, messages} = Parsec.parse(parser, data)
+        new_state = %{state | parser: new_parser}
+        Enum.reduce(messages, new_state, &process_message/2)
+      end)
+
+    {:noreply, new_state}
+  end
+
+  def handle_info({:ssl, socket, data}, state) do
+    handle_info({:tcp, socket, data}, state)
+  end
+
+  def handle_info({:tcp_closed, _}, state) do
+    {:stop, "connection closed", state}
+  end
+
+  def handle_info({:ssl_closed, _}, state) do
+    {:stop, "connection closed", state}
+  end
+
+  def handle_info({:tcp_error, _, reason}, state) do
+    {:stop, "tcp transport error #{inspect(reason)}", state}
+  end
+
+  # Match on the monitor ref alone: for a registered-name subscriber the DOWN carries
+  # `{name, node}` rather than the recipient.
+  def handle_info({:DOWN, ref, :process, _object, _reason}, state) when is_reference(ref) do
+    case Enum.find(state.receivers, fn {_sid, receiver} -> receiver.monitor_ref == ref end) do
+      {sid, _receiver} -> {:noreply, unsub_sid(sid, [], state)}
+      nil -> {:noreply, state}
+    end
+  end
+
+  def handle_info(other, state) do
+    Logger.error("#{__MODULE__} received unexpected message: #{inspect(other)}")
+    {:noreply, state}
+  end
+
+  @impl GenServer
+  def handle_call({:pub, topic, message, opts}, from, state) do
+    case validate_publish_size(message, opts, state.server_info.max_payload) do
+      :ok ->
+        command = Command.build(:pub, topic, message, opts)
+        state = %{state | pending_pubs: [{command, from} | state.pending_pubs]}
+
+        if length(state.pending_pubs) == 11 do
+          {:noreply, flush_pubs(state)}
+        else
+          # A zero timeout flushes when the mailbox is empty without bypassing queued operations.
+          {:noreply, state, 0}
+        end
+
+      {:error, _} = error ->
+        # Keep the idle flush scheduled for any accepted publishes in the batch.
+        {:reply, error, state, 0}
+    end
+  end
+
+  def handle_call(request, from, %{pending_pubs: [_ | _]} = state) do
+    handle_call(request, from, flush_pubs(state))
+  end
+
+  def handle_call(:stop, _from, state) do
+    socket_close(state)
+    {:stop, :normal, :ok, state}
+  end
+
+  def handle_call({:sub, receiver, topic, opts}, _from, %{next_sid: sid} = state) do
+    sub = Command.build(:sub, topic, sid, opts)
+    :ok = socket_write(state, sub)
+    ref = Process.monitor(receiver)
+
+    next_state =
+      add_subscription_to_state(state, sid, receiver, ref) |> Map.put(:next_sid, sid + 1)
+
+    {:reply, {:ok, sid}, next_state}
+  end
+
+  def handle_call({:request, _request}, _from, %{request_inbox_prefix: nil} = state) do
+    {:reply, {:error, :no_inbox}, state}
+  end
+
+  def handle_call({:request, request}, _from, state) do
+    opts = request |> Map.take([:headers]) |> Map.to_list()
+
+    case validate_publish_size(request.body, opts, state.server_info.max_payload) do
+      :ok ->
+        inbox = make_new_inbox(state)
+
+        new_state = %{
+          state
+          | request_receivers: Map.put(state.request_receivers, inbox, request.recipient)
+        }
+
+        pub = Command.build(:pub, request.topic, request.body, opts ++ [reply_to: inbox])
+        :ok = socket_write(new_state, [pub])
+        {:reply, {:ok, inbox}, new_state}
+
+      {:error, _} = error ->
+        {:reply, error, state}
+    end
+  end
+
+  # When the SID is a string, it's a topic, which is used as a key in the request receiver map.
+  def handle_call({:unsub, topic, _opts}, _from, state) when is_binary(topic) do
+    if Map.has_key?(state.request_receivers, topic) do
+      request_receivers = Map.delete(state.request_receivers, topic)
+      new_state = %{state | request_receivers: request_receivers}
+      {:reply, :ok, new_state}
+    else
+      {:reply, :ok, state}
+    end
+  end
+
+  def handle_call({:unsub, sid, opts}, _from, state) do
+    state = unsub_sid(sid, opts, state)
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:ping, pinger}, _from, state) do
+    :ok = socket_write(state, "PING\r\n")
+    {:reply, :ok, Map.put(state, :pinger, pinger)}
+  end
+
+  def handle_call(:active_subscriptions, _from, state) do
+    active_subscriptions = Enum.count(state.receivers)
+    {:reply, {:ok, active_subscriptions}, state}
+  end
+
+  def handle_call(:server_info, _from, state) do
+    {:reply, state.server_info, state}
+  end
+
+  defp unsub_sid(sid, opts, state) do
+    case Map.get(state.receivers, sid) do
+      nil ->
+        state
+
+      _receiver ->
+        command = Command.build(:unsub, sid, opts)
+        :ok = socket_write(state, command)
+        state = cleanup_subscription_from_state(state, sid, opts)
+        state
+    end
+  end
+
+  defp request_inbox_prefix(%{inbox: false}), do: nil
+  defp request_inbox_prefix(%{inbox_prefix: prefix}), do: prefix <> "#{nuid()}."
+
+  defp create_request_subscription(%{request_inbox_prefix: nil} = state), do: state
+
+  defp create_request_subscription(%{request_inbox_prefix: request_inbox_prefix} = state) do
+    # Example: "_INBOX.Jhf7AcTGP3x4dAV9.*"
+    wildcard_inbox_topic = request_inbox_prefix <> "*"
+    sub = Command.build(:sub, wildcard_inbox_topic, @request_sid, [])
+    :ok = socket_write(state, [sub])
+    add_subscription_to_state(state, @request_sid, self(), nil)
+  end
+
+  defp make_new_inbox(%{request_inbox_prefix: prefix}), do: prefix <> nuid()
+
+  defp nuid(), do: :crypto.strong_rand_bytes(12) |> Base.encode64()
+
+  defp prepare_headers(opts) do
+    if Keyword.has_key?(opts, :headers) do
+      headers = Gnat.Headers.encode(Keyword.get(opts, :headers))
+      Keyword.put(opts, :headers, headers)
+    else
+      opts
+    end
+  end
+
+  defp socket_close(%{socket: socket, connection_settings: %{tls: true}}), do: :ssl.close(socket)
+  defp socket_close(%{socket: socket}), do: :gen_tcp.close(socket)
+
+  defp socket_write(%{socket: socket, connection_settings: %{tls: true}}, iodata) do
+    :ssl.send(socket, iodata)
+  end
+
+  defp socket_write(%{socket: socket}, iodata), do: :gen_tcp.send(socket, iodata)
+
+  defp add_subscription_to_state(%{receivers: receivers} = state, sid, pid, ref) do
+    receivers =
+      Map.put(receivers, sid, %{recipient: pid, monitor_ref: ref, unsub_after: :infinity})
+
+    %{state | receivers: receivers}
+  end
+
+  defp cleanup_subscription_from_state(%{receivers: receivers} = state, sid, []) do
+    {receiver, receivers} = Map.pop!(receivers, sid)
+
+    if is_reference(receiver.monitor_ref) do
+      Process.demonitor(receiver.monitor_ref, [:flush])
+    end
+
+    %{state | receivers: receivers}
+  end
+
+  defp cleanup_subscription_from_state(%{receivers: receivers} = state, sid, max_messages: n) do
+    receivers = put_in(receivers, [sid, :unsub_after], n)
+    %{state | receivers: receivers}
+  end
+
+  defp process_message({:info, server_info}, state) do
+    %{state | server_info: server_info}
+  end
+
+  defp process_message({:msg, topic, @request_sid, reply_to, body}, state) do
+    if Map.has_key?(state.request_receivers, topic) do
+      send(
+        state.request_receivers[topic],
+        {:msg, %{topic: topic, body: body, reply_to: reply_to, gnat: self()}}
+      )
+
+      state
+    else
+      Logger.error("#{__MODULE__} got a response for a request, but that is no longer registered")
+      state
+    end
+  end
+
+  defp process_message({:msg, topic, sid, reply_to, body}, state) do
+    unless is_nil(state.receivers[sid]) do
+      :telemetry.execute([:gnat, :message_received], %{count: 1}, %{topic: topic})
+
+      send(
+        state.receivers[sid].recipient,
+        {:msg, %{topic: topic, body: body, reply_to: reply_to, sid: sid, gnat: self()}}
+      )
+
+      update_subscriptions_after_delivering_message(state, sid)
+    else
+      Logger.error("#{__MODULE__} got message for sid #{sid}, but that is no longer registered")
+      state
+    end
+  end
+
+  defp process_message(
+         {:hmsg, topic, @request_sid, reply_to, status, description, headers, body},
+         state
+       ) do
+    if Map.has_key?(state.request_receivers, topic) do
+      map = %{
+        topic: topic,
+        body: body,
+        reply_to: reply_to,
+        gnat: self(),
+        headers: headers,
+        status: status,
+        description: description
+      }
+
+      send(state.request_receivers[topic], {:msg, map})
+      state
+    else
+      Logger.error("#{__MODULE__} got a response for a request, but that is no longer registered")
+      state
+    end
+  end
+
+  defp process_message({:hmsg, topic, sid, reply_to, status, description, headers, body}, state) do
+    unless is_nil(state.receivers[sid]) do
+      :telemetry.execute([:gnat, :message_received], %{count: 1}, %{topic: topic})
+
+      map = %{
+        topic: topic,
+        body: body,
+        reply_to: reply_to,
+        sid: sid,
+        gnat: self(),
+        headers: headers,
+        status: status,
+        description: description
+      }
+
+      send(state.receivers[sid].recipient, {:msg, map})
+      update_subscriptions_after_delivering_message(state, sid)
+    else
+      Logger.error("#{__MODULE__} got message for sid #{sid}, but that is no longer registered")
+      state
+    end
+  end
+
+  defp process_message(:ping, state) do
+    socket_write(state, "PONG\r\n")
+    state
+  end
+
+  defp process_message(:pong, state) do
+    %{state | waiting_on_pong: false}
+  end
+
+  defp process_message({:error, message}, state) do
+    :error_logger.error_report(
+      type: :gnat_error_from_broker,
+      message: message
+    )
+
+    state
+  end
+
+  defp validate_publish_size(_payload, _opts, -1), do: :ok
+
+  defp validate_publish_size(payload, opts, max_payload) do
+    size =
+      case Keyword.fetch(opts, :headers) do
+        {:ok, headers} -> IO.iodata_length(["NATS/1.0\r\n", headers, "\r\n", payload])
+        :error -> IO.iodata_length(payload)
+      end
+
+    if size > max_payload, do: {:error, :max_payload_exceeded}, else: :ok
+  end
+
+  defp flush_pubs(%{pending_pubs: []} = state), do: state
+
+  defp flush_pubs(state) do
+    {commands, froms} = state.pending_pubs |> Enum.reverse() |> Enum.unzip()
+    :ok = socket_write(state, commands)
+    Enum.each(froms, &GenServer.reply(&1, :ok))
+    %{state | pending_pubs: []}
+  end
+
+  defp receive_additional_tcp_data(_socket, packets, 0), do: Enum.reverse(packets)
+
+  defp receive_additional_tcp_data(socket, packets, n) do
+    receive do
+      {:tcp, ^socket, data} ->
+        receive_additional_tcp_data(socket, [data | packets], n - 1)
+    after
+      0 -> Enum.reverse(packets)
+    end
+  end
+
+  defp update_subscriptions_after_delivering_message(%{receivers: receivers} = state, sid) do
+    case get_in(receivers, [sid, :unsub_after]) do
+      :infinity -> state
+      1 -> cleanup_subscription_from_state(state, sid, [])
+      n -> put_in(state, [:receivers, sid, :unsub_after], n - 1)
+    end
+  end
+
+  defp receive_multi_request_responses(_sub, _exp, 0), do: []
+
+  defp receive_multi_request_responses(subscription, expiration, max_messages) do
+    timeout = expiration - :erlang.monotonic_time(:millisecond)
+
+    cond do
+      timeout < 1 ->
+        []
+
+      true ->
+        case receive_request_response(subscription, timeout) do
+          {:error, :no_responders} ->
+            {:error, :no_responders}
+
+          {:error, :timeout} ->
+            []
+
+          {:ok, msg} ->
+            [msg | receive_multi_request_responses(subscription, expiration, max_messages - 1)]
+        end
+    end
+  end
+
+  defp receive_request_response(subscription, timeout) do
+    receive do
+      {:msg, %{topic: ^subscription, status: "503"}} ->
+        {:error, :no_responders}
+
+      {:msg, %{topic: ^subscription} = msg} ->
+        {:ok, msg}
+    after
+      timeout ->
+        {:error, :timeout}
+    end
+  end
+
+  defp schedule_ping_check(connection_settings) do
+    Process.send_after(self(), :ping_check, connection_settings.ping_interval)
+  end
+end

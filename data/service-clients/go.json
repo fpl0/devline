@@ -1,0 +1,170 @@
+{
+  "stack": "go",
+  "integrations": [
+    {
+      "id": "go:postgres",
+      "service": "postgres",
+      "name": "pgx",
+      "packages": [
+        {
+          "name": "github.com/jackc/pgx/v5",
+          "version": "v5.12.0"
+        }
+      ],
+      "source_url": "https://github.com/jackc/pgx",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "go:mysql",
+      "service": "mysql",
+      "name": "Go MySQL driver",
+      "packages": [
+        {
+          "name": "github.com/go-sql-driver/mysql",
+          "version": "v1.10.1"
+        }
+      ],
+      "source_url": "https://github.com/go-sql-driver/mysql",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "go:rabbitmq",
+      "service": "rabbitmq",
+      "name": "RabbitMQ Go client",
+      "packages": [
+        {
+          "name": "github.com/rabbitmq/amqp091-go",
+          "version": "v1.16.0"
+        }
+      ],
+      "source_url": "https://github.com/rabbitmq/amqp091-go",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "go:redis",
+      "service": "redis",
+      "name": "go-redis",
+      "packages": [
+        {
+          "name": "github.com/redis/go-redis/v9",
+          "version": "v9.23.0"
+        }
+      ],
+      "source_url": "https://redis.io/docs/latest/develop/clients/go/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "go:mongodb",
+      "service": "mongodb",
+      "name": "MongoDB Go driver",
+      "packages": [
+        {
+          "name": "go.mongodb.org/mongo-driver/v2",
+          "version": "v2.10.0",
+          "imports": [
+            "go.mongodb.org/mongo-driver/v2/mongo"
+          ]
+        }
+      ],
+      "source_url": "https://www.mongodb.com/docs/drivers/go/current/",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "go:nats",
+      "service": "nats",
+      "name": "NATS Go client",
+      "packages": [
+        {
+          "name": "github.com/nats-io/nats.go",
+          "version": "v1.55.0"
+        }
+      ],
+      "source_url": "https://github.com/nats-io/nats.go",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "go:mailpit",
+      "service": "mailpit",
+      "name": "net/smtp",
+      "packages": [],
+      "source_url": "https://pkg.go.dev/net/smtp",
+      "support": "builtin",
+      "detail": "Use the runtime SMTP library with the local Mailpit host and port; no package is needed.",
+      "builtin": true,
+      "supported": true
+    },
+    {
+      "id": "go:meilisearch",
+      "service": "meilisearch",
+      "name": "Meilisearch",
+      "packages": [
+        {
+          "name": "github.com/meilisearch/meilisearch-go",
+          "version": "v0.36.3"
+        }
+      ],
+      "source_url": "https://github.com/meilisearch/meilisearch-go",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "go:seaweedfs",
+      "service": "seaweedfs",
+      "name": "AWS SDK S3",
+      "packages": [
+        {
+          "name": "github.com/aws/aws-sdk-go-v2/service/s3",
+          "version": "v1.114.9"
+        },
+        {
+          "name": "github.com/aws/aws-sdk-go-v2/credentials",
+          "version": "v1.20.16"
+        }
+      ],
+      "source_url": "https://docs.aws.amazon.com/sdk-for-go/v2/developer-guide/go_s3_code_examples.html",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project.",
+      "builtin": false,
+      "supported": true
+    },
+    {
+      "id": "go:keycloak",
+      "service": "keycloak",
+      "name": "go-oidc",
+      "packages": [
+        {
+          "name": "github.com/coreos/go-oidc/v3",
+          "version": "v3.21.0",
+          "imports": [
+            "github.com/coreos/go-oidc/v3/oidc"
+          ]
+        }
+      ],
+      "source_url": "https://github.com/coreos/go-oidc",
+      "support": "maintainer",
+      "detail": "Adds only the selected client packages, then resolves and vendors their locked dependency graph for this project. Configure an OpenID Connect client in the local realm; this does not register users or applications.",
+      "builtin": false,
+      "supported": true
+    }
+  ]
+}

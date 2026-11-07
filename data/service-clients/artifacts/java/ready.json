@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "stack": "java",
+  "packages": [
+    {
+      "name": "org.postgresql:postgresql",
+      "version": "42.7.14"
+    },
+    {
+      "name": "com.mysql:mysql-connector-j",
+      "version": "9.7.0"
+    },
+    {
+      "name": "com.rabbitmq:amqp-client",
+      "version": "5.30.0"
+    },
+    {
+      "name": "io.lettuce:lettuce-core",
+      "version": "7.5.2.RELEASE"
+    },
+    {
+      "name": "org.mongodb:mongodb-driver-sync",
+      "version": "5.14.0"
+    },
+    {
+      "name": "io.nats:jnats",
+      "version": "2.26.4"
+    },
+    {
+      "name": "org.eclipse.angus:jakarta.mail",
+      "version": "2.0.5"
+    },
+    {
+      "name": "com.meilisearch.sdk:meilisearch-java",
+      "version": "0.22.1"
+    },
+    {
+      "name": "software.amazon.awssdk:s3",
+      "version": "2.57.11"
+    },
+    {
+      "name": "com.nimbusds:oauth2-oidc-sdk",
+      "version": "11.39"
+    }
+  ],
+  "verification": "Added all selected clients to a fresh Maven project, resolved and built offline with empty HOME; all ten client entry-point classes loaded.",
+  "inventory_sha256": "9b200a43efb74346a712fa0e8353e4b7b22e3407e7d5e9be2af4426185b06787"
+}

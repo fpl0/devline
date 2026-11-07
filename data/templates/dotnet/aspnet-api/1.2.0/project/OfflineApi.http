@@ -1,0 +1,12 @@
+@OfflineApi_HostAddress = http://127.0.0.1:5080
+
+GET {{OfflineApi_HostAddress}}/health/ready
+
+###
+POST {{OfflineApi_HostAddress}}/api/notes
+Content-Type: application/json
+
+{ "text": "A note saved entirely offline" }
+
+###
+GET {{OfflineApi_HostAddress}}/api/notes

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "stack": "dotnet",
+  "packages": [
+    {
+      "name": "Npgsql",
+      "version": "10.0.3"
+    },
+    {
+      "name": "MySqlConnector",
+      "version": "2.6.2"
+    },
+    {
+      "name": "RabbitMQ.Client",
+      "version": "7.2.2"
+    },
+    {
+      "name": "StackExchange.Redis",
+      "version": "2.13.23"
+    },
+    {
+      "name": "MongoDB.Driver",
+      "version": "3.13.0"
+    },
+    {
+      "name": "NATS.Net",
+      "version": "3.3.2"
+    },
+    {
+      "name": "MailKit",
+      "version": "4.18.2"
+    },
+    {
+      "name": "Meilisearch",
+      "version": "0.20.0"
+    },
+    {
+      "name": "AWSSDK.S3",
+      "version": "4.0.104.11"
+    },
+    {
+      "name": "Microsoft.AspNetCore.Authentication.OpenIdConnect",
+      "version": "10.0.14"
+    }
+  ],
+  "verification": "native client graph resolved and checked with outbound networking denied",
+  "inventory_sha256": "d631cf90ca7017a88b7d5687cf2cb065be620e3c00d7d856a5801ccf61aae54c"
+}

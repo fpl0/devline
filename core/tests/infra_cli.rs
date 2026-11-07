@@ -102,6 +102,86 @@ fn offline_configuration_and_project_summary_keep_credentials_private() {
 }
 
 #[test]
+fn offline_service_additions_are_idempotent_and_export_client_connections_explicitly() {
+    let fixture = Fixture::new();
+    let project = fixture.0.join("project");
+    fs::create_dir(&project).unwrap();
+    let path = project.to_str().unwrap();
+    let first = fixture.run(&[
+        "--offline",
+        "infra",
+        "add",
+        path,
+        "--service",
+        "postgres@18.6",
+    ]);
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let original: Value = serde_json::from_slice(&first.stdout).unwrap();
+    let before = fs::read_to_string(project.join(".devline-infra/credentials.env")).unwrap();
+    for _ in 0..2 {
+        let added = fixture.run(&[
+            "--offline",
+            "infra",
+            "add",
+            path,
+            "--service",
+            "rabbitmq@4.3.7",
+        ]);
+        assert!(
+            added.status.success(),
+            "{}",
+            String::from_utf8_lossy(&added.stderr)
+        );
+        let added: Value = serde_json::from_slice(&added.stdout).unwrap();
+        assert_eq!(
+            added["data"]["project_name"],
+            original["data"]["project_name"]
+        );
+        assert_eq!(added["data"]["services"].as_array().unwrap().len(), 2);
+        assert!(!added.to_string().contains("PASSWORD"));
+    }
+    let after = fs::read_to_string(project.join(".devline-infra/credentials.env")).unwrap();
+    for line in before.lines() {
+        assert!(after.lines().any(|candidate| candidate == line));
+    }
+    let output = fixture.run(&["--offline", "infra", "env", path]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let environment: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let values = &environment["data"]["environment"];
+    assert!(values["ConnectionStrings__Postgres"]
+        .as_str()
+        .unwrap()
+        .starts_with("Host=127.0.0.1;"));
+    assert_eq!(
+        values["ConnectionStrings__RabbitMQ"],
+        values["DEVLINE_RABBITMQ_URL"]
+    );
+    let output = Command::new(env!("CARGO_BIN_EXE_devline"))
+        .arg("--home")
+        .arg(fixture.0.join("library"))
+        .arg("--catalog")
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../data"))
+        .args(["--offline", "infra", "env", path])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let shell = String::from_utf8(output.stdout).unwrap();
+    assert!(shell.lines().all(|line| line.starts_with("export ")));
+    assert!(shell.contains("export ConnectionStrings__Postgres='Host=127.0.0.1;"));
+    assert!(!project
+        .join(".devline-infra/pending-configuration.json")
+        .exists());
+}
+
+#[test]
 fn toolbox_reports_arbitrary_project_dependencies_unverified() {
     let fixture = Fixture::new();
     let output = fixture.run(&["--offline", "toolbox", "check"]);

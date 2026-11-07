@@ -28,13 +28,15 @@ Pick a release in **App Starters**. For example, start a FastAPI or Chi API, try
 
 While connected, use **Infrastructure** to archive services such as PostgreSQL, Redis, RabbitMQ, or an S3-compatible store. With a local Docker engine running and Compose installed, Devline can restore those exact images from its vault and start them on local ports without pulling them again. For example, the Chi Taskboard starter uses PostgreSQL for storage and Redis for caching. Stop the services from **Current Project** and the data volumes stay on disk.
 
+When adding a service, you can also choose its recommended client library for your project’s language. The choice is optional. Devline adds the selected packages, saves their dependencies locally, and checks the build before applying the change.
+
 Before going offline, use **Prepare Offline** in **Current Project** to prepare its docs, dependencies, and pinned image archives together. The result shows anything still needed, such as a missing toolchain or a stopped Docker engine. **Updates** checks the content sources together and can prepare newer releases without changing your project's pins. You can also export portable docsets, starters, and image archives to take to another compatible Mac.
 
 ![Infrastructure showing PostgreSQL 18.6 archived in Devline and loaded in Docker](press/infrastructure-dark.png)
 
 ## Install
 
-On an Apple Silicon Mac with macOS 14 or later, open the DMG and drag **Devline** into **Applications**. Use the DMG for upgrades to 0.6.0 as well. It includes first-launch instructions for the ad hoc-signed build, which ships without Apple notarization. [Download Devline 0.6.0](https://github.com/fpl0/devline/releases/download/v0.6.0/Devline-macos-arm64.dmg)
+On an Apple Silicon Mac with macOS 14 or later, open the DMG and drag **Devline** into **Applications**. Use the DMG for upgrades to 0.7.0 as well. It includes first-launch instructions for the ad hoc-signed build, which ships without Apple notarization. [Download Devline 0.7.0](https://github.com/fpl0/devline/releases/download/v0.7.0/Devline-macos-arm64.dmg)
 
 ## Do the same work from the terminal
 
