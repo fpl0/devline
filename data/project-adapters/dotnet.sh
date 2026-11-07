@@ -10,6 +10,9 @@ export PATH="$(dirname "$tool"):$PATH"
 export DEVKIT_TOOLCHAIN="$tool" DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_GENERATE_ASPNET_CERTIFICATE=false DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE=true
 export DOTNET_EnableDiagnostics=0 DOTNET_CLI_USE_MSBUILD_SERVER=0 MSBUILDDISABLENODEREUSE=1 UseSharedCompilation=false
+# Cloud-backed folders can stall native file notifications during ASP.NET startup.
+# Polling keeps configuration reload available; an explicit user setting wins.
+export DOTNET_USE_POLLING_FILE_WATCHER="${DOTNET_USE_POLLING_FILE_WATCHER:-1}"
 if [ "$action" = run ]; then
     [ "$#" -gt 0 ] || { printf '%s\n' 'Specify a .NET project command.' >&2; exit 2; }
     if [ ! -d "$cache/packages" ]; then
