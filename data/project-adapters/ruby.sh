@@ -3,6 +3,7 @@ set -eu
 mode=${1:?prepare, verify, or run}
 project=${2:?staged project}
 cache=${3:?staged cache}
+runtime_cache="$cache/ruby-runtime"
 ruby=${4:?Ruby executable}
 shift 4
 adapters=$(cd "$(dirname "$0")" && pwd)
@@ -134,7 +135,7 @@ RUBY
     fi
     if [ "$mode" = run ]; then
       [ "$#" -gt 0 ] || { echo 'Choose a command to run.' >&2; exit 2; }
-      "$ruby" "$adapters/ruby-runtime-cache.rb" "$cache/ruby-runtime" "$cache" "$ruby" "$BUNDLER_VERSION" "$@"
+      "$ruby" "$adapters/ruby-runtime-cache.rb" "$runtime_cache" "$cache" "$ruby" "$BUNDLER_VERSION" "$@"
       exit
     fi
     install_gems

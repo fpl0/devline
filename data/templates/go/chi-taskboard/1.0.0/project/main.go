@@ -34,7 +34,7 @@ func handler(store taskStore) http.Handler {
 	router := chi.NewRouter()
 	router.Use(localRequests, http.NewCrossOriginProtection().Handler)
 	router.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
+		w.WriteHeader(http.StatusOK)
 	})
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)

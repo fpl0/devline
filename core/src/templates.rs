@@ -22,6 +22,8 @@ pub(crate) struct Installed {
     pub(crate) digest: String,
     #[serde(default)]
     pub(crate) verified_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub(crate) superseded_digests: Vec<String>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -231,7 +233,7 @@ fn select(ctx: &Context, reference: &str, prefer_installed: bool) -> Result<Entr
         .with_context(|| format!("No template release matches {reference}"))
 }
 
-fn source(ctx: &Context, path: &str) -> Result<PathBuf> {
+pub(crate) fn source(ctx: &Context, path: &str) -> Result<PathBuf> {
     let mut result = ctx.catalog_dir.canonicalize()?;
     for part in Path::new(path).components() {
         let Component::Normal(part) = part else {
@@ -842,7 +844,7 @@ pub(crate) fn publish_release(
     destination: &Path,
     verified_at: Option<u64>,
 ) -> Result<Value> {
-    let marker = write_release_marker(stage, template, verified_at)?;
+    let marker = write_release_marker(stage, template, verified_at, Vec::new())?;
     stage.publish(destination)?;
     Ok(installation_result(&marker.template, destination))
 }
@@ -851,6 +853,7 @@ fn write_release_marker(
     stage: &Stage,
     template: Template,
     verified_at: Option<u64>,
+    superseded_digests: Vec<String>,
 ) -> Result<Installed> {
     directory(&stage.0.join("project"))?;
     if fs::symlink_metadata(stage.0.join("installed.json")).is_ok() {
@@ -860,6 +863,7 @@ fn write_release_marker(
         digest: tree_digest(&stage.0)?,
         template,
         verified_at,
+        superseded_digests,
     };
     fs::write(
         stage.0.join("installed.json"),
@@ -897,14 +901,14 @@ fn install_release(ctx: &Context, reference: &str, prune: bool) -> Result<Value>
     let template = entry.template;
     let result = if let Some(path) = entry.installed {
         let marker = verify_release(&path)?;
-        if marker.verified_at.is_none()
-            && marker.template.bundled_revision < template.bundled_revision
-        {
+        if supersedes_bundled(&template, &marker.template, marker.verified_at) {
             let source = source(ctx, &template.path)?;
             let base = installed_base(ctx, &template.id, false)?;
             let stage = Stage::new(&base)?;
             copy_tree(&source, &stage.0, None)?;
-            write_release_marker(&stage, template.clone(), None)?;
+            let mut previous = marker.superseded_digests;
+            previous.push(marker.digest);
+            write_release_marker(&stage, template.clone(), None, previous)?;
             replace_bundled_release(&stage, &path)?;
         }
         installation_result(&template, &path)
@@ -1416,13 +1420,17 @@ fn record_verification(
 pub(crate) fn bundle_source(ctx: &Context, reference: &str) -> Result<(Installed, PathBuf)> {
     let entry = select(ctx, reference, true)?;
     if let Some(path) = entry.installed {
-        return Ok((verify_release(&path)?, path));
+        let marker = verify_release(&path)?;
+        if !supersedes_bundled(&entry.template, &marker.template, marker.verified_at) {
+            return Ok((marker, path));
+        }
     }
     let path = source(ctx, &entry.template.path)?;
     let marker = Installed {
         template: entry.template,
         digest: tree_digest(&path)?,
         verified_at: None,
+        superseded_digests: Vec::new(),
     };
     Ok((marker, path))
 }
@@ -1456,13 +1464,22 @@ pub(crate) fn validate_portable(template: &Template) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn bundled_digest(ctx: &Context, template: &Template) -> Result<Option<String>> {
+pub(crate) fn bundled_template<'a>(ctx: &'a Context, template: &Template) -> Option<&'a Template> {
     ctx.catalog
         .templates
         .iter()
         .find(|entry| entry.id == template.id && entry.version == template.version)
-        .map(|entry| tree_digest(&source(ctx, &entry.path)?))
-        .transpose()
+}
+
+pub(crate) fn supersedes_bundled(
+    current: &Template,
+    previous: &Template,
+    verified_at: Option<u64>,
+) -> bool {
+    verified_at.is_none()
+        && current.id == previous.id
+        && current.version == previous.version
+        && current.bundled_revision > previous.bundled_revision
 }
 
 fn observed_version(tool: &str, actual: &str) -> Option<String> {
@@ -2199,10 +2216,14 @@ mod tests {
         assert_eq!(verify_release(&path)?.digest, original);
         fs::remove_file(project.join("invalid"))?;
 
+        let (exported, source) = bundle_source(&fixture.ctx, reference)?;
+        assert_eq!(exported.template.bundled_revision, 1);
+        assert!(source.starts_with(&fixture.ctx.catalog_dir));
         install(&fixture.ctx, reference)?;
         let marker = verify_release(&path)?;
         assert_eq!(marker.template.bundled_revision, 1);
-        assert_ne!(marker.digest, original);
+        assert_eq!(marker.digest, exported.digest);
+        assert_eq!(marker.superseded_digests, [original]);
         let destination = fixture._root.0.join("revised");
         create(&fixture.ctx, reference, &destination, false)?;
         assert_eq!(

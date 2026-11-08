@@ -13,6 +13,7 @@ async fn client_configuration_is_local_until_used() {
     assert!(clients::redis("redis://:test@127.0.0.1:6379/").is_ok());
     assert!(clients::rabbitmq("amqp://test:test@127.0.0.1:5672/%2f").is_ok());
     assert!(clients::nats("nats://127.0.0.1:4222").is_ok());
+    assert!(clients::nats("nats://test:secret%40local@127.0.0.1:4222").is_ok());
     assert!(
         clients::object_storage(
             "http://127.0.0.1:8333",

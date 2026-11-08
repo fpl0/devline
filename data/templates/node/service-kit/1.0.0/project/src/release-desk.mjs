@@ -29,8 +29,12 @@ async function http(url, options) {
   const response = await fetch(url, {
     ...options, signal: AbortSignal.timeout(5_000), redirect: 'error',
   });
-  if (!response.ok) throw new Error(`${new URL(url).pathname} returned HTTP ${response.status}`);
-  return response.json();
+  if (!response.ok) {
+    const error = new Error(`${new URL(url).pathname} returned HTTP ${response.status}`);
+    error.statusCode = response.status;
+    throw error;
+  }
+  return response;
 }
 
 export async function connectDesk(logger) {
@@ -91,8 +95,8 @@ export async function connectDesk(logger) {
   });
   await nats.flush();
 
-  function meili(path, body) {
-    return http(new URL(path, env.MEILISEARCH_URL), {
+  async function meili(path, body) {
+    const response = await http(new URL(path, env.MEILISEARCH_URL), {
       method: body === undefined ? 'GET' : 'POST',
       headers: {
         authorization: `Bearer ${env.MEILISEARCH_PASSWORD}`,
@@ -100,6 +104,7 @@ export async function connectDesk(logger) {
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
+    return response.json();
   }
 
   async function indexRelease({ id, title, notes }) {
@@ -113,8 +118,8 @@ export async function connectDesk(logger) {
     throw new Error('Meilisearch did not index the release');
   }
 
-  function notify({ id, title }) {
-    return http(`http://127.0.0.1:${env.MAILPIT_WEB_PORT}/api/v1/send`, {
+  async function notify({ id, title }) {
+    const response = await http(`http://127.0.0.1:${env.MAILPIT_WEB_PORT}/api/v1/send`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -124,6 +129,7 @@ export async function connectDesk(logger) {
         Text: `Release ${id} was indexed and its notes are ready to download.`,
       }),
     });
+    await response.body?.cancel();
   }
 
   async function processRelease(id) {
@@ -206,7 +212,7 @@ export async function connectDesk(logger) {
         const { hits } = await meili(`/indexes/${index}/search`, { q: query, limit: 20 });
         return hits;
       } catch (error) {
-        if (error.message.endsWith('HTTP 404')) return [];
+        if (error.statusCode === 404) return [];
         throw error;
       }
     },

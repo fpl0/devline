@@ -1,4 +1,4 @@
 {
   "schema_version": 1,
-  "run": { "command": ["elixir", "-S", "mix", "run", "summary.exs", "--", "fixtures/notes.txt"] }
+  "run": { "command": ["elixir", "-S", "mix", "run", "summary.exs", "fixtures/notes.txt"] }
 }

@@ -72,6 +72,8 @@ class ServiceKitTest < Minitest::Test
       ENV["SUPPORT_SQLITE_PATH"] = File.join(directory, "support.sqlite3")
       header "Host", "localhost"
       header "Content-Type", "application/json"
+      post "/tickets"
+      assert_equal 422, last_response.status
       post "/tickets", JSON.generate(title: " ", details: "Something broke")
       assert_equal 422, last_response.status
       post "/tickets", JSON.generate(title: " Printer ", details: "Paper jam")

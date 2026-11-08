@@ -4,7 +4,7 @@ use crate::{
     doc_library::{self, install_doc_packs, Document},
     doc_updates, lock_library,
     tasks::Job,
-    templates, text_arg, Context, DocPack,
+    templates, text_arg, Context, DocPack, Template,
 };
 use anyhow::{bail, Context as _, Result};
 use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
@@ -509,6 +509,24 @@ fn read_files(
     Ok(())
 }
 
+fn accepts_cached_starter(
+    installed: &templates::Installed,
+    incoming: &templates::Installed,
+    bundled: Option<&Template>,
+) -> bool {
+    installed.template.id == incoming.template.id
+        && installed.template.version == incoming.template.version
+        && (installed.digest == incoming.digest
+            || bundled.is_some_and(|current| {
+                templates::supersedes_bundled(current, &incoming.template, incoming.verified_at)
+                    || templates::supersedes_bundled(
+                        current,
+                        &installed.template,
+                        installed.verified_at,
+                    )
+            }))
+}
+
 fn preflight(ctx: &Context, manifest: &Manifest) -> Result<Value> {
     let mut problems = Vec::new();
     let mut warnings = Vec::new();
@@ -558,21 +576,26 @@ fn preflight(ctx: &Context, manifest: &Manifest) -> Result<Value> {
         if !templates::target_matches(template) {
             problems.push(json!({"id":id,"reason":templates::target_detail(template)}));
         }
-        match templates::bundled_digest(ctx, template)? {
-            Some(digest) if digest != starter.digest => {
+        let bundled = templates::bundled_template(ctx, template);
+        let superseded = bundled.is_some_and(|current| {
+            templates::supersedes_bundled(current, template, starter.verified_at)
+        });
+        if let Some(current) = bundled {
+            if superseded {
+                warnings.push(json!({"id":id,"reason":"This release uses the newer starter payload bundled with Devline."}));
+            } else if templates::tree_digest(&templates::source(ctx, &current.path)?)?
+                != starter.digest
+            {
                 problems.push(json!({"id":id,"reason":"Conflicts with a bundled starter of the same version."}));
             }
-            None => trust.push(id.clone()),
-            _ => {}
+        } else {
+            trust.push(id.clone());
         }
         let destination =
             templates::installed_base(ctx, &template.id, false)?.join(&template.version);
         if fs::symlink_metadata(&destination).is_ok()
-            && templates::verify_release(&destination)
-                .map(|installed| installed.digest)
-                .ok()
-                .as_ref()
-                != Some(&starter.digest)
+            && !templates::verify_release(&destination)
+                .is_ok_and(|installed| accepts_cached_starter(&installed, starter, bundled))
         {
             problems.push(json!({"id":id,"reason":"Conflicts with an installed starter of the same version."}));
         }
@@ -744,30 +767,40 @@ pub(crate) fn import_job(
         let mut starters = Vec::new();
         for starter in manifest.starters {
             checkpoint(&job)?;
-            let mut template = starter.template;
+            let template = &starter.template;
             let staged = scratch.0.join(&template.path);
+            let bundled = templates::bundled_template(ctx, template);
+            let superseded = bundled.is_some_and(|current| {
+                templates::supersedes_bundled(current, template, starter.verified_at)
+            });
             let base = templates::installed_base(ctx, &template.id, true)?;
             let destination = base.join(&template.version);
             if fs::symlink_metadata(&destination).is_ok() {
-                if templates::verify_release(&destination)?.digest != starter.digest {
+                let installed = templates::verify_release(&destination)?;
+                if !accepts_cached_starter(&installed, &starter, bundled) {
                     bail!("Starter {} changed during import", template.id);
                 }
                 starters
                     .push(json!({"id":template.id,"version":template.version,"installed":true}));
                 continue;
             }
-            if let Some(known) = ctx
-                .catalog
-                .templates
-                .iter()
-                .find(|entry| entry.id == template.id && entry.version == template.version)
-            {
-                template = known.clone();
+            let template = if let Some(known) = bundled {
+                known.clone()
             } else {
                 // A portable receipt describes the exporting machine. Verify this copy here.
+                let mut template = starter.template;
                 template.verified = false;
-            }
-            let release = templates::Stage(staged);
+                template
+            };
+            let release = if superseded {
+                // The archive was checked above. Only the current bundled code
+                // may be installed in place of a superseded starter payload.
+                let release = templates::Stage::new(&base)?;
+                templates::copy_tree(&templates::source(ctx, &template.path)?, &release.0, None)?;
+                release
+            } else {
+                templates::Stage(staged)
+            };
             let result =
                 templates::publish_release(&release, template, &destination, starter.verified_at)?;
             published.push(destination);
@@ -1247,6 +1280,28 @@ mod tests {
             .database()?
             .execute("UPDATE documents SET body='Altered'", [])?;
         assert_eq!(status(&target, &request)?["ready_offline"], false);
+
+        let mut revised = source.clone();
+        revised.home = work.0.join("revised");
+        fs::create_dir(&revised.home)?;
+        revised.catalog.templates[0].bundled_revision = 1;
+        fs::write(project.join("main.txt"), "Current bundled code")?;
+        let preview = inspect(&revised, &json!({"path":path}))?;
+        assert_eq!(preview["compatible"], true);
+        assert_eq!(preview["requires_trust"], false);
+        import(&revised, &json!({"path":path}))?;
+        let installed = revised.home.join("templates/go/sample/1.2.3");
+        assert_eq!(
+            templates::verify_release(&installed)?
+                .template
+                .bundled_revision,
+            1
+        );
+        assert_eq!(
+            fs::read_to_string(installed.join("project/main.txt"))?,
+            "Current bundled code"
+        );
+
         let mut archive = OpenOptions::new().read(true).write(true).open(&path)?;
         archive.seek(SeekFrom::End(-1))?;
         let mut byte = [0];

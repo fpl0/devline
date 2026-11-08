@@ -40,7 +40,7 @@ async fn main() -> io::Result<()> {
 fn router() -> Router {
     Router::new()
         .route("/", get(index))
-        .route("/healthz", get(|| async { StatusCode::NO_CONTENT }))
+        .route("/healthz", get(|| async { StatusCode::OK }))
         .route("/reading", get(list))
         .route("/reading/{id}", get(show).put(save).delete(remove))
         .layer(axum::extract::DefaultBodyLimit::max(4096))

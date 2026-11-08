@@ -10,6 +10,6 @@ case System.argv() do
     end
 
   _ ->
-    IO.puts(:stderr, "Usage: mix run summary.exs -- FILE")
+    IO.puts(:stderr, "Usage: mix run summary.exs FILE")
     System.halt(2)
 end

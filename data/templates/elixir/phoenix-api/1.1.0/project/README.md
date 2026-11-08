@@ -18,7 +18,8 @@ Submit release notes.
 
 ```sh
 base=http://127.0.0.1:7500
-curl -fsS "$base/releases" -H 'Content-Type: application/json'   -d '{"title":"Release Atlas","notes":"The offline build is ready."}'
+curl -fsS "$base/releases" -H 'Content-Type: application/json' \
+  -d '{"title":"Release Atlas","notes":"The offline build is ready."}'
 ```
 
 Copy the returned ID into `id` and follow the result.

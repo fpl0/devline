@@ -573,6 +573,33 @@ pub(crate) fn logs(ctx: &Context, request: &Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bundled_starters_declare_valid_launches() -> Result<()> {
+        let data = Path::new(env!("CARGO_MANIFEST_DIR")).join("../data");
+        let catalog: crate::Catalog =
+            serde_json::from_slice(&fs::read(data.join("catalog.json"))?)?;
+        for starter in catalog.templates {
+            let label = format!("{}@{}", starter.id, starter.version);
+            let project = data.join(starter.path).join("project");
+            let config =
+                configuration(&project).with_context(|| format!("Read launch for {label}"))?;
+            assert!(
+                !config.run.command.is_empty(),
+                "{label} needs a run command"
+            );
+            for argument in &config.run.command {
+                if argument.starts_with("./") {
+                    assert!(
+                        project.join(argument).is_file(),
+                        "{label} is missing {argument}"
+                    );
+                }
+            }
+        }
+        Ok(())
+    }
+
     #[test]
     fn run_urls_are_loopback_only() {
         for url in [

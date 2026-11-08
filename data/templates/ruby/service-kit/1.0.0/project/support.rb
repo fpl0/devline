@@ -122,7 +122,9 @@ module Support
 
         #{body}
       EMAIL
-      smtp = Net::SMTP.new("127.0.0.1", port, open_timeout: 4, read_timeout: 4, starttls: false)
+      smtp = Net::SMTP.new("127.0.0.1", port, starttls: false)
+      smtp.open_timeout = 4
+      smtp.read_timeout = 4
       # Closing without an acknowledgement requeues the job when SMTP fails.
       smtp.start("localhost") { |connection| connection.send_message(message, from, recipient) }
       channel.ack(delivery.delivery_tag)

@@ -37,7 +37,7 @@ class ServiceKit < Sinatra::Base
     end
 
     def ticket_input
-      body = request.body.read(64_001)
+      body = request.body.read(64_001).to_s
       fail_request(413, "Ticket body is too large") if body.bytesize > 64_000
       input = JSON.parse(body)
       unless input.is_a?(Hash) && input.keys.sort == %w[details title]

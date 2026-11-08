@@ -17,7 +17,8 @@ Submit release notes.
 
 ```sh
 base=http://127.0.0.1:7481
-curl -fsS "$base/releases" -H 'Content-Type: application/json'   -d '{"title":"Release Atlas","notes":"The offline build is ready."}'
+curl -fsS "$base/releases" -H 'Content-Type: application/json' \
+  -d '{"title":"Release Atlas","notes":"The offline build is ready."}'
 ```
 
 Copy the returned ID into `id` and follow the result.
@@ -30,8 +31,8 @@ curl -fsS "$base/releases/$id"
 Repeat the request until the status is `completed`. PostgreSQL stores the
 submission and pending dispatch. RabbitMQ delivers it to a worker. The worker
 stores the notes in SeaweedFS, indexes them in Meilisearch, writes a MySQL audit
-row, and posts a notification to Mailpit, and publishes a NATS completion event. Refresh the status to see a
-Redis cache hit.
+row, posts a notification to Mailpit, and publishes a NATS completion event.
+Refresh the status to see a Redis cache hit.
 
 ```sh
 curl -fsS "$base/releases/$id/artifact"

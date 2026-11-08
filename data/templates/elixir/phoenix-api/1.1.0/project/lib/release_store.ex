@@ -7,8 +7,8 @@ defmodule ReleaseDesk.Store do
 
   def children do
     [
-      {Postgrex, database_options("DEVLINE_POSTGRES_URL", @pg)},
-      {MyXQL, database_options("DEVLINE_MYSQL_URL", @mysql)},
+      Supervisor.child_spec({Postgrex, database_options("DEVLINE_POSTGRES_URL", @pg)}, id: @pg),
+      Supervisor.child_spec({MyXQL, database_options("DEVLINE_MYSQL_URL", @mysql)}, id: @mysql),
       {Redix, {System.fetch_env!("DEVLINE_REDIS_URL"), [name: @redis]}},
       ReleaseDesk.Worker
     ]

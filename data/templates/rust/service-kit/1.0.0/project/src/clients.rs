@@ -45,10 +45,14 @@ pub fn rabbitmq(url: &str) -> Result<OpenConnectionArguments, amqprs::error::Err
 /// Return parsed settings for `options.connect(server).await` when ready.
 pub fn nats(url: &str) -> Result<(ConnectOptions, ServerAddr), ClientError> {
     let server: ServerAddr = url.parse()?;
-    Ok((
-        ConnectOptions::new().connection_timeout(Duration::from_secs(5)),
-        server,
-    ))
+    let mut options = ConnectOptions::new().connection_timeout(Duration::from_secs(5));
+    if let (Some(user), Some(password)) = (server.username(), server.password()) {
+        // async-nats expects explicit authentication settings on ConnectOptions.
+        let user = percent_encoding::percent_decode_str(user).decode_utf8()?;
+        let password = percent_encoding::percent_decode_str(password).decode_utf8()?;
+        options = options.user_and_password(user.into_owned(), password.into_owned());
+    }
+    Ok((options, server))
 }
 
 /// Require explicit credentials to avoid probing a cloud metadata service.

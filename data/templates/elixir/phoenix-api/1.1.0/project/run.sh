@@ -9,6 +9,6 @@ if [ -n "${DEVLINE_POSTGRES_URL:-}" ] && [ -n "${DEVLINE_MYSQL_URL:-}" ] &&
    [ -n "${DEVLINE_RABBITMQ_URL:-}" ] && [ -n "${DEVLINE_REDIS_URL:-}" ] &&
    [ -n "${DEVLINE_SEAWEEDFS_URL:-}" ] && [ -n "${DEVLINE_MEILISEARCH_URL:-}" ] &&
    [ -n "${DEVLINE_MAILPIT_WEB_PORT:-}" ]; then
-    export RELEASE_DESK=1
+    export DEVLINE_RELEASE_DESK=1
 fi
 exec "${DEVKIT_TOOLCHAIN:-elixir}" -S mix run --no-halt

@@ -34,7 +34,7 @@ defmodule DevlinePhoenix.Application do
   use Application
 
   def start(_type, _args) do
-    desk = if System.get_env("RELEASE_DESK") == "1", do: ReleaseDesk.Store.children(), else: []
+    desk = if System.get_env("DEVLINE_RELEASE_DESK") == "1", do: ReleaseDesk.Store.children(), else: []
 
     Supervisor.start_link(
       desk ++ [{Phoenix.PubSub, name: DevlinePhoenix.PubSub}, DevlinePhoenix.Endpoint],

@@ -397,8 +397,8 @@ fn installed_origin_stack(ctx: &Context, root: &Path) -> Option<String> {
     (release.template.id == origin.starter
         && release.template.version == origin.version
         && release.template.stack == stack
-        && release.digest == origin.digest)
-        .then_some(stack.to_owned())
+        && (release.digest == origin.digest || release.superseded_digests.contains(&origin.digest)))
+    .then_some(stack.to_owned())
 }
 
 fn valid_selector(input: &str) -> bool {
