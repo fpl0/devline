@@ -169,7 +169,7 @@ pub(super) fn organize(root: &Path, stack: &str) -> Result<()> {
                 ("$PWD/maven-repository", "$repository"),
             ],
         )?,
-        "node" if root.join(".devline/BROWSER.json").is_file() => {
+        "node" => {
             rewrite(
                 &root.join("package.json"),
                 &[(r#""./test-offline.sh""#, r#""./devline.sh test""#)],
@@ -223,4 +223,26 @@ pub(super) fn organize(root: &Path, stack: &str) -> Result<()> {
             ("the record size limit with networking disabled by Devline.", "the record size limit using the bundled crates."),
         ],
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn node_starter_redirects_npm_test_to_the_project_launcher() -> Result<()> {
+        let stage = crate::templates::Stage::new(&std::env::temp_dir().canonicalize()?)?;
+        let manifest = stage.0.join("package.json");
+        fs::write(&manifest, r#"{"scripts":{"test":"./test-offline.sh"}}"#)?;
+        fs::write(stage.0.join("test-offline.sh"), "exit 0\n")?;
+
+        organize(&stage.0, "node")?;
+
+        assert_eq!(
+            fs::read_to_string(manifest)?,
+            r#"{"scripts":{"test":"./devline.sh test"}}"#
+        );
+        assert!(stage.0.join(".devline/scripts/test-offline.sh").is_file());
+        Ok(())
+    }
 }
