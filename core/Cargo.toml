@@ -1,10 +1,10 @@
 [package]
-name = "devkit"
+name = "devline"
 version = "0.7.0"
 edition = "2021"
 
 [lib]
-name = "devkit_core"
+name = "devline_core"
 crate-type = ["staticlib", "rlib"]
 
 [[bin]]

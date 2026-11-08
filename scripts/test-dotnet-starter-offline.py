@@ -37,7 +37,10 @@ with tempfile.TemporaryDirectory(prefix='devline-dotnet-offline-') as temporary:
     home.mkdir()
     packages.mkdir()
     env = os.environ.copy()
-    env.update(HOME=str(home), DOTNET_CLI_HOME=str(home), NUGET_PACKAGES=str(packages), NUGET_HTTP_CACHE_PATH=str(root / 'http-cache'), DEVKIT_TOOLCHAIN=tool)
+    env.update(HOME=str(home), DOTNET_CLI_HOME=str(home), NUGET_PACKAGES=str(packages),
+               NUGET_HTTP_CACHE_PATH=str(root / 'http-cache'), DEVLINE_TOOLCHAIN=tool)
+    # The immutable bundled starter still reads the previous variable.
+    env['DEVKIT_TOOLCHAIN'] = tool
     # Check the actual boundary, not only the presence of a policy argument.
     blocked = subprocess.run([str(sandbox), '-p', policy, '/usr/bin/curl', '--connect-timeout', '3', '--max-time', '5', '--silent', '--output', '/dev/null', 'https://api.nuget.org/v3/index.json'], env=env)
     if blocked.returncode == 0:

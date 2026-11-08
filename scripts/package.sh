@@ -4,25 +4,20 @@ export MACOSX_DEPLOYMENT_TARGET=14.0
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$(dirname "$ROOT")"
 SWIFT_BUILD_PATH="${DEVLINE_SWIFT_BUILD_PATH:-$ROOT/macos/.build}"
-python3 - "$ROOT" <<'PY'
-import json,sys
-from pathlib import Path
-root=Path(sys.argv[1])
-data={"schema_version":1,"docs":json.loads((root/'data/docs-catalog.json').read_text()),"templates":json.loads((root/'data/templates-catalog.json').read_text())}
-(root/'data/catalog.json').write_text(json.dumps(data,indent=2)+'\n')
-PY
+python3 "$ROOT/scripts/sync-catalog.py"
+python3 "$ROOT/scripts/seal-service-client-packs.py" --check
 cargo build --release --locked --manifest-path "$ROOT/core/Cargo.toml"
-APP_VERSION="$(cargo metadata --offline --no-deps --format-version 1 --manifest-path "$ROOT/core/Cargo.toml" | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"] == "devkit"))')"
+APP_VERSION="$(cargo metadata --offline --no-deps --format-version 1 --manifest-path "$ROOT/core/Cargo.toml" | python3 -c 'import json,sys; print(next(p["version"] for p in json.load(sys.stdin)["packages"] if p["name"] == "devline"))')"
 # SwiftPM does not track this externally built static library as a source dependency.
 # Invalidate its build when the Rust archive changes so the app cannot ship a stale core.
-CORE_DIGEST="$(shasum -a 256 "$ROOT/core/target/release/libdevkit_core.a" | cut -d ' ' -f 1)"
+CORE_DIGEST="$(shasum -a 256 "$ROOT/core/target/release/libdevline_core.a" | cut -d ' ' -f 1)"
 PREVIOUS_DIGEST="$(cat "$SWIFT_BUILD_PATH/devline-core.sha256" 2>/dev/null || true)"
 if [ "$CORE_DIGEST" != "$PREVIOUS_DIGEST" ]; then
     swift package --package-path "$ROOT/macos" --scratch-path "$SWIFT_BUILD_PATH" clean
 fi
 swift build --package-path "$ROOT/macos" --scratch-path "$SWIFT_BUILD_PATH" --build-system native -c release
 printf '%s\n' "$CORE_DIGEST" > "$SWIFT_BUILD_PATH/devline-core.sha256"
-STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/devkit-build.XXXXXX")"
+STAGING_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/devline-build.XXXXXX")"
 ARCHIVE_STAGE=""
 cleanup() {
     rm -rf "$STAGING_ROOT"
@@ -31,16 +26,19 @@ cleanup() {
 trap cleanup EXIT
 APP="$STAGING_ROOT/Devline.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-cp "$SWIFT_BUILD_PATH/release/DevKitApp" "$APP/Contents/MacOS/DevlineApp"
-ditto "$SWIFT_BUILD_PATH/release/DevKitMac_DevKitApp.bundle" "$APP/Contents/Resources/DevKitMac_DevKitApp.bundle"
+cp "$SWIFT_BUILD_PATH/release/DevlineApp" "$APP/Contents/MacOS/DevlineApp"
+ditto "$SWIFT_BUILD_PATH/release/DevlineMac_DevlineApp.bundle" "$APP/Contents/Resources/DevlineMac_DevlineApp.bundle"
 ditto "$SWIFT_BUILD_PATH/release/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$ROOT/core/target/release/devline" "$APP/Contents/MacOS/devline"
 ln -s devline "$APP/Contents/MacOS/devkit"
-xcrun actool "$ROOT/macos/Assets/DevKit.icon" \
+xcrun actool "$ROOT/macos/Assets/Devline.icon" \
     --compile "$APP/Contents/Resources" --platform macosx \
-    --minimum-deployment-target 14.0 --app-icon DevKit \
+    --minimum-deployment-target 14.0 --app-icon Devline \
     --output-partial-info-plist "$STAGING_ROOT/icon-info.plist"
-rsync -a --delete --exclude='.DS_Store' --exclude='__pycache__/' --exclude='*.pyc' --exclude='*.pyo' --exclude='/docs/' "$ROOT/data/" "$APP/Contents/Resources/catalog/"
+rsync -a --delete --exclude='.DS_Store' --exclude='__pycache__/' --exclude='*.pyc' --exclude='*.pyo' \
+    --exclude='/.catalog-*/' --exclude='/.client-seal-*/' --exclude='/docs/' --exclude='/templates/**/.gradle/' \
+    "$ROOT/data/" "$APP/Contents/Resources/catalog/"
+python3 "$ROOT/scripts/seal-service-client-packs.py" --check --data "$APP/Contents/Resources/catalog"
 python3 - "$ROOT/data" "$APP/Contents/Resources/catalog" <<'PYTHON'
 import json
 from pathlib import Path
@@ -74,8 +72,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>io.devkit.desktop</string>
 <key>CFBundleName</key><string>Devline</string>
 <key>CFBundleDisplayName</key><string>Devline</string>
-<key>CFBundleIconFile</key><string>DevKit</string>
-<key>CFBundleIconName</key><string>DevKit</string>
+<key>CFBundleIconFile</key><string>Devline</string>
+<key>CFBundleIconName</key><string>Devline</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.2.0</string>
 <key>CFBundleVersion</key><string>3</string>

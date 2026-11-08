@@ -1,5 +1,5 @@
 //! The app and CLI share one offline launch path and one owned process group.
-use crate::{infrastructure, project_layout, project_prepare, text_arg, Context};
+use crate::{infrastructure, project, project_layout, project_prepare, text_arg, Context};
 use anyhow::{bail, Context as _, Result};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
@@ -50,19 +50,46 @@ struct Paths {
     directory: PathBuf,
 }
 
+impl Paths {
+    fn new(project: PathBuf, runs: &Path) -> Self {
+        let key = format!(
+            "{:x}",
+            Sha256::digest(project.as_os_str().as_encoded_bytes())
+        );
+        Self {
+            project,
+            directory: runs.join(key),
+        }
+    }
+}
+
 fn paths(ctx: &Context, request: &Value) -> Result<Paths> {
-    let project = Path::new(text_arg(request, "path")?).canonicalize()?;
+    let input = Path::new(text_arg(request, "path")?);
+    let project = project::root(ctx, input)?;
     if !project.is_dir() {
         bail!("Choose a project folder");
     }
-    let key = format!(
-        "{:x}",
-        Sha256::digest(project.as_os_str().as_encoded_bytes())
-    );
-    let directory = crate::templates::library(ctx, Path::new("project-runs"), true)?.join(key);
-    fs::create_dir_all(&directory)?;
-    fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
-    Ok(Paths { project, directory })
+    let runs = crate::templates::library(ctx, Path::new("project-runs"), true)?;
+    let input = input.canonicalize()?;
+    let exact = if input.is_file() {
+        input
+            .parent()
+            .context("Project file has no parent folder")?
+    } else {
+        &input
+    };
+    let mut path = Paths::new(project, &runs);
+    if path.project != exact {
+        // An earlier launch may be keyed to this exact directory, even if a
+        // manifest edit now makes discovery select another project root.
+        let previous = Paths::new(exact.to_owned(), &runs);
+        if record(&previous).is_ok_and(|record| record.as_ref().is_some_and(owns)) {
+            path = previous;
+        }
+    }
+    fs::create_dir_all(&path.directory)?;
+    fs::set_permissions(&path.directory, fs::Permissions::from_mode(0o700))?;
+    Ok(path)
 }
 
 fn lock(path: &Paths) -> Result<File> {
@@ -188,7 +215,7 @@ fn quote(value: &str) -> String {
 pub(crate) fn commands(ctx: &Context, request: &Value) -> Result<Value> {
     let path = paths(ctx, request)?;
     let config = configuration(&path.project)?;
-    let runner = project_prepare::runner(ctx, request);
+    let runner = project_prepare::runner(ctx, &json!({"path":path.project}));
     let launchable = !config.run.command.is_empty() && runner.is_ok();
     let generated = project_layout::is_organized(&path.project);
     let launcher = quote(&path.project.join("devline.sh").to_string_lossy());
@@ -225,9 +252,8 @@ pub(crate) fn commands(ctx: &Context, request: &Value) -> Result<Value> {
     )
 }
 
-pub(crate) fn environment(ctx: &Context, request: &Value) -> Result<BTreeMap<String, String>> {
-    let mut request = request.clone();
-    request["command"] = json!("infra.stack.config");
+fn environment(ctx: &Context, project: &Path) -> Result<BTreeMap<String, String>> {
+    let mut request = json!({"command":"infra.stack.config","path":project});
     let config = infrastructure::execute(ctx, &request, None)?;
     if config["configured"] != true {
         return Ok(BTreeMap::new());
@@ -238,52 +264,56 @@ pub(crate) fn environment(ctx: &Context, request: &Value) -> Result<BTreeMap<Str
         .context("Read local service connection settings")
 }
 
-pub(crate) fn command(ctx: &Context, request: &Value, arguments: &[String]) -> Result<Command> {
-    let runner = project_prepare::runner(ctx, request)?;
+fn command(ctx: &Context, project: &Path, arguments: &[String]) -> Result<Command> {
+    let runner = project_prepare::runner(ctx, &json!({"path":project}))?;
+    if Path::new(text_arg(&runner, "path")?) != project {
+        bail!("The project root changed. Select the project again.");
+    }
     let mut command = Command::new("/usr/bin/sandbox-exec");
     crate::tasks::normalize_child_signals(&mut command);
     command
         .args(["-p", POLICY, "/bin/sh"])
         .arg(text_arg(&runner, "adapter")?)
         .arg("run")
-        .arg(text_arg(&runner, "path")?)
+        .arg(project)
         .arg(text_arg(&runner, "cache")?)
         .arg(text_arg(&runner, "toolchain_path")?)
         .args(arguments)
-        .current_dir(text_arg(&runner, "path")?)
-        .envs(environment(ctx, request)?);
+        .current_dir(project)
+        .envs(environment(ctx, project)?);
     Ok(command)
 }
 
-pub(crate) fn arguments(ctx: &Context, request: &Value) -> Result<Vec<String>> {
-    let path = paths(ctx, request)?;
-    let config = configuration(&path.project)?;
-    if config.run.command.is_empty() {
+fn run_arguments<'a>(action: &'a Action, project: &Path) -> Result<&'a [String]> {
+    if action.command.is_empty() {
         bail!(
             "Add run.command to {}, or specify a command after --",
-            configuration_file(&path.project)
+            configuration_file(project)
         );
     }
-    Ok(config.run.command)
+    Ok(&action.command)
 }
 
 pub fn foreground(request: &Value, supplied: &[String]) -> Result<i32> {
     let ctx = Context::new(request)?;
-    let arguments = if supplied.is_empty() {
-        arguments(&ctx, request)?
-    } else {
-        supplied.to_vec()
+    let path = project::root(&ctx, Path::new(text_arg(request, "path")?))?;
+    let config = supplied
+        .is_empty()
+        .then(|| configuration(&path))
+        .transpose()?;
+    let arguments = match &config {
+        Some(config) => run_arguments(&config.run, &path)?,
+        None => supplied,
     };
-    let mut app = command(&ctx, request, &arguments)?;
-    if supplied.is_empty() {
-        let path = paths(&ctx, request)?;
-        if let Some(url) = configuration(&path.project)?.run.url {
+    let mut app = command(&ctx, &path, arguments)?;
+    if let Some(config) = config {
+        if let Some(url) = config.run.url {
             app.env(
                 "ASPNETCORE_URLS",
                 format!("http://{}", loopback_address(&url)?),
             );
         }
-        start_services(&ctx, request)?;
+        start_services(&ctx, &path)?;
     }
     Ok(app
         .status()
@@ -376,9 +406,8 @@ pub(crate) fn status(ctx: &Context, request: &Value) -> Result<Value> {
     status_at(&paths(ctx, request)?)
 }
 
-pub(crate) fn start_services(ctx: &Context, request: &Value) -> Result<()> {
-    let mut stack = request.clone();
-    stack["command"] = json!("infra.stack.config");
+fn start_services(ctx: &Context, project: &Path) -> Result<()> {
+    let mut stack = json!({"command":"infra.stack.config","path":project});
     if infrastructure::execute(ctx, &stack, None)?["configured"] == true {
         stack["command"] = json!("infra.stack.up");
         infrastructure::execute(ctx, &stack, None)?;
@@ -393,12 +422,12 @@ pub(crate) fn start(ctx: &Context, request: &Value) -> Result<Value> {
         return status_at(&path);
     }
     let config = configuration(&path.project)?;
-    let args = arguments(ctx, request)?;
-    let app = command(ctx, request, &args)?;
+    let args = run_arguments(&config.run, &path.project)?;
+    let app = command(ctx, &path.project, args)?;
     if let Some(url) = &config.run.url {
         TcpListener::bind(loopback_address(url)?).with_context(||format!("The app port in {url} is already in use. Stop that app or change run.url and its matching launch setting in {}.", configuration_file(&path.project)))?;
     }
-    start_services(ctx, request)?;
+    start_services(ctx, &path.project)?;
     let mut random = [0u8; 16];
     File::open("/dev/urandom")?.read_exact(&mut random)?;
     let token = format!(

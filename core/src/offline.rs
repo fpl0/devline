@@ -1,7 +1,10 @@
 //! Portable bundles are a length-framed JSON manifest followed by compressed file bodies.
 //! The reader never extracts arbitrary archive paths or executes imported scripts.
 use crate::{
-    doc_updates, install_doc_packs, lock_library, tasks::Job, templates, text_arg, Context, DocPack,
+    doc_library::{self, install_doc_packs, Document},
+    doc_updates, lock_library,
+    tasks::Job,
+    templates, text_arg, Context, DocPack,
 };
 use anyhow::{bail, Context as _, Result};
 use flate2::{bufread::GzDecoder, write::GzEncoder, Compression};
@@ -63,11 +66,11 @@ fn doc_reference(reference: &str) -> Result<(&str, Option<&str>)> {
     let (id, version) = reference
         .split_once('@')
         .map_or((reference, None), |(id, version)| (id, Some(version)));
-    if !crate::valid_doc_id(id) {
+    if !doc_library::valid_doc_id(id) {
         bail!("Invalid documentation release {reference}");
     }
     if let Some(version) = version {
-        crate::validate_doc_identity(id, version)?;
+        doc_library::validate_doc_identity(id, version)?;
     }
     Ok((id, version))
 }
@@ -324,9 +327,11 @@ pub(crate) fn export_job(
     let releases = selected
         .iter()
         .map(|reference| {
-            let (id, _) = doc_reference(reference)?;
+            let (id, version) = doc_reference(reference)?;
             require_portable_doc(id, false)?;
-            Ok((reference, id, exact(reference)?))
+            let version =
+                version.with_context(|| format!("Choose an exact release for {reference}"))?;
+            Ok((reference, id, version))
         })
         .collect::<Result<Vec<_>>>()?;
     stage(&mut job, "Selecting and hashing pinned releases")?;
@@ -525,7 +530,7 @@ fn preflight(ctx: &Context, manifest: &Manifest) -> Result<Value> {
                 problems.push(json!({"id":release,"reason":"Conflicts with the original documentation shard count."}));
             }
             for (index, shard) in shard_names(&original).enumerate() {
-                let digest = crate::hash_doc_shard(&local, &original, index + 1)?;
+                let digest = doc_library::hash_doc_shard(&local, &original, index + 1)?;
                 if declared.get(shard.as_str()).map(|value| value.as_str()) != Some(digest.as_str())
                 {
                     problems.push(json!({"id":release,"reason":"Conflicts with original documentation files for this exact release."}));
@@ -618,13 +623,7 @@ pub fn import(ctx: &Context, request: &Value) -> Result<Value> {
 }
 
 fn shard_names(pack: &DocPack) -> impl Iterator<Item = String> {
-    (1..=pack.shards.unwrap_or(1)).map(|shard| {
-        if shard == 1 {
-            "documents.json".into()
-        } else {
-            format!("documents-{shard}.json")
-        }
-    })
+    (1..=pack.shards.unwrap_or(1)).map(doc_library::shard_name)
 }
 
 fn document_digest(
@@ -649,28 +648,20 @@ fn inspect_docs(pack: &DocPack, path: &Path) -> Result<(String, BTreeMap<String,
     let mut hash = Sha256::new();
     let mut ids = BTreeMap::new();
     for shard in 1..=shards {
-        let bytes = crate::read_doc_shard(path, pack, shard)?;
-        if shards > 1 {
-            hash.update((bytes.len() as u64).to_le_bytes());
-        }
-        hash.update(&bytes);
-        let docs: Vec<crate::Document> = serde_json::from_slice(&bytes)?;
+        let bytes = doc_library::read_doc_shard(path, pack, shard)?;
+        doc_library::add_shard_to_pack_digest(&mut hash, pack, &bytes);
+        let docs: Vec<Document> = serde_json::from_slice(&bytes)?;
         if docs.is_empty() {
             bail!("Documentation shard is empty");
         }
         for doc in docs {
-            let category = doc
-                .category
-                .as_deref()
-                .filter(|c| crate::doc_index::valid_category(c))
-                .unwrap_or_else(|| crate::doc_index::category(&pack.id, &doc.id, &doc.source_url));
             let digest = document_digest(
                 &doc.id,
                 &doc.title,
                 &doc.body,
                 doc.html.as_deref(),
                 &doc.source_url,
-                category,
+                doc.category(pack),
             );
             if doc.id.is_empty() || doc.title.is_empty() || ids.insert(doc.id, digest).is_some() {
                 bail!("Invalid or duplicate documentation article");
@@ -854,7 +845,7 @@ fn check_installed_docs(
     digest: &str,
     count: u64,
 ) -> Result<Value> {
-    crate::validate_doc_identity(id, version)?;
+    doc_library::validate_doc_identity(id, version)?;
     let folder = templates::library(ctx, &Path::new("readiness-docs").join(id), true)?;
     let receipt_path = folder.join(format!("{version}.json"));
     let files = database_stamp(ctx)?;
@@ -1149,7 +1140,7 @@ mod tests {
             }
             assert!(fs::read_dir(&ctx.home)?.next().is_none());
         }
-        crate::install_doc_pack(&ctx, &local, &local_source)?;
+        doc_library::install_doc_pack(&ctx, &local, &local_source)?;
         let ready = status(&ctx, &json!({"docs":["device-reference@1.0.0"]}))?;
         assert_eq!(ready["ready_offline"], true);
         Ok(())

@@ -1,5 +1,7 @@
 use crate::{
-    install_doc_pack_with_preference, lock_library, updates, updates::compare_doc_releases,
+    doc_library::{install_doc_pack_with_preference, shard_name, valid_doc_id, valid_doc_version},
+    lock_library, updates,
+    updates::compare_doc_releases,
     Context, DocPack,
 };
 use anyhow::{bail, Context as _, Result};
@@ -160,23 +162,8 @@ fn feed(ctx: &Context) -> Result<Feed> {
     read_json(&path)
 }
 
-fn valid_id(id: &str) -> bool {
-    id.len() <= 64
-        && id.as_bytes().first().is_some_and(u8::is_ascii_lowercase)
-        && id
-            .bytes()
-            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || matches!(b, b'-' | b'_'))
-}
-
 fn valid_version(version: &str) -> bool {
-    version.len() <= 96
-        && version
-            .as_bytes()
-            .first()
-            .is_some_and(u8::is_ascii_alphanumeric)
-        && version
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b".+-_".contains(&b))
+    version.len() <= 96 && valid_doc_version(version)
 }
 
 fn https_url(raw: &str) -> Result<()> {
@@ -202,9 +189,9 @@ fn valid_digest(value: &str) -> bool {
 }
 
 fn valid_pack(pack: &DocPack) -> Result<()> {
-    if !valid_id(&pack.id)
+    if !valid_doc_id(&pack.id)
         || !valid_version(&pack.version)
-        || !valid_id(&pack.stack)
+        || !valid_doc_id(&pack.stack)
         || pack.name.trim().is_empty()
         || pack.name.len() > 160
         || pack.description.len() > 4096
@@ -596,7 +583,7 @@ fn reference<'a>(id: &'a str, version: Option<&'a str>) -> Result<(&'a str, Opti
     let (id, pinned) = id
         .split_once('@')
         .map_or((id, None), |(id, version)| (id, Some(version)));
-    if !valid_id(id)
+    if !valid_doc_id(id)
         || pinned.zip(version).is_some_and(|(a, b)| a != b)
         || pinned
             .or(version)
@@ -768,7 +755,7 @@ fn validate_files(pack: &DocPack, files: &BTreeMap<String, CachedFile>) -> Resul
         bail!("Documentation pack is missing documents.json");
     }
     for shard in 2..=pack.shards.unwrap_or(1) {
-        if !files.contains_key(&format!("documents-{shard}.json")) {
+        if !files.contains_key(&shard_name(shard)) {
             bail!("Documentation pack is missing shard {shard}");
         }
     }
@@ -829,7 +816,7 @@ pub(crate) fn cached_packs(ctx: &Context) -> Result<Vec<(DocPack, PathBuf)>> {
     let mut packs = Vec::new();
     for pack in entries(&ctx.home.join("doc-packs"))? {
         let id = pack.file_name();
-        let Some(id) = id.to_str().filter(|id| valid_id(id)) else {
+        let Some(id) = id.to_str().filter(|id| valid_doc_id(id)) else {
             continue;
         };
         if !pack.file_type()?.is_dir() {
@@ -1151,5 +1138,4 @@ pub(crate) fn install_with_progress(
 }
 
 #[cfg(test)]
-#[path = "doc_updates_tests.rs"]
 mod tests;

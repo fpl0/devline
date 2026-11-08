@@ -23,15 +23,17 @@ impl Fixture {
             .local_addr()
             .unwrap()
             .port();
-        let root = std::env::temp_dir().join(format!(
-            "devline-run-test-{}-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos(),
-            NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)
-        ));
+        let root = std::env::temp_dir()
+            .join(format!(
+                "devline-run-test-{}-{}-{}",
+                std::process::id(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos(),
+                NEXT_FIXTURE.fetch_add(1, Ordering::Relaxed)
+            ))
+            .join("project");
         fs::create_dir_all(root.join(".devline-offline/wheelhouse")).unwrap();
         fs::write(root.join(".devline-offline/requirements.lock"), "").unwrap();
         fs::write(root.join("pyproject.toml"),"[project]\nname='offline-launch-proof'\nversion='0.0.0'\nrequires-python='>=3.9'\ndependencies=[]\n").unwrap();
@@ -60,20 +62,23 @@ HTTPServer(('127.0.0.1',{port}),Handler).serve_forever()
         Self { root, port }
     }
     fn cli(&self, command: &str) -> Value {
+        self.cli_at(&self.root, command)
+    }
+    fn cli_at(&self, path: &Path, command: &str) -> Value {
         let output = Command::new(env!("CARGO_BIN_EXE_devline"))
             .args(["--json", "--home"])
             .arg(self.root.join("library"))
             .arg("--catalog")
             .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("../data"))
             .args(["project", "--path"])
-            .arg(&self.root)
+            .arg(path)
             .arg(command)
             .output()
             .unwrap();
         assert!(
             output.status.success(),
             "{command} {}: {}",
-            self.root.display(),
+            path.display(),
             String::from_utf8_lossy(&output.stderr)
         );
         serde_json::from_slice::<Value>(&output.stdout).unwrap()["data"].clone()
@@ -90,15 +95,18 @@ impl Drop for Fixture {
             .arg(&self.root)
             .arg("stop")
             .output();
-        let _ = fs::remove_dir_all(&self.root);
+        let _ = fs::remove_dir_all(self.root.parent().unwrap());
     }
 }
 
 #[test]
 fn cli_launches_offline_and_stops_even_a_term_ignoring_listener() {
     let fixture = Fixture::new();
-    assert_eq!(fixture.cli("commands")["launchable"], true);
-    let first = fixture.cli("start");
+    let nested = fixture.root.join("src");
+    fs::create_dir(&nested).unwrap();
+    let manifest = fixture.root.join("pyproject.toml");
+    assert_eq!(fixture.cli_at(&manifest, "commands")["launchable"], true);
+    let first = fixture.cli_at(&nested, "start");
     assert_eq!(first["running"], true);
     assert_eq!(
         fixture.cli("start")["pid"],
@@ -118,11 +126,23 @@ fn cli_launches_offline_and_stops_even_a_term_ignoring_listener() {
         );
         thread::sleep(Duration::from_millis(150));
     }
-    assert!(fixture.cli("logs")["log"]
+    assert!(fixture.cli_at(&manifest, "logs")["log"]
         .as_str()
         .unwrap()
         .contains("OUTBOUND_BLOCKED"));
     assert!(TcpStream::connect(("127.0.0.1", fixture.port)).is_ok());
+    fs::write(
+        fixture.root.parent().unwrap().join("go.mod"),
+        "module example.invalid/parent\n",
+    )
+    .unwrap();
+    fs::remove_file(manifest).unwrap();
+    assert_eq!(fixture.cli("app-status")["pid"], first["pid"]);
+    assert_eq!(fixture.cli("start")["pid"], first["pid"]);
+    assert!(fixture.cli("logs")["log"]
+        .as_str()
+        .unwrap()
+        .contains("OUTBOUND_BLOCKED"));
     assert_eq!(fixture.cli("stop")["running"], false);
     let deadline = Instant::now() + Duration::from_secs(3);
     while TcpStream::connect(("127.0.0.1", fixture.port)).is_ok() {

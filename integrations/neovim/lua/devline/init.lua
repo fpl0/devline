@@ -3,6 +3,8 @@ local M = {}
 local stacks = {
   python = "python", go = "go", rust = "rust", ruby = "ruby", java = "java",
   cs = "dotnet", fsharp = "dotnet", elixir = "elixir", eelixir = "elixir", heex = "elixir",
+  javascript = "node", javascriptreact = "node", typescript = "node", typescriptreact = "node",
+  swift = "swift",
 }
 
 local function encode(value)
@@ -27,12 +29,19 @@ function M.lookup_url(query, path, filetype)
 end
 
 local function symbol_at_cursor()
-  local column = vim.api.nvim_win_get_cursor(0)[2] + 1
+  local column = vim.api.nvim_win_get_cursor(0)[2]
   local line = vim.api.nvim_get_current_line()
-  for start, word, finish in line:gmatch("()([%w_.:#/|>]+)()") do
-    if start <= column and column < finish then
+  local offset = 0
+  while true do
+    -- Vim's keyword class supports non-ASCII symbols. Match offsets are bytes, like the cursor column.
+    local word, start, finish = unpack(vim.fn.matchstrpos(line, [[\%(\k\|[_.:#/|>]\)\+]], offset))
+    if start < 0 or start > column then
+      break
+    end
+    if column < finish then
       return word:gsub("^[%.:/]+", ""):gsub("[%.:/]+$", "")
     end
+    offset = finish
   end
   return vim.fn.expand("<cword>")
 end

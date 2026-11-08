@@ -11,6 +11,8 @@ import tarfile
 import tempfile
 from urllib.parse import urlsplit
 
+from reference_io import atomic_json
+
 
 MAX_FILE = 128 * 1024 * 1024
 MAX_TOTAL = 1024 * 1024 * 1024
@@ -110,6 +112,7 @@ def default_notes(pack):
 def build(data, output, base, selected=None, previous=None, notes=None):
     require_https(base)
     catalog = json.loads((data / "docs-catalog.json").read_text())
+    catalog = [pack for pack in catalog if (pack["id"], pack["version"]) not in RETIRED_FROM_CHANNEL]
     known_ids = {pack["id"] for pack in catalog}
     exact = {f"{pack['id']}@{pack['version']}" for pack in catalog}
     references = set(selected or known_ids)
@@ -118,9 +121,9 @@ def build(data, output, base, selected=None, previous=None, notes=None):
         raise ValueError(f"Unknown documentation pack references: {sorted(unknown)}")
     selected_packs = [pack for pack in catalog if pack["id"] in references
                       or f"{pack['id']}@{pack['version']}" in references]
-    assets = [archive_name(*identity(pack)) for pack in selected_packs]
-    if len(set(assets)) != len(assets):
-        raise ValueError("Multiple docset releases have the same asset name")
+    selected_releases = {identity(pack): pack for pack in selected_packs}
+    if len(selected_releases) != len(selected_packs):
+        raise ValueError("Multiple catalog entries select the same docset release")
     releases = {}
     if previous:
         prior = json.loads(previous.read_text())
@@ -134,9 +137,11 @@ def build(data, output, base, selected=None, previous=None, notes=None):
                 raise ValueError(f"Duplicate prior release {key[0]}@{key[1]}")
             release_asset(release, *key)
             releases[key] = release
+    identities = releases.keys() | selected_releases.keys()
+    if len({archive_name(*key) for key in identities}) != len(identities):
+        raise ValueError("Multiple docset releases have the same asset name")
     output.mkdir(parents=True, exist_ok=True)
-    for pack in selected_packs:
-        pack_id, version = identity(pack)
+    for (pack_id, version), pack in selected_releases.items():
         filename = archive_name(pack_id, version)
         asset = output / filename
         source = data
@@ -165,9 +170,7 @@ def build(data, output, base, selected=None, previous=None, notes=None):
         print(f"{filename:<58} {asset.stat().st_size:>10} bytes {checksum}", flush=True)
     manifest = {"schema_version": 1, "releases": [release for _, release in sorted(releases.items())]}
     manifest_path = output / MANIFEST_NAME
-    temporary = manifest_path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    temporary.replace(manifest_path)
+    atomic_json(manifest_path, manifest)
     return manifest_path
 
 
@@ -177,6 +180,7 @@ def verify(directory, *, allow_missing=False):
         raise ValueError("Unsupported documentation release manifest")
     count = 0
     seen_releases = set()
+    seen_assets = set()
     for release in manifest["releases"]:
         pack = release["pack"]
         pack_id, version = identity(pack)
@@ -184,6 +188,9 @@ def verify(directory, *, allow_missing=False):
             raise ValueError(f"Duplicate release {pack_id}@{version}")
         seen_releases.add((pack_id, version))
         filename = release_asset(release, pack_id, version)
+        if filename in seen_assets:
+            raise ValueError(f"Duplicate release asset {filename}")
+        seen_assets.add(filename)
         path = directory / filename
         if allow_missing and not path.exists():
             continue

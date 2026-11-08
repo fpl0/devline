@@ -151,7 +151,7 @@ devline docs recent
 
 The CLI works with the app closed. With the default pager, the reader opens at the matching declaration when available. Set `DEVLINE_PAGER` or `PAGER` to choose a pager. Pipes and `--no-pager` use the stored article text. Use `--ids` with search for exact IDs or `--json` for structured output. Use `docs show --open` to open an article in Devline or `--link` to print its versioned local link.
 
-The CLI accepts `--offline` for operations that must stay local. An empty search exits with status 4, and readiness checks that require preparation exit with status 3. Run `devline completions --help` for shell setup. The `devkit` compatibility command, `devkit://` links, and `DEVKIT_HOME` and `DEVKIT_CATALOG` still work.
+The CLI accepts `--offline` for operations that must stay local. An empty search exits with status 4, and readiness checks that require preparation exit with status 3. Run `devline completions --help` for shell setup. Earlier installations can still use the `devkit` command and open saved `devkit://` links.
 
 ## Prepare a starter for offline use
 
@@ -323,6 +323,15 @@ devline --offline docs show 'infrastructure@2026.11.07+devline.3/reference/postg
 
 Use **Read Devline Guide** or `devline guide` for setup instructions specific to Devline. [Documentation policy](DOCUMENTATION-POLICY.md)
 
+## Source layout
+
+- [`core/`](core/) builds the `devline` CLI and the shared `devline_core` Rust library. The core owns library storage, reference search, starter verification, project preparation, and local infrastructure. `toolbox` coordinates full project preparation and `tasks` tracks background operations. Integration tests live in `core/tests/`.
+- [`macos/`](macos/) contains the SwiftUI app, grouped by feature under `Sources/DevlineApp/`. `Sources/DevlineBridge/` exposes the shared core through a C header. Native tests live in `Tests/` and the production app icon lives in `Assets/`. [Core protocol](CONTRACT.md)
+- [`integrations/`](integrations/) contains the VS Code and Neovim adapters and their tests. The adapters pass the selected symbol and its context to Devline in a `devline://search` URL.
+- [`data/`](data/) contains the offline library shipped with the app. `docs/` holds publisher reference packs, `help/` holds Devline guides, and `templates/` holds versioned starter payloads and build recipes. `project-adapters/` and `service-clients/` support offline project preparation. After editing `docs-catalog.json` or `templates-catalog.json`, run `python3 scripts/sync-catalog.py` to refresh the combined runtime catalog.
+- [`scripts/`](scripts/) contains the tools and tests for content ingestion, packaging, and releases. `infrastructure-docs/upstream/` holds the publisher inputs used to rebuild the infrastructure reference. [CI workflow](.github/workflows/validate.yml)
+- [`press/`](press/) holds the screenshots used by the README and this guide. [`third-party/`](third-party/) holds redistribution notices and package inputs used by the release build.
+
 ## Build and validate
 
 Documentation ingestion tests use Pandoc. Install it with `brew install pandoc` before running the Python tests. It is not needed to use the app or build projects from its starters.
@@ -335,12 +344,16 @@ On Apple Silicon, use Xcode and its command-line tools, Rust/Cargo, and Python 3
 bash ./scripts/install.sh
 cargo test --locked --manifest-path core/Cargo.toml
 python3 -m unittest discover -s scripts -p 'test_*.py'
+python3 scripts/sync-catalog.py --check
 python3 scripts/check-doc-packs.py
 python3 scripts/check-infrastructure.py
+python3 scripts/seal-service-client-packs.py --check
 ```
 
-The build uses checked-in catalog snapshots and may download locked Rust dependencies and Sparkle. The app defaults to `~/Library/Application Support/DevKit`. Use `DEVKIT_HOME` or `--home` to isolate the library and `DEVKIT_CATALOG` or `--catalog` to select another catalog.
+Use the ignored `.build/` directory for local verification outputs. For example, `python3 scripts/test-service-client-journeys.py --output .build/service-client-journeys` keeps the fixtures, logs, and results outside the tracked source tree.
 
-The bundled library includes 23 docsets and keeps earlier Go and Chi revisions for pinned projects. Its Node ecosystem references cover Node.js core APIs, TypeScript, Playwright, React, and Vite. The starter catalog spans nine runtimes. [Validation and coverage](UX-VALIDATION.md) · [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+The build uses checked-in catalog snapshots and may download locked Rust dependencies and Sparkle. The app uses `~/Library/Application Support/Devline` for new libraries and can reopen a library from an earlier installation. Use `DEVLINE_HOME` or `--home` to isolate the library and `DEVLINE_CATALOG` or `--catalog` to select another catalog. [Storage and catalog](CONTRACT.md#storage-and-catalog)
+
+The bundled library includes 23 docsets and keeps earlier Go and Chi revisions for pinned projects. Its Node ecosystem references cover Node.js core APIs, TypeScript, Playwright, React, and Vite. The starter catalog spans nine runtimes. [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 Documentation source versions and licenses are recorded in each pack’s `SOURCES.md`. Rebuild Markdown snapshots with Pandoc 3.13 and `scripts/fetch-docs.py`. `scripts/fetch-desktop-docs.py --help` describes the pinned inputs for rebuilding Tauri and Swift packs into a fresh staging directory. `scripts/doc-release.py` builds and verifies independently downloadable pack archives. [GitHub Actions](https://github.com/fpl0/devline/actions)

@@ -6,13 +6,13 @@ cache=${3:?staged cache}
 ruby=${4:?Ruby executable}
 shift 4
 adapters=$(cd "$(dirname "$0")" && pwd)
+. "$adapters/common.sh"
 cd "$project"
 export PATH="$(dirname "$ruby"):$PATH"
 if [ "$mode" = run ] && [ ! -f "$cache/Gemfile.lock" ] && { [ -f "$project/.devline/origin.json" ] || [ -f "$project/.devkit-origin.json" ]; }; then
   if [ ! -f "$project/Gemfile" ]; then
     [ "$#" -gt 0 ] || { echo 'Choose a command to run.' >&2; exit 2; }
-    PATH="$(dirname "$ruby"):$PATH" "$@"
-    exit
+    exec "$@"
   fi
   cache="$project"
 fi
@@ -79,7 +79,7 @@ case "$mode" in
     fi
     bundler_version
     platform=$("$ruby" -rrubygems -e 'puts Gem::Platform.local')
-    if [ "${DEVLINE_OFFLINE:-0}" = 1 ]; then
+    if offline_requested; then
       "$ruby" "$adapters/../service-clients/lock-ruby-offline.rb"
     else
       bundle lock --add-platform "$platform" --add-checksums
@@ -96,7 +96,7 @@ end
 abort "Pinned gems changed while adding the current platform: #{changed.join(', ')}" unless changed.empty?
 RUBY
     fi
-    if [ "${DEVLINE_OFFLINE:-0}" != 1 ]; then bundle cache --no-install; fi
+    if ! offline_requested; then bundle cache --no-install; fi
     ;;
   verify|run)
     if [ ! -f "$cache/Gemfile" ] || [ ! -f "$cache/Gemfile.lock" ] || [ ! -d "$cache/vendor/cache" ]; then

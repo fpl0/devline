@@ -14,6 +14,10 @@ pub fn safe_text(text: &str) -> String {
         .collect()
 }
 
+pub(super) fn shell_quote(input: &str) -> String {
+    format!("'{}'", input.replace('\'', "'\\''"))
+}
+
 fn value<'a>(article: &'a Value, key: &str) -> &'a str {
     article[key].as_str().unwrap_or_default()
 }
@@ -208,7 +212,7 @@ fn article_text(article: &Value, formatted: bool) -> (String, Option<usize>) {
     let mut article_text = header + &body;
     for (key, title) in [("previous_id", "Previous part"), ("next_id", "Next part")] {
         if let Some(id) = article[key].as_str() {
-            let id = crate::shell_quote(&safe_text(id));
+            let id = shell_quote(&safe_text(id));
             article_text.push_str(&format!("\n\n{title}\n  devline docs show {id}"));
         }
     }

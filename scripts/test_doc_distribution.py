@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 def script(name):
@@ -60,17 +61,32 @@ class DocDistributionTests(unittest.TestCase):
             data, historical, current = root / "data", root / "historical", root / "current"
             fixture(data, "<p>Historical help</p>",
                     pack_id="infrastructure", version="2026.11.07+devline.1")
-            previous = releases.build(data, historical, ASSET_BASE)
+            catalog = data / "docs-catalog.json"
+            retired = json.loads(catalog.read_text())
+            with patch.object(releases, "RETIRED_FROM_CHANNEL", set()):
+                previous = releases.build(data, historical, ASSET_BASE)
             historical_bytes = previous.read_bytes()
 
             fixture(data, "<p>Publisher reference</p>",
                     pack_id="infrastructure", version="2026.11.07+devline.2")
+            catalog.write_text(json.dumps(retired + json.loads(catalog.read_text())))
             manifest = releases.build(data, current, ASSET_BASE, previous=previous)
             versions = [release["pack"]["version"] for release in json.loads(manifest.read_text())["releases"]]
             self.assertEqual(versions, ["2026.11.07+devline.2"])
             self.assertEqual(previous.read_bytes(), historical_bytes)
             releases.verify(historical)
             releases.verify(current)
+
+    def test_new_asset_cannot_shadow_a_prior_release(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            data, historical, current = root / "data", root / "historical", root / "current"
+            fixture(data, "<p>Original</p>", pack_id="fixture", version="a-b")
+            previous = releases.build(data, historical, ASSET_BASE)
+            fixture(data, "<p>New</p>", pack_id="fixture-a", version="b")
+            with self.assertRaisesRegex(ValueError, "same asset name"):
+                releases.build(data, current, ASSET_BASE, previous=previous)
+            self.assertFalse(current.exists())
 
     def test_rejects_links_and_mismatched_asset_bytes(self):
         with tempfile.TemporaryDirectory() as scratch:

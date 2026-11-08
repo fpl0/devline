@@ -5,6 +5,7 @@ project=${2:?staged project}
 cache=${3:?staged cache}
 tool=${4:?Python executable}
 shift 4
+adapters=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 cd "$project"
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/devline-python.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT HUP INT TERM
@@ -109,23 +110,7 @@ PYTHON
       echo 'A dependency could not be resolved as a wheel for this Python and Mac. Check the lock, private registry access, and availability of Apple Silicon wheels.' >&2
       exit 1
     fi
-    "$python" -I - "$cache" <<'PYTHON'
-from email.parser import BytesParser
-from hashlib import file_digest
-from pathlib import Path
-from sys import argv
-from zipfile import ZipFile
-
-cache = Path(argv[1])
-with (cache / "requirements.lock").open("w", encoding="utf-8") as output:
-    for wheel in sorted((cache / "wheelhouse").glob("*.whl")):
-        with ZipFile(wheel) as archive:
-            name = next(name for name in archive.namelist() if name.endswith(".dist-info/METADATA"))
-            metadata = BytesParser().parsebytes(archive.read(name), headersonly=True)
-        with wheel.open("rb") as stream:
-            digest = file_digest(stream, "sha256").hexdigest()
-        print(f"{metadata['Name']}=={metadata['Version']} --hash=sha256:{digest}", file=output)
-PYTHON
+    "$python" -I "$adapters/python-wheel-lock.py" "$wheelhouse" > "$lockfile"
     ;;
   verify|run)
     if [ ! -f "$lockfile" ] || [ ! -d "$wheelhouse" ]; then

@@ -29,16 +29,24 @@ int main(int argc, char **argv) {
 C
 bundle() {
     local app="$1" id="$2" marker="$3"
+    local executable=DevlineApp cli=devline display=Devline
+    if [[ "${4:-}" == legacy ]]; then
+        executable=DevKitApp
+        cli=devkit
+        display=DevKit
+    fi
     mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-    cp "$SCRATCH/executable" "$app/Contents/MacOS/DevlineApp"
-    cp "$SCRATCH/executable" "$app/Contents/MacOS/devline"
-    ln -s devline "$app/Contents/MacOS/devkit"
+    cp "$SCRATCH/executable" "$app/Contents/MacOS/$executable"
+    cp "$SCRATCH/executable" "$app/Contents/MacOS/$cli"
+    if [[ "$cli" == devline ]]; then
+        ln -s devline "$app/Contents/MacOS/devkit"
+    fi
     cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>DevlineApp</string>
+<key>CFBundleExecutable</key><string>$executable</string>
 <key>CFBundleIdentifier</key><string>$id</string>
-<key>CFBundleDisplayName</key><string>Devline</string>
+<key>CFBundleDisplayName</key><string>$display</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 </dict></plist>
 PLIST
@@ -59,7 +67,7 @@ expect_failure() {
     grep -Fq "$diagnostic" "$SCRATCH/install.log" || { cat "$SCRATCH/install.log" >&2; exit 1; }
 }
 start_process() {
-    "$1/Contents/MacOS/devline" --hold &
+    "$1/Contents/MacOS/${2:-devline}" --hold &
     running=$!
     /bin/ps -p "$running" -o pid= >/dev/null
 }
@@ -74,8 +82,8 @@ bundle "$candidate" io.devkit.desktop new
 archive "$candidate"
 legacy_user="$SCRATCH/Legacy Test User"
 legacy="$legacy_user/Applications/DevKit.app"
-bundle "$legacy" io.devkit.desktop legacy
-start_process "$legacy"
+bundle "$legacy" io.devkit.desktop legacy legacy
+start_process "$legacy" devkit
 expect_failure "$legacy_user" "Quit Devline and let its active CLI jobs finish"
 [[ "$(cat "$legacy/Contents/Resources/marker")" == legacy && ! -e "$legacy_user/Applications/Devline.app" ]]
 stop_process
@@ -110,4 +118,5 @@ ln -s "$legacy/Contents/MacOS/devkit" "$legacy_user/.local/bin/devkit"
 env HOME="$legacy_user" /bin/bash "$installer" > "$SCRATCH/install.log" 2>&1
 [[ ! -e "$legacy" && "$(cat "$legacy_user/Applications/Devline.app/Contents/Resources/marker")" == new ]]
 [[ "$(readlink "$legacy_user/.local/bin/devkit")" == "$legacy_user/Applications/Devline.app/Contents/MacOS/devkit" ]]
+"$legacy_user/.local/bin/devkit"
 printf 'Installer guard, incoming identity, rollback and legacy migration passed.\n'

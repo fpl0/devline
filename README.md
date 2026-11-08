@@ -56,4 +56,4 @@ cd ./status-api
 
 For an existing project, `devline project --path ./service prepare` prepares its complete offline environment. Use `devline updates check` and `devline updates apply` to keep the installed content current.
 
-The [usage guide](USAGE.md) has the CLI commands for project preparation, services, updates, library transfer, and building from source. [Validation and coverage](UX-VALIDATION.md) · [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+The [usage guide](USAGE.md) covers project preparation, services, updates, and library transfer. [Source layout](USAGE.md#source-layout) · [Build and validate](USAGE.md#build-and-validate) · [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)

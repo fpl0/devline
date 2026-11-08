@@ -14,6 +14,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent.parent
 SPARKLE = "http://www.andymatuschak.org/xml-namespaces/sparkle"
+# The installed bundle and signing account share this stable identity.
+BUNDLE_ID = "io.devkit.desktop"
 PUBLIC_KEY = "VMLqt73XeFU7d/CqPBorEl6j6zDLn+d66lPb2MsLiro="
 
 
@@ -32,7 +34,7 @@ def create(archive, url, notes, output, account):
         raise ValueError("The Keychain signing account does not match Devline's embedded public key")
     with zipfile.ZipFile(archive) as bundle:
         info = plistlib.loads(bundle.read("Devline.app/Contents/Info.plist"))
-    if (info.get("CFBundleIdentifier") != "io.devkit.desktop" or info.get("SUPublicEDKey") != key
+    if (info.get("CFBundleIdentifier") != BUNDLE_ID or info.get("SUPublicEDKey") != key
             or info.get("SURequireSignedFeed") is not True or info.get("SUVerifyUpdateBeforeExtraction") is not True):
         raise ValueError("Archive is not a Devline build configured to require signed updates")
     signature = subprocess.check_output([signer, "--account", account, "-p", archive], text=True).strip()
@@ -70,6 +72,6 @@ if __name__ == "__main__":
     parser.add_argument("url")
     parser.add_argument("--notes", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--account", default="io.devkit.desktop")
+    parser.add_argument("--account", default=BUNDLE_ID)
     args = parser.parse_args()
     create(args.archive.resolve(), args.url, args.notes, args.output.resolve(), args.account)

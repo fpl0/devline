@@ -1095,7 +1095,7 @@ fn runtime_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
 }
 
 fn app_update(prefs: &Settings) -> UpdateItem {
-    let mut item = UpdateItem::new("app", "devkit", "Devline");
+    let mut item = UpdateItem::new("app", "devline", "Devline");
     let current = env!("CARGO_PKG_VERSION");
     item.current_version = Some(current.to_owned());
     let Some(feed) = &prefs.app_feed else {

@@ -1,8 +1,9 @@
-use devkit_core::execute;
+use devline_core::execute;
 use serde_json::{json, Value};
 use std::{
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
+    process::Command,
     sync::atomic::{AtomicU64, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -13,7 +14,7 @@ impl Fixture {
     fn new() -> Self {
         static NEXT_ID: AtomicU64 = AtomicU64::new(0);
         let root = std::env::temp_dir().join(format!(
-            "devkit-test-{}-{}-{}",
+            "devline-test-{}-{}-{}",
             std::process::id(),
             NEXT_ID.fetch_add(1, Ordering::Relaxed),
             SystemTime::now()
@@ -40,6 +41,68 @@ impl Drop for Fixture {
         let _ = fs::remove_dir_all(&self.root);
     }
 }
+
+#[test]
+fn cli_prefers_devline_settings_and_reuses_a_previous_library() -> anyhow::Result<()> {
+    let fixture = Fixture::new();
+    let catalog = fixture.root.join("catalog");
+    let support = fixture.root.join("Library/Application Support");
+    let current = support.join("Devline");
+    let previous = support.join("DevKit");
+    let missing_catalog = fixture.root.join("missing-catalog");
+    let run = |arguments: &[&str], overrides: &[(&str, &Path)]| -> anyhow::Result<Value> {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_devline"));
+        command
+            .arg("--json")
+            .args(arguments)
+            .env("HOME", &fixture.root)
+            .env_remove("DEVLINE_HOME")
+            .env_remove("DEVKIT_HOME")
+            .env_remove("DEVLINE_CATALOG")
+            .env_remove("DEVKIT_CATALOG")
+            .envs(overrides.iter().copied());
+        let output = command.output()?;
+        anyhow::ensure!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        Ok(serde_json::from_slice::<Value>(&output.stdout)?["data"].take())
+    };
+
+    let current_catalog = [("DEVLINE_CATALOG", catalog.as_path())];
+    assert_eq!(run(&["library"], &current_catalog)?["home"], json!(current));
+    run(&["docs", "install", "go"], &current_catalog)?;
+    fs::rename(&current, &previous)?;
+    let older = run(&["library"], &current_catalog)?;
+    assert_eq!(older["home"], json!(previous));
+    assert_eq!(older["docs"][0]["installed"], true);
+    assert!(!current.exists());
+
+    let legacy_overrides = [
+        ("DEVKIT_CATALOG", catalog.as_path()),
+        ("DEVLINE_CATALOG", Path::new("")),
+        ("DEVKIT_HOME", previous.as_path()),
+        ("DEVLINE_HOME", Path::new("")),
+    ];
+    assert_eq!(
+        run(&["library"], &legacy_overrides)?["home"],
+        json!(previous)
+    );
+    let current_overrides = [
+        ("DEVKIT_CATALOG", missing_catalog.as_path()),
+        ("DEVLINE_CATALOG", catalog.as_path()),
+        ("DEVKIT_HOME", previous.as_path()),
+        ("DEVLINE_HOME", current.as_path()),
+    ];
+    assert_eq!(
+        run(&["library"], &current_overrides)?["home"],
+        json!(current)
+    );
+    assert_eq!(run(&["library"], &current_catalog)?["home"], json!(current));
+    Ok(())
+}
+
 #[test]
 fn devline_guides_are_readable_and_separate_from_reference_search() {
     let fixture = Fixture::new();

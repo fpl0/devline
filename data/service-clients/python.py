@@ -1,6 +1,5 @@
 """Add explicitly chosen Python clients in Devline's disposable project copy."""
-import hashlib, json, os, pathlib, re, subprocess, sys, tempfile, zipfile
-from email.parser import BytesParser
+import json, os, pathlib, re, shutil, subprocess, sys, tempfile
 project=pathlib.Path(sys.argv[1]); selection=json.loads(pathlib.Path(sys.argv[2]).read_text()); offline=sys.argv[3]=='true'; tool=sys.argv[4]
 base=pathlib.Path(selection['catalog_dir']); artifacts=base/'service-clients/artifacts/python/wheelhouse'
 managed_relative=os.environ.get('DEVLINE_PROJECT_CACHE','.devline-offline')
@@ -43,13 +42,11 @@ wheels=scratch/'resolved-wheels';wheels.mkdir()
 args=pip+['download','--only-binary=:all:','--dest',str(wheels),*find,'-r',str(source)]
 if offline:args+=['--no-index']
 run(args)
-lock=[]
-for wheel in sorted(wheels.glob('*.whl')):
- with zipfile.ZipFile(wheel) as archive:
-  meta=BytesParser().parsebytes(archive.read(next(name for name in archive.namelist() if name.endswith('.dist-info/METADATA'))),headersonly=True)
- lock.append(meta['Name']+'=='+meta['Version']+' --hash=sha256:'+hashlib.sha256(wheel.read_bytes()).hexdigest())
-text='\n'.join(lock)+'\n'
-import shutil
+text = subprocess.check_output(
+    [python, '-I', str(base / 'project-adapters/python-wheel-lock.py'), str(wheels)],
+    cwd=project,
+    text=True,
+)
 if (cache/'wheelhouse').exists():shutil.rmtree(cache/'wheelhouse')
 shutil.move(str(wheels),cache/'wheelhouse');(cache/'requirements.lock').write_text(text)
 if primary:

@@ -15,7 +15,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     io::Read,
-    path::Path,
+    path::{Path, PathBuf},
 };
 use version::{matches, Rule};
 
@@ -376,23 +376,29 @@ pub(super) fn context(ctx: &Context, path: &Path) -> Result<Value> {
     context_value(ctx, &ctx.database()?, &detected)
 }
 
+pub(super) fn root(ctx: &Context, path: &Path) -> Result<PathBuf> {
+    manifests::root(path, |root| installed_origin_stack(ctx, root))
+}
+
 fn detect_with_library(ctx: &Context, path: &Path) -> Result<Detected> {
-    manifests::detect_with_origin(path, |root| {
-        let origin = origin(root)?;
-        let (stack, _) = crate::templates::id_parts(&origin.starter).ok()?;
-        if crate::project_prepare::has_generated_receipt(ctx, root, stack) {
-            return Some(stack.to_owned());
-        }
-        let installed = crate::templates::installed_base(ctx, &origin.starter, false)
-            .ok()?
-            .join(&origin.version);
-        let release = crate::templates::verify_release(&installed).ok()?;
-        (release.template.id == origin.starter
-            && release.template.version == origin.version
-            && release.template.stack == stack
-            && release.digest == origin.digest)
-            .then_some(stack.to_owned())
-    })
+    manifests::detect_with_origin(path, |root| installed_origin_stack(ctx, root))
+}
+
+fn installed_origin_stack(ctx: &Context, root: &Path) -> Option<String> {
+    let origin = origin(root)?;
+    let (stack, _) = crate::templates::id_parts(&origin.starter).ok()?;
+    if crate::project_prepare::has_generated_receipt(ctx, root, stack) {
+        return Some(stack.to_owned());
+    }
+    let installed = crate::templates::installed_base(ctx, &origin.starter, false)
+        .ok()?
+        .join(&origin.version);
+    let release = crate::templates::verify_release(&installed).ok()?;
+    (release.template.id == origin.starter
+        && release.template.version == origin.version
+        && release.template.stack == stack
+        && release.digest == origin.digest)
+        .then_some(stack.to_owned())
 }
 
 fn valid_selector(input: &str) -> bool {

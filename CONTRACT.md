@@ -4,7 +4,7 @@ The SwiftUI app and Rust CLI share a Rust core. The macOS app sends JSON to the 
 
 ## Storage and catalog
 
-The library defaults to `~/Library/Application Support/DevKit`. The `DEVKIT_HOME` and `DEVKIT_CATALOG` environment variables override the library and catalog directories. Requests may also supply `home` and `catalog` explicitly. The app passes its bundled `Resources/catalog` path by default.
+The library defaults to `~/Library/Application Support/Devline`. An existing `~/Library/Application Support/DevKit` library is used when the Devline directory is absent. Set `DEVLINE_HOME` or `DEVLINE_CATALOG` to override the library or catalog directory. The earlier `DEVKIT_HOME` and `DEVKIT_CATALOG` names are accepted as fallbacks. Requests may also supply `home` and `catalog` explicitly. The app passes its bundled `Resources/catalog` path by default.
 
 The catalog contains `catalog.json`, `docs/`, `templates/`, and `infrastructure.json`. `catalog.json` has `schema_version: 1` and combines the `docs` and `templates` arrays from `docs-catalog.json` and `templates-catalog.json`.
 
@@ -15,7 +15,7 @@ The catalog contains `catalog.json`, `docs/`, `templates/`, and `infrastructure.
 
 ## C bridge
 
-`char *devkit_request(const char *json)` accepts a NUL-terminated UTF-8 JSON request and returns an owned NUL-terminated JSON response. Release it exactly once with `devkit_free(char *response)`.
+`char *devline_request(const char *json)` accepts a NUL-terminated UTF-8 JSON request and returns an owned NUL-terminated JSON response. Release it exactly once with `devline_free(char *response)`.
 
 Every request has a `command`. A success response contains `{"ok":true,"data":...}`. A failure contains `{"ok":false,"error":"…"}`. Optional request fields may be omitted.
 

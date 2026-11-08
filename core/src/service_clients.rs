@@ -656,7 +656,7 @@ fn changed_paths(stack: &str, copy: &Path, original: &Path) -> Result<Vec<PathBu
                     );
             if !dependency
                 && (matches!(name, ".git" | ".DS_Store")
-                    || name.starts_with(".devkit-") && name != ".devkit-origin.json"
+                    || templates::Stage::is_name(name)
                     || match stack {
                         "dotnet" => matches!(name, "bin" | "obj" | "TestResults"),
                         "rust" | "java" => name == "target",
@@ -727,14 +727,23 @@ struct Mutation {
     committed: bool,
     changes: Vec<MutationChange>,
 }
-fn journal_path(ctx: &Context, path: &Path) -> Result<PathBuf> {
+fn journal_path(ctx: &Context, path: &Path, create: bool) -> Result<PathBuf> {
     use sha2::{Digest, Sha256};
-    let root = templates::library(ctx, Path::new("client-mutations"), true)?;
+    let root = templates::library(ctx, Path::new("client-mutations"), create)?;
     Ok(root.join(format!(
         "{:x}.json",
         Sha256::digest(path.as_os_str().as_encoded_bytes())
     )))
 }
+
+pub(crate) fn has_pending_mutation(ctx: &Context, project: &Path) -> Result<bool> {
+    match fs::symlink_metadata(journal_path(ctx, project, false)?) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
 fn digest_path(path: &Path) -> Result<String> {
     use sha2::{Digest, Sha256};
     use std::io::Read;
@@ -774,7 +783,7 @@ fn digest_path(path: &Path) -> Result<String> {
 }
 fn save_journal(ctx: &Context, mutation: &Mutation) -> Result<()> {
     use std::os::unix::fs::OpenOptionsExt;
-    let path = journal_path(ctx, &mutation.project)?;
+    let path = journal_path(ctx, &mutation.project, true)?;
     let temporary = templates::Stage::new(path.parent().unwrap())?;
     let file = temporary.0.join("journal");
     let mut output = fs::OpenOptions::new()
@@ -791,7 +800,7 @@ fn save_journal(ctx: &Context, mutation: &Mutation) -> Result<()> {
 /// Caller holds the same project mutation lock as preparation and client adds.
 pub(crate) fn recover(ctx: &Context, project: &Path) -> Result<()> {
     use std::os::unix::fs::OpenOptionsExt;
-    let path = journal_path(ctx, project)?;
+    let path = journal_path(ctx, project, false)?;
     let input = match fs::OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW)
@@ -811,7 +820,7 @@ pub(crate) fn recover(ctx: &Context, project: &Path) -> Result<()> {
             .work
             .file_name()
             .and_then(|name| name.to_str())
-            .is_some_and(|name| name.starts_with(".devkit-"))
+            .is_some_and(templates::Stage::is_name)
         || !fs::symlink_metadata(&mutation.work)?.is_dir()
         || mutation.changes.iter().any(|change| {
             change
@@ -861,13 +870,13 @@ pub(crate) fn add(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> 
     if selections.len() > SERVICES.len() {
         bail!("Choose at most one client recommendation per service");
     }
-    let path = Path::new(text_arg(request, "path")?).canonicalize()?;
-    let _lock = project_prepare::lock_project(ctx, &json!({"path":path}), &job)?;
-    recover(ctx, &path)?;
-    if path.starts_with(ctx.home.canonicalize()?) {
-        bail!("Choose a project outside the Devline library");
+    let path = project_prepare::mutation_root(ctx, Path::new(text_arg(request, "path")?))?;
+    let _lock = project_prepare::lock_project(ctx, &path, &job)?;
+    project_prepare::recover_locked(ctx, &path)?;
+    let (stack, root) = target(ctx, &json!({"path":path}))?;
+    if root.as_deref() != Some(&path) {
+        bail!("The project root changed. Select the project again.");
     }
-    let (stack, _) = target(ctx, &json!({"path":path}))?;
     let declared = declarations(ctx, &stack, &path)?;
     let definitions = definitions(ctx, &stack)?;
     let mut selected = Vec::new();
@@ -1175,7 +1184,7 @@ mod transaction_tests {
             fs::read_to_string(project.join(SERVICES).join("credentials.env"))?,
             "original"
         );
-        assert!(!journal_path(&ctx, &project)?.exists());
+        assert!(!journal_path(&ctx, &project, false)?.exists());
         Ok(())
     }
 
@@ -1210,14 +1219,20 @@ mod transaction_tests {
         // after publishing another dependency file. No manifest parser can run.
         fs::rename(project.join("Cargo.toml"), work.0.join("backup-0"))?;
         fs::rename(copy.join("Cargo.lock"), project.join("Cargo.lock"))?;
-        let _lock = project_prepare::lock_project(&ctx, &json!({"path":project}), &None)?;
-        recover(&ctx, &project)?;
+        fs::write(
+            project.parent().unwrap().join("go.mod"),
+            "module example.invalid",
+        )?;
+        let resolved = project_prepare::mutation_root(&ctx, &project)?;
+        assert_eq!(resolved, project);
+        let _lock = project_prepare::lock_project(&ctx, &resolved, &None)?;
+        recover(&ctx, &resolved)?;
         assert_eq!(
             fs::read_to_string(project.join("Cargo.toml"))?,
             "original manifest"
         );
         assert!(!project.join("Cargo.lock").exists());
-        assert!(!journal_path(&ctx, &project)?.exists());
+        assert!(!journal_path(&ctx, &project, false)?.exists());
         Ok(())
     }
 
@@ -1252,7 +1267,7 @@ mod transaction_tests {
             "user edit after interruption"
         );
         assert_eq!(fs::read_to_string(work.0.join("backup-0"))?, "original");
-        assert!(journal_path(&ctx, &project)?.exists());
+        assert!(journal_path(&ctx, &project, false)?.exists());
         Ok(())
     }
 
@@ -1279,7 +1294,7 @@ mod transaction_tests {
             fs::read_to_string(project.join("manifest"))?,
             "later user edit"
         );
-        assert!(!journal_path(&ctx, &project)?.exists());
+        assert!(!journal_path(&ctx, &project, false)?.exists());
         assert!(!work.0.exists());
         Ok(())
     }

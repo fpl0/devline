@@ -67,7 +67,7 @@ impl Fixture {
     fn call(&self, mut request: Value) -> Value {
         request["home"] = json!(self.0.join("library"));
         request["catalog"] = json!(self.0.join("catalog"));
-        devkit_core::execute(&request).unwrap()
+        devline_core::execute(&request).unwrap()
     }
 
     fn profile(&self, path: &str) -> Value {
@@ -471,11 +471,13 @@ fn new_project_uses_the_organized_layout_and_one_launcher() {
     let mut catalog: Value = serde_json::from_slice(&fs::read(&catalog_path).unwrap()).unwrap();
     catalog["templates"] = json!([{"id":"python/fixture","name":"Fixture","stack":"python","version":"1.0.0","description":"Fixture","app_type":"cli","path":"templates/fixture","toolchain":"python3","minimum_version":"","test_command":"./test-offline.sh","docs":[],"target":"any","verified":true}]);
     fs::write(catalog_path, catalog.to_string()).unwrap();
-    let adapter = Path::new(env!("CARGO_MANIFEST_DIR")).join("../data/project-adapters/python.sh");
-    fixture.write(
-        "catalog/project-adapters/python.sh",
-        &fs::read_to_string(adapter).unwrap(),
-    );
+    let adapters = Path::new(env!("CARGO_MANIFEST_DIR")).join("../data/project-adapters");
+    for file in ["python.sh", "python-wheel-lock.py"] {
+        fixture.write(
+            &format!("catalog/project-adapters/{file}"),
+            &fs::read_to_string(adapters.join(file)).unwrap(),
+        );
+    }
     let release = "catalog/templates/fixture/project";
     fixture.write(&format!("{release}/requirements.txt"), "");
     fixture.write(&format!("{release}/wheelhouse/seed"), "bundled");
@@ -531,8 +533,8 @@ fn new_project_uses_the_organized_layout_and_one_launcher() {
             .args(args)
             .current_dir(&fixture.0)
             .env("DEVLINE_BIN", env!("CARGO_BIN_EXE_devline"))
-            .env("DEVKIT_HOME", fixture.0.join("library"))
-            .env("DEVKIT_CATALOG", fixture.0.join("catalog"))
+            .env("DEVLINE_HOME", fixture.0.join("library"))
+            .env("DEVLINE_CATALOG", fixture.0.join("catalog"))
             .output()
             .unwrap();
         assert!(
@@ -554,8 +556,9 @@ fn new_project_uses_the_organized_layout_and_one_launcher() {
         false
     );
     assert_eq!(
-        fixture.call(json!({"command":"project.prepare","path":path,"offline":true}))
-            ["ready_offline"],
+        fixture.call(
+            json!({"command":"project.prepare","path":path.join("source.py"),"offline":true})
+        )["ready_offline"],
         true
     );
 }
@@ -634,7 +637,7 @@ fn project_runtime_constraints_are_independent_of_starter_minimums() {
     let invoke = |arguments: &[&str]| {
         let output = Command::new(env!("CARGO_BIN_EXE_devline"))
             .current_dir(fixture.0.join("service"))
-            .env("DEVKIT_PYTHON3", &tool)
+            .env("DEVLINE_PYTHON3", &tool)
             .arg("--home")
             .arg(fixture.0.join("library"))
             .arg("--catalog")

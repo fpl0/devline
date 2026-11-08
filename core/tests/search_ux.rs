@@ -1,4 +1,4 @@
-use devkit_core::execute;
+use devline_core::execute;
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -14,7 +14,7 @@ struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
         let root = std::env::temp_dir().join(format!(
-            "devkit-search-{}-{}-{}",
+            "devline-search-{}-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

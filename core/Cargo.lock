@@ -197,7 +197,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "devkit"
+name = "devline"
 version = "0.7.0"
 dependencies = [
  "anyhow",

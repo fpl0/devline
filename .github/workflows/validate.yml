@@ -45,15 +45,16 @@ jobs:
 
       - name: Check offline documentation corpus
         run: |
+          python3 scripts/sync-catalog.py --check
           python3 scripts/check-doc-packs.py
           python3 scripts/check-infrastructure.py
           python3 scripts/seal-service-client-packs.py --check
 
       - name: Test reference navigation
         run: |
-          swiftc macos/Sources/DevKitApp/ReferenceNavigation.swift macos/Tests/ReferenceNavigationTests.swift -o /tmp/devline-navigation-tests
+          swiftc macos/Sources/DevlineApp/Reference/ReferenceNavigation.swift macos/Tests/ReferenceNavigationTests.swift -o /tmp/devline-navigation-tests
           /tmp/devline-navigation-tests
-          swiftc macos/Sources/DevKitApp/ProjectNavigation.swift macos/Sources/DevKitApp/JobRecord.swift macos/Tests/ProjectNavigationTests.swift -o /tmp/devline-project-navigation-tests
+          swiftc macos/Sources/DevlineApp/Projects/ProjectNavigation.swift macos/Sources/DevlineApp/Activity/JobRecord.swift macos/Tests/ProjectNavigationTests.swift -o /tmp/devline-project-navigation-tests
           /tmp/devline-project-navigation-tests
 
       - name: Test code highlighting in WebKit

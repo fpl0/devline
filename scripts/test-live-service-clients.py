@@ -26,7 +26,6 @@ import signal
 import smtplib
 import socket
 import subprocess
-import sys
 import time
 import traceback
 from urllib.parse import unquote, urlencode, urlsplit

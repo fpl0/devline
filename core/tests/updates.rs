@@ -1,4 +1,4 @@
-use devkit_core::execute;
+use devline_core::execute;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
@@ -15,7 +15,7 @@ struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
         let path = std::env::temp_dir().join(format!(
-            "devkit-update-test-{}-{}-{}",
+            "devline-update-test-{}-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -46,7 +46,7 @@ impl Fixture {
             templates.push(
                 json!({"id":"go/chi-api","name":"Go API","stack":"go","version":starter_version,
                 "description":"Go project","app_type":"api","path":starter_path,
-                "toolchain":"devkit-test-absent","minimum_version":"1.27.3","test_command":"true",
+                "toolchain":"devline-test-absent","minimum_version":"1.27.3","test_command":"true",
                 "docs":["go"],"verified":true,"target":"any"}),
             );
         }
@@ -209,8 +209,11 @@ fn local_status_installs_exact_catalog_releases_and_retains_versions() {
         .unwrap();
     let snapshot = fixture.call(json!({"command":"updates.status"})).unwrap();
     assert!(snapshot["checked_at"].is_null());
-    assert_eq!(Fixture::item(&snapshot, "app:devkit")["state"], "unchecked");
-    assert!(Fixture::item(&snapshot, "app:devkit")["detail"]
+    assert_eq!(
+        Fixture::item(&snapshot, "app:devline")["state"],
+        "unchecked"
+    );
+    assert!(Fixture::item(&snapshot, "app:devline")["detail"]
         .as_str()
         .unwrap()
         .contains("github.com/fpl0/devline/releases/latest/download/release.json"));
@@ -249,7 +252,7 @@ fn app_channels_keep_cached_release_on_error_and_clear_on_reconfigure() {
         .call(json!({"command":"updates.configure","url":"https://example.org/updates.json"}))
         .unwrap();
     assert_eq!(
-        Fixture::item(&configured, "app:devkit")["state"],
+        Fixture::item(&configured, "app:devline")["state"],
         "unchecked"
     );
     fs::write(
@@ -263,7 +266,7 @@ fn app_channels_keep_cached_release_on_error_and_clear_on_reconfigure() {
     )
     .unwrap();
     let saved = fixture.call(json!({"command":"updates.status"})).unwrap();
-    let app = Fixture::item(&saved, "app:devkit");
+    let app = Fixture::item(&saved, "app:devline");
     assert_eq!(app["state"], "error");
     assert_eq!(app["available_version"], "9.0.0");
     assert_eq!(app["action"], "open_url");
@@ -272,12 +275,12 @@ fn app_channels_keep_cached_release_on_error_and_clear_on_reconfigure() {
         .call(json!({"command":"updates.configure","url":""}))
         .unwrap();
     assert_eq!(
-        Fixture::item(&cleared, "app:devkit")["state"],
+        Fixture::item(&cleared, "app:devline")["state"],
         "unconfigured"
     );
     let persisted = fixture.call(json!({"command":"updates.status"})).unwrap();
     assert_eq!(
-        Fixture::item(&persisted, "app:devkit")["available_version"],
+        Fixture::item(&persisted, "app:devline")["available_version"],
         Value::Null
     );
 }

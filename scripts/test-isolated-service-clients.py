@@ -13,8 +13,6 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
-import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,7 +42,7 @@ def main():
         (project/'probe.py').write_text('# Fresh project used to prove one explicitly selected client.\n')
         home=directory/'empty-home';home.mkdir()
         temporary=directory/'tmp';temporary.mkdir()
-        env={'HOME':str(home),'TMPDIR':str(temporary),'PATH':os.environ.get('PATH','/usr/bin:/bin'), 'DEVKIT_PYTHON3':shutil.which('python3'),'PYTHONNOUSERSITE':'1','PYTHONDONTWRITEBYTECODE':'1', **connections}
+        env={'HOME':str(home),'TMPDIR':str(temporary),'PATH':os.environ.get('PATH','/usr/bin:/bin'), 'DEVLINE_PYTHON3':shutil.which('python3'),'PYTHONNOUSERSITE':'1','PYTHONDONTWRITEBYTECODE':'1', **connections}
         def run(arguments,label):
             log=directory/(label+'.log')
             with log.open('wb') as stream:

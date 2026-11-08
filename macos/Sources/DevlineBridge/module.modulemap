@@ -1,0 +1,4 @@
+module DevlineBridge [system] {
+    header "devline.h"
+    export *
+}

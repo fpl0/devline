@@ -150,6 +150,24 @@ pub(super) fn organize(root: &Path, stack: &str) -> Result<()> {
                 &[("python3 scripts/test-services.py", "./devline.sh test-services")],
             )?;
         }
+        "elixir" => {
+            for source in [
+                "mix.exs",
+                "config/config.exs",
+                "lib/application.ex",
+                "lib/aws_http.ex",
+                "test/health_test.exs",
+                "test/dependency_kit_test.exs",
+            ] {
+                rewrite(
+                    &root.join(source),
+                    &[
+                        ("DevKitPhoenix", "DevlinePhoenix"),
+                        (":devkit_phoenix", ":devline_phoenix"),
+                    ],
+                )?;
+            }
+        }
         "go" => rewrite(
             &root.join("config.go"),
             &[(".devline-infra/credentials.env", ".devline/services/credentials.env")],
@@ -170,10 +188,17 @@ pub(super) fn organize(root: &Path, stack: &str) -> Result<()> {
             ],
         )?,
         "node" => {
+            let package_name = (r#""name": "devkit-app""#, r#""name": "devline-app""#);
             rewrite(
                 &root.join("package.json"),
-                &[(r#""./test-offline.sh""#, r#""./devline.sh test""#)],
+                &[
+                    (r#""./test-offline.sh""#, r#""./devline.sh test""#),
+                    package_name,
+                ],
             )?;
+            for lockfile in ["package-lock.json", "node_modules/.package-lock.json"] {
+                rewrite(&root.join(lockfile), &[package_name])?;
+            }
             rewrite(
                 &root.join(".devline/scripts/prepare-browser.mjs"),
                 &[
@@ -230,17 +255,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn node_starter_redirects_npm_test_to_the_project_launcher() -> Result<()> {
+    fn node_starter_updates_npm_test_and_package_identity() -> Result<()> {
         let stage = crate::templates::Stage::new(&std::env::temp_dir().canonicalize()?)?;
         let manifest = stage.0.join("package.json");
-        fs::write(&manifest, r#"{"scripts":{"test":"./test-offline.sh"}}"#)?;
+        fs::write(
+            &manifest,
+            r#"{"name": "devkit-app","scripts":{"test":"./test-offline.sh"}}"#,
+        )?;
+        let lock = stage.0.join("package-lock.json");
+        fs::write(
+            &lock,
+            r#"{"name": "devkit-app","packages":{"":{"name": "devkit-app"}}}"#,
+        )?;
+        let modules = stage.0.join("node_modules");
+        fs::create_dir(&modules)?;
+        let installed_lock = modules.join(".package-lock.json");
+        fs::write(&installed_lock, r#"{"name": "devkit-app"}"#)?;
         fs::write(stage.0.join("test-offline.sh"), "exit 0\n")?;
 
         organize(&stage.0, "node")?;
 
         assert_eq!(
             fs::read_to_string(manifest)?,
-            r#"{"scripts":{"test":"./devline.sh test"}}"#
+            r#"{"name": "devline-app","scripts":{"test":"./devline.sh test"}}"#
+        );
+        assert_eq!(
+            fs::read_to_string(lock)?,
+            r#"{"name": "devline-app","packages":{"":{"name": "devline-app"}}}"#
+        );
+        assert_eq!(
+            fs::read_to_string(installed_lock)?,
+            r#"{"name": "devline-app"}"#
         );
         assert!(stage.0.join(".devline/scripts/test-offline.sh").is_file());
         Ok(())

@@ -21,7 +21,7 @@ bundled = project / '.devline/packages' if managed_relative == '.devline/cache' 
 offline = offline_value == 'true'
 packages = {package['name']: package for item in selection['integrations'] if not item.get('builtin') for package in item['packages']}
 env = os.environ.copy()
-env['DEVLINE_OFFLINE'] = '1' if offline else '0'
+env['DEVLINE_OFFLINE'] = 'true' if offline else 'false'
 env['PATH'] = str(Path(tool).parent) + os.pathsep + env.get('PATH', '')
 
 def run(command, **kwargs):

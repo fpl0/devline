@@ -5,13 +5,15 @@ project=${2:?project directory}
 managed=${3:?managed dependency directory}/swift
 tool=${4:?Swift executable}
 shift 4
+. "$(dirname "$0")/common.sh"
 cd "$project"
 [ -f Package.swift ] || { echo 'Choose the Swift package directory containing Package.swift.' >&2; exit 1; }
 if ! sdk=$(/usr/bin/xcrun --no-cache --sdk macosx --show-sdk-path 2>/dev/null) || [ ! -d "$sdk" ]; then
     echo 'Select an installed macOS SDK with xcode-select before preparing this project.' >&2
     exit 1
 fi
-export PATH="$(dirname "$tool"):$PATH" DEVKIT_TOOLCHAIN="$tool" SDKROOT="$sdk"
+export PATH="$(dirname "$tool"):$PATH" SDKROOT="$sdk"
+export_starter_toolchain "$tool"
 case "$action" in
     prepare) scratch=${TMPDIR:?}/swift-prepare; cache="$managed/cache" ;;
     verify) scratch=${TMPDIR:?}/swift-verify; cache="$scratch/cache" ;;
@@ -35,7 +37,7 @@ package=$(swift_local package dump-package)
 if [ "$action" = prepare ]; then
     previous="$scratch/previous-resolved.json"
     if [ -f Package.resolved ]; then cp Package.resolved "$previous"; fi
-    if [ "${DEVLINE_OFFLINE:-0}" = 1 ]; then
+    if offline_requested; then
         swift_local package --skip-update resolve
     else
         swift_local package resolve

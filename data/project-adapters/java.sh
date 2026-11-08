@@ -5,11 +5,10 @@ project=${2:?staged project}
 cache=${3:?managed dependency directory}/java
 tool=${4:?Maven executable}
 shift 4
+. "$(dirname "$0")/common.sh"
 cd "$project"
 export PATH="$(dirname "$tool"):$PATH"
-export DEVKIT_TOOLCHAIN="$tool"
-starter_test=./.devline/scripts/test-offline.sh
-[ -f "$starter_test" ] || starter_test=./test-offline.sh
+export_starter_toolchain "$tool"
 if [ "$action" = run ]; then
     [ "$#" -gt 0 ] || { printf '%s\n' 'Specify a Maven project command.' >&2; exit 2; }
     repository="$cache/repository"
@@ -43,7 +42,7 @@ export JDK_JAVA_OPTIONS="${JDK_JAVA_OPTIONS:-} -Duser.home=\"$HOME\" -Djava.io.t
 case "$action" in
     prepare)
         mkdir -p "$cache/repository"
-        if [ "${DEVLINE_OFFLINE:-0}" = 1 ]; then
+        if offline_requested; then
             "$tool" -o -B -ntp "-Dmaven.repo.local=$cache/repository" clean verify
         else
             "$tool" -B -ntp "-Dmaven.repo.local=$cache/repository" clean verify
@@ -51,7 +50,7 @@ case "$action" in
         ;;
     verify)
         if [ ! -d "$cache/repository" ]; then
-            if [ -x "$starter_test" ] && { [ -f .devline/origin.json ] || [ -f .devkit-origin.json ]; }; then
+            if starter_test=$(find_starter_test); then
                 exec "$starter_test"
             fi
             printf '%s\n' 'Prepare this project while connected to archive its Maven dependencies.' >&2

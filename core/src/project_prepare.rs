@@ -102,18 +102,11 @@ impl Project {
             detail.to_owned(),
         ))
     }
+}
 
-    fn key(&self) -> Result<String> {
-        Ok(format!(
-            "{:x}",
-            Sha256::digest(
-                self.path
-                    .to_str()
-                    .context("Project path is not UTF-8")?
-                    .as_bytes()
-            )
-        ))
-    }
+fn project_key(path: &Path) -> Result<String> {
+    let path = path.to_str().context("Project path is not UTF-8")?;
+    Ok(format!("{:x}", Sha256::digest(path.as_bytes())))
 }
 
 fn records(ctx: &Context) -> Result<PathBuf> {
@@ -123,7 +116,7 @@ fn records(ctx: &Context) -> Result<PathBuf> {
 fn receipt_path(ctx: &Context, project: &Project) -> Result<PathBuf> {
     Ok(
         templates::library(ctx, Path::new("project-readiness"), false)?
-            .join(format!("{}.json", project.key()?)),
+            .join(format!("{}.json", project_key(&project.path)?)),
     )
 }
 
@@ -155,7 +148,7 @@ fn record(ctx: &Context, project: &Project, receipt: &Receipt) -> Result<()> {
 
 fn ignored(stack: &str, name: &str) -> bool {
     matches!(name, ".git" | ".devline-infra" | ".DS_Store")
-        || name.starts_with(".devkit-") && name != ".devkit-origin.json"
+        || templates::Stage::is_name(name)
         || match stack {
             "rust" | "java" => name == "target",
             "node" => matches!(
@@ -541,31 +534,27 @@ fn invoke(
     let tmp = stage.join(if verify { "verify-tmp" } else { "prepare-tmp" });
     fs::create_dir(&home)?;
     fs::create_dir(&tmp)?;
-    command
-        .env_clear()
-        .env("HOME", &home)
-        .env("TMPDIR", &tmp)
-        .env("DEVKIT_TOOLCHAIN", tool);
+    command.env_clear().env("HOME", &home).env("TMPDIR", &tmp);
     if invocation == Invocation::Starter {
         templates::tool_environment(&mut command, tool_name, tool)?;
     } else {
         templates::project_tool_environment(&mut command, tool_name, tool)?;
-    }
-    if tool_name == "mvn" {
-        command.env(
-            "JDK_JAVA_OPTIONS",
-            format!(
-                "-Duser.home={} -Djava.io.tmpdir={}",
-                serde_json::to_string(&home)?,
-                serde_json::to_string(&tmp)?
-            ),
-        );
     }
     command.arg(adapter).current_dir(project);
     if matches!(
         invocation,
         Invocation::GeneratedProject | Invocation::Starter
     ) {
+        if tool_name == "mvn" {
+            command.env(
+                "JDK_JAVA_OPTIONS",
+                format!(
+                    "-Duser.home={} -Djava.io.tmpdir={}",
+                    serde_json::to_string(&home)?,
+                    serde_json::to_string(&tmp)?
+                ),
+            );
+        }
         for (key, path) in [
             ("GOCACHE", "go-build"),
             ("GOMODCACHE", "go-mod"),
@@ -593,12 +582,12 @@ fn invoke(
     templates::run_command(&mut command, label, job.as_deref_mut())
 }
 
-fn lock(ctx: &Context, project: &Project, job: &Option<&mut Job>) -> Result<fs::File> {
+fn lock(ctx: &Context, path: &Path, job: &Option<&mut Job>) -> Result<fs::File> {
     let file = fs::OpenOptions::new()
         .create(true)
         .truncate(false)
         .write(true)
-        .open(records(ctx)?.join(format!("{}.lock", project.key()?)))?;
+        .open(records(ctx)?.join(format!("{}.lock", project_key(path)?)))?;
     loop {
         if let Some(job) = job.as_deref() {
             job.checkpoint()?;
@@ -613,8 +602,8 @@ fn lock(ctx: &Context, project: &Project, job: &Option<&mut Job>) -> Result<fs::
     }
 }
 
-pub(crate) fn lock_generated(ctx: &Context, path: &Path, stack: &str) -> Result<fs::File> {
-    lock(ctx, &Project::known(path, stack), &None)
+pub(crate) fn lock_generated(ctx: &Context, path: &Path) -> Result<fs::File> {
+    lock(ctx, path, &None)
 }
 
 fn publish(
@@ -679,33 +668,53 @@ fn publish(
     result
 }
 
-pub(crate) fn lock_project(
-    ctx: &Context,
-    request: &Value,
-    job: &Option<&mut Job>,
-) -> Result<fs::File> {
-    let path = Path::new(text_arg(request, "path")?).canonicalize()?;
+pub(crate) fn lock_project(ctx: &Context, root: &Path, job: &Option<&mut Job>) -> Result<fs::File> {
+    let path = root.canonicalize()?;
     if !path.is_dir() {
         bail!("Choose an existing project directory");
     }
-    lock(ctx, &Project::known(&path, ""), job)
+    lock(ctx, &path, job)
+}
+
+pub(crate) fn mutation_root(ctx: &Context, input: &Path) -> Result<PathBuf> {
+    let path = input.canonicalize()?;
+    let folder = if path.is_file() {
+        path.parent().context("Project file has no parent folder")?
+    } else {
+        &path
+    };
+    // A half-published client mutation may have moved the only manifest
+    // out of the project. Recover that folder before looking at its parent.
+    if crate::service_clients::has_pending_mutation(ctx, folder)? {
+        return Ok(folder.to_owned());
+    }
+    project::root(ctx, &path)
 }
 
 pub(crate) fn prepare(ctx: &Context, request: &Value, job: Option<&mut Job>) -> Result<Value> {
-    let _lock = lock_project(ctx, request, &job)?;
-    prepare_locked(ctx, request, job)
+    let path = mutation_root(ctx, Path::new(text_arg(request, "path")?))?;
+    let _lock = lock_project(ctx, &path, &job)?;
+    recover_locked(ctx, &path)?;
+    prepare_locked(ctx, &path, request, job)
 }
 
-// Caller holds the same project lock used by standalone dependency preparation.
+pub(crate) fn recover_locked(ctx: &Context, root: &Path) -> Result<()> {
+    if root.starts_with(ctx.home.canonicalize()?) {
+        bail!("Choose a project outside the Devline library");
+    }
+    crate::service_clients::recover(ctx, root)
+}
+
+// Caller holds the project mutation lock and has recovered any pending client change.
 pub(crate) fn prepare_locked(
     ctx: &Context,
+    root: &Path,
     request: &Value,
     mut job: Option<&mut Job>,
 ) -> Result<Value> {
-    crate::service_clients::recover(ctx, &Path::new(text_arg(request, "path")?).canonicalize()?)?;
-    let project = Project::from_request(ctx, request)?;
-    if project.path.starts_with(ctx.home.canonicalize()?) {
-        bail!("Choose a project outside the Devline library");
+    let project = Project::from_profile(&project::context(ctx, root)?)?;
+    if project.path != root {
+        bail!("The project root changed. Select the project again.");
     }
     let offline = request["offline"] == true;
     let adapter = project.adapter(ctx)?;
@@ -929,7 +938,7 @@ pub(crate) fn create_with_job(
         let (id, version) = doc
             .split_once('@')
             .map_or((doc, None), |(id, version)| (id, Some(version)));
-        crate::install_docs_job(ctx, id, version, job.as_deref_mut())?;
+        crate::doc_library::install_docs_job(ctx, id, version, job.as_deref_mut())?;
     }
     let mut result = templates::create_with_job(ctx, &exact, &path, false, job.as_deref_mut())?;
     if request["clients"]
@@ -976,7 +985,7 @@ pub(crate) fn create_with_job(
 }
 
 fn rollback_created(ctx: &Context, path: &Path, creation_digest: &str) -> Result<bool> {
-    let _lock = lock_project(ctx, &json!({"path":path}), &None)?;
+    let _lock = lock_project(ctx, path, &None)?;
     if !templates::complete_tree_digest(path).is_ok_and(|digest| digest == creation_digest) {
         return Ok(false);
     }

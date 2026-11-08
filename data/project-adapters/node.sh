@@ -2,6 +2,7 @@
 # The lock and npm cache stay portable. Node's install/build outputs are local.
 set -eu
 mode=${1:?prepare, verify, or run}; project=${2:?project}; cache=${3:?managed cache}; tool=${4:?node}; shift 4
+. "$(dirname "$0")/common.sh"
 cd "$project"
 export PATH="$(dirname "$tool"):$PATH"
 export npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false CI=true
@@ -37,7 +38,7 @@ case "$mode" in
            { [ -f BROWSER.json ] && [ -d browser-archive ] && [ -f test-offline.sh ]; }; then
             # The bundled starter's test restores and checks its pinned browser.
             :
-        elif [ "${DEVLINE_OFFLINE:-false}" = true ]; then
+        elif offline_requested; then
             [ -d "$cache/browsers" ] || { echo 'Prepare the pinned browser before adding clients offline.' >&2; exit 1; }
         else
             PLAYWRIGHT_BROWSERS_PATH="$cache/browsers" "$tool" node_modules/playwright/cli.js install
@@ -49,9 +50,21 @@ case "$mode" in
   verify)
     use_cache
     npm ci --offline --include=dev --no-audit --no-fund
-    "$tool" -e 'const p=JSON.parse(require("fs").readFileSync("package.json")); if(!p.scripts?.test && !p.scripts?.build) {console.error("Add a build or test script so Devline can prove this project works offline.");process.exit(1)}'
-    if "$tool" -e 'process.exit(JSON.parse(require("fs").readFileSync("package.json")).scripts?.build?0:1)'; then npm run build; fi
-    if "$tool" -e 'process.exit(JSON.parse(require("fs").readFileSync("package.json")).scripts?.test?0:1)'; then npm test; fi
+    scripts=$("$tool" -e '
+        const { scripts } = JSON.parse(require("node:fs").readFileSync("package.json", "utf8"));
+        const selected = ["build", "test"].filter(name => scripts?.[name]);
+        if (!selected.length) {
+            console.error("Add a build or test script so Devline can prove this project works offline.");
+            process.exit(1);
+        }
+        console.log(selected.join(","));
+    ')
+    case "$scripts" in
+      build) npm run build ;;
+      test) npm test ;;
+      build,test) npm run build; npm test ;;
+      *) echo 'Could not determine the Node.js verification scripts.' >&2; exit 1 ;;
+    esac
     ;;
   run)
     [ "$#" -gt 0 ] || { echo 'Choose a command, for example devline project run -- npm test.' >&2; exit 1; }

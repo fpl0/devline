@@ -13,6 +13,7 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 const NAME_TOKEN: &str = "__PROJECT_NAME__";
+const STAGE_PREFIX: &str = ".devline-stage-";
 static STAGE_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Serialize, Deserialize)]
@@ -248,7 +249,7 @@ impl Stage {
     pub(crate) fn new(parent: &Path) -> Result<Self> {
         for _ in 0..100 {
             let id = STAGE_ID.fetch_add(1, Ordering::Relaxed);
-            let path = parent.join(format!(".devkit-{}-{id}", std::process::id()));
+            let path = parent.join(format!("{STAGE_PREFIX}{}-{id}", std::process::id()));
             match fs::create_dir(&path) {
                 Ok(()) => return Ok(Self(path)),
                 Err(e) if e.kind() == io::ErrorKind::AlreadyExists => (),
@@ -256,6 +257,11 @@ impl Stage {
             }
         }
         bail!("Could not reserve a staging directory")
+    }
+
+    pub(crate) fn is_name(name: &str) -> bool {
+        name.starts_with(STAGE_PREFIX)
+            || (name.starts_with(".devkit-") && name != crate::project_layout::LEGACY_ORIGIN)
     }
 
     pub(crate) fn publish(&self, destination: &Path) -> Result<()> {
@@ -880,8 +886,8 @@ fn install_release(ctx: &Context, reference: &str, prune: bool) -> Result<Value>
 
 fn candidate_paths(tool: &str) -> Vec<PathBuf> {
     let mut paths = Vec::new();
-    let override_name = format!("DEVKIT_{}", tool.to_ascii_uppercase().replace('-', "_"));
-    if let Some(path) = env::var_os(override_name) {
+    let override_name = tool.to_ascii_uppercase().replace('-', "_");
+    if let Some(path) = crate::context::branded_env(&override_name) {
         return vec![PathBuf::from(path)];
     }
     if tool == "swift" {
@@ -1057,7 +1063,11 @@ fn tool_environment_inner(
         .into_iter()
         .map(PathBuf::from),
     );
-    command.env("PATH", env::join_paths(directories)?);
+    command
+        .env("PATH", env::join_paths(directories)?)
+        .env("DEVLINE_TOOLCHAIN", path)
+        // Published starter scripts still read this name.
+        .env("DEVKIT_TOOLCHAIN", path);
     if tool == "dotnet" {
         // Compiler/build servers can outlive a sandboxed verification and wait on
         // unavailable diagnostics sockets. Keep .NET work in this process tree.
@@ -1244,9 +1254,9 @@ fn toolchain_with_sdk(template: &Template, sdk: &MacosSdk) -> (Option<PathBuf>, 
                 template.minimum_version
             ),
             None => format!(
-                "Install {tool} {}{companion} or set DEVKIT_{} to its executable path.",
+                "Install {tool} {}{companion} or set DEVLINE_{} to its executable path.",
                 template.minimum_version,
-                tool.to_ascii_uppercase()
+                tool.to_ascii_uppercase().replace('-', "_")
             ),
         },
     )
@@ -1518,13 +1528,15 @@ fn project_tool_defaults(template: &Template, tool: &Path) -> Result<String> {
 
     let mut script =
         String::from("# Use the selected toolchain when it is available on this Mac.\n");
+    script.push_str("DEVLINE_TOOLCHAIN=${DEVLINE_TOOLCHAIN:-${DEVKIT_TOOLCHAIN:-}}\n");
     let tool_path = shell_word(tool)?;
     writeln!(
         script,
-        "if [ -z \"${{DEVKIT_TOOLCHAIN:-}}\" ] && [ -x {tool_path} ]; then"
+        "if [ -z \"$DEVLINE_TOOLCHAIN\" ] && [ -x {tool_path} ]; then"
     )?;
-    writeln!(script, "    export DEVKIT_TOOLCHAIN={tool_path}")?;
+    writeln!(script, "    DEVLINE_TOOLCHAIN={tool_path}")?;
     writeln!(script, "fi")?;
+    script.push_str("if [ -n \"$DEVLINE_TOOLCHAIN\" ]; then\n    export DEVLINE_TOOLCHAIN DEVKIT_TOOLCHAIN=\"$DEVLINE_TOOLCHAIN\"\nfi\n");
     if template.toolchain == "elixir" {
         if let Some(erl) = erlang_bin() {
             let dir = shell_word(&erl)?;
@@ -1538,15 +1550,14 @@ fn project_tool_defaults(template: &Template, tool: &Path) -> Result<String> {
         if let Some(java) = jdk_home() {
             let bin = shell_word(&java.join("bin/java"))?;
             let home = shell_word(&java)?;
-            writeln!(script, "if [ -n \"${{DEVKIT_JAVA_HOME:-}}\" ]; then")?;
-            writeln!(script, "    export JAVA_HOME=\"$DEVKIT_JAVA_HOME\"")?;
+            script.push_str("if [ -n \"${DEVLINE_JAVA_HOME:-${DEVKIT_JAVA_HOME:-}}\" ]; then\n    export JAVA_HOME=\"${DEVLINE_JAVA_HOME:-$DEVKIT_JAVA_HOME}\"\n");
             writeln!(script, "elif [ -x {bin} ]; then")?;
             writeln!(script, "    export JAVA_HOME={home}")?;
             writeln!(script, "fi")?;
         }
     }
-    script.push_str("if [ -n \"${DEVKIT_TOOLCHAIN:-}\" ] && [ -x \"$DEVKIT_TOOLCHAIN\" ]; then\n");
-    script.push_str("    export PATH=\"$(dirname \"$DEVKIT_TOOLCHAIN\")${PATH:+:$PATH}\"\nfi\n");
+    script.push_str("if [ -n \"$DEVLINE_TOOLCHAIN\" ] && [ -x \"$DEVLINE_TOOLCHAIN\" ]; then\n");
+    script.push_str("    export PATH=\"$(dirname \"$DEVLINE_TOOLCHAIN\")${PATH:+:$PATH}\"\nfi\n");
     Ok(script)
 }
 
@@ -1632,8 +1643,7 @@ pub(crate) fn create_with_job(
                 .any(|entry| entry.id == template.id),
         )?;
         drop(_lock);
-        let _project_lock =
-            crate::project_prepare::lock_generated(ctx, &destination, &template.stack)?;
+        let _project_lock = crate::project_prepare::lock_generated(ctx, &destination)?;
         if fs::symlink_metadata(&destination).is_ok() {
             bail!("The destination already exists: {}", destination.display());
         }
@@ -1722,7 +1732,7 @@ pub(crate) fn verify_build_job(
     }
     let copy = work.join("offline-test");
     fs::create_dir(&copy)?;
-    copy_tree(project, &copy, Some("devkit-test"))?;
+    copy_tree(project, &copy, Some("devline-test"))?;
     let script = copy.join("test-offline.sh");
     regular(&script).context("An offline verification script is required")?;
     let home = work.join("offline-home");
@@ -1738,7 +1748,6 @@ pub(crate) fn verify_build_job(
             .current_dir(&copy)
             .env("HOME", &home)
             .env("TMPDIR", work)
-            .env("DEVKIT_TOOLCHAIN", tool)
             .env("MIX_HOME", home.join("mix"))
             .env("HEX_HOME", home.join("hex"))
             .env("GOCACHE", home.join("go-build"))
@@ -1824,7 +1833,7 @@ pub(crate) fn prepare(
         let (id, version) = doc
             .split_once('@')
             .map_or((doc.as_str(), None), |(id, version)| (id, Some(version)));
-        docs.push(crate::install_docs(ctx, id, version)?);
+        docs.push(crate::doc_library::install_docs(ctx, id, version)?);
     }
     verify_offline(ctx, &label, job)?;
     {
@@ -1901,8 +1910,7 @@ pub(crate) fn build_latest_job(
             .arg(&recipe)
             .arg(&project)
             .current_dir(&stage.0)
-            .env("TMPDIR", &verification.0)
-            .env("DEVKIT_TOOLCHAIN", &tool),
+            .env("TMPDIR", &verification.0),
         "Refreshing upstream dependencies",
         job.as_deref_mut(),
     )?;
@@ -2244,7 +2252,7 @@ mod tests {
         fs::copy("/usr/bin/true", &unusual_tool)?;
         fs::write(
             project.join("test-offline.sh"),
-            "printf '%s:%s' \"$DEVKIT_TOOLCHAIN\" \"$1\"\n",
+            "printf '%s:%s:%s' \"$DEVLINE_TOOLCHAIN\" \"$DEVKIT_TOOLCHAIN\" \"$1\"\n",
         )?;
         let template = &fixture.ctx.catalog.templates[0];
         crate::project_layout::organize(
@@ -2254,9 +2262,10 @@ mod tests {
             &project_tool_defaults(template, &unusual_tool)?,
             true,
         )?;
-        for (override_value, expected) in [
-            (None, unusual_tool.as_path()),
-            (Some("/usr/bin/true"), Path::new("/usr/bin/true")),
+        for (current, previous, expected) in [
+            (None, None, unusual_tool.as_path()),
+            (None, Some("/usr/bin/true"), Path::new("/usr/bin/true")),
+            (Some("/bin/sh"), Some("/usr/bin/true"), Path::new("/bin/sh")),
         ] {
             let mut command = Command::new("/bin/sh");
             command
@@ -2265,7 +2274,10 @@ mod tests {
                 .current_dir(project.parent().unwrap())
                 .env_clear()
                 .env("PATH", "/usr/bin:/bin");
-            if let Some(path) = override_value {
+            if let Some(path) = current {
+                command.env("DEVLINE_TOOLCHAIN", path);
+            }
+            if let Some(path) = previous {
                 command.env("DEVKIT_TOOLCHAIN", path);
             }
             let output = command.output()?;
@@ -2276,7 +2288,7 @@ mod tests {
             );
             assert_eq!(
                 String::from_utf8(output.stdout)?,
-                format!("{}:two words", expected.display())
+                format!("{0}:{0}:two words", expected.display())
             );
         }
         Ok(())

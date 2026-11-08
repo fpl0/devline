@@ -1,4 +1,9 @@
-use crate::{progress, render_offline, request, run_operation, s, shell_quote, terminal, Cli};
+use crate::{
+    cli_output::{render_job, render_offline},
+    progress, request, run_operation, s, terminal,
+    terminal::shell_quote,
+    Cli,
+};
 use anyhow::{bail, Result};
 use clap::{Args, Subcommand, ValueHint};
 use serde_json::{json, Value};
@@ -733,7 +738,7 @@ pub(super) fn render(action: &str, value: &Value) {
                         terminal::safe_text(error)
                     );
                 } else if value["background"] == true {
-                    crate::render_job(&item["result"]);
+                    render_job(&item["result"]);
                 } else {
                     render_image(&item["result"]);
                 }

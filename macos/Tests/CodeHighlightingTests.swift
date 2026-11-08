@@ -14,7 +14,7 @@ struct CodeHighlightingTests {
 
     private static func run() throws {
         _ = NSApplication.shared
-        let resources = URL(fileURLWithPath: "macos/Sources/DevKitApp/Resources", isDirectory: true)
+        let resources = URL(fileURLWithPath: "macos/Sources/DevlineApp/Resources", isDirectory: true)
         let script = try ["highlight.min.js", "code-highlighting.js"].map { name in
             try String(contentsOf: resources.appendingPathComponent(name), encoding: .utf8)
         }.joined(separator: "\n")

@@ -6,7 +6,6 @@ a server. This tests package availability and public client APIs, not live serve
 compatibility. The separate .NET service journey covers real database/broker I/O.
 """
 import argparse
-import errno
 import hashlib
 import json
 import os
@@ -238,7 +237,7 @@ def environment(home):
             if executable == "swift":
                 located = subprocess.run(["/usr/bin/xcrun","--find","swift"],capture_output=True,text=True)
                 if located.returncode == 0: tool = located.stdout.strip()
-            env["DEVKIT_" + executable.upper()] = tool
+            env["DEVLINE_" + executable.upper()] = tool
     return env
 
 

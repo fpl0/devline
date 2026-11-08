@@ -1,7 +1,6 @@
 #!/bin/sh
 # Values come only from Devline's validated recommendation catalog.
 project=${1:?project}; selection=${2:?selection}; offline=${3:?offline}; tool=${4:?tool}
-base=$(cd "$(dirname "$0")" && pwd)
 field() { /usr/bin/plutil -extract "$1" raw -o - "$selection" 2>/dev/null || :; }
 count() { /usr/bin/plutil -extract "$1" raw -expect array -o - "$selection" 2>/dev/null || printf '0'; }
 catalog=$(field catalog_dir)
@@ -17,10 +16,12 @@ merge() {
     /bin/cp -cR "$1/." "$2/" 2>/dev/null || /bin/cp -R "$1/." "$2/"
 }
 packages() {
+    integration_count=$(count integrations)
     i=0
-    while [ "$i" -lt "$(count integrations)" ]; do
+    while [ "$i" -lt "$integration_count" ]; do
+        package_count=$(count "integrations.$i.packages")
         j=0
-        while [ "$j" -lt "$(count "integrations.$i.packages")" ]; do
+        while [ "$j" -lt "$package_count" ]; do
             package_prefix="integrations.$i.packages.$j"
             package_name=$(field "$package_prefix.name")
             package_version=$(field "$package_prefix.version")

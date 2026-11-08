@@ -3,6 +3,7 @@
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 
+const execFileAsync = promisify(execFile);
 const stackForLanguage = new Map([
   ['python', 'python'],
   ['go', 'go'],
@@ -10,8 +11,14 @@ const stackForLanguage = new Map([
   ['ruby', 'ruby'],
   ['java', 'java'],
   ['csharp', 'dotnet'],
+  ['fsharp', 'dotnet'],
   ['elixir', 'elixir'],
   ['phoenix-heex', 'elixir'],
+  ['javascript', 'node'],
+  ['javascriptreact', 'node'],
+  ['typescript', 'node'],
+  ['typescriptreact', 'node'],
+  ['swift', 'swift'],
 ]);
 const symbol = /[\p{L}_][\p{L}\p{N}_]*(?:(?:\.|::|#)[\p{L}_][\p{L}\p{N}_]*)*(?:\/\d+|\(\))?|(?:\|>|==|!=|<>|&&|\|\|)(?:\/\d+)?/gu;
 
@@ -34,8 +41,8 @@ function termFromEditor(editor) {
   return range ? document.getText(range) : '';
 }
 
-async function openURL(url) {
-  await promisify(execFile)('/usr/bin/open', [url]);
+function openURL(url) {
+  return execFileAsync('/usr/bin/open', [url]);
 }
 
 function activate(context, vscode = require('vscode'), open = openURL) {

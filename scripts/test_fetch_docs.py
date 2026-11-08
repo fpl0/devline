@@ -8,6 +8,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+import reference_io
+import reference_rendering as rendering
+
 
 spec = importlib.util.spec_from_file_location("fetch_docs", Path(__file__).with_name("fetch-docs.py"))
 ingest = importlib.util.module_from_spec(spec)
@@ -18,14 +21,14 @@ spec.loader.exec_module(ingest)
 class ReferenceIngestionTests(unittest.TestCase):
     def test_infrastructure_links_keep_upstream_github_filenames(self):
         base = "https://github.com/example/service/blob/v1/docs/setup.md"
-        target = ingest.link_destination("./backup.md#restore", base, "infrastructure", {})
+        target = rendering.link_destination("./backup.md#restore", base, "infrastructure", {})
         self.assertEqual(target, "https://github.com/example/service/blob/v1/docs/backup.md#restore")
 
     def test_empty_and_nested_examples_keep_valid_offline_markup(self):
         upstream = ('<main><pre><code></code></pre><pre id="kept"><code> </code></pre>'
                     '<pre><details><summary>Example note</summary><pre><code>call()</code></pre></details></pre></main>')
-        _, node, _ = ingest.article_from_html(upstream, "main", "Fixture")
-        body, markup = ingest.prepared_html(node, "https://example.org/guide", "java")
+        _, node, _ = rendering.article_from_html(upstream, "main", "Fixture")
+        body, markup = rendering.prepared_html(node, "https://example.org/guide", "java")
         self.assertEqual(markup.count("<pre"), 1)
         self.assertIn('<span id="kept"></span>', markup)
         self.assertIn("<pre><code>call()</code></pre>", markup)
@@ -43,8 +46,8 @@ class ReferenceIngestionTests(unittest.TestCase):
         <a href="#api.Test">Jump</a><a href="../reference/method.html#method">Read more</a>
         <a href="javascript:alert(1)">Unsafe</a><a href="https://name:secret@example.org/">Credentials</a>
         <img src="remote.png" alt="Diagram"><script>alert('unsafe')</script><nav>Site chrome</nav></main>"""
-        _, node, _ = ingest.article_from_html(upstream, "main", "Fixture")
-        body, markup = ingest.prepared_html(node, "https://example.org/guide/topic.html", "fixture")
+        _, node, _ = rendering.article_from_html(upstream, "main", "Fixture")
+        body, markup = rendering.prepared_html(node, "https://example.org/guide/topic.html", "fixture")
         for fragment in ('<h1 id="topic">', '<dt id="api.Test">', "<table>", "Useful note",
                          "if x &lt; y &amp;&amp; a &gt; b:", "print(x)\n\n    print(y)",
                          'href="#api.Test"', 'href="https://example.org/reference/method.html#method"',
@@ -55,21 +58,21 @@ class ReferenceIngestionTests(unittest.TestCase):
         self.assertIn("if x < y && a > b:", body)
 
     def test_only_safe_local_images_are_embedded(self):
-        self.assertTrue(ingest.image_url(b'<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>')
+        self.assertTrue(rendering.image_url(b'<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>')
                         .startswith("data:image/svg+xml;base64,"))
-        self.assertIsNone(ingest.image_url(b'<svg xmlns="http://www.w3.org/2000/svg"><script>bad()</script></svg>'))
-        self.assertIsNone(ingest.image_url(b'<svg xmlns="http://www.w3.org/2000/svg" style="fill:url(https://x.example)"/>'))
-        self.assertIsNone(ingest.image_url(b'<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg>&x;</svg>'))
+        self.assertIsNone(rendering.image_url(b'<svg xmlns="http://www.w3.org/2000/svg"><script>bad()</script></svg>'))
+        self.assertIsNone(rendering.image_url(b'<svg xmlns="http://www.w3.org/2000/svg" style="fill:url(https://x.example)"/>'))
+        self.assertIsNone(rendering.image_url(b'<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg>&x;</svg>'))
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             (root / "pages").mkdir()
             (root / "assets").mkdir()
             (root / "assets/diagram.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
-            load = ingest.file_assets(root / "pages/index.md", root)
+            load = rendering.file_assets(root / "pages/index.md", root)
             self.assertIsNotNone(load("../assets/diagram.svg"))
             self.assertIsNone(load("https://example.org/assets/diagram.svg"))
             self.assertIsNone(load("../../outside.svg"))
-        self.assertIsNone(ingest.asset_path("//example.org/diagram.svg"))
+        self.assertIsNone(rendering.asset_path("//example.org/diagram.svg"))
 
     def test_fastapi_examples_and_nested_material_directives(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -90,8 +93,8 @@ class ReferenceIngestionTests(unittest.TestCase):
 
     def test_percent_encoded_upstream_operator_ids_match_browser_fragments(self):
         raw = '<main><section id="%7C%3E/2"><h2>Pipe</h2><a href="#%7C%3E/2">Pipe</a></section></main>'
-        _, node, aliases = ingest.article_from_html(raw, "main", "Kernel")
-        _, markup = ingest.prepared_html(node, "https://hexdocs.pm/elixir/Kernel.html", "elixir")
+        _, node, aliases = rendering.article_from_html(raw, "main", "Kernel")
+        _, markup = rendering.prepared_html(node, "https://hexdocs.pm/elixir/Kernel.html", "elixir")
         self.assertEqual(aliases, ["|>/2"])
         self.assertIn('id="|&gt;/2"', markup)
         self.assertIn('href="#%7C%3E/2"', markup)
@@ -177,37 +180,37 @@ Older instructions
 
     def test_inert_site_navigation_retains_heading_text(self):
         for pack, link in (("python", '<a class="toc-backref" href="#id1">'), ("csharp", '<a href="#tab/net-cli">')):
-            parser = ingest.DocumentParser()
+            parser = rendering.DocumentParser()
             parser.feed(f'<h2 id="keep">{link}Install with CLI</a></h2>')
-            _, markup = ingest.prepared_html(parser.root, "https://example.org/setup", pack)
+            _, markup = rendering.prepared_html(parser.root, "https://example.org/setup", pack)
             self.assertEqual(markup, '<h2 id="keep">Install with CLI</h2>')
 
     def test_reference_anchors_match_the_upstream_rails_ruby_and_go_syntax(self):
-        rails = ingest.DocumentParser()
+        rails = rendering.DocumentParser()
         rails.feed(
             '<h2 id="one">One</h2><h3 id="first">map! and []?</h3>'
             '<h2 id="two">Two</h2><h3 id="second">map! and []?</h3>'
         )
-        ingest.rails_headings(rails.root)
-        _, markup = ingest.prepared_html(rails.root, "https://example.org/rails", "rails")
+        rendering.rails_headings(rails.root)
+        _, markup = rendering.prepared_html(rails.root, "https://example.org/rails", "rails")
         self.assertIn('id="one-map-bang-and-squarebrackets-questionmark"', markup)
         self.assertIn('id="two-map-bang-and-squarebrackets-questionmark"', markup)
         self.assertIn('id="second"', markup)
-        ruby = ingest.DocumentParser()
+        ruby = rendering.DocumentParser()
         ruby.feed('<h2 id="rescued-exceptions">Rescued Exceptions</h2><a href="#label-Rescued+Exceptions">See it</a>')
-        _, markup = ingest.prepared_html(ruby.root, "https://example.org/ruby", "ruby")
+        _, markup = rendering.prepared_html(ruby.root, "https://example.org/ruby", "ruby")
         self.assertIn('href="#rescued-exceptions"', markup)
-        go = ingest.DocumentParser()
+        go = rendering.DocumentParser()
         go.feed('<pre class="ebnf">MethodName = identifier .</pre>')
         ingest.go_grammar_anchors(go.root)
-        _, markup = ingest.prepared_html(go.root, "https://go.dev/ref/spec", "go")
+        _, markup = rendering.prepared_html(go.root, "https://go.dev/ref/spec", "go")
         self.assertIn('<span id="MethodName">MethodName</span> = identifier .', markup)
 
     def test_shards_are_bounded_and_do_not_split_articles(self):
         documents = [{"id": str(i), "body": "A" * 20} for i in range(5)]
-        with tempfile.TemporaryDirectory() as temp, patch.object(ingest, "SHARD_BYTES", 110):
+        with tempfile.TemporaryDirectory() as temp, patch.object(reference_io, "SHARD_BYTES", 110):
             path = Path(temp)
-            shards, size = ingest.write_shards(path, documents)
+            shards, size = reference_io.write_shards(path, documents)
             self.assertEqual(shards, 3)
             names = ["documents.json", "documents-2.json", "documents-3.json"]
             self.assertEqual(size, sum((path / name).stat().st_size for name in names))

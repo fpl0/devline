@@ -5,23 +5,20 @@ project=${2:?staged project}
 cache=${3:?managed dependency directory}/dotnet
 tool=${4:?dotnet executable}
 shift 4
+. "$(dirname "$0")/common.sh"
 cd "$project"
 export PATH="$(dirname "$tool"):$PATH"
-export DEVKIT_TOOLCHAIN="$tool" DOTNET_CLI_TELEMETRY_OPTOUT=1
+export_starter_toolchain "$tool"
+export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_GENERATE_ASPNET_CERTIFICATE=false DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE=true
 export DOTNET_EnableDiagnostics=0 DOTNET_CLI_USE_MSBUILD_SERVER=0 MSBUILDDISABLENODEREUSE=1 UseSharedCompilation=false
 # Cloud-backed folders can stall native file notifications during ASP.NET startup.
 # Polling keeps configuration reload available; an explicit user setting wins.
 export DOTNET_USE_POLLING_FILE_WATCHER="${DOTNET_USE_POLLING_FILE_WATCHER:-1}"
-starter_test=./.devline/scripts/test-offline.sh
-[ -f "$starter_test" ] || starter_test=./test-offline.sh
-starter() {
-    [ -x "$starter_test" ] && { [ -f .devline/origin.json ] || [ -f .devkit-origin.json ]; }
-}
 if [ "$action" = run ]; then
     [ "$#" -gt 0 ] || { printf '%s\n' 'Specify a .NET project command.' >&2; exit 2; }
     if [ ! -d "$cache/packages" ]; then
-        if starter; then
+        if find_starter_test >/dev/null; then
             export DOTNET_CLI_HOME="$project/obj/devline-home" NUGET_PACKAGES="$project/obj/devline-nuget"
             export XDG_DATA_HOME="$DOTNET_CLI_HOME/.local/share" NUGET_HTTP_CACHE_PATH="$project/obj/devline-http"
             export NuGetAudit=false RestoreConfigFile="$project/NuGet.Config"
@@ -81,7 +78,7 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export NUGET_HTTP_CACHE_PATH="${TMPDIR:?}/nuget-http"
 if [ "$action" = verify ]; then
     if [ ! -d "$cache/packages" ]; then
-        if starter; then exec "$starter_test"; fi
+        if starter_test=$(find_starter_test); then exec "$starter_test"; fi
         printf '%s\n' 'Prepare this project while connected to archive its NuGet packages.' >&2
         exit 1
     fi
@@ -118,7 +115,7 @@ restore_locked() {
 
 case "$action" in
     prepare)
-        if [ "${DEVLINE_OFFLINE:-false}" = true ]; then
+        if offline_requested; then
             config=$(mktemp "$TMPDIR/dotnet-offline-config.XXXXXX")
             printf '%s\n' '<configuration><packageSources><clear /></packageSources></configuration>' > "$config"
             restore_locked --configfile "$config"

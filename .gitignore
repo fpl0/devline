@@ -3,6 +3,7 @@
 /core/target/
 /macos/.build/
 /macos/.swiftpm/
+/data/templates/**/.gradle/
 xcuserdata/
 *.xcuserstate
 .DS_Store

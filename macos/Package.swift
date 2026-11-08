@@ -8,15 +8,15 @@ let coreRelease = URL(fileURLWithPath: #filePath)
     .appendingPathComponent("core/target/release").path
 
 let package = Package(
-    name: "DevKitMac",
+    name: "DevlineMac",
     platforms: [.macOS(.v14)],
-    products: [.executable(name: "DevKitApp", targets: ["DevKitApp"])],
+    products: [.executable(name: "DevlineApp", targets: ["DevlineApp"])],
     dependencies: [.package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1")],
     targets: [
-        .systemLibrary(name: "DevKitBridge"),
+        .systemLibrary(name: "DevlineBridge"),
         .executableTarget(
-            name: "DevKitApp",
-            dependencies: ["DevKitBridge", .product(name: "Sparkle", package: "Sparkle")],
+            name: "DevlineApp",
+            dependencies: ["DevlineBridge", .product(name: "Sparkle", package: "Sparkle")],
             resources: [
                 .copy("Resources/highlight.min.js"),
                 .copy("Resources/code-highlighting.js"),
@@ -25,7 +25,7 @@ let package = Package(
             linkerSettings: [
                 .unsafeFlags(["-L", coreRelease]),
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),
-                .linkedLibrary("devkit_core"),
+                .linkedLibrary("devline_core"),
                 .linkedLibrary("sqlite3"),
                 .linkedFramework("Security"),
                 .linkedFramework("SystemConfiguration")

@@ -1,4 +1,4 @@
-use crate::{markdown, safe_catalog_path, valid_doc_id, Context};
+use crate::{doc_library::valid_doc_id, markdown, safe_catalog_path, Context};
 use anyhow::{bail, Context as _, Result};
 use serde_json::{json, Value};
 use std::{fs, io::Read};

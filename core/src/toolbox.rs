@@ -1,4 +1,4 @@
-use crate::{infrastructure, offline, project, project_prepare, tasks::Job, templates, Context};
+use crate::{infrastructure, offline, project_prepare, tasks::Job, templates, Context};
 use anyhow::{bail, Context as _, Result};
 use serde_json::{json, Value};
 use std::{collections::BTreeSet, path::Path};
@@ -106,12 +106,13 @@ fn outcome(
 
 pub(super) fn prepare(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> Result<Value> {
     let path = Path::new(crate::text_arg(request, "path")?);
-    let profile = project::context(ctx, path)?;
+    let root = project_prepare::mutation_root(ctx, path)?;
     let mut request = request.clone();
-    request["path"] = profile["path"].clone();
+    request["path"] = json!(root);
     let offline = request["offline"] == true;
     stage(&mut job, "Waiting for this project's preparation lock")?;
-    let _lock = project_prepare::lock_project(ctx, &request, &job)?;
+    let _lock = project_prepare::lock_project(ctx, &root, &job)?;
+    project_prepare::recover_locked(ctx, &root)?;
     let mut initial = status(ctx, &request, false)?;
     let mut steps = Vec::new();
 
@@ -183,7 +184,8 @@ pub(super) fn prepare(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
             .as_ref()
             .map_or_else(|| id.clone(), |version| format!("{id}@{version}"));
         stage(&mut job, &format!("Preparing documentation {reference}"))?;
-        let mut result = crate::install_docs_job(ctx, &id, version.as_deref(), job.as_deref_mut());
+        let mut result =
+            crate::doc_library::install_docs_job(ctx, &id, version.as_deref(), job.as_deref_mut());
         if result.is_err() && !offline && id != "swiftui" {
             if let Some(job) = job.as_deref() {
                 job.checkpoint()?;
@@ -238,7 +240,7 @@ pub(super) fn prepare(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
         )?;
         let mut local = request.clone();
         local["offline"] = json!(true);
-        let mut result = project_prepare::prepare_locked(ctx, &local, job.as_deref_mut());
+        let mut result = project_prepare::prepare_locked(ctx, &root, &local, job.as_deref_mut());
         if result.is_err() && !offline {
             if let Some(job) = job.as_deref() {
                 job.checkpoint()?;
@@ -247,7 +249,7 @@ pub(super) fn prepare(ctx: &Context, request: &Value, mut job: Option<&mut Job>)
                 &mut job,
                 "Preparing locked dependencies after local verification failed",
             )?;
-            result = project_prepare::prepare_locked(ctx, &request, job.as_deref_mut());
+            result = project_prepare::prepare_locked(ctx, &root, &request, job.as_deref_mut());
         }
         outcome(
             &mut steps,

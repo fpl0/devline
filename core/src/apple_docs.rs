@@ -1,6 +1,6 @@
 use crate::{
-    doc_links::SDK_LINK_PREFIX, doc_updates, install_doc_pack, lock_library, markdown, tasks::Job,
-    templates, Context, DocPack,
+    doc_library::install_doc_pack, doc_links::SDK_LINK_PREFIX, doc_updates, lock_library, markdown,
+    tasks::Job, templates, Context, DocPack,
 };
 use anyhow::{bail, Context as _, Result};
 use pulldown_cmark::{Event, Parser, Tag};

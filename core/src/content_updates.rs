@@ -179,13 +179,15 @@ fn compose(
             .find(|item| item["id"] == format!("docs:{}", text(pack, "id")));
         let latest = &pack["latest"];
         if let Some(fallback) = fallback {
-            let local_version = fallback["available_version"].as_str();
-            let local_update = fallback["action"] == "install_docs" && local_version.is_some();
-            let prefer_local = local_update
-                && (docs_failed
-                    || latest["pack"]["version"].as_str().is_none_or(|remote| {
-                        !updates::compare_doc_releases(local_version.unwrap(), remote).is_lt()
-                    }));
+            let prefer_local = fallback["available_version"]
+                .as_str()
+                .filter(|_| fallback["action"] == "install_docs")
+                .is_some_and(|local_version| {
+                    docs_failed
+                        || latest["pack"]["version"].as_str().is_none_or(|remote| {
+                            !updates::compare_doc_releases(local_version, remote).is_lt()
+                        })
+                });
             if prefer_local || (!docs_failed && latest.is_null()) {
                 let mut item = fallback.clone();
                 if item["action"] == "install_docs" {
@@ -465,10 +467,7 @@ pub(crate) fn apply(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -
             job.checkpoint()?;
         }
         let (state, detail) = match result {
-            Ok(_) => (
-                "succeeded",
-                "Updated. Previous releases and project pins were kept.".to_owned(),
-            ),
+            Ok(_) => ("succeeded", "Update completed.".to_owned()),
             Err(error) => (
                 if blocked { "blocked" } else { "failed" },
                 format!("{error:#}"),
@@ -511,7 +510,12 @@ fn apply_item(
                 .split_once('@')
                 .context("Documentation update has no exact version")?;
             if offline || item["delivery"] == "local" {
-                return crate::install_docs_job(ctx, id, Some(version), job.as_deref_mut());
+                return crate::doc_library::install_docs_job(
+                    ctx,
+                    id,
+                    Some(version),
+                    job.as_deref_mut(),
+                );
             }
             doc_updates::install_with_progress(ctx, id, Some(version), |label, done, total| {
                 if let Some(job) = job.as_deref_mut() {
@@ -520,7 +524,9 @@ fn apply_item(
                 Ok(())
             })
         }
-        "prepare_local_docs" => crate::install_docs_job(ctx, reference, None, job.as_deref_mut()),
+        "prepare_local_docs" => {
+            crate::doc_library::install_docs_job(ctx, reference, None, job.as_deref_mut())
+        }
         "install_template" => templates::prepare(ctx, reference, job.as_deref_mut()),
         "rebuild_template" => templates::build_latest_job(ctx, reference, job.as_deref_mut()),
         "update_image" => {

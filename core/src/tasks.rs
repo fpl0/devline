@@ -283,20 +283,29 @@ fn read_status(path: &Path, offset: Option<u64>) -> Result<Value> {
         file.seek(SeekFrom::Start(offset))?;
         let mut bytes = Vec::new();
         file.take(MAX_LOG_READ).read_to_end(&mut bytes)?;
-        let end = match std::str::from_utf8(&bytes) {
-            Err(error)
-                if error.error_len().is_none()
-                    && (active || bytes.len() as u64 == MAX_LOG_READ) =>
-            {
-                error.valid_up_to()
-            }
-            _ => bytes.len(),
+        let end = if active || bytes.len() as u64 == MAX_LOG_READ {
+            complete_utf8_prefix(&bytes)
+        } else {
+            bytes.len()
         };
         result["log"] = json!(String::from_utf8_lossy(&bytes[..end]));
         result["offset"] = json!(offset);
         result["next_offset"] = json!(offset + end as u64);
     }
     Ok(result)
+}
+
+fn complete_utf8_prefix(bytes: &[u8]) -> usize {
+    // A partial UTF-8 character spans at most three trailing bytes. Check
+    // that suffix independently so earlier malformed output cannot hide it.
+    let tail = bytes.len().saturating_sub(3);
+    if let Some(index) = bytes[tail..].iter().rposition(|byte| byte & 0xc0 != 0x80) {
+        let start = tail + index;
+        if std::str::from_utf8(&bytes[start..]).is_err_and(|error| error.error_len().is_none()) {
+            return start;
+        }
+    }
+    bytes.len()
 }
 
 pub fn status(ctx: &Context, request: &Value) -> Result<Value> {
@@ -481,7 +490,7 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
             }
             "docs_prepare" => {
                 job.stage("Installing local documentation")?;
-                crate::install_docs_job(
+                crate::doc_library::install_docs_job(
                     &ctx,
                     text_arg(&request, "id")?,
                     request["version"].as_str(),
@@ -554,6 +563,20 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn log_pages_preserve_partial_utf8_after_malformed_bytes() {
+        let text = b"start\xff\xf0\x9f\x91";
+        assert_eq!(complete_utf8_prefix(text), b"start\xff".len());
+        assert_eq!(
+            complete_utf8_prefix(b"start\xff\xf0\x9f\x91\x8b"),
+            text.len() + 1
+        );
+        assert_eq!(
+            complete_utf8_prefix(b"start\xff\xc2?"),
+            b"start\xff\xc2?".len()
+        );
+    }
 
     #[test]
     fn launched_tools_receive_child_exit_signals() -> Result<()> {

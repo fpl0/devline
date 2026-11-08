@@ -1130,10 +1130,19 @@ pub(super) fn detect(path: &Path) -> Result<Detected> {
     detect_with_origin(path, |_| None)
 }
 
-pub(super) fn detect_with_origin(
-    path: &Path,
-    origin_stack: impl Fn(&Path) -> Option<String>,
-) -> Result<Detected> {
+struct Location {
+    path: PathBuf,
+    stacks: Vec<&'static str>,
+    dotnet_projects: Vec<PathBuf>,
+    dotnet_solution: bool,
+    origin_stack: Option<&'static str>,
+}
+
+pub(super) fn root(path: &Path, origin_stack: impl Fn(&Path) -> Option<String>) -> Result<PathBuf> {
+    Ok(locate(path, origin_stack)?.path)
+}
+
+fn locate(path: &Path, origin_stack: impl Fn(&Path) -> Option<String>) -> Result<Location> {
     let absolute = path
         .canonicalize()
         .with_context(|| format!("Open project path {}", path.display()))?;
@@ -1152,52 +1161,84 @@ pub(super) fn detect_with_origin(
         if (!projects.is_empty() || solution) && !stacks.contains(&"dotnet") {
             stacks.push("dotnet");
         }
-        if stacks.is_empty() {
-            if let Some(stack) = origin_stack(current).and_then(|origin| {
-                MARKERS
-                    .iter()
-                    .find_map(|(stack, _)| (*stack == origin).then_some(*stack))
-            }) {
-                return Ok(Detected {
-                    path: current.to_owned(),
-                    stacks: vec![stack],
-                    dependencies: vec![unversioned(stack, ".devkit-origin.json")],
-                });
-            }
-            if current.join(".git").exists() {
-                break;
-            }
-            continue;
+        if !stacks.is_empty() {
+            stacks.sort_unstable();
+            return Ok(Location {
+                path: current.to_owned(),
+                stacks,
+                dotnet_projects: projects,
+                dotnet_solution: solution,
+                origin_stack: None,
+            });
         }
-        stacks.sort_unstable();
-        let mut dependencies = Vec::new();
-        for stack in &stacks {
+        if let Some(stack) = origin_stack(current).and_then(|origin| {
+            MARKERS
+                .iter()
+                .find_map(|(stack, _)| (*stack == origin).then_some(*stack))
+        }) {
+            return Ok(Location {
+                path: current.to_owned(),
+                stacks: vec![stack],
+                dotnet_projects: Vec::new(),
+                dotnet_solution: false,
+                origin_stack: Some(stack),
+            });
+        }
+        if current.join(".git").exists() {
+            break;
+        }
+    }
+    Ok(Location {
+        path: start.to_owned(),
+        stacks: Vec::new(),
+        dotnet_projects: Vec::new(),
+        dotnet_solution: false,
+        origin_stack: None,
+    })
+}
+
+pub(super) fn detect_with_origin(
+    path: &Path,
+    origin_stack: impl Fn(&Path) -> Option<String>,
+) -> Result<Detected> {
+    let mut location = locate(path, origin_stack)?;
+    let root = &location.path;
+    let mut dependencies = Vec::new();
+    if let Some(stack) = location.origin_stack {
+        let marker = if crate::project_layout::is_organized(root) {
+            crate::project_layout::ORIGIN
+        } else {
+            crate::project_layout::LEGACY_ORIGIN
+        };
+        dependencies.push(unversioned(stack, marker));
+    } else {
+        for stack in &location.stacks {
             match *stack {
-                "node" => node(current, &mut dependencies),
-                "go" => go(current, &mut dependencies),
-                "rust" => rust(current, &mut dependencies),
-                "swift" => swift(current, &mut dependencies),
-                "python" => python(current, &mut dependencies),
-                "ruby" => ruby(current, &mut dependencies),
-                "java" => java(current, &mut dependencies),
-                "elixir" => elixir(current, &mut dependencies),
-                "dotnet" => dotnet(current, projects.clone(), solution, &mut dependencies),
+                "node" => node(root, &mut dependencies),
+                "go" => go(root, &mut dependencies),
+                "rust" => rust(root, &mut dependencies),
+                "swift" => swift(root, &mut dependencies),
+                "python" => python(root, &mut dependencies),
+                "ruby" => ruby(root, &mut dependencies),
+                "java" => java(root, &mut dependencies),
+                "elixir" => elixir(root, &mut dependencies),
+                "dotnet" => dotnet(
+                    root,
+                    std::mem::take(&mut location.dotnet_projects),
+                    location.dotnet_solution,
+                    &mut dependencies,
+                ),
                 _ => unreachable!(),
             }
         }
-        let mut unique = BTreeMap::new();
-        for item in dependencies {
-            unique.insert(item.id, item);
-        }
-        return Ok(Detected {
-            path: current.to_owned(),
-            stacks,
-            dependencies: unique.into_values().collect(),
-        });
+    }
+    let mut unique = BTreeMap::new();
+    for item in dependencies {
+        unique.insert(item.id, item);
     }
     Ok(Detected {
-        path: start.to_owned(),
-        stacks: Vec::new(),
-        dependencies: Vec::new(),
+        path: location.path,
+        stacks: location.stacks,
+        dependencies: unique.into_values().collect(),
     })
 }
