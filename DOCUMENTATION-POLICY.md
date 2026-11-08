@@ -1,8 +1,8 @@
 # Documentation sources
 
-Devline's language, framework, and service reference packs must contain official
-documentation published by the relevant project or vendor. This is a product
-requirement, including for offline packs and future documentation updates.
+Reference packs published by Devline must contain official language, framework,
+or service documentation from the relevant project or vendor. This requirement
+applies to bundled packs and documentation updates published by Devline.
 
 ## Reference content
 
@@ -23,6 +23,19 @@ requirement, including for offline packs and future documentation updates.
 - Report partial coverage and omitted APIs explicitly. An unavailable official
   offline reference remains a documented gap; authored guides do not fill that
   gap for readiness or coverage claims.
+
+## Personal DevDocs imports
+
+Users can import snapshots published by DevDocs into their own library. Identify
+the snapshot as a DevDocs import, preserve available upstream attribution and
+source links, and keep it under a separate pack ID from any reference Devline
+publishes. Project preparation selects its official references from Devline's
+curated catalog.
+
+These imports are local-only. The app ships the importer and excludes imported
+snapshots from its public catalog, app releases, documentation channels, and
+portable library exports. DevDocs packages can carry distinct terms from their
+original publishers. See the [DevDocs project and attribution notes](https://github.com/freeCodeCamp/devdocs#copyright--license).
 
 ## Devline help
 

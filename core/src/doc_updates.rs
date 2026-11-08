@@ -213,7 +213,10 @@ fn validate_manifest(manifest: &Manifest) -> Result<()> {
     let mut unique = BTreeSet::new();
     for release in &manifest.releases {
         valid_pack(&release.pack)?;
-        if release.pack.local_only || release.pack.id == crate::apple_docs::PACK_ID {
+        if release.pack.local_only
+            || release.pack.id == crate::apple_docs::PACK_ID
+            || crate::doc_library::is_devdocs(&release.pack.id)
+        {
             bail!("Local-only documentation cannot be distributed through a release channel");
         }
         https_url(&release.url)?;

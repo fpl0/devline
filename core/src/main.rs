@@ -263,6 +263,24 @@ enum Docs {
         /// Install or import documentation as a background job.
         background: bool,
     },
+    #[command(about = "Import DevDocs snapshots into this Mac’s library (requires Python 3.9+)")]
+    ImportDevdocs {
+        #[arg(required_unless_present = "online", conflicts_with = "online", value_hint = clap::ValueHint::AnyPath)]
+        /// A DevDocs archive, extracted docset, or directory of docsets.
+        source: Option<PathBuf>,
+        #[arg(long)]
+        /// Download the current DevDocs catalog and selected snapshots.
+        online: bool,
+        #[arg(long)]
+        /// Import only this DevDocs slug. Repeat to select several.
+        doc: Vec<String>,
+    },
+    #[command(hide = true)]
+    ImportLocal {
+        id: String,
+        #[arg(long)]
+        version: String,
+    },
     #[command(about = "List available documentation packs")]
     List {
         #[arg(long)]
@@ -528,6 +546,50 @@ fn request(cli: &Cli, mut request: Value) -> Result<Value> {
     devline_core::execute(&request)
 }
 
+fn import_devdocs(
+    cli: &Cli,
+    source: Option<&std::path::Path>,
+    online: bool,
+    docs: &[String],
+) -> Result<i32> {
+    if cli.offline && online {
+        bail!("Downloading DevDocs requires a connection. Pass a local source in offline mode.");
+    }
+    let exe = std::env::current_exe()?.canonicalize()?;
+    let executable_dir = exe
+        .parent()
+        .context("Devline executable has no parent directory")?;
+    let script = [
+        executable_dir.join("../Resources/devdocs-import/import-devdocs.py"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../scripts/import-devdocs.py"),
+    ]
+    .into_iter()
+    .find(|path| path.is_file())
+    .context("Could not find the DevDocs importer in this app or source checkout")?;
+    let mut command = Command::new("python3");
+    command.arg("-B").arg(script).arg("--devline").arg(exe);
+    if let Some(home) = &cli.home {
+        command.arg("--home").arg(home);
+    }
+    if cli.json {
+        command.arg("--json");
+    }
+    if online {
+        command.arg("--online");
+    }
+    for doc in docs {
+        command.arg(format!("--doc={doc}"));
+    }
+    if let Some(source) = source {
+        command.arg("--").arg(source);
+    }
+    Ok(command
+        .status()
+        .context("Run the DevDocs importer with Python 3.9 or later on PATH.")?
+        .code()
+        .unwrap_or(1))
+}
+
 fn exact_id(id: &str) -> bool {
     id.split_once('/')
         .is_some_and(|(release, _)| release.contains('@'))
@@ -763,7 +825,10 @@ fn pick_article(cli: &Cli, items: &[Value], query: Option<&str>) -> Result<()> {
             article["focus_text"] = json!(focus);
         }
         if article["anchor"].is_null() {
-            article["anchor"] = item["anchor"].clone();
+            article["anchor"] = item["anchor"]
+                .as_str()
+                .or(item["match_anchor"].as_str())
+                .into();
         }
         return read_article(cli, &article, false);
     }
@@ -1246,6 +1311,20 @@ fn run(cli: &Cli) -> Result<i32> {
             Some(Docs::Local) => (
                 "local-docs",
                 request(cli, json!({"command":"docs.local.status","id":"swiftui"}))?,
+            ),
+            Some(Docs::ImportDevdocs {
+                source,
+                online,
+                doc,
+            }) => {
+                return import_devdocs(cli, source.as_deref(), *online, doc);
+            }
+            Some(Docs::ImportLocal { id, version }) => (
+                "install",
+                request(
+                    cli,
+                    json!({"command":"docs.import.local","id":id,"version":version}),
+                )?,
             ),
             Some(Docs::List { installed }) => {
                 let mut list = request(cli, json!({"command":"catalog"}))?["docs"].clone();

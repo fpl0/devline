@@ -106,6 +106,11 @@ pub fn execute(request: &Value) -> Result<Value> {
         "docs.install" => {
             doc_library::install_docs(&ctx, text_arg(request, "id")?, request["version"].as_str())
         }
+        "docs.import.local" => doc_library::import_local(
+            &ctx,
+            text_arg(request, "id")?,
+            text_arg(request, "version")?,
+        ),
         "docs.search" => doc_search::search(&ctx, request),
         "docs.show" => doc_search::show(&ctx, request),
         "docs.resolve" => doc_links::resolve(&ctx, request),

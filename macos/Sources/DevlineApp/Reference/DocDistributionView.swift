@@ -144,8 +144,11 @@ struct DocsetInfoView: View {
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
             Text(pack.description).foregroundStyle(.secondary)
-            if pack.localOnly {
+            if pack.id == "swiftui" && pack.localOnly {
                 Label("Imported from this Mac’s Xcode SDK. Recreate on another Mac using its own Xcode installation.", systemImage: "desktopcomputer")
+                    .font(.callout).foregroundStyle(.secondary)
+            } else if pack.localOnly {
+                Label("Imported for this Mac. Excluded from portable bundles.", systemImage: "desktopcomputer")
                     .font(.callout).foregroundStyle(.secondary)
             }
             LabeledContent("Snapshot", value: displayDocVersion(pack.version))
@@ -160,7 +163,9 @@ struct DocsetInfoView: View {
                     ForEach(pack.omissions ?? ["Omissions were not recorded for this older snapshot."], id: \.self) { Text($0).font(.callout).foregroundStyle(.secondary) }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            if let url = safeExternalURL(pack.sourceUrl) { Link("Official Source", destination: url) }
+            if let url = safeExternalURL(pack.sourceUrl) {
+                Link(pack.id.hasPrefix("devdocs-") ? "Source" : "Official Source", destination: url)
+            }
         }.padding(22).frame(width: 600, height: 480).textSelection(.enabled)
     }
 }

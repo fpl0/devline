@@ -31,6 +31,9 @@ ditto "$SWIFT_BUILD_PATH/release/DevlineMac_DevlineApp.bundle" "$APP/Contents/Re
 ditto "$SWIFT_BUILD_PATH/release/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$ROOT/core/target/release/devline" "$APP/Contents/MacOS/devline"
 ln -s devline "$APP/Contents/MacOS/devkit"
+mkdir -p "$APP/Contents/Resources/devdocs-import"
+cp "$ROOT/scripts/import-devdocs.py" "$ROOT/scripts/reference_io.py" \
+    "$ROOT/scripts/reference_rendering.py" "$APP/Contents/Resources/devdocs-import/"
 xcrun actool "$ROOT/macos/Assets/Devline.icon" \
     --compile "$APP/Contents/Resources" --platform macosx \
     --minimum-deployment-target 14.0 --app-icon Devline \
@@ -47,8 +50,9 @@ import sys
 
 source, destination = map(Path, sys.argv[1:])
 for pack in json.loads((source / 'catalog.json').read_text())['docs']:
-    if pack['id'] == 'swiftui' or pack.get('local_only', False) is not False:
-        raise SystemExit('Local SDK documentation cannot be bundled in the application')
+    if (pack['id'] == 'swiftui' or pack['id'].startswith('devdocs-')
+            or pack.get('local_only', False) is not False):
+        raise SystemExit('Local-only documentation cannot be bundled in the application')
     relative = Path(pack['path'])
     original = source / relative
     path = original.resolve()

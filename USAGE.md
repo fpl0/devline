@@ -149,6 +149,25 @@ The CLI works with the app closed. With the default pager, the reader opens at t
 
 The CLI accepts `--offline` for operations that must stay local. An empty search exits with status 4, and readiness checks that require preparation exit with status 3. Run `devline completions --help` for shell setup. Earlier installations can still use the `devkit` command and open saved `devkit://` links.
 
+### Import DevDocs into your local library
+
+Devline includes a DevDocs importer. Install Python 3.9 or later and make sure `python3` is available on your `PATH`. Import a particular docset by slug, or omit `--doc` to import the full catalog. A full import downloads several gigabytes and builds a local search index. [DevDocs](https://devdocs.io/)
+
+```sh
+devline docs import-devdocs --online --doc astro
+devline --offline docs search --docset devdocs-astro 'Actions'
+devline docs import-devdocs --online
+```
+
+You can also import a local DevDocs archive or a directory of downloaded docsets. Use the local `public/docs` directory from a DevDocs checkout after running `bundle exec thor docs:download --all`. [DevDocs download instructions](https://github.com/freeCodeCamp/devdocs#quick-start)
+
+```sh
+devline --offline docs import-devdocs ./astro.tar.gz
+devline --offline docs import-devdocs /path/to/devdocs/public/docs
+```
+
+The app and CLI both search the imported content in the local library. Look for **DevDocs** in the docset name. Imported snapshots are kept separate from Devline's project references and are excluded from portable library exports. Run the same import again after a failure to retry. Search works offline after installation.
+
 ## Prepare a starter for offline use
 
 **App Starters** shows a starter’s available releases, contents, dependency versions, and verification. **Toolchains** detects the compilers, interpreters, and SDKs on this Mac. Install and upgrade those tools separately. In **Library**, select docsets, starters, and images, then choose **Check Readiness**. Use **Selection → Select Installed** to pick everything installed or archived. With a project open, the check also covers its references, toolchains, dependencies, and configured service images.

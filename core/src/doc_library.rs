@@ -46,6 +46,39 @@ pub(crate) fn valid_doc_id(id: &str) -> bool {
         })
 }
 
+pub(crate) fn is_devdocs(id: &str) -> bool {
+    id.strip_prefix("devdocs-")
+        .is_some_and(|slug| !slug.is_empty())
+}
+
+pub(crate) fn import_local(ctx: &Context, id: &str, version: &str) -> Result<Value> {
+    validate_doc_identity(id, version)?;
+    let pack = ctx
+        .catalog
+        .docs
+        .iter()
+        .find(|pack| pack.id == id && pack.version == version)
+        .with_context(|| {
+            format!("Documentation {id}@{version} is unavailable in the import catalog")
+        })?;
+    if !is_devdocs(id) || !pack.local_only {
+        bail!("The local importer requires a local-only DevDocs pack");
+    }
+    let source = safe_catalog_path(ctx, &pack.path)?;
+    let _lock = lock_library(ctx)?;
+    let active = doc_updates::preferences(&ctx.database()?)?;
+    let prefer = active.get(id).is_none_or(|current| {
+        fn upstream(release: &str) -> &str {
+            release
+                .split_once("+devdocs.")
+                .map_or(release, |(base, _)| base)
+        }
+        !updates::compare_doc_releases(upstream(version), upstream(current)).is_lt()
+    });
+    let cached = doc_updates::store_original(ctx, pack, &source)?;
+    install_doc_pack_with_preference(ctx, pack, &cached, prefer)
+}
+
 pub(crate) fn validate_doc_identity(id: &str, version: &str) -> Result<()> {
     if !valid_doc_id(id) || !valid_doc_version(version) {
         bail!("Invalid documentation release identity");

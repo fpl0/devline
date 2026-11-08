@@ -83,7 +83,7 @@ fn exact(reference: &str) -> Result<&str> {
 }
 
 fn require_portable_doc(id: &str, local_only: bool) -> Result<()> {
-    if local_only || id == crate::apple_docs::PACK_ID {
+    if local_only || id == crate::apple_docs::PACK_ID || doc_library::is_devdocs(id) {
         bail!("Documentation {id} is local-only. Choose portable docsets for this bundle.");
     }
     Ok(())
@@ -1087,6 +1087,7 @@ mod tests {
             }))
         };
         let reserved = pack("swiftui", false)?;
+        let devdocs = pack("devdocs-astro", false)?;
         let local = pack("device-reference", true)?;
         let local_source = work.0.join(&local.path);
         fs::create_dir_all(&local_source)?;
@@ -1102,7 +1103,12 @@ mod tests {
             catalog_dir: work.0.clone(),
             catalog: Catalog {
                 schema_version: 1,
-                docs: vec![pack("go", false)?, reserved.clone(), local.clone()],
+                docs: vec![
+                    pack("go", false)?,
+                    reserved.clone(),
+                    devdocs.clone(),
+                    local.clone(),
+                ],
                 templates: Vec::new(),
             },
         };
@@ -1111,13 +1117,14 @@ mod tests {
         // discovery of even an earlier, otherwise portable, selection.
         for docs in [
             vec!["go@1.0.0", "swiftui@1.0.0"],
+            vec!["devdocs-astro@1.0.0"],
             vec!["device-reference@1.0.0"],
         ] {
             let error = export(&ctx, &json!({"path":output,"docs":docs})).unwrap_err();
             assert!(error.to_string().contains("local-only"), "{error:#}");
             assert!(!output.exists());
         }
-        for pack in [reserved, local.clone()] {
+        for pack in [reserved, devdocs, local.clone()] {
             let manifest = json!({
                 "schema_version":1,"starters":[],
                 "files":[{"path":pack.path,"bytes":0,"digest":null,"executable":false}],
