@@ -21,7 +21,6 @@ enum Workspace: String, CaseIterable, Identifiable {
     case library = "Library"
     case updates = "Updates"
     case activity = "Activity"
-    case offline = "Ready Offline"
 
     var id: String { rawValue }
     var title: String {
@@ -29,8 +28,6 @@ enum Workspace: String, CaseIterable, Identifiable {
         case .docs: "Documentation"
         case .templates: "App Starters"
         case .runtimes: "Toolchains"
-        case .library: "Docset Library"
-        case .offline: "Offline Library"
         default: rawValue
         }
     }
@@ -45,7 +42,6 @@ enum Workspace: String, CaseIterable, Identifiable {
         case .library: "tray.full"
         case .updates: "arrow.down.circle"
         case .activity: "clock.arrow.circlepath"
-        case .offline: "checkmark.shield"
         }
     }
 }
@@ -102,10 +98,45 @@ struct DevKitMacApp: App {
             SettingsView(model: model)
                 .preferredColorScheme(appearance == "system" ? nil : appearance == "light" ? .light : .dark)
         }
+
+        MenuBarExtra {
+            DevlineStatusMenu()
+        } label: {
+            Self.menuBarIcon
+                .accessibilityLabel("Devline")
+        }
+        .menuBarExtraStyle(.menu)
     }
+
+    private static let menuBarIcon: Image = {
+        let bundle = Bundle.main.url(forResource: "DevKitMac_DevKitApp", withExtension: "bundle")
+            .flatMap(Bundle.init(url:)) ?? Bundle.module
+        guard let url = bundle.url(forResource: "MenuBarMonogram", withExtension: "png"),
+              let image = NSImage(contentsOf: url) else {
+            return Image(systemName: "d.square")
+        }
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        image.accessibilityDescription = "Devline"
+        return Image(nsImage: image)
+    }()
 
     private func announce(_ action: Notification.Name) {
         NotificationCenter.default.post(name: action, object: nil)
+    }
+}
+
+private struct DevlineStatusMenu: View {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Open Devline") {
+            NSApp.unhide(nil)
+            openWindow(id: "workspace")
+            NSApp.activate()
+        }
+        Divider()
+        Button("Quit Devline") { NSApp.terminate(nil) }
     }
 }
 
@@ -265,7 +296,10 @@ private struct WorkspaceView: View {
     @ObservedObject var model: WorkspaceModel
     @StateObject private var reading = ReadingSession()
     @StateObject private var infrastructure = InfrastructureLibrary()
-    @State private var workspace: Workspace? = Workspace(rawValue: UserDefaults.standard.string(forKey: "devline.workspace") ?? "Toolbox") ?? .toolbox
+    @State private var workspace: Workspace? = {
+        let saved = UserDefaults.standard.string(forKey: "devline.workspace") ?? ""
+        return saved == "Ready Offline" ? .library : Workspace(rawValue: saved) ?? .toolbox
+    }()
     @AppStorage("devline.focusReading") private var focusReading = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var restoredSession = false
@@ -292,7 +326,7 @@ private struct WorkspaceView: View {
                 Section("Build") { sidebarRows([.templates, .infrastructure]) }
                 Section("Reference") { sidebarRows([.docs, .runtimes]) }
                 Section("Manage") {
-                    sidebarRows([.library, .offline, .updates, .activity])
+                    sidebarRows([.library, .updates, .activity])
                 }
             }
             .listStyle(.sidebar)
@@ -463,13 +497,13 @@ private struct WorkspaceView: View {
                 showLibrary: { workspace = .library }
             )
         case .library:
-            LibraryView(model: model)
+            if let catalog = model.catalog {
+                LibraryView(model: model, infrastructure: infrastructure, catalog: catalog, projectPath: projectContext?.path)
+            }
         case .updates:
             UpdatesView(model: model)
         case .activity:
             ActivityView(model: model)
-        case .offline:
-            OfflineLibraryView(model: model, infrastructure: infrastructure, projectPath: projectContext?.path)
         }
     }
 

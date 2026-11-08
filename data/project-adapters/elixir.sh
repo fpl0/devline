@@ -17,14 +17,21 @@ if [ ! -f mix.exs ]; then
 fi
 export PATH="$(dirname "$tool"):$PATH"
 export DEVKIT_TOOLCHAIN="$tool"
+starter_test=./.devline/scripts/test-offline.sh
+[ -f "$starter_test" ] || starter_test=./test-offline.sh
+starter() {
+    [ -x "$starter_test" ] && { [ -f .devline/origin.json ] || [ -f .devkit-origin.json ]; }
+}
 if [ "$action" = run ]; then
     [ "$#" -gt 0 ] || { printf '%s\n' 'Specify a Mix project command.' >&2; exit 2; }
     if [ ! -d "$cache/tools" ]; then
-        if [ -f .devkit-origin.json ] && [ -x ./test-offline.sh ]; then
+        if starter; then
             export HEX_OFFLINE=1 EXQLITE_FORCE_BUILD=1 MIX_OS_CONCURRENCY_LOCK=0
             export MIX_HOME="$project/_build/devline-home" HEX_HOME="$project/_build/devline-hex"
-            if [ -d "$project/vendor-tools" ]; then
-                export MIX_REBAR3="$project/vendor-tools/rebar3" MIX_ARCHIVES="$project/vendor-tools/archives"
+            tools="$project/.devline/packages/vendor-tools"
+            [ -d "$tools" ] || tools="$project/vendor-tools"
+            if [ -d "$tools" ]; then
+                export MIX_REBAR3="$tools/rebar3" MIX_ARCHIVES="$tools/archives"
             fi
             exec "$@"
         fi
@@ -62,7 +69,7 @@ case "$action" in
         ;;
     verify)
         if [ ! -x "$MIX_REBAR3" ] || [ ! -d "$MIX_ARCHIVES" ]; then
-            if [ -f .devkit-origin.json ] && [ -x ./test-offline.sh ]; then exec ./test-offline.sh; fi
+            if starter; then exec "$starter_test"; fi
             printf '%s\n' 'The prepared local Hex and Rebar tools are missing.' >&2
             exit 1
         fi

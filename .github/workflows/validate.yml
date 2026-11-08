@@ -56,6 +56,11 @@ jobs:
           swiftc macos/Sources/DevKitApp/ProjectNavigation.swift macos/Sources/DevKitApp/JobRecord.swift macos/Tests/ProjectNavigationTests.swift -o /tmp/devline-project-navigation-tests
           /tmp/devline-project-navigation-tests
 
+      - name: Test code highlighting in WebKit
+        run: |
+          swiftc -parse-as-library macos/Tests/CodeHighlightingTests.swift -o /tmp/devline-code-highlighting-tests
+          /tmp/devline-code-highlighting-tests
+
       - name: Build the native app
         run: |
           cargo +stable build --release --locked --manifest-path core/Cargo.toml

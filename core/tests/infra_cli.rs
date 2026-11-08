@@ -37,6 +37,20 @@ impl Fixture {
             .output()
             .unwrap()
     }
+
+    fn write_origin(metadata: &Path) {
+        fs::create_dir(metadata).unwrap();
+        fs::write(
+            metadata.join("origin.json"),
+            serde_json::json!({
+                "template": "go/chi-api",
+                "version": "1.2.0",
+                "digest": "0".repeat(64),
+            })
+            .to_string(),
+        )
+        .unwrap();
+    }
 }
 
 impl Drop for Fixture {
@@ -70,6 +84,9 @@ fn offline_configuration_and_project_summary_keep_credentials_private() {
     let fixture = Fixture::new();
     let project = fixture.0.join("project");
     fs::create_dir(&project).unwrap();
+    let outside = fixture.0.join("other-project-metadata");
+    Fixture::write_origin(&outside);
+    std::os::unix::fs::symlink(&outside, project.join(".devline")).unwrap();
     let path = project.to_str().unwrap();
     let output = fixture.run(&[
         "--offline",
@@ -88,6 +105,7 @@ fn offline_configuration_and_project_summary_keep_credentials_private() {
     );
     let config: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(config["data"]["services"].as_array().unwrap().len(), 2);
+    assert!(!outside.join("services").exists());
     let credentials = fs::read_to_string(project.join(".devline-infra/credentials.env")).unwrap();
     assert!(credentials.contains("DEVLINE_POSTGRES_PASSWORD="));
     let output = fixture.run(&["--offline", "project", "--path", path]);
@@ -99,6 +117,41 @@ fn offline_configuration_and_project_summary_keep_credentials_private() {
     assert!(!String::from_utf8_lossy(&output.stdout).contains("PASSWORD"));
     let project: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(project["data"]["infrastructure"]["configured"], true);
+}
+
+#[test]
+fn generated_projects_configure_services_under_devline() {
+    let fixture = Fixture::new();
+    let project = fixture.0.join("project");
+    fs::create_dir(&project).unwrap();
+    Fixture::write_origin(&project.join(".devline"));
+    let path = project.to_str().unwrap();
+    let output = fixture.run(&[
+        "--offline",
+        "infra",
+        "configure",
+        path,
+        "--service",
+        "postgres@18.6",
+    ]);
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let service_path = project.join(".devline/services");
+    assert!(service_path.join("compose.yaml").is_file());
+    assert!(service_path.join("credentials.env").is_file());
+    assert_eq!(
+        fs::read_to_string(service_path.join(".gitignore")).unwrap(),
+        "*\n"
+    );
+    assert!(!project.join(".devline-infra").exists());
+    let output = fixture.run(&["--offline", "project", "--path", path]);
+    assert!(output.status.success());
+    let project: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(project["data"]["infrastructure"]["configured"], true);
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("PASSWORD"));
 }
 
 #[test]

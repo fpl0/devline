@@ -23,6 +23,7 @@ mod infrastructure;
 mod markdown;
 mod offline;
 mod project;
+mod project_layout;
 mod project_prepare;
 pub mod project_run;
 mod reference;

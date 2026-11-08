@@ -1,4 +1,4 @@
-use crate::{project, safe_catalog_path, tasks::Job, templates, text_arg, Context};
+use crate::{project, project_layout, safe_catalog_path, tasks::Job, templates, text_arg, Context};
 use anyhow::{bail, Context as _, Result};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,6 @@ use std::{
     time::Duration,
 };
 
-const MANAGED: &str = ".devline-offline";
 const NETWORK_POLICY: &str =
     "(deny network-outbound)(allow network-outbound (remote ip \"localhost:*\"))";
 
@@ -184,6 +183,8 @@ struct Tree {
     bytes: u64,
     source_only: bool,
     generated: bool,
+    organized: bool,
+    managed: &'static str,
 }
 
 impl Tree {
@@ -203,10 +204,16 @@ impl Tree {
             let input = entry.path();
             let meta = fs::symlink_metadata(&input)?;
             let relative = input.strip_prefix(root)?;
-            if stack == "ruby" && relative == Path::new(".devline-offline/ruby-runtime") {
+            if self.organized && relative.starts_with(project_layout::SERVICES) {
                 continue;
             }
-            if stack == "ruby" && relative == Path::new(MANAGED) && meta.is_dir() {
+            if stack == "ruby"
+                && relative.parent() == Some(Path::new(self.managed))
+                && name == "ruby-runtime"
+            {
+                continue;
+            }
+            if stack == "ruby" && relative == Path::new(self.managed) && meta.is_dir() {
                 let mut contents = fs::read_dir(&input)?;
                 if contents
                     .next()
@@ -269,7 +276,7 @@ impl Tree {
             {
                 continue;
             }
-            let in_managed = relative.starts_with(MANAGED);
+            let in_managed = relative.starts_with(self.managed);
             if self.source_only && (in_managed || stack == "go" && relative.starts_with("vendor")) {
                 continue;
             }
@@ -277,6 +284,7 @@ impl Tree {
                 self.generated && stack == "node" && relative.starts_with("node_modules");
             let dependency_tree = in_managed
                 || bundled_node_modules
+                || self.organized && relative.starts_with(project_layout::PACKAGES)
                 || ["vendor", "maven-repository", "nuget-packages", "wheelhouse"]
                     .iter()
                     .any(|directory| relative.starts_with(directory));
@@ -348,6 +356,8 @@ fn fingerprint_tree(
     Tree {
         source_only,
         generated,
+        organized: project_layout::is_organized(root),
+        managed: project_layout::cache_relative(root),
         ..Tree::default()
     }
     .visit(stack, root, root, copy, &mut digest)?;
@@ -577,7 +587,7 @@ fn invoke(
                 "verify"
             })
             .arg(project)
-            .arg(project.join(MANAGED))
+            .arg(project.join(project_layout::cache_relative(project)))
             .arg(tool);
     }
     templates::run_command(&mut command, label, job.as_deref_mut())
@@ -622,6 +632,11 @@ fn publish(
                 bail!("Prepared dependency directory is missing: {output}");
             }
             let target = project.join(output);
+            if let Some(parent) = target.parent().filter(|parent| *parent != project) {
+                if !fs::symlink_metadata(parent).is_ok_and(|meta| meta.is_dir()) {
+                    bail!("Expected a directory at {}", parent.display());
+                }
+            }
             let backup = stage.0.join(format!("backup-{}", replaced.len()));
             let original = match fs::symlink_metadata(&target) {
                 Ok(meta) if meta.is_dir() => {
@@ -699,18 +714,19 @@ pub(crate) fn prepare_locked(
     let stage = private_stage(&project.path)?;
     let copy = stage.0.join("project");
     fs::create_dir(&copy)?;
+    let managed = project_layout::cache_relative(&project.path);
+    let test_script = project_layout::test_relative(&project.path);
     let generated = offline
         && request["force_adapter"] != true
-        && (!project.path.join(MANAGED).is_dir()
+        && (!project.path.join(managed).is_dir()
             || project.stack == "ruby"
-                && !project.path.join(MANAGED).join("Gemfile.lock").is_file())
+                && !project.path.join(managed).join("Gemfile.lock").is_file())
         && project::origin(&project.path).is_some()
-        && fs::symlink_metadata(project.path.join("test-offline.sh"))
-            .is_ok_and(|meta| meta.is_file());
+        && fs::symlink_metadata(project.path.join(test_script)).is_ok_and(|meta| meta.is_file());
     let original = fingerprint_tree(&project.stack, &project.path, Some(&copy), false, generated)?;
     let original_source = fingerprint_tree(&project.stack, &copy, None, true, false)?;
     if !offline {
-        fs::create_dir_all(copy.join(MANAGED))?;
+        fs::create_dir_all(copy.join(managed))?;
         invoke(
             &adapter,
             Invocation::Prepare,
@@ -723,7 +739,7 @@ pub(crate) fn prepare_locked(
     }
     if generated {
         invoke(
-            &copy.join("test-offline.sh"),
+            &copy.join(test_script),
             Invocation::GeneratedProject,
             &copy,
             &tool,
@@ -773,9 +789,9 @@ pub(crate) fn prepare_locked(
         finish()?
     } else {
         let outputs = if project.stack == "go" && copy.join("vendor").is_dir() {
-            &[MANAGED, "vendor"][..]
+            &[managed, "vendor"][..]
         } else {
-            &[MANAGED][..]
+            &[managed][..]
         };
         publish(&project.path, &copy, stage, outputs, finish)?
     };
@@ -792,7 +808,7 @@ pub(crate) fn runner(ctx: &Context, request: &Value) -> Result<Value> {
     let adapter = project.adapter(ctx)?;
     let (_, tool, _) = project.toolchain(ctx)?;
     Ok(
-        json!({"path":project.path,"adapter":adapter,"cache":project.path.join(MANAGED),"toolchain_path":tool}),
+        json!({"path":project.path,"adapter":adapter,"cache":project.path.join(project_layout::cache_relative(&project.path)),"toolchain_path":tool}),
     )
 }
 
@@ -1001,7 +1017,7 @@ pub(crate) fn verify_generated(
     let copy = stage.0.join("project");
     fs::create_dir(&copy)?;
     let tested = fingerprint_tree(stack, source, Some(&copy), false, true)?;
-    let script = copy.join("test-offline.sh");
+    let script = copy.join(project_layout::test_relative(&copy));
     if !fs::symlink_metadata(&script).is_ok_and(|meta| meta.is_file()) {
         bail!("An offline verification script is required");
     }
@@ -1389,17 +1405,21 @@ mod tests {
         fs::create_dir(&project)?;
         let work = private_stage(&project)?;
         let copy = work.0.join("copy");
-        for path in [MANAGED, "vendor"] {
+        for path in [project_layout::LEGACY_CACHE, "vendor"] {
             fs::create_dir_all(project.join(path))?;
             fs::write(project.join(path).join("evidence"), "original")?;
             fs::create_dir_all(copy.join(path))?;
             fs::write(copy.join(path).join("evidence"), "prepared")?;
         }
-        let result = publish(&project, &copy, work, &[MANAGED, "vendor"], || {
-            bail!("injected receipt failure")
-        });
+        let result = publish(
+            &project,
+            &copy,
+            work,
+            &[project_layout::LEGACY_CACHE, "vendor"],
+            || bail!("injected receipt failure"),
+        );
         assert!(result.is_err());
-        for path in [MANAGED, "vendor"] {
+        for path in [project_layout::LEGACY_CACHE, "vendor"] {
             assert_eq!(
                 fs::read_to_string(project.join(path).join("evidence"))?,
                 "original"

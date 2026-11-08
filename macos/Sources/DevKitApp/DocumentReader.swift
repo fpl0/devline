@@ -74,7 +74,7 @@ struct DocReader: View {
     @ViewBuilder private var articleBody: some View {
             if let html {
                 OfflineArticle(html: html, title: ReaderMarkup.title(document.title, fallback: "\(packName) Overview"),
-                               sourceURL: document.sourceUrl, scale: scale, request: request,
+                               sourceURL: document.sourceUrl, packID: document.packId, scale: scale, request: request,
                                report: reportFind, reportSections: { htmlSections = $0 },
                                navigate: navigate, reportPosition: { fraction, anchor, offset, userInitiated in
                                    if userInitiated { currentAnchor = anchor; currentFocus = nil }
@@ -713,7 +713,7 @@ struct DevlineHelpArticle: View {
     @State private var request: ReaderRequest?
 
     var body: some View {
-        OfflineArticle(html: html, title: title, sourceURL: sourceURL, scale: 1,
+        OfflineArticle(html: html, title: title, sourceURL: sourceURL, packID: "", scale: 1,
                        request: request, report: { _, _ in }, reportSections: { _ in },
                        navigate: navigate, reportPosition: { _, _, _, _ in })
             .task(id: navigation) {
@@ -728,6 +728,7 @@ private struct OfflineArticle: NSViewRepresentable {
     let html: String
     let title: String
     let sourceURL: String
+    let packID: String
     let scale: Double
     let request: ReaderRequest?
     let report: (ReaderRequest, Bool) -> Void
@@ -741,6 +742,11 @@ private struct OfflineArticle: NSViewRepresentable {
         let configuration = WKWebViewConfiguration()
         configuration.defaultWebpagePreferences.allowsContentJavaScript = false
         configuration.websiteDataStore = .nonPersistent()
+        if let source = Coordinator.highlightingScript {
+            configuration.userContentController.addUserScript(WKUserScript(
+                source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: Coordinator.readerWorld
+            ))
+        }
         configuration.userContentController.add(context.coordinator, contentWorld: Coordinator.readerWorld, name: "readerAction")
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator
@@ -756,8 +762,10 @@ private struct OfflineArticle: NSViewRepresentable {
         coordinator.navigate = navigate
         coordinator.reportPosition = reportPosition
         coordinator.sourceURL = sourceURL
+        let packChanged = coordinator.packID != packID
+        coordinator.packID = packID
         if view.pageZoom != scale { view.pageZoom = scale }
-        if coordinator.lastHTML != html || coordinator.lastTitle != title {
+        if coordinator.lastHTML != html || coordinator.lastTitle != title || packChanged {
             coordinator.load(page, html: html, title: title, in: view)
         } else { coordinator.applyRequest(in: view) }
     }
@@ -810,15 +818,43 @@ private struct OfflineArticle: NSViewRepresentable {
         .reference-target { box-shadow: inset 3px 0 0 AccentColor; padding-inline-start: 12px; border-radius: 3px; }
         :focus-visible { outline: 2px solid -webkit-focus-ring-color; outline-offset: 2px; }
         .kw,.keyword,.k { color: light-dark(#7b2b91, #d69de5); } .s,.string,.str { color: light-dark(#976019, #e6bd85); }
+        pre[data-devline-highlighted] {
+            --syntax-keyword: #792b88; --syntax-string: #8b4d16; --syntax-comment: #58616c;
+            --syntax-literal: #a03c50; --syntax-name: #155da4; --syntax-type: #006657;
+        }
+        @media (prefers-color-scheme: dark) {
+            pre[data-devline-highlighted] {
+                --syntax-keyword: #e5a9ee; --syntax-string: #efbd8d; --syntax-comment: #a6afbb;
+                --syntax-literal: #ffa3b1; --syntax-name: #92c3ff; --syntax-type: #8cdbc5;
+            }
+        }
+        pre[data-devline-highlighted] :is(.hljs-keyword,.hljs-selector-tag,.hljs-meta) { color: var(--syntax-keyword); }
+        pre[data-devline-highlighted] :is(.hljs-string,.hljs-regexp,.hljs-addition) { color: var(--syntax-string); }
+        pre[data-devline-highlighted] :is(.hljs-comment,.hljs-quote) { color: var(--syntax-comment); }
+        pre[data-devline-highlighted] :is(.hljs-number,.hljs-literal,.hljs-symbol,.hljs-deletion) { color: var(--syntax-literal); }
+        pre[data-devline-highlighted] :is(.hljs-title,.hljs-name,.hljs-section,.hljs-function) { color: var(--syntax-name); }
+        pre[data-devline-highlighted] :is(.hljs-type,.hljs-built_in,.hljs-attr,.hljs-attribute,.hljs-variable) { color: var(--syntax-type); }
+        pre[data-devline-highlighted] .hljs-subst { color: CanvasText; }
         </style><body><main id="devline-reader">\(heading)\(html)</main></body></html>
         """
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         static let readerWorld = WKContentWorld.world(name: "DevlineArticle")
+        static let highlightingScript: String? = {
+            let bundle = Bundle.main.url(forResource: "DevKitMac_DevKitApp", withExtension: "bundle")
+                .flatMap(Bundle.init(url:)) ?? Bundle.module
+            let scripts = ["highlight.min", "code-highlighting"].compactMap { name in
+                bundle.url(forResource: name, withExtension: "js").flatMap {
+                    try? String(contentsOf: $0, encoding: .utf8)
+                }
+            }
+            return scripts.count == 2 ? scripts.joined(separator: "\n") : nil
+        }()
         private(set) var lastHTML: String?
         private(set) var lastTitle: String?
         var sourceURL = ""
+        var packID = ""
         var request: ReaderRequest?
         var report: ((ReaderRequest, Bool) -> Void)?
         var reportSections: (([ReaderSection]) -> Void)?
@@ -839,6 +875,7 @@ private struct OfflineArticle: NSViewRepresentable {
                 const article = document.getElementById('devline-reader');
                 if (!article) return [];
                 const send = value => window.webkit.messageHandlers.readerAction.postMessage(value);
+                if (typeof devlineHighlightCode === 'function') devlineHighlightCode(article, packID);
                 for (const table of article.querySelectorAll('table')) {
                     const region = document.createElement('div');
                     region.className = 'table-scroll'; region.tabIndex = 0;
@@ -902,7 +939,7 @@ private struct OfflineArticle: NSViewRepresentable {
                     }, 120);
                 }, {passive: true});
                 return sections;
-                """, in: nil, in: Self.readerWorld) { [weak self, weak webView] result in
+                """, arguments: ["packID": packID], in: nil, in: Self.readerWorld) { [weak self, weak webView] result in
                     guard let self, let webView, navigation === self.navigation else { return }
                     let entries = (try? result.get()) as? [[String: Any]] ?? []
                     self.reportSections?(entries.compactMap { entry in

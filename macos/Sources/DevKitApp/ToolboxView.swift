@@ -71,7 +71,7 @@ struct ToolboxView: View {
                     HStack {
                         Text("In your toolbox").font(.title3.weight(.semibold))
                         Spacer()
-                        Button("Check Offline Readiness") { navigate(.offline) }
+                        Button("Check Offline Readiness") { navigate(.library) }
                     }
                     Grid(horizontalSpacing: 14, verticalSpacing: 14) {
                         GridRow {
@@ -90,7 +90,7 @@ struct ToolboxView: View {
                     Divider().padding(.vertical, 12)
                     step("2", title: "Bring your infrastructure", detail: "Archive databases, queues, search, email, and authentication. Restore the exact images whenever Docker needs them.", action: "Prepare Services", destination: .infrastructure)
                     Divider().padding(.vertical, 12)
-                    step("3", title: "Keep a portable copy", detail: "Export prepared releases and image archives for another compatible Mac or a fresh Docker engine.", action: "Offline Library", destination: .offline)
+                    step("3", title: "Keep a portable copy", detail: "Export prepared releases and image archives for another compatible Mac or a fresh Docker engine.", action: "Open Library", destination: .library)
                 }
                 if let error = infrastructure.error { Label(error, systemImage: "exclamationmark.circle").font(.caption).foregroundStyle(.orange) }
             }.padding(32).frame(maxWidth: 980, alignment: .leading).frame(maxWidth: .infinity, alignment: .topLeading)

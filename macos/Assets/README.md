@@ -15,3 +15,5 @@ swift scripts/check-icon.swift macos/Assets/native-light.png macos/Assets/native
 ```
 
 The installed Dock appearance must also be checked after packaging because macOS caches app icons and independently chooses its icon appearance.
+
+The menu bar uses `../Sources/DevKitApp/Resources/MenuBarMonogram.png`, a cropped rendition of the same monogram at 18 points (36 pixels at 2×). macOS supplies the menu bar tint.

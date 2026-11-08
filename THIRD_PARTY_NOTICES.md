@@ -20,6 +20,8 @@ The Devline core uses Rust crates listed in `core/Cargo.lock`. [Rust dependency 
 
 The macOS app embeds [Sparkle 2.10.1](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.1) for authenticated app updates. [Sparkle and bundled component licenses](third-party/sparkle/LICENSE)
 
+The macOS documentation reader bundles [Highlight.js 11.12.0](https://github.com/highlightjs/highlight.js/releases/tag/v11.12.0) under the BSD 3-Clause License. Its local script concatenates `highlight.min.js` with the `dockerfile`, `elixir`, `erlang`, `groovy`, `http`, `pgsql`, `powershell`, `properties`, and `protobuf` browser grammars from the same published package. [Upstream package](https://registry.npmjs.org/@highlightjs/cdn-assets/-/cdn-assets-11.12.0.tgz) · [Highlight.js license](third-party/highlight.js/LICENSE)
+
 The Tauri documentation snapshot retains MIT and Apache-2.0 notices from its pinned sources. **The Swift Programming Language** snapshot retains Apache 2.0 with the Swift Runtime Library Exception and Swift.org attribution. [Tauri sources](data/docs/tauri/2.12.5+devline.1/SOURCES.md) · [Swift sources](data/docs/swift/6.4.0+devline.1/SOURCES.md)
 
 SwiftUI imports use Apple’s original declarations, documentation comments, and available examples from the selected local macOS SDK. The local `SOURCES.md` records the SDK build, compiler, modules, and extraction method. Devline stores these snapshots on the Mac that generated them and excludes them from releases and portable exports. [Documentation policy](DOCUMENTATION-POLICY.md) · [Apple Xcode and SDK agreement](https://www.apple.com/legal/sla/docs/xcode.pdf)

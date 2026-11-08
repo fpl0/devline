@@ -593,11 +593,38 @@ fn preserve_locked_versions(stack: &str, original: &Path, staged: &Path) -> Resu
     Ok(())
 }
 
+fn is_bundled_feed(relative: &Path) -> bool {
+    relative.parent() == Some(Path::new(crate::project_layout::PACKAGES))
+        && matches!(
+            relative.file_name().and_then(|name| name.to_str()),
+            Some("wheelhouse" | "nuget-packages")
+        )
+}
+
+fn validate_nested_change(root: &Path, relative: &Path) -> Result<()> {
+    if !relative.starts_with(".devline") {
+        return Ok(());
+    }
+    if !crate::project_layout::is_organized(root)
+        || !(relative == Path::new(crate::project_layout::cache_relative(root))
+            || relative == Path::new(crate::project_layout::PACKAGES)
+            || is_bundled_feed(relative))
+    {
+        bail!("Invalid client dependency path inside .devline");
+    }
+    let parent = relative.parent().expect("nested dependency has a parent");
+    if !fs::symlink_metadata(root.join(parent))?.is_dir() {
+        bail!("Client dependency directory parent changed during preparation");
+    }
+    Ok(())
+}
+
 fn changed_paths(stack: &str, copy: &Path, original: &Path) -> Result<Vec<PathBuf>> {
     fn walk(
         stack: &str,
         copy: &Path,
         original: &Path,
+        managed: &Path,
         relative: &Path,
         result: &mut Vec<PathBuf>,
     ) -> Result<()> {
@@ -606,19 +633,29 @@ fn changed_paths(stack: &str, copy: &Path, original: &Path) -> Result<Vec<PathBu
             let part = relative.join(entry.file_name());
             let name = entry.file_name();
             let name = name.to_str().context("Non-UTF-8 project path")?;
-            let dependency = relative.as_os_str().is_empty()
-                && matches!(
-                    name,
-                    ".devline-offline"
-                        | "vendor"
-                        | "node_modules"
-                        | "wheelhouse"
-                        | "nuget-packages"
-                        | "maven-repository"
-                        | "hex-cache"
-                );
+            let managed_dependency = part == managed || is_bundled_feed(&part);
+            if crate::project_layout::is_services(&part)
+                || part.starts_with(".devline")
+                    && (!managed.starts_with(".devline")
+                        || !managed_dependency
+                            && part != Path::new(".devline")
+                            && part != Path::new(crate::project_layout::PACKAGES))
+            {
+                continue;
+            }
+            let dependency = managed_dependency
+                || relative.as_os_str().is_empty()
+                    && matches!(
+                        name,
+                        "vendor"
+                            | "node_modules"
+                            | "wheelhouse"
+                            | "nuget-packages"
+                            | "maven-repository"
+                            | "hex-cache"
+                    );
             if !dependency
-                && (matches!(name, ".git" | ".devline-infra" | ".DS_Store")
+                && (matches!(name, ".git" | ".DS_Store")
                     || name.starts_with(".devkit-") && name != ".devkit-origin.json"
                     || match stack {
                         "dotnet" => matches!(name, "bin" | "obj" | "TestResults"),
@@ -635,12 +672,21 @@ fn changed_paths(stack: &str, copy: &Path, original: &Path) -> Result<Vec<PathBu
             let target = original.join(&part);
             let meta = fs::symlink_metadata(&source)?;
             if meta.is_dir() {
-                if dependency || !target.exists() {
+                if dependency {
                     result.push(part);
-                } else if target.is_dir() {
-                    walk(stack, copy, original, &part, result)?;
                 } else {
-                    bail!("Client dependency change would replace a source file with a directory");
+                    match fs::symlink_metadata(&target) {
+                        Ok(metadata) if metadata.is_dir() => {
+                            walk(stack, copy, original, managed, &part, result)?;
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                            result.push(part);
+                        }
+                        Err(error) => return Err(error.into()),
+                        Ok(_) => bail!(
+                            "Client dependency change would replace a source file with a directory"
+                        ),
+                    }
                 }
             } else if meta.is_file() {
                 let same = fs::symlink_metadata(&target)
@@ -656,7 +702,14 @@ fn changed_paths(stack: &str, copy: &Path, original: &Path) -> Result<Vec<PathBu
         Ok(())
     }
     let mut result = Vec::new();
-    walk(stack, copy, original, Path::new(""), &mut result)?;
+    walk(
+        stack,
+        copy,
+        original,
+        Path::new(crate::project_layout::cache_relative(original)),
+        Path::new(""),
+        &mut result,
+    )?;
     result.sort();
     Ok(result)
 }
@@ -766,7 +819,8 @@ pub(crate) fn recover(ctx: &Context, project: &Path) -> Result<()> {
                 .components()
                 .any(|part| !matches!(part, std::path::Component::Normal(_)))
                 || change.relative.starts_with(".git")
-                || change.relative.starts_with(".devline-infra")
+                || crate::project_layout::is_services(&change.relative)
+                || validate_nested_change(project, &change.relative).is_err()
         })
     {
         bail!("Pending client dependency transaction has an invalid path");
@@ -940,7 +994,8 @@ pub(crate) fn add(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> 
     };
     command.args(["-p",&format!("(version 1)(allow default)(deny file-write*)(allow file-write* (subpath {writable}) (literal \"/dev/null\")){platform}{network}"),"/bin/sh"])
         .arg(&adapter).arg(&copy).arg(&selection).arg(if offline {"true"} else {"false"}).arg(tool).current_dir(&copy)
-        .env_clear().env("HOME",&home).env("TMPDIR",&tmp).env("DEVLINE_OFFLINE",if offline {"true"}else{"false"});
+        .env_clear().env("HOME",&home).env("TMPDIR",&tmp).env("DEVLINE_OFFLINE",if offline {"true"}else{"false"})
+        .env("DEVLINE_PROJECT_CACHE", crate::project_layout::cache_relative(&copy));
     templates::project_tool_environment(&mut command, text_arg(report, "toolchain")?, tool)?;
     templates::run_command(
         &mut command,
@@ -982,6 +1037,7 @@ pub(crate) fn add(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> 
     save_journal(ctx, &mutation)?;
     let result = (|| -> Result<Value> {
         for (index, change) in mutation.changes.iter().enumerate() {
+            validate_nested_change(&path, &change.relative)?;
             let source = copy.join(&change.relative);
             let target = path.join(&change.relative);
             if let Some(parent) = target.parent() {
@@ -1073,6 +1129,53 @@ mod transaction_tests {
             fs::read_to_string(original.join("src/__pycache__/local.pyc"))?,
             "private cache"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn interrupted_generated_cache_publication_preserves_service_settings() -> Result<()> {
+        use crate::project_layout::{CACHE, ORIGIN, SERVICES};
+
+        let (_root, ctx, project) = fixture()?;
+        let work = templates::Stage::new(project.parent().unwrap())?;
+        let copy = work.0.join("project");
+        for path in [&project, &copy] {
+            fs::create_dir_all(path.join(CACHE))?;
+            fs::create_dir_all(path.join(SERVICES))?;
+            fs::write(
+                path.join(ORIGIN),
+                json!({"template":"python/data-automation","version":"1.0.0","digest":"0".repeat(64)}).to_string(),
+            )?;
+        }
+        fs::write(project.join(CACHE).join("requirements.lock"), "original")?;
+        fs::write(copy.join(CACHE).join("requirements.lock"), "updated")?;
+        fs::write(project.join(SERVICES).join("credentials.env"), "original")?;
+        fs::write(copy.join(SERVICES).join("credentials.env"), "staged")?;
+        let changes = changed_paths("python", &copy, &project)?;
+        assert_eq!(changes, vec![PathBuf::from(CACHE)]);
+        let mutation = Mutation {
+            project: project.clone(),
+            work: work.0.clone(),
+            committed: false,
+            changes: vec![MutationChange {
+                relative: changes[0].clone(),
+                had_original: true,
+                digest: digest_path(&copy.join(CACHE))?,
+            }],
+        };
+        save_journal(&ctx, &mutation)?;
+        fs::rename(project.join(CACHE), work.0.join("backup-0"))?;
+        fs::rename(copy.join(CACHE), project.join(CACHE))?;
+        recover(&ctx, &project)?;
+        assert_eq!(
+            fs::read_to_string(project.join(CACHE).join("requirements.lock"))?,
+            "original"
+        );
+        assert_eq!(
+            fs::read_to_string(project.join(SERVICES).join("credentials.env"))?,
+            "original"
+        );
+        assert!(!journal_path(&ctx, &project)?.exists());
         Ok(())
     }
 

@@ -1,5 +1,5 @@
 //! The app and CLI share one offline launch path and one owned process group.
-use crate::{infrastructure, project_prepare, text_arg, Context};
+use crate::{infrastructure, project_layout, project_prepare, text_arg, Context};
 use anyhow::{bail, Context as _, Result};
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
@@ -78,17 +78,26 @@ fn lock(path: &Paths) -> Result<File> {
     Ok(file)
 }
 
+fn configuration_file(path: &Path) -> &'static str {
+    if project_layout::is_organized(path) {
+        project_layout::CONFIG
+    } else {
+        "devline.json"
+    }
+}
+
 fn configuration(path: &Path) -> Result<Configuration> {
-    let file = path.join("devline.json");
+    let config_path = configuration_file(path);
+    let file = path.join(config_path);
     let config = match fs::metadata(&file) {
         Ok(meta) => {
             if !meta.is_file() || meta.len() > 64 * 1024 {
-                bail!("Invalid devline.json launch configuration");
+                bail!("Invalid {config_path} launch configuration");
             }
             let value: Configuration = serde_json::from_slice(&fs::read(file)?)
-                .context("Read devline.json launch configuration")?;
+                .with_context(|| format!("Read {config_path} launch configuration"))?;
             if value.schema_version != 1 {
-                bail!("Unsupported devline.json schema_version");
+                bail!("Unsupported {config_path} schema_version");
             }
             value
         }
@@ -132,7 +141,7 @@ fn configuration(path: &Path) -> Result<Configuration> {
                 .iter()
                 .any(|s| s.is_empty() || s.len() > 8192 || s.contains('\0'))
         {
-            bail!("Invalid command arguments in devline.json");
+            bail!("Invalid command arguments in {config_path}");
         }
     }
     if let Some(url) = &config.run.url {
@@ -181,11 +190,16 @@ pub(crate) fn commands(ctx: &Context, request: &Value) -> Result<Value> {
     let config = configuration(&path.project)?;
     let runner = project_prepare::runner(ctx, request);
     let launchable = !config.run.command.is_empty() && runner.is_ok();
+    let generated = project_layout::is_organized(&path.project);
+    let launcher = quote(&path.project.join("devline.sh").to_string_lossy());
     let prefix = format!(
         "devline --offline project --path {}",
         quote(&path.project.to_string_lossy())
     );
     let test = (!config.test.command.is_empty()).then(|| {
+        if generated && config.test.command == ["./devline.sh", "test"] {
+            return format!("{launcher} test");
+        }
         format!(
             "{prefix} run -- {}",
             config
@@ -197,9 +211,17 @@ pub(crate) fn commands(ctx: &Context, request: &Value) -> Result<Value> {
                 .join(" ")
         )
     });
+    let run = launchable.then(|| {
+        if generated {
+            format!("{launcher} run")
+        } else {
+            format!("{prefix} run")
+        }
+    });
+    let config_path = configuration_file(&path.project);
     let guide = path.project.join("README.md");
     Ok(
-        json!({"path":path.project,"launchable":launchable,"run_command":launchable.then(||format!("{prefix} run")),"test_command":test,"guide_path":guide.is_file().then_some(guide),"detail":match runner {Err(error)=>format!("{error:#}"),_ if config.run.command.is_empty()=>"Add run.command to devline.json to run this project from Devline.".into(),_=>"Run with prepared dependencies and local service connections. Internet access is blocked; local services remain reachable.".into()}}),
+        json!({"path":path.project,"launchable":launchable,"run_command":run,"test_command":test,"guide_path":guide.is_file().then_some(guide),"detail":match runner {Err(error)=>format!("{error:#}"),_ if config.run.command.is_empty()=>format!("Add run.command to {config_path} to run this project from Devline."),_=>"Run with prepared dependencies and local service connections. Internet access is blocked; local services remain reachable.".into()}}),
     )
 }
 
@@ -237,7 +259,10 @@ pub(crate) fn arguments(ctx: &Context, request: &Value) -> Result<Vec<String>> {
     let path = paths(ctx, request)?;
     let config = configuration(&path.project)?;
     if config.run.command.is_empty() {
-        bail!("Add run.command to devline.json, or specify a command after --");
+        bail!(
+            "Add run.command to {}, or specify a command after --",
+            configuration_file(&path.project)
+        );
     }
     Ok(config.run.command)
 }
@@ -371,7 +396,7 @@ pub(crate) fn start(ctx: &Context, request: &Value) -> Result<Value> {
     let args = arguments(ctx, request)?;
     let app = command(ctx, request, &args)?;
     if let Some(url) = &config.run.url {
-        TcpListener::bind(loopback_address(url)?).with_context(||format!("The app port in {url} is already in use. Stop that app or change run.url and its matching launch setting in devline.json."))?;
+        TcpListener::bind(loopback_address(url)?).with_context(||format!("The app port in {url} is already in use. Stop that app or change run.url and its matching launch setting in {}.", configuration_file(&path.project)))?;
     }
     start_services(ctx, request)?;
     let mut random = [0u8; 16];

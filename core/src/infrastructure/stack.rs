@@ -1,8 +1,8 @@
 use super::*;
+use crate::project_layout;
 use sha2::{Digest, Sha256};
 use std::net::{Ipv4Addr, TcpListener, UdpSocket};
 
-const DIRECTORY: &str = ".devline-infra";
 const OWNER: &str = "io.devline.stack";
 const PENDING: &str = "pending-configuration.json";
 
@@ -47,7 +47,18 @@ fn paths(input: &str) -> Result<Paths> {
     if !project.is_dir() {
         bail!("Choose an existing project directory");
     }
-    let directory = project.join(DIRECTORY);
+    let legacy = project.join(project_layout::LEGACY_SERVICES);
+    let directory = match fs::symlink_metadata(&legacy) {
+        Ok(_) => legacy,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            if project_layout::is_organized(&project) {
+                project.join(project_layout::SERVICES)
+            } else {
+                legacy
+            }
+        }
+        Err(error) => return Err(error.into()),
+    };
     Ok(Paths {
         project,
         compose: directory.join("compose.yaml"),
@@ -347,13 +358,20 @@ fn create(ctx: &Context, paths: &Paths, request: &Value) -> Result<Value> {
     for secret in secrets {
         values.insert(secret, random(32)?);
     }
-    let staging = templates::Stage::new(&paths.project)?;
+    let parent = paths
+        .directory
+        .parent()
+        .context("Missing service directory parent")?;
+    if !fs::symlink_metadata(parent)?.is_dir() {
+        bail!("Invalid infrastructure directory parent");
+    }
+    let staging = templates::Stage::new(parent)?;
     write_json_atomic(&staging.0, "project.json", &record)?;
     write_json_atomic(&staging.0, "compose.yaml", &compose)?;
     write_credentials(&staging.0.join("credentials.env"), &values)?;
     fs::write(staging.0.join(".gitignore"), "*\n")?;
     staging.publish(&paths.directory)?;
-    File::open(&paths.project)?.sync_all()?;
+    File::open(parent)?.sync_all()?;
     Ok(summary(paths, Some(&record)))
 }
 

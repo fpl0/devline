@@ -53,7 +53,11 @@ pub(crate) struct ProjectOrigin {
 
 pub(crate) fn origin(path: &Path) -> Option<ProjectOrigin> {
     const LIMIT: u64 = 4096;
-    let marker = path.join(".devkit-origin.json");
+    let marker = path.join(if crate::project_layout::is_organized(path) {
+        crate::project_layout::ORIGIN
+    } else {
+        crate::project_layout::LEGACY_ORIGIN
+    });
     let metadata = fs::symlink_metadata(&marker).ok()?;
     if !metadata.is_file() || metadata.len() > LIMIT {
         return None;
@@ -262,7 +266,7 @@ fn choose(
         .unwrap_or("an unspecified version");
     if docset.installed_versions.is_empty() {
         if docset.id == "swiftui" && docset.available_versions.is_empty() {
-            docset.detail = "Prepare Apple’s SwiftUI API reference from the selected local Xcode SDK in Docset Library, or run `devline --offline docs install swiftui`. Website tutorials are separate from the SDK reference.".into();
+            docset.detail = "Prepare Apple’s SwiftUI API reference from the selected local Xcode SDK in Library → From This Mac, or run `devline --offline docs install swiftui`. Website tutorials are separate from the SDK reference.".into();
             return;
         }
         if let Some(release) = docset

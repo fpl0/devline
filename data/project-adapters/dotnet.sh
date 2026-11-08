@@ -13,15 +13,22 @@ export DOTNET_EnableDiagnostics=0 DOTNET_CLI_USE_MSBUILD_SERVER=0 MSBUILDDISABLE
 # Cloud-backed folders can stall native file notifications during ASP.NET startup.
 # Polling keeps configuration reload available; an explicit user setting wins.
 export DOTNET_USE_POLLING_FILE_WATCHER="${DOTNET_USE_POLLING_FILE_WATCHER:-1}"
+starter_test=./.devline/scripts/test-offline.sh
+[ -f "$starter_test" ] || starter_test=./test-offline.sh
+starter() {
+    [ -x "$starter_test" ] && { [ -f .devline/origin.json ] || [ -f .devkit-origin.json ]; }
+}
 if [ "$action" = run ]; then
     [ "$#" -gt 0 ] || { printf '%s\n' 'Specify a .NET project command.' >&2; exit 2; }
     if [ ! -d "$cache/packages" ]; then
-        if [ -f .devkit-origin.json ] && [ -x ./test-offline.sh ]; then
+        if starter; then
             export DOTNET_CLI_HOME="$project/obj/devline-home" NUGET_PACKAGES="$project/obj/devline-nuget"
             export XDG_DATA_HOME="$DOTNET_CLI_HOME/.local/share" NUGET_HTTP_CACHE_PATH="$project/obj/devline-http"
             export NuGetAudit=false RestoreConfigFile="$project/NuGet.Config"
             if [ -f packages.lock.json ]; then export RestoreLockedMode=true; fi
-            if [ -d nuget-packages ]; then export RestoreSources="$project/nuget-packages"; fi
+            feed="$project/.devline/packages/nuget-packages"
+            [ -d "$feed" ] || feed="$project/nuget-packages"
+            if [ -d "$feed" ]; then export RestoreSources="$feed"; fi
             if [ "$1" = dotnet ]; then shift; exec "$tool" "$@"; fi
             exec "$@"
         fi
@@ -74,7 +81,7 @@ export XDG_DATA_HOME="$HOME/.local/share"
 export NUGET_HTTP_CACHE_PATH="${TMPDIR:?}/nuget-http"
 if [ "$action" = verify ]; then
     if [ ! -d "$cache/packages" ]; then
-        if [ -f .devkit-origin.json ] && [ -x ./test-offline.sh ]; then exec ./test-offline.sh; fi
+        if starter; then exec "$starter_test"; fi
         printf '%s\n' 'Prepare this project while connected to archive its NuGet packages.' >&2
         exit 1
     fi
@@ -93,7 +100,7 @@ restore_locked() {
     trap 'rm -f "$before" "$after"' EXIT
     trap 'exit 130' HUP INT TERM
     locks() {
-        find . \( -name .git -o -name .devline-offline -o -name bin -o -name obj \) -prune -o \
+        find . \( -name .git -o -name .devline -o -name .devline-offline -o -name bin -o -name obj \) -prune -o \
             -type f -name packages.lock.json -exec /usr/bin/shasum -a 256 {} + | LC_ALL=C sort
     }
     locks > "$before"

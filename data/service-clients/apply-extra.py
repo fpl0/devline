@@ -15,7 +15,9 @@ project = Path(destination).resolve()
 selection = json.loads(Path(selection_path).read_text())
 catalog = Path(selection['catalog_dir']).resolve()
 artifacts = catalog / 'service-clients/artifacts' / stack
-managed = project / '.devline-offline'
+managed_relative = os.environ.get('DEVLINE_PROJECT_CACHE', '.devline-offline')
+managed = project / managed_relative
+bundled = project / '.devline/packages' if managed_relative == '.devline/cache' else project
 offline = offline_value == 'true'
 packages = {package['name']: package for item in selection['integrations'] if not item.get('builtin') for package in item['packages']}
 env = os.environ.copy()
@@ -63,7 +65,7 @@ if stack == 'ruby':
         previous.unlink()
 elif stack == 'java':
     add_maven_dependencies(project / 'pom.xml', packages)
-    merge(project / 'maven-repository', managed / 'java/repository')
+    merge(bundled / 'maven-repository', managed / 'java/repository')
     merge(artifacts / 'repository', managed / 'java/repository')
 elif stack == 'elixir':
     merge(artifacts / 'cache', managed / 'elixir')

@@ -3,14 +3,16 @@ import hashlib, json, os, pathlib, re, subprocess, sys, tempfile, zipfile
 from email.parser import BytesParser
 project=pathlib.Path(sys.argv[1]); selection=json.loads(pathlib.Path(sys.argv[2]).read_text()); offline=sys.argv[3]=='true'; tool=sys.argv[4]
 base=pathlib.Path(selection['catalog_dir']); artifacts=base/'service-clients/artifacts/python/wheelhouse'
-cache=project/'.devline-offline';cache.mkdir(exist_ok=True)
+managed_relative=os.environ.get('DEVLINE_PROJECT_CACHE','.devline-offline')
+cache=project/managed_relative;cache.mkdir(exist_ok=True,parents=True)
+bundled=project/'.devline/packages' if managed_relative=='.devline/cache' else project
 scratch=pathlib.Path(tempfile.mkdtemp(dir=os.environ['TMPDIR'],prefix='python-clients-'))
 def run(args):subprocess.run(args,cwd=project,check=True)
 run([tool,'-I','-m','venv',str(scratch/'venv')]);python=str(scratch/'venv/bin/python')
 pip=[python,'-I','-m','pip','--isolated','--disable-pip-version-check','--no-cache-dir']
 selected=[p['name']+'=='+p['version'] for row in selection['integrations'] for p in row['packages']]
 find=[]
-for path in [artifacts,project/'wheelhouse',cache/'wheelhouse']:
+for path in [artifacts,bundled/'wheelhouse',cache/'wheelhouse']:
  if path.is_dir():find+=['--find-links',str(path)]
 # Reuse bundled starter wheels for unchanged application dependencies.
 for path in (base/'templates/python').glob('*/*/project/wheelhouse'):find+=['--find-links',str(path)]
@@ -55,5 +57,5 @@ if primary:
  if primary.name!='requirements.in' and (project/'requirements.in').is_file():
   with (project/'requirements.in').open('a') as f:f.write('\n'+'\n'.join(selected)+'\n')
 # Maintain the native pip workflow for generated requirements-based starters.
-if primary and (project/'wheelhouse').is_dir():
- shutil.rmtree(project/'wheelhouse');shutil.copytree(cache/'wheelhouse',project/'wheelhouse')
+if primary and (bundled/'wheelhouse').is_dir():
+ shutil.rmtree(bundled/'wheelhouse');shutil.copytree(cache/'wheelhouse',bundled/'wheelhouse')

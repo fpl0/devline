@@ -7,7 +7,9 @@ count() { /usr/bin/plutil -extract "$1" raw -expect array -o - "$selection" 2>/d
 catalog=$(field catalog_dir)
 stack=$(field stack)
 artifacts="$catalog/service-clients/artifacts/$stack"
-mkdir -p "$project/.devline-offline"
+managed_relative=${DEVLINE_PROJECT_CACHE:-.devline-offline}
+managed="$project/$managed_relative"
+mkdir -p "$managed"
 export DEVLINE_OFFLINE="$offline" PATH="$(dirname "$tool"):$PATH"
 merge() {
     [ -d "$1" ] || return 0

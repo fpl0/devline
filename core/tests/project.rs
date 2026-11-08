@@ -465,6 +465,103 @@ fn a_project_origin_is_provenance_but_explicit_starter_selection_is_required() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn new_project_uses_the_organized_layout_and_one_launcher() {
+    let fixture = Fixture::new();
+    let catalog_path = fixture.0.join("catalog/catalog.json");
+    let mut catalog: Value = serde_json::from_slice(&fs::read(&catalog_path).unwrap()).unwrap();
+    catalog["templates"] = json!([{"id":"python/fixture","name":"Fixture","stack":"python","version":"1.0.0","description":"Fixture","app_type":"cli","path":"templates/fixture","toolchain":"python3","minimum_version":"","test_command":"./test-offline.sh","docs":[],"target":"any","verified":true}]);
+    fs::write(catalog_path, catalog.to_string()).unwrap();
+    let adapter = Path::new(env!("CARGO_MANIFEST_DIR")).join("../data/project-adapters/python.sh");
+    fixture.write(
+        "catalog/project-adapters/python.sh",
+        &fs::read_to_string(adapter).unwrap(),
+    );
+    let release = "catalog/templates/fixture/project";
+    fixture.write(&format!("{release}/requirements.txt"), "");
+    fixture.write(&format!("{release}/wheelhouse/seed"), "bundled");
+    let test_script = "#!/bin/sh\nset -eu\ncd \"$(dirname \"$0\")\"\ntest -f requirements.txt\nprintf '%s\\n' \"${1:-tested}\"\n";
+    fixture.write(&format!("{release}/test-offline.sh"), test_script);
+    fixture.write(
+        &format!("{release}/run.sh"),
+        "#!/bin/sh\nset -eu\ncd \"$(dirname \"$0\")\"\ntest -f requirements.txt\nprintf '%s\\n' launched\n",
+    );
+    let run = fixture.0.join(format!("{release}/run.sh"));
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(run, fs::Permissions::from_mode(0o755)).unwrap();
+    fixture.write(
+        &format!("{release}/devline.json"),
+        r#"{"schema_version":1,"run":{"command":["./run.sh"]}}"#,
+    );
+    let path = fixture.0.join("new-app");
+    let plan = fixture.call(
+        json!({"command":"new.ready","id":"python/fixture","destination":path,"offline":true,"dry_run":true}),
+    );
+    assert_eq!(plan["test_command"], "./devline.sh test");
+    assert!(!path.exists());
+    let created = fixture.call(
+        json!({"command":"new.ready","id":"python/fixture","destination":path,"offline":true}),
+    );
+    assert_eq!(created["test_command"], plan["test_command"]);
+    assert_eq!(
+        fs::read_dir(&path)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect::<std::collections::BTreeSet<_>>(),
+        [".devline", "devline.sh", "requirements.txt"]
+            .map(str::to_owned)
+            .into()
+    );
+    assert!(path.join(".devline/packages/wheelhouse/seed").is_file());
+    assert_eq!(
+        fs::read_to_string(fixture.0.join(format!("{release}/test-offline.sh"))).unwrap(),
+        test_script
+    );
+    let commands = fixture.call(json!({"command":"project.commands","path":path}));
+    assert_eq!(commands["launchable"], true);
+    assert!(commands["run_command"]
+        .as_str()
+        .unwrap()
+        .ends_with("/devline.sh' run"));
+    assert!(commands["test_command"]
+        .as_str()
+        .unwrap()
+        .ends_with("/devline.sh' test"));
+    let launcher = |args: &[&str]| {
+        let result = Command::new(path.join("devline.sh"))
+            .args(args)
+            .current_dir(&fixture.0)
+            .env("DEVLINE_BIN", env!("CARGO_BIN_EXE_devline"))
+            .env("DEVKIT_HOME", fixture.0.join("library"))
+            .env("DEVKIT_CATALOG", fixture.0.join("catalog"))
+            .output()
+            .unwrap();
+        assert!(
+            result.status.success(),
+            "{args:?}: {}",
+            String::from_utf8_lossy(&result.stderr)
+        );
+        String::from_utf8(result.stdout).unwrap()
+    };
+    assert_eq!(launcher(&["test", "two words"]), "two words\n");
+    assert_eq!(launcher(&["run"]), "launched\n");
+    assert_eq!(
+        fixture.call(json!({"command":"project.readiness","path":path}))["ready_offline"],
+        true
+    );
+    fixture.write("new-app/source.py", "print('a source edit')\n");
+    assert_eq!(
+        fixture.call(json!({"command":"project.readiness","path":path}))["ready_offline"],
+        false
+    );
+    assert_eq!(
+        fixture.call(json!({"command":"project.prepare","path":path,"offline":true}))
+            ["ready_offline"],
+        true
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn edited_generated_project_reverifies_local_dependencies_before_any_online_adapter() {
     let fixture = Fixture::new();
     let catalog_path = fixture.0.join("catalog/catalog.json");

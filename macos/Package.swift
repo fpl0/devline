@@ -17,6 +17,11 @@ let package = Package(
         .executableTarget(
             name: "DevKitApp",
             dependencies: ["DevKitBridge", .product(name: "Sparkle", package: "Sparkle")],
+            resources: [
+                .copy("Resources/highlight.min.js"),
+                .copy("Resources/code-highlighting.js"),
+                .copy("Resources/MenuBarMonogram.png")
+            ],
             linkerSettings: [
                 .unsafeFlags(["-L", coreRelease]),
                 .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),

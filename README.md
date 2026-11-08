@@ -10,9 +10,9 @@ Open a project and Devline brings its dependencies, matching references, and ser
 
 ## Keep the docs you use
 
-Install documentation for the languages and frameworks you want from **Docset Library**. Then look up `py:Path.read_text()` or `go:http.Handler` in **Documentation**, with code examples and links to other installed pages. **Browse Project Docs** takes you to your project's references. Devline reads supported manifests and lockfiles to match versions, and you can pin a different version for that project. A starter's included references open at the version it uses.
+Install documentation for the languages and frameworks you want from **Library**. Then look up `py:Path.read_text()` or `go:http.Handler` in **Documentation**, with code examples and links to other installed pages. **Browse Project Docs** takes you to your project's references. Devline reads supported manifests and lockfiles to match versions, and you can pin a different version for that project. A starter's included references open at the version it uses.
 
-For SwiftUI, choose **Prepare from Xcode** in **Docset Library → From This Mac**. Devline indexes Apple’s API declarations, comments, and available examples from your selected SDK. The reference stays on the Mac where you prepare it. Apple’s website tutorials and illustrations are separate. [SwiftUI setup](USAGE.md#prepare-the-swiftui-sdk-reference)
+For SwiftUI, choose **Prepare from Xcode** in **Library → From This Mac**. Devline indexes Apple’s API declarations, comments, and available examples from your selected SDK. The reference stays on the Mac where you prepare it. Apple’s website tutorials and illustrations are separate. [SwiftUI setup](USAGE.md#prepare-the-swiftui-sdk-reference)
 
 ![Python documentation showing the Path.read_text method signature and a code example](press/docs-python-dark.png)
 
@@ -21,6 +21,8 @@ For SwiftUI, choose **Prepare from Xcode** in **Docset Library → From This Mac
 Pick a release in **App Starters**. For example, start a FastAPI or Chi API, try a React/Vite app, write a Playwright browser test, or build a desktop app with Tauri or SwiftUI. There are starters for Go, Rust, Python, Ruby, C#/.NET, Java, Elixir, Node.js/TypeScript, and Swift. Each includes its package dependencies and an offline test. The SwiftUI starter needs Xcode 16 or later. The bundled Playwright browser requires macOS 26.5 or later.
 
 **Toolchains** shows which compilers, interpreters, and SDKs Devline finds on this Mac. Install the matching toolchain and any listed native build prerequisites separately. When you create a project, Devline runs its tests with external networking denied before saving it to your chosen folder. In **Current Project**, you can prepare and verify supported existing projects while keeping their source and lockfiles intact.
+
+Projects from bundled starters group Devline's configuration, scripts, and offline files under `.devline/`. Run `./devline.sh --help` for the available commands or `./devline.sh test` to run the starter's tests. Framework files such as `go.mod` and `package.json` stay beside your code so their usual tools can find them.
 
 ![App Starters showing the installed FastAPI HTTP API release and its packaged dependencies](press/starters-dark.png)
 
@@ -48,6 +50,8 @@ In **Settings → Command Line**, select **Install CLI**. To try the Chi API, fi
 devline prepare go/chi-api@1.2.0
 devline --offline docs show 'go:http.Handler'
 devline --offline new go/chi-api@1.2.0 ./status-api
+cd ./status-api
+./devline.sh test
 ```
 
 For an existing project, `devline project --path ./service prepare` prepares its complete offline environment. Use `devline updates check` and `devline updates apply` to keep the installed content current.

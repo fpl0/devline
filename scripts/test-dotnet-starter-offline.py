@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the .NET starter from an empty cache with outbound networking denied (macOS)."""
+"""Verify the bundled .NET starter or a generated copy from an empty cache (macOS)."""
 import argparse
 import os
 from pathlib import Path
@@ -17,10 +17,21 @@ tool = shutil.which('dotnet')
 if not tool:
     raise SystemExit('Install a local .NET 10 SDK first; Devline does not manage runtimes.')
 policy = '(version 1)(allow default)(deny network-outbound)(allow network-outbound (remote ip "localhost:*"))'
+source = args.project.resolve()
+ignore_build_outputs = shutil.ignore_patterns('bin', 'obj', 'TestResults', 'notes.db*', '.devline-infra', '.devline-offline')
+
+
+def ignore_local_state(directory, contents):
+    ignored = ignore_build_outputs(directory, contents)
+    if Path(directory) == source / '.devline':
+        ignored.update({'cache', 'services'}.intersection(contents))
+    return ignored
+
+
 with tempfile.TemporaryDirectory(prefix='devline-dotnet-offline-') as temporary:
     root = Path(temporary)
     project = root / 'project'
-    shutil.copytree(args.project.resolve(), project, ignore=shutil.ignore_patterns('bin', 'obj', 'TestResults', 'notes.db*', '.devline-infra'))
+    shutil.copytree(source, project, ignore=ignore_local_state)
     home = root / 'home'
     packages = root / 'empty-nuget'
     home.mkdir()
@@ -31,6 +42,7 @@ with tempfile.TemporaryDirectory(prefix='devline-dotnet-offline-') as temporary:
     blocked = subprocess.run([str(sandbox), '-p', policy, '/usr/bin/curl', '--connect-timeout', '3', '--max-time', '5', '--silent', '--output', '/dev/null', 'https://api.nuget.org/v3/index.json'], env=env)
     if blocked.returncode == 0:
         raise SystemExit('Outbound network was unexpectedly reachable; offline proof is invalid.')
-    subprocess.run([str(sandbox), '-p', policy, '/bin/sh', './test-offline.sh'], cwd=project, env=env, check=True, timeout=180)
+    test = ['./devline.sh', 'test'] if (project / 'devline.sh').is_file() else ['./test-offline.sh']
+    subprocess.run([str(sandbox), '-p', policy, '/bin/sh', *test], cwd=project, env=env, check=True, timeout=180)
     count = len(list(packages.glob('*/*/*.nupkg')))
     print(f'PASS: restored {count} packages from the bundled feed into an empty cache; build and all tests passed with outbound network denied.', flush=True)

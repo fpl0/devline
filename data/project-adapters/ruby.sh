@@ -8,7 +8,7 @@ shift 4
 adapters=$(cd "$(dirname "$0")" && pwd)
 cd "$project"
 export PATH="$(dirname "$ruby"):$PATH"
-if [ "$mode" = run ] && [ ! -f "$cache/Gemfile.lock" ] && [ -f "$project/.devkit-origin.json" ]; then
+if [ "$mode" = run ] && [ ! -f "$cache/Gemfile.lock" ] && { [ -f "$project/.devline/origin.json" ] || [ -f "$project/.devkit-origin.json" ]; }; then
   if [ ! -f "$project/Gemfile" ]; then
     [ "$#" -gt 0 ] || { echo 'Choose a command to run.' >&2; exit 2; }
     PATH="$(dirname "$ruby"):$PATH" "$@"
@@ -134,7 +134,7 @@ RUBY
     fi
     if [ "$mode" = run ]; then
       [ "$#" -gt 0 ] || { echo 'Choose a command to run.' >&2; exit 2; }
-      "$ruby" "$adapters/ruby-runtime-cache.rb" "$project/.devline-offline/ruby-runtime" "$cache" "$ruby" "$BUNDLER_VERSION" "$@"
+      "$ruby" "$adapters/ruby-runtime-cache.rb" "$cache/ruby-runtime" "$cache" "$ruby" "$BUNDLER_VERSION" "$@"
       exit
     fi
     install_gems

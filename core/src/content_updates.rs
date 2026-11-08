@@ -170,7 +170,7 @@ fn compose(
     }
     let docs_failed = error("docs").is_some() || docs["error"].is_string();
     for pack in rows(&docs, "packs") {
-        // New families belong in Docset Library, not an unexpected bulk download.
+        // Install new docset families explicitly from the Library.
         if rows(pack, "installed_versions").is_empty() {
             continue;
         }

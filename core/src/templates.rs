@@ -1513,10 +1513,11 @@ fn shell_word(path: &Path) -> Result<String> {
     Ok(format!("'{}'", path.replace('\'', "'\\''")))
 }
 
-fn project_test_wrapper(project: &Path, template: &Template, tool: &Path) -> Result<()> {
+fn project_tool_defaults(template: &Template, tool: &Path) -> Result<String> {
     use std::fmt::Write as _;
 
-    let mut script = String::from("#!/bin/sh\n# Run the bundled test script with the toolchain selected by Devline.\nset -eu\ncd \"$(dirname \"$0\")\"\n");
+    let mut script =
+        String::from("# Use the selected toolchain when it is available on this Mac.\n");
     let tool_path = shell_word(tool)?;
     writeln!(
         script,
@@ -1546,20 +1547,7 @@ fn project_test_wrapper(project: &Path, template: &Template, tool: &Path) -> Res
     }
     script.push_str("if [ -n \"${DEVKIT_TOOLCHAIN:-}\" ] && [ -x \"$DEVKIT_TOOLCHAIN\" ]; then\n");
     script.push_str("    export PATH=\"$(dirname \"$DEVKIT_TOOLCHAIN\")${PATH:+:$PATH}\"\nfi\n");
-    script.push_str("exec /bin/sh ./test-offline.sh\n");
-    let wrapper = project.join("devkit-test.sh");
-    use std::io::Write as _;
-    let mut file = fs::OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(&wrapper)?;
-    file.write_all(script.as_bytes())?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(wrapper, fs::Permissions::from_mode(0o755))?;
-    }
-    Ok(())
+    Ok(script)
 }
 
 pub fn create(ctx: &Context, reference: &str, destination: &Path, dry_run: bool) -> Result<Value> {
@@ -1621,29 +1609,27 @@ pub(crate) fn create_with_job(
     let (tool, detail) = toolchain(&template);
     let tool = tool.context(detail.clone())?;
     let marker = installed.then(|| verify_release(&input)).transpose()?;
-    let has_test_script = template.test_command == "./test-offline.sh"
-        && regular(&input.join("project/test-offline.sh")).is_ok();
-    let test_command = if has_test_script {
-        "./devkit-test.sh"
-    } else {
-        &template.test_command
-    };
+    let test_command = crate::project_layout::TEST_COMMAND;
     let mut creation_digest = None;
     if !dry_run {
         let marker = marker.context("Install the selected starter first")?;
         let stage = Stage::new(&parent)?;
         copy_tree(&input.join("project"), &stage.0, Some(name))?;
-        if has_test_script {
-            project_test_wrapper(&stage.0, &template, &tool)?;
-        }
-        fs::write(
-            stage.0.join(".devkit-origin.json"),
-            serde_json::to_vec_pretty(&json!({
+        crate::project_layout::organize(
+            &stage.0,
+            &template.stack,
+            &json!({
                 "template": template.id,
                 "version": template.version,
                 "target": template.target,
                 "digest": marker.digest,
-            }))?,
+            }),
+            &project_tool_defaults(&template, &tool)?,
+            // Portable starters outside the catalog may use their own paths.
+            ctx.catalog
+                .templates
+                .iter()
+                .any(|entry| entry.id == template.id),
         )?;
         drop(_lock);
         let _project_lock =
@@ -2258,16 +2244,25 @@ mod tests {
         fs::copy("/usr/bin/true", &unusual_tool)?;
         fs::write(
             project.join("test-offline.sh"),
-            "printf '%s' \"$DEVKIT_TOOLCHAIN\"\n",
+            "printf '%s:%s' \"$DEVKIT_TOOLCHAIN\" \"$1\"\n",
         )?;
-        project_test_wrapper(project, &fixture.ctx.catalog.templates[0], &unusual_tool)?;
+        let template = &fixture.ctx.catalog.templates[0];
+        crate::project_layout::organize(
+            project,
+            &template.stack,
+            &json!({"template":template.id,"version":template.version,"digest":"a".repeat(64)}),
+            &project_tool_defaults(template, &unusual_tool)?,
+            true,
+        )?;
         for (override_value, expected) in [
             (None, unusual_tool.as_path()),
             (Some("/usr/bin/true"), Path::new("/usr/bin/true")),
         ] {
             let mut command = Command::new("/bin/sh");
             command
-                .arg(project.join("devkit-test.sh"))
+                .arg(project.join("devline.sh"))
+                .args(["test", "two words"])
+                .current_dir(project.parent().unwrap())
                 .env_clear()
                 .env("PATH", "/usr/bin:/bin");
             if let Some(path) = override_value {
@@ -2281,7 +2276,7 @@ mod tests {
             );
             assert_eq!(
                 String::from_utf8(output.stdout)?,
-                expected.to_str().unwrap()
+                format!("{}:two words", expected.display())
             );
         }
         Ok(())

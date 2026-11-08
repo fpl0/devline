@@ -33,7 +33,8 @@ case "$mode" in
     export npm_config_cache="$cache/npm-cache"
     npm ci --include=dev --no-audit --no-fund
     if [ -f node_modules/playwright/cli.js ]; then
-        if [ -f BROWSER.json ] && [ -d browser-archive ] && [ -f test-offline.sh ]; then
+        if { [ -f .devline/BROWSER.json ] && [ -d .devline/packages/browser-archive ] && [ -f .devline/scripts/test-offline.sh ]; } ||
+           { [ -f BROWSER.json ] && [ -d browser-archive ] && [ -f test-offline.sh ]; }; then
             # The bundled starter's test restores and checks its pinned browser.
             :
         elif [ "${DEVLINE_OFFLINE:-false}" = true ]; then

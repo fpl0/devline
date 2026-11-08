@@ -2,7 +2,7 @@
 set -eu
 . "$(dirname "$0")/common.sh"
 cd "$project"
-cache="$project/.devline-offline/go/module-cache"
+cache="$managed/go/module-cache"
 merge "$artifacts/module-cache" "$cache"
 chmod -R u+w "$cache"
 export GOMODCACHE="$cache" GOCACHE="$TMPDIR/go-build" GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=mod

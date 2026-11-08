@@ -133,6 +133,7 @@ final class NativeLookup: NSObject, ObservableObject {
 @MainActor
 final class DevlineAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) { NativeLookup.shared.start() }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { true }
 }
 

@@ -8,9 +8,12 @@ shift 4
 cd "$project"
 export PATH="$(dirname "$tool"):$PATH"
 export DEVKIT_TOOLCHAIN="$tool"
+starter_test=./.devline/scripts/test-offline.sh
+[ -f "$starter_test" ] || starter_test=./test-offline.sh
 if [ "$action" = run ]; then
     [ "$#" -gt 0 ] || { printf '%s\n' 'Specify a Maven project command.' >&2; exit 2; }
     repository="$cache/repository"
+    [ -d "$repository" ] || repository="$project/.devline/packages/maven-repository"
     [ -d "$repository" ] || repository="$project/maven-repository"
     if [ ! -d "$repository" ]; then
         printf '%s\n' 'Prepare this project before running with a local Maven repository.' >&2
@@ -48,7 +51,9 @@ case "$action" in
         ;;
     verify)
         if [ ! -d "$cache/repository" ]; then
-            if [ -f .devkit-origin.json ] && [ -x ./test-offline.sh ]; then exec ./test-offline.sh; fi
+            if [ -x "$starter_test" ] && { [ -f .devline/origin.json ] || [ -f .devkit-origin.json ]; }; then
+                exec "$starter_test"
+            fi
             printf '%s\n' 'Prepare this project while connected to archive its Maven dependencies.' >&2
             exit 1
         fi

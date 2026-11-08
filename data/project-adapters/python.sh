@@ -12,8 +12,9 @@ trap 'rm -rf "$scratch"' EXIT HUP INT TERM
 python="$scratch/venv/bin/python"
 wheelhouse="$cache/wheelhouse"
 lockfile="$cache/requirements.lock"
-if [ "$mode" = run ] && [ ! -f "$lockfile" ] && [ -f "$project/.devkit-origin.json" ]; then
-  wheelhouse="$project/wheelhouse"
+if [ "$mode" = run ] && [ ! -f "$lockfile" ] && { [ -f "$project/.devline/origin.json" ] || [ -f "$project/.devkit-origin.json" ]; }; then
+  wheelhouse="$project/.devline/packages/wheelhouse"
+  [ -d "$wheelhouse" ] || wheelhouse="$project/wheelhouse"
   lockfile="$project/requirements.txt"
 fi
 

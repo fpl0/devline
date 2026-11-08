@@ -6,9 +6,11 @@ The macOS app and CLI share the same local library. See the [README](README.md) 
 
 Download the Apple Silicon DMG from [GitHub Releases](https://github.com/fpl0/devline/releases/latest), then drag **Devline** into **Applications**. macOS 14 or later is required. The DMG includes first-launch instructions for the ad hoc-signed build.
 
+Devline’s **d** icon stays in the macOS menu bar while the app runs, even when you hide the app or close its window. Click it and choose **Open Devline** to bring the workspace back, or **Quit Devline** to exit.
+
 ## Read and look up references
 
-Open **Docset Library** and install the docsets you want. Use **⌘F** to search in Devline, or try `py:Path.read_text()` to search Python directly. The reader keeps code examples, tables, links, and available illustrations. Links to installed pages open in Devline.
+Open **Library**, select the docsets you want, and choose **Install Selected**. Use **⌘F** to search in Devline, or try `py:Path.read_text()` to search Python directly. The reader keeps code examples, tables, links, and available illustrations. Links to installed pages open in Devline.
 
 Use **⇧⌘O** to search Contents and pin it beside the article, **⇧⌘R** for Focus Reading, and **⌥⌘F** to find text within an article. **⌘[** and **⌘]** navigate reading history. Use **⌘D** to save a reference and **⇧⌘B** to open Saved and Recent. The app remembers the current reference, scroll position, and reading layout between launches.
 
@@ -33,7 +35,7 @@ An unscoped lookup inside a project uses compatible installed references. Use a 
 
 Choose **Prepare Offline** while connected. Devline prepares the project's matching or pinned documentation, dependency closure, and configured image archives together. Opening a project starts preparation when needed; progress stays in the project screen, with logs in **Activity**. The final result covers every component and identifies anything Devline cannot prepare, such as a missing compiler. Preparing archives does not start services.
 
-Dependency preparation uses a staged copy and tests it with external networking denied. Existing local dependencies are tried first. When needed, Devline prepares a managed `.devline-offline` cache; it records verification only after the checks pass. Your original source files, manifests, and lockfiles stay intact. Changes to the source, lockfiles, toolchain, or cache can require another check. An explicit `project run` command can still use the prepared dependencies during development.
+Dependency preparation uses a staged copy and tests it with external networking denied. Existing local dependencies are tried first. When needed, Devline prepares a cache under `.devline/cache/` for new starters or `.devline-offline/` for projects using the older layout. It records verification after the checks pass. Your original source files, manifests, and lockfiles stay intact. Changes to the source, lockfiles, toolchain, or cache can require another check. An explicit `project run` command can still use the prepared dependencies during development.
 
 ```sh
 devline project --path ./service prepare --background
@@ -51,7 +53,22 @@ In **Current Project → Develop & Run**, choose **Open in Editor** or **Read Pr
 
 The panel shows **Starting** while the app builds or waits for its configured readiness check. **Open App** becomes available when the local web app is ready. Use **App Logs** to inspect output. **Stop App** stops the app process; services and their data stay available until you stop them separately in **Local Services**.
 
-The CLI shares the same managed app process with Devline:
+New projects include `devline.sh` at the root. Run `./devline.sh --help` to see the commands. The script uses the project folder even when called from another directory.
+
+```sh
+./devline.sh test
+./devline.sh run
+./devline.sh start
+./devline.sh status
+./devline.sh logs --tail 100
+./devline.sh stop
+./devline.sh prepare --offline
+./devline.sh check
+```
+
+`test` runs the starter's local tests with the bundled dependencies. Starters with dedicated helpers also provide commands such as `build`, `setup`, or `smoke`. These commands use the local toolchain. The other commands use the installed Devline CLI. When a starter has a configured app, `run` launches it in the foreground and `start` manages it in the background. `prepare` can fetch missing dependencies, docs, and service images unless you pass `--offline`. Use `./devline.sh services up`, `down`, `status`, or `logs` to manage configured services. Use `./devline.sh exec COMMAND ...` to run a command with prepared dependencies and external networking denied.
+
+The app and CLI share the same managed app process. Use these commands from outside the project or with a project that predates `devline.sh`.
 
 ```sh
 devline --offline project --path ./service start
@@ -61,25 +78,25 @@ devline project --path ./service stop
 devline project --path ./service commands
 ```
 
-Use `devline --offline project --path ./service run` to run the configured app in your terminal instead. An explicit command after `--` uses the same prepared dependencies and connection settings; it does not automatically start services. For example, `devline --offline project --path ./service run -- ./test-offline.sh` runs the project's tests.
+Use `devline --offline project --path ./service run` to run the configured app in your terminal. An explicit command after `--` uses the prepared dependencies and connection settings and leaves service startup to you. For example, `devline --offline project --path ./service run -- ./devline.sh test` runs a new starter's tests with external networking denied.
 
-A project's `devline.json` can declare its commands and local web address:
+In a generated project, `.devline/config.json` declares commands and the optional local web address. A web app configuration can look like this.
 
 ```json
 {
   "schema_version": 1,
   "run": {
-    "command": ["./run.sh"],
+    "command": ["/bin/sh", "./.devline/scripts/run.sh"],
     "url": "http://127.0.0.1:5080",
     "health_path": "/health/ready"
   },
-  "test": { "command": ["./test-offline.sh"] }
+  "test": { "command": ["./devline.sh", "test"] }
 }
 ```
 
 Commands are argument arrays and run from the project folder. Keep the app in the foreground so Devline can track and stop it. The optional `url` must use HTTP with a loopback address and an explicit port; configure the app to listen there. Devline supplies this address as `ASPNETCORE_URLS` for ASP.NET Core. The optional `health_path` must return HTTP 200 before **Open App** is enabled; without it, Devline checks that the port accepts connections. Omit both fields for command-line or native desktop apps.
 
-Without `devline.json`, Devline looks for `run.sh`, then a .NET project in the selected folder. It also recognizes `test-offline.sh`. Other projects can add a configuration or run an explicit CLI command. Devline detects the required runtime on your Mac; it does not install or upgrade it.
+Devline also reads `devline.json` in older projects. For projects without a launch configuration, it looks for `run.sh`, then a .NET project in the selected folder, and recognizes `test-offline.sh` for testing. Devline uses the compatible toolchain installed on your Mac.
 
 ## Build a desktop app
 
@@ -92,11 +109,12 @@ devline prepare rust/tauri-desktop
 devline prepare swift/swiftui-app
 devline --offline new rust/tauri-desktop ./text-inspector
 devline --offline new swift/swiftui-app ./idea-board
-devline --offline project --path ./idea-board run -- ./run.sh
+./idea-board/devline.sh run
+./idea-board/devline.sh build
 devline --offline docs search 'tauri:commands'
 ```
 
-Both projects include `run.sh`, `build-app.sh`, and `test-offline.sh`. Build output stays under `target/` for Tauri and `.build/` for SwiftUI. The generated `.app` is signed locally for development. Tauri’s recipe refreshes compatible 2.x dependencies, vendors them, and verifies the result. The SwiftUI recipe rebuilds against the selected local SDK.
+Both projects support `./devline.sh run`, `./devline.sh build`, and `./devline.sh test`. Build output stays under `target/` for Tauri and `.build/` for SwiftUI. The generated `.app` is signed locally for development. Tauri’s recipe refreshes compatible 2.x dependencies, vendors them, and verifies the result. The SwiftUI recipe rebuilds against the selected local SDK.
 
 ![Tauri desktop starter inspecting Unicode text](press/tauri-starter.jpg)
 
@@ -106,7 +124,7 @@ The desktop documentation includes an official Tauri snapshot and **The Swift Pr
 
 ### Prepare the SwiftUI SDK reference
 
-In **Docset Library → From This Mac**, find **SwiftUI · Apple API Reference** and choose **Prepare from Xcode**. **Prepare Offline** in **Current Project** includes this import when the project needs it. The import reads the selected macOS SDK locally and works offline.
+In **Library → From This Mac**, find **SwiftUI · Apple API Reference** and choose **Prepare from Xcode**. **Prepare Offline** in **Current Project** includes this import when the project needs it. The import reads the selected macOS SDK locally and works offline.
 
 ```sh
 devline docs local
@@ -137,7 +155,7 @@ The CLI accepts `--offline` for operations that must stay local. An empty search
 
 ## Prepare a starter for offline use
 
-**App Starters** shows a starter’s available releases, contents, dependency versions, and verification. **Toolchains** detects the compilers, interpreters, and SDKs on this Mac. Install and upgrade those tools separately. **Offline Library** checks your selected docsets and starters, or the references and toolchains needed by your open project.
+**App Starters** shows a starter’s available releases, contents, dependency versions, and verification. **Toolchains** detects the compilers, interpreters, and SDKs on this Mac. Install and upgrade those tools separately. In **Library**, select docsets, starters, and images, then choose **Check Readiness**. Use **Selection → Select Installed** to pick everything installed or archived. With a project open, the check also covers its references, toolchains, dependencies, and configured service images.
 
 **Prepare Starter** installs its related docs and runs verification. **Verify Offline Now** reruns the installed starter’s test with external networking denied. Background work appears in **Activity** with progress, logs, and cancellation.
 
@@ -150,7 +168,7 @@ devline offline status --starter go/chi-api@1.2.0
 devline new go/chi-api@1.2.0 ./status-api
 ```
 
-Use the ID printed by `prepare` when following or cancelling a job. Generated projects include an offline test script. Creating a project prepares its selected documentation and required service archives, then verifies the generated files with external networking denied. `devline --offline new` requires those service archives to be present already. A recipe can refresh its supported upstream dependencies online and verify the new release offline before installing it.
+Use the ID printed by `prepare` when following or cancelling a job. Creating a project prepares its selected documentation and required service archives, then verifies the generated files with external networking denied. `devline --offline new` requires those service archives to be present already. A recipe can refresh its supported upstream dependencies online and verify the new release offline before installing it.
 
 The app shows creation progress and lets you cancel while it prepares downloads and verifies the project. Use `devline new STARTER@VERSION ./project --background` for the same durable job in the CLI, followed by `devline jobs status JOB_ID --follow` or `devline jobs cancel JOB_ID`. A cancelled attempt keeps completed library downloads for the next attempt.
 
@@ -158,6 +176,15 @@ The app shows creation progress and lets you cancel while it prepares downloads 
 devline templates build go/chi-api --refresh-deps --background
 devline templates verify go/chi-api@1.2.0 --background
 ```
+
+### Generated project layout
+
+- `devline.sh` is the entry point for project commands.
+- `.devline/config.json` holds the launch configuration, and `.devline/origin.json` records the exact starter release.
+- `.devline/scripts/` holds the starter's lifecycle scripts. `.devline/packages/` holds bundled packages that the framework can load from a custom path. `.devline/cache/` holds dependencies prepared later as needed.
+- `.devline/services/` holds local Compose settings and private credentials when you configure services.
+
+Source files, manifests, lockfiles, and convention-based directories such as Go's `vendor/` and Node's `node_modules/` stay in their standard locations. Older projects retain their existing layout.
 
 ### Starter inventory
 
@@ -174,7 +201,7 @@ Each starter includes its local dependency closure and an offline test. Use `dev
 
 ### Transfer a library
 
-Export exact docset and starter releases from **Offline Library**, then inspect and import the compressed bundle on another Mac. The destination needs its own toolchain and local verification for imported starters.
+In **Library**, use **Show All Versions** to find older releases. Select the exact docset and starter releases, then choose **Export Selected… → Documentation and Starters…**. On the other Mac, use **Import Bundle…** to inspect and import the compressed bundle. The destination needs its own toolchain and local verification for imported starters.
 
 ```sh
 devline bundle export ./travel.devlinebundle \
@@ -189,7 +216,7 @@ Inspect unfamiliar bundles before trusting their executable starter files. The i
 
 Open **Infrastructure** to browse PostgreSQL, MySQL, RabbitMQ, Redis, MongoDB, NATS, Mailpit, Meilisearch, SeaweedFS S3, and Keycloak. Each release shows its image publisher, license, exact tag, platform digest, and offline runbook. **Download for Offline Use** saves a verified arm64 archive in Devline's image vault independently of Docker's cache. Install and start a compatible local Docker engine with Compose before using the vault to run services.
 
-Choose services when creating a project, or use **Current Project → Add Services** later. Devline gives the stack exact release pins, loopback ports, local credentials, and dedicated data volumes. Adding a service preserves existing selections, credentials, ports, and data. The app then prepares the project's dependencies, documentation, and image archives together. Start, stop, and view service logs from the same workspace. Stopping keeps the project's data. **Toolbox** shows your local inventory, and **Offline Library** checks the selected docs, starters, and image archives.
+Choose services when creating a project, or use **Current Project → Add Services** later. Devline gives the stack exact release pins, loopback ports, local credentials, and dedicated data volumes. Adding a service preserves existing selections, credentials, ports, and data. The app then prepares the project's dependencies, documentation, and image archives together. Start, stop, and view service logs from the same workspace. Stopping keeps the project's data. Use **Library** to check the offline readiness of selected image archives alongside docsets and starters.
 
 Service networks disable outbound NAT and use local DNS settings by default while keeping their published ports reachable from your Mac. **Run Offline** separately denies the app process external networking. Custom Docker routing or engine configuration can change container connectivity; the app's network boundary does not rely on those Docker defaults.
 
@@ -200,7 +227,7 @@ For example, the ASP.NET Core API starter already includes PostgreSQL and Rabbit
 ```sh
 devline new dotnet/aspnet-api@1.2.0 ./notes \
   --service postgres@18.6 --service rabbitmq@4.3.7
-devline --offline project --path ./notes start
+./notes/devline.sh start
 ```
 
 For a starter that does not already declare a supported client, add an explicit selection such as `--client dotnet:postgres` to `devline new`. New client choices modify the project's dependency declarations and prepare their offline closure. Leave the flag out to keep the starter's dependencies unchanged.
@@ -224,9 +251,9 @@ devline infra prepare postgres@18.6
 devline infra prepare redis@8.10.1
 devline prepare go/chi-taskboard@1.0.0
 devline --offline new go/chi-taskboard@1.0.0 ./taskboard
-devline --offline infra run ./taskboard
-devline toolbox check --path ./taskboard
-devline infra stop ./taskboard
+./taskboard/devline.sh services up
+./taskboard/devline.sh check
+./taskboard/devline.sh services down
 ```
 
 The Taskboard starter uses PostgreSQL for persistence and Redis for caching. Its generated README includes the local app launch and test commands. Use `devline infra credentials ./taskboard` in a private terminal when you need the connection strings. For an existing project, readiness checks the selected local resources and reports whether its own dependencies were verified. Use `devline toolbox check --library-only --image postgres@18.6` to check an archive independently of a project.
@@ -248,7 +275,7 @@ The destination needs Docker, the project toolchains, and dependencies. Importin
 
 Open **Updates** and choose **Check for Updates**. The list shows newer releases for the documentation, starters, and service images saved in your offline library. Choose **Update** for one item or **Update All** for the whole list. Devline keeps project pins and, by default, previous releases. Unfinished updates stay in the list with a **Retry** button. If a publisher check fails, open **Check Details**; updates already confirmed can still be applied.
 
-To browse downloadable docsets, read release notes, or switch the active version, use **Docset Library → Manage Releases…**. Toolchain publisher results are in **Toolchains → Publisher Releases**. To check for a newer Devline app, use **App Updates and Downloads…** in the Devline menu or **App Updates** in Settings.
+To browse downloadable docsets, read release notes, or switch the active version, use **Library → Manage Releases…**. Toolchain publisher results are in **Toolchains → Publisher Releases**. To check for a newer Devline app, use **App Updates and Downloads…** in the Devline menu or **App Updates** in Settings.
 
 The **Documentation** tab downloads independently published snapshots. Devline checks archive size and SHA-256 and resumes interrupted downloads where the server supports it. The details show sources, coverage, and known omissions. You can roll back to an earlier installed release.
 

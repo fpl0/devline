@@ -32,6 +32,7 @@ trap cleanup EXIT
 APP="$STAGING_ROOT/Devline.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$SWIFT_BUILD_PATH/release/DevKitApp" "$APP/Contents/MacOS/DevlineApp"
+ditto "$SWIFT_BUILD_PATH/release/DevKitMac_DevKitApp.bundle" "$APP/Contents/Resources/DevKitMac_DevKitApp.bundle"
 ditto "$SWIFT_BUILD_PATH/release/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$ROOT/core/target/release/devline" "$APP/Contents/MacOS/devline"
 ln -s devline "$APP/Contents/MacOS/devkit"

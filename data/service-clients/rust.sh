@@ -23,6 +23,6 @@ add_package() {
     "$tool" add "$@"
 }
 packages
-mkdir -p .devline-offline/rust
-"$tool" vendor --locked --versioned-dirs .devline-offline/rust/vendor > .devline-offline/rust-sources.toml
-cat .devline-offline/rust-sources.toml >> .cargo/config.toml
+mkdir -p "$managed/rust"
+"$tool" vendor --locked --versioned-dirs "$managed_relative/rust/vendor" > "$managed/rust-sources.toml"
+cat "$managed/rust-sources.toml" >> .cargo/config.toml
