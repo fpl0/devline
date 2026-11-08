@@ -61,6 +61,7 @@ struct Starter: Decodable, Hashable, Identifiable, Sendable {
 struct SearchHit: Decodable, Identifiable, Sendable {
     let id, packId, title, stack, version, sourceUrl, snippet: String
     let matchText: String?
+    let matchAnchor: String?
     let symbol: String?
     let matchKind: String?
     let category: String?

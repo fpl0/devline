@@ -78,6 +78,8 @@ final class ReadingSession: ObservableObject {
         await enqueue { CoreRequest("reading.visit", id: location.id, anchor: location.anchor, focusText: location.focusText) }
     }
 
+    func commitSearchPreview() { history.commitSearchPreview() }
+
     func updatePosition(id: String, fraction: Double, anchor: String? = nil, anchorOffset: Double? = nil) {
         history.updatePosition(id: id, fraction: fraction, anchor: anchor, anchorOffset: anchorOffset)
         schedulePersistence()

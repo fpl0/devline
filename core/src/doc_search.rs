@@ -1,8 +1,10 @@
+mod ranking;
+
 use crate::{
     doc_index, doc_updates, markdown, project, text_arg, updates::compare_doc_releases, Context,
 };
 use anyhow::{bail, Context as _, Result};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use std::{
     collections::{BTreeMap, HashSet},
@@ -540,10 +542,10 @@ fn alias_candidates(
     };
     let category = scope.category_clause;
     let sql = format!(
-        "SELECT {DOC_COLUMNS},'',a.alias FROM aliases a INDEXED BY aliases_lookup
+        "SELECT {DOC_COLUMNS},'',min(a.alias) FROM aliases a INDEXED BY aliases_lookup
          JOIN documents d ON d.id=a.document_id
          WHERE {matches} AND {ALLOWED_RELEASES} {category}
-         ORDER BY a.alias LIMIT ?4"
+         GROUP BY a.document_id ORDER BY min(a.alias),d.id LIMIT ?4"
     );
     let mut stmt = db.prepare(&sql)?;
     let window = (limit * 6).max(48);
@@ -568,10 +570,10 @@ fn alias_candidates(
             "s.key=?2"
         };
         let sql = format!(
-            "SELECT {DOC_COLUMNS},'',s.alias,s.depth,s.key=?2
+            "SELECT {DOC_COLUMNS},'',s.alias,s.depth,min(s.key)=?2
              FROM doc_symbol_keys s JOIN documents d ON d.id=s.document_id
              WHERE {range} AND {ALLOWED_RELEASES} {category}
-             ORDER BY s.key LIMIT ?4"
+             GROUP BY s.document_id ORDER BY min(s.key),d.id LIMIT ?4"
         );
         let mut stmt = db.prepare(&sql)?;
         let rows = stmt.query_map(params![scope.releases, key, upper, window], |row| {
@@ -667,12 +669,15 @@ pub(super) fn search(ctx: &Context, request: &Value) -> Result<Value> {
     if input.trim().len() > 512 {
         bail!("Search query must be at most 512 bytes");
     }
-    let db = ctx.database()?;
+    let mut db = ctx.database()?;
     let scope = DocScope::new(ctx, &db, request, input, true)?;
     let query = scope.term;
     let category = scope.category_clause;
     let limit = request["limit"].as_u64().unwrap_or(30).clamp(1, 100) as i64;
     let mut results = Vec::new();
+    if scope.releases == "[]" {
+        return Ok(json!(results));
+    }
     if query.is_empty() {
         let offset = request["offset"].as_u64().unwrap_or(0).min(100_000) as i64;
         let sql = format!(
@@ -689,85 +694,294 @@ pub(super) fn search(ctx: &Context, request: &Value) -> Result<Value> {
         return Ok(json!(results));
     }
 
-    let normalized = query.to_lowercase();
-    let mut seen = HashSet::new();
-    let use_prefix = normalized.chars().any(char::is_alphanumeric);
-    let requested_symbol = symbol_pieces(query).map(|(symbol, _)| symbol);
+    let query = doc_index::without_call(query);
+    let symbol_query = ranking::without_generics(query).unwrap_or_else(|| query.to_owned());
+    let normalized = symbol_query.to_lowercase();
+    let requested_symbol = symbol_pieces(&symbol_query).map(|(symbol, _)| symbol);
     let qualified = requested_symbol.is_some()
-        && (query.contains(['.', '#', ':', '/']) || doc_index::without_call(query) != query);
-    let mut exact_symbol = false;
-    let mut aliases = Vec::new();
-    for candidate in alias_candidates(&db, &scope, &normalized, use_prefix, limit)? {
-        let exact = candidate.tier <= 2;
-        let (hit, anchor) = if exact || qualified && aliases.len() < 4 {
-            resolve_alias(&db, candidate.hit, &candidate.label, exact)?
-        } else {
-            (candidate.hit, None)
-        };
-        if seen.insert(related_root(&hit.id).to_owned()) {
-            let symbol = display_symbol(&candidate.label, &hit, anchor.as_deref());
-            exact_symbol |= exact && symbol.is_some();
-            let spelling_matches = requested_symbol.is_some()
-                && symbol
-                    .as_deref()
-                    .and_then(symbol_pieces)
-                    .map(|(symbol, _)| symbol)
-                    == requested_symbol;
-            aliases.push((
-                candidate.tier,
-                !spelling_matches,
-                hit.json(ctx, anchor, symbol),
-            ));
-        }
-    }
-    aliases.sort_by_key(|(tier, different_spelling, _)| (*tier, *different_spelling));
-    results.extend(aliases.into_iter().map(|(_, _, hit)| hit));
-    // A confirmed qualified symbol should not expand to prose with the same words.
-    if results.len() < limit as usize && !(qualified && exact_symbol) && query.chars().count() > 1 {
-        let terms: Vec<_> = doc_index::without_call(query)
-            .split_whitespace()
-            .filter(|term| term.chars().any(char::is_alphanumeric))
-            .take(12)
-            .map(|term| format!("\"{}\"*", term.replace('"', "\"\"")))
-            .collect();
-        if !terms.is_empty() {
-            let terms = terms.join(" AND ");
-            for (columns, snippet) in [
-                ("title", DOC_PREVIEW),
-                ("{title body}", "snippet(docs_fts,1,'','',' … ',28)"),
-            ] {
-                let mut expression = format!("{columns} : ({terms})");
-                if !scope.stack.is_empty() {
-                    expression.push_str(&format!(
-                        " AND stack : \"{}\"",
-                        scope.stack.replace('"', "\"\"")
-                    ));
-                }
-                let sql = format!(
-                    "SELECT {DOC_COLUMNS},{snippet} FROM docs_fts
-                     JOIN documents d ON d.rowid=docs_fts.rowid
-                     WHERE docs_fts MATCH ?2 AND {ALLOWED_RELEASES} {category}
-                     ORDER BY bm25(docs_fts,8.0,1.0,0.0), d.id LIMIT ?3"
-                );
-                let mut stmt = db.prepare(&sql)?;
-                for row in
-                    stmt.query_map(params![scope.releases, expression, limit * 3], summary)?
-                {
-                    let hit = row?;
-                    if seen.insert(related_root(&hit.id).to_owned()) {
-                        results.push(hit.json(ctx, None, None));
-                        if results.len() == limit as usize {
-                            return Ok(json!(results));
-                        }
-                    }
-                }
+        && (symbol_query.contains(['.', '#', ':', '/']) || query != scope.term);
+    let use_prefix = normalized.chars().any(char::is_alphanumeric);
+    let (mut exact, mut prefixes): (Vec<_>, Vec<_>) =
+        alias_candidates(&db, &scope, &normalized, use_prefix, limit)?
+            .into_iter()
+            .partition(|candidate| candidate.tier <= 2);
+    if exact.is_empty() {
+        // A single colon can also separate an installed service's name and command.
+        if let Some((owner, term)) = normalized.split_once(':') {
+            if !owner.contains(char::is_whitespace) && !term.starts_with([':', '/']) {
+                let alias = format!("{owner} {}", term.trim_start());
+                exact = alias_candidates(&db, &scope, &alias, false, limit)?;
             }
         }
+        for variant in ranking::joined_symbols(&normalized) {
+            if !exact.is_empty() {
+                break;
+            }
+            exact = alias_candidates(&db, &scope, &variant, false, limit)?;
+            exact.retain(|candidate| {
+                candidate.label.contains(['.', '#', ':', '/'])
+                    || candidate.label.chars().skip(1).any(char::is_uppercase)
+            });
+        }
     }
+
+    let mut seen = HashSet::new();
+    let has_exact_symbol = append_aliases(
+        ctx,
+        &db,
+        exact,
+        requested_symbol,
+        &mut seen,
+        &mut results,
+        limit,
+    )?;
+    // A confirmed qualified symbol should not expand to prose with the same words.
+    if (qualified && has_exact_symbol) || results.len() >= limit as usize {
+        return Ok(json!(results));
+    }
+    if qualified && prefixes.is_empty() && results.is_empty() {
+        let corrected = corrected_symbols(&db, &scope, &normalized, limit)?;
+        if append_aliases(
+            ctx,
+            &db,
+            corrected,
+            requested_symbol,
+            &mut seen,
+            &mut results,
+            limit,
+        )? {
+            return Ok(json!(results));
+        }
+    }
+    // Keep qualified completions above prose. For general queries, headings and
+    // complete word matches can outrank incidental identifier prefixes.
+    let short_prefix = !qualified && normalized.chars().count() <= 3;
+    if qualified || short_prefix {
+        append_aliases(
+            ctx,
+            &db,
+            std::mem::take(&mut prefixes),
+            requested_symbol,
+            &mut seen,
+            &mut results,
+            limit,
+        )?;
+    }
+    let terms = ranking::terms(&symbol_query);
+    if results.len() >= limit as usize
+        || terms.is_empty()
+        || query.chars().count() < 2
+        || (short_prefix && !results.is_empty())
+    {
+        return Ok(json!(results));
+    }
+
+    let window = (limit * 6).clamp(48, 240);
+    let alternatives: Vec<_> = terms.iter().map(|word| vec![word.clone()]).collect();
+    doc_index::ensure_sections(&mut db, ctx, &scope.releases)?;
+    let mut matches = text_matches(&db, &scope, &alternatives, false, window)?;
+    if matches.len() < limit as usize {
+        matches.extend(text_matches(&db, &scope, &alternatives, true, window)?);
+    }
+    if matches.is_empty() && results.is_empty() && prefixes.is_empty() {
+        if let Some(corrected) = ranking::corrected_words(&db, &terms)? {
+            matches = text_matches(&db, &scope, &corrected, false, window)?;
+        }
+    }
+    ranking::TextMatch::prefer_named_topics(&db, &terms, &mut matches)?;
+    matches.sort_by(ranking::TextMatch::compare);
+    for mut candidate in matches {
+        if results.len() >= limit as usize {
+            break;
+        }
+        if seen.insert(related_root(&candidate.hit.id).to_owned()) {
+            if let Some(heading) = &candidate.heading {
+                if !heading.eq_ignore_ascii_case(&candidate.hit.title) {
+                    candidate.hit.snippet.clone_from(heading);
+                }
+            }
+            let focus = candidate.heading.or_else(|| {
+                // FTS returns a window of the original body around a match.
+                candidate
+                    .hit
+                    .snippet
+                    .trim_matches([' ', '…', '\n', '\t'])
+                    .lines()
+                    .map(str::trim)
+                    .filter(|line| (8..=180).contains(&line.chars().count()))
+                    .max_by_key(|line| {
+                        let line = line.to_lowercase();
+                        terms
+                            .iter()
+                            .filter(|word| line.contains(word.as_str()))
+                            .count()
+                    })
+                    .map(str::to_owned)
+            });
+            candidate.hit.snippet = compact_excerpt(&candidate.hit.snippet);
+            let mut value = candidate.hit.json(ctx, focus, None);
+            if let Some(anchor) = candidate.anchor {
+                value["match_anchor"] = json!(anchor);
+            }
+            results.push(value);
+        }
+    }
+    append_aliases(
+        ctx,
+        &db,
+        prefixes,
+        requested_symbol,
+        &mut seen,
+        &mut results,
+        limit,
+    )?;
     Ok(json!(results))
 }
 
-fn preceding_markdown(db: &Connection, id: &str) -> Result<String> {
+fn append_aliases(
+    ctx: &Context,
+    db: &Connection,
+    candidates: Vec<AliasMatch>,
+    requested_symbol: Option<&str>,
+    seen: &mut HashSet<String>,
+    results: &mut Vec<Value>,
+    limit: i64,
+) -> Result<bool> {
+    let mut aliases = Vec::new();
+    for candidate in candidates {
+        if seen.contains(related_root(&candidate.hit.id)) {
+            continue;
+        }
+        let exact = candidate.tier <= 2;
+        let (mut hit, mut focus) = if exact || (requested_symbol.is_some() && aliases.len() < 4) {
+            resolve_alias(db, candidate.hit, &candidate.label, exact)?
+        } else {
+            let mut hit = candidate.hit;
+            let preview: Option<String> = db
+                .query_row(
+                    "SELECT substr(body,1,260) FROM documents WHERE id=?1",
+                    [&hit.id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            let Some(preview) = preview else {
+                continue;
+            };
+            hit.snippet = compact_excerpt(&preview);
+            (hit, None)
+        };
+        let symbol = display_symbol(&candidate.label, &hit, focus.as_deref());
+        let mut anchor = None;
+        if exact && symbol.is_some() {
+            if let Some((heading, target)) =
+                doc_index::section_focus(db, &hit.id, &candidate.label)?
+            {
+                let declaration = focus
+                    .as_deref()
+                    .and_then(|line| find_focus(line, &candidate.label))
+                    .is_some_and(|focus| focus.score >= 115);
+                if !declaration {
+                    focus = Some(heading.clone());
+                    hit.snippet = heading;
+                }
+                anchor = target;
+            }
+        }
+        let spelling_matches = requested_symbol.is_some()
+            && symbol
+                .as_deref()
+                .and_then(symbol_pieces)
+                .map(|(symbol, _)| symbol)
+                == requested_symbol;
+        aliases.push((
+            candidate.tier,
+            !spelling_matches,
+            hit,
+            focus,
+            anchor,
+            symbol,
+        ));
+    }
+    aliases.sort_by_key(|(tier, different_spelling, _, _, _, _)| (*tier, *different_spelling));
+    let mut exact_symbol = false;
+    for (tier, _, hit, focus, anchor, symbol) in aliases {
+        if results.len() >= limit as usize {
+            break;
+        }
+        if seen.insert(related_root(&hit.id).to_owned()) {
+            exact_symbol |= tier <= 2 && symbol.is_some();
+            let mut value = hit.json(ctx, focus, symbol);
+            if let Some(anchor) = anchor {
+                value["match_anchor"] = json!(anchor);
+            }
+            results.push(value);
+        }
+    }
+    Ok(exact_symbol)
+}
+
+fn corrected_symbols(
+    db: &Connection,
+    scope: &DocScope,
+    query: &str,
+    limit: i64,
+) -> Result<Vec<AliasMatch>> {
+    let Some(key) = doc_index::symbol_key(query) else {
+        return Ok(vec![]);
+    };
+    let components: Vec<_> = key.split('.').collect();
+    if components.len() > 6 || !key.contains('.') {
+        return Ok(vec![]);
+    }
+    let mut variants = Vec::new();
+    for (i, part) in components.iter().enumerate() {
+        for replacement in ranking::one_edit(part, 3) {
+            let mut corrected = components.clone();
+            corrected[i] = &replacement;
+            variants.push(corrected.join("."));
+        }
+    }
+    if variants.is_empty() {
+        return Ok(vec![]);
+    }
+    let category = scope.category_clause;
+    let sql = format!(
+        "SELECT {DOC_COLUMNS},'',s.alias,s.depth
+         FROM json_each(?2) AS variant JOIN doc_symbol_keys s ON s.key=variant.value
+         JOIN documents d ON d.id=s.document_id
+         WHERE {ALLOWED_RELEASES} {category}
+         ORDER BY s.depth,length(s.alias),d.id LIMIT ?3"
+    );
+    let mut stmt = db.prepare_cached(&sql)?;
+    let matches = stmt
+        .query_map(
+            params![scope.releases, serde_json::to_string(&variants)?, limit],
+            |row| {
+                Ok(AliasMatch {
+                    hit: summary(row)?,
+                    label: row.get(8)?,
+                    tier: 2,
+                    depth: row.get(9)?,
+                })
+            },
+        )?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(matches)
+}
+
+fn text_matches(
+    db: &Connection,
+    scope: &DocScope,
+    terms: &[Vec<String>],
+    prefix: bool,
+    window: i64,
+) -> Result<Vec<ranking::TextMatch>> {
+    let mut hits = ranking::sections(db, scope, terms, prefix, window)?;
+    hits.extend(ranking::documents(db, scope, terms, prefix, window)?);
+    Ok(hits)
+}
+
+pub(super) fn preceding_markdown(db: &Connection, id: &str) -> Result<String> {
     let root = related_root(id);
     let Some(part) = id
         .strip_prefix(root)

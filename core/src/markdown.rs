@@ -80,6 +80,40 @@ fn slug(text: &str) -> String {
         .collect()
 }
 
+fn heading_id(ids: &mut HashSet<String>, id: Option<&str>, heading: &str) -> String {
+    let mut base = id.map_or_else(|| slug(heading), str::to_owned);
+    if base.is_empty() {
+        base = "section".into();
+    }
+    let mut unique = base.clone();
+    let mut suffix = 1;
+    while !ids.insert(unique.clone()) {
+        unique = format!("{base}-{suffix}");
+        suffix += 1;
+    }
+    unique
+}
+
+pub(super) fn headings(body: &str) -> impl Iterator<Item = (String, Option<String>)> + '_ {
+    let mut events = Parser::new_ext(body, options());
+    let mut ids = HashSet::new();
+    std::iter::from_fn(move || {
+        for event in events.by_ref() {
+            if let Event::Start(Tag::Heading { id, .. }) = event {
+                let heading: Vec<_> = events
+                    .by_ref()
+                    .take_while(|event| !matches!(event, Event::End(TagEnd::Heading(_))))
+                    .collect();
+                let text = inline_text(&heading);
+                let anchor = heading_id(&mut ids, id.as_deref(), &text);
+                let valid = anchor.len() <= 512 && !anchor.chars().any(char::is_control);
+                return Some((text, valid.then_some(anchor)));
+            }
+        }
+        None
+    })
+}
+
 pub fn render(body: &str, source_url: &str, focus: Option<&str>) -> (String, Option<String>) {
     let source = Iri::parse(source_url).ok().filter(web_url);
     let mut links = Vec::new();
@@ -128,21 +162,12 @@ pub fn render(body: &str, source_url: &str, focus: Option<&str>) -> (String, Opt
         let Event::Start(Tag::Heading { level, id, .. }) = &events[index] else {
             continue;
         };
-        let generated = || {
-            slug(&inline_text(events[index + 1..].iter().take_while(
-                |event| !matches!(event, Event::End(TagEnd::Heading(_))),
-            )))
-        };
-        let mut base = id.as_ref().map_or_else(generated, |id| id.to_string());
-        if base.is_empty() {
-            base = "section".into();
-        }
-        let mut unique = base.clone();
-        let mut suffix = 1;
-        while !heading_ids.insert(unique.clone()) {
-            unique = format!("{base}-{suffix}");
-            suffix += 1;
-        }
+        let text = inline_text(
+            events[index + 1..]
+                .iter()
+                .take_while(|event| !matches!(event, Event::End(TagEnd::Heading(_)))),
+        );
+        let unique = heading_id(&mut heading_ids, id.as_deref(), &text);
         // The parser escapes ids. Other author-supplied attributes never reach the HTML.
         events[index] = Event::Start(Tag::Heading {
             level: *level,

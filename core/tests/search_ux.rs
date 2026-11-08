@@ -55,6 +55,8 @@ impl Fixture {
                     doc("api/FastAPI", "FastAPI", "class FastAPI(Starlette)\n\nBuild API applications.", &[]),
                     doc("tutorial.md", "Tutorial", "# Tutorial\n\n```python\nfirst = 1", &[]),
                     doc("tutorial.md::part-2", "Tutorial (part 2)", "second = 2\n\n```\n\n## **Next** steps\n\n`second` is available.", &[]),
+                    doc("tutorial/request-files.md", "Request Files", "# Request Files\n\n## Uploading files\n\nUse an uploaded file to attach a document.", &[]),
+                    doc("reference/forms.md", "Form Options", "A form can contain a file. Users upload values with a request.", &[]),
                 ]),
             ),
             (
@@ -495,6 +497,45 @@ fn prefix_precedes_body_mentions_and_api_wins_an_exact_tie() {
         .unwrap();
     assert_eq!(results[0]["id"], "fastapi@0.162/api/FastAPI");
     assert_eq!(results[1]["id"], "fastapi@0.162/index.md");
+}
+
+#[test]
+fn topic_queries_rank_sections_and_keep_their_reader_location() {
+    let fixture = Fixture::new();
+    for query in ["fastapi:how do I upload a file", "fastapi:uplaoding fiels"] {
+        let hits = fixture
+            .call(json!({"command":"docs.search","query":query,"limit":1}))
+            .unwrap();
+        assert_eq!(
+            hits[0]["id"], "fastapi@0.162/tutorial/request-files.md",
+            "{query}"
+        );
+        assert_eq!(hits[0]["match_text"], "Uploading files");
+        assert_eq!(hits[0]["match_anchor"], "uploading-files");
+        assert_eq!(hits[0]["snippet"], "Uploading files");
+    }
+
+    let hits = fixture
+        .call(json!({"command":"docs.search","query":"fastapi:next st","limit":1}))
+        .unwrap();
+    assert_eq!(hits[0]["id"], "fastapi@0.162/tutorial.md::part-2");
+    assert_eq!(hits[0]["match_anchor"], "next-steps");
+}
+
+#[test]
+fn qualified_symbol_typo_correction_stays_inside_the_requested_scope() {
+    let fixture = Fixture::new();
+    let hits = fixture
+        .call(json!({"command":"docs.search","query":"go:htt.Handler"}))
+        .unwrap();
+    assert_eq!(hits[0]["id"], "go@1.27/std/net/http::part-2");
+    assert_eq!(hits[0]["symbol"], "http.Handler");
+    assert_eq!(hits[0]["match_text"], "type Handler interface {");
+
+    let hits = fixture
+        .call(json!({"command":"docs.search","query":"go:htt.Handler","pack_id":"python"}))
+        .unwrap();
+    assert_eq!(hits, json!([]));
 }
 
 #[test]

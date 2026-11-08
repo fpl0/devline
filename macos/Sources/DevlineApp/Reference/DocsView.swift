@@ -29,22 +29,23 @@ struct DocsView: View {
     @State private var navigationPosition: Double?
     @State private var navigationOffset: Double?
     @State private var navigationQuery = ""
-    @State private var restoringHistory = false
+    @State private var historyNavigationToken: UUID?
     @State private var automaticSelection = false
     @State private var browseCategory: String?
     @State private var hits: [SearchHit] = []
     @State private var selectedID: String?
     @State private var committedSearch: SearchKey?
+    @State private var submittedSearch: SearchKey?
     @State private var reveal: ListReveal?
     @State private var pendingBrowseReveal: BrowseReveal?
-    @State private var document: Document?
-    @State private var documentError: String?
-    @State private var searchError: String?
-    @State private var searching = false
+    @State private var loadedDocument: (key: ReadKey, value: Document)?
+    @State private var documentFailure: (key: ReadKey, message: String)?
+    @State private var searchFailure: (key: SearchKey, message: String)?
     @State private var pageRequest: UUID?
     @State private var moreArticles = false
     @State private var browseError: String?
     private let browseLimit = 80
+    private let searchLimit = 30
     private let browseRowHeight: CGFloat = 42
     private let browseRowInsets = EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8)
     @FocusState private var searchFocused: Bool
@@ -66,20 +67,33 @@ struct DocsView: View {
                   pins: projectContext?.pins?.map { "\($0.id)@\($0.version)" }.joined(separator: ",") ?? "")
     }
     private var loadingMore: Bool { pageRequest != nil }
-    private var readingID: String? { directDocumentID ?? selectedID }
+    private var readingID: String? { readKey.id }
+    private var hasCurrentResults: Bool { committedSearch == searchKey }
+    private var searchError: String? { searchFailure?.key == searchKey ? searchFailure?.message : nil }
+    private var searching: Bool { !hasCurrentResults && searchError == nil }
+    private var searchProgressTitle: String { isBrowsingPack ? "Loading Articles…" : "Searching Documentation…" }
+    private var document: Document? { loadedDocument?.key == readKey ? loadedDocument?.value : nil }
+    private var readerAnchor: String? { navigationAnchor ?? readKey.anchor }
     private var readKey: ReadKey {
-        let symbol = hits.first(where: { $0.id == selectedID })?.symbol
-        return ReadKey(id: readingID, query: directDocumentID == nil ? symbol ?? committedSearch?.query ?? "" : navigationQuery,
+        if let directDocumentID {
+            return ReadKey(id: directDocumentID, query: navigationQuery, focus: navigationFocus, anchor: nil, token: navigationToken)
+        }
+        guard hasCurrentResults, let hit = hits.first(where: { $0.id == selectedID }) else {
+            return ReadKey(id: nil, query: "", focus: nil, anchor: nil, token: navigationToken)
+        }
+        return ReadKey(id: hit.id, query: hit.symbol ?? trimmedQuery, focus: hit.matchText, anchor: hit.matchAnchor,
                        token: navigationToken)
     }
     private var browseRevealKey: BrowseRevealKey? {
         let scope = searchKey
         guard let target = pendingBrowseReveal, target.token == navigationToken,
-              target.scope == scope, isBrowsingPack, !searching, committedSearch == scope else { return nil }
+              target.scope == scope, isBrowsingPack, hasCurrentResults else { return nil }
         return BrowseRevealKey(target: target, loaded: hits.count)
     }
 
     var body: some View {
+        let scope = searchKey
+        let target = readKey
         VStack(spacing: 0) {
             if !focusReading || readingID == nil {
                 searchBar
@@ -98,11 +112,12 @@ struct DocsView: View {
                 navigationOffset = location.anchorOffset
             }
         }
-        .task(id: searchKey) { await search(searchKey) }
-        .task(id: readKey) { await loadDocument(readKey) }
+        .task(id: scope) { await search(scope) }
+        .task(id: target) { await loadDocument(target) }
         .task(id: browseRevealKey) { if let key = browseRevealKey { await revealBrowseHistory(key) } }
         .onChange(of: searchKey) { _, scope in
             if let target = pendingBrowseReveal, target.scope != scope { pendingBrowseReveal = nil }
+            if submittedSearch != scope { submittedSearch = nil }
         }
         .task { useProjectScope = packReference == nil; if let request = reading.request { restore(request) }; await reading.refresh() }
         .onChange(of: reading.error) { _, error in if let error { model.error = error; reading.error = nil } }
@@ -162,7 +177,7 @@ struct DocsView: View {
                 Button("Browse Docsets", action: resetToBrowse)
             }
         } else if hits.isEmpty && searching {
-            ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            ProgressView(searchProgressTitle).frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if hits.isEmpty {
             noResults
         } else {
@@ -190,14 +205,16 @@ struct DocsView: View {
                 Text("This release has no indexed articles.")
             } else if let currentPack {
                 Text("No matches for “\(trimmedQuery)” in \(currentPack.name).")
+            } else if let stack {
+                Text("No matches for “\(trimmedQuery)” in \(displayStack(stack)) documentation.")
             } else {
-                Text("No matches for “\(trimmedQuery)” in the current scope.")
+                Text("No matches for “\(trimmedQuery)”. Try a shorter phrase or a symbol such as Path.read_text.")
             }
         } actions: {
             if isBrowsingPack, browseCategory != nil {
                 Button("All Articles") { browseCategory = nil }
             }
-            if packReference != nil || stack != nil {
+            if packReference != nil || stack != nil || searchKey.project != nil {
                 Button("Search All Docsets") { clearScope() }.buttonStyle(.borderedProminent)
             }
             Button("Browse Docsets", action: resetToBrowse)
@@ -260,11 +277,17 @@ struct DocsView: View {
                 .help("Saved and Recent References (⇧⌘B)").accessibilityLabel("Saved and Recent References")
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField(currentPack.map { "Search \($0.name)" } ?? "Search docs — try py:Path.read_text", text: Binding(
-                    get: { query }, set: { query = $0; directDocumentID = nil; resetReaderTarget() }
+                TextField(currentPack.map { "Search \($0.name)" } ?? "Search symbols, topics, and guides", text: Binding(
+                    get: { query }, set: { value in
+                        guard value != query else { return }
+                        query = value
+                        directDocumentID = nil
+                        resetReaderTarget()
+                    }
                 ))
                     .textFieldStyle(.plain)
                     .focused($searchFocused)
+                    .help("Search installed documentation. Try a topic or a scoped symbol like py:Path.read_text.")
                     .onSubmit(commitSearchSelection)
                     .onKeyPress(.downArrow) { moveSelection(by: 1) }
                     .onKeyPress(.upArrow) { moveSelection(by: -1) }
@@ -423,7 +446,11 @@ struct DocsView: View {
         HSplitView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    if isBrowsingPack {
+                    if searching {
+                        ProgressView().controlSize(.mini)
+                        Text(searchProgressTitle).font(.caption.weight(.semibold))
+                        Spacer()
+                    } else if isBrowsingPack {
                         Menu {
                             Button("All Articles") { browseCategory = nil }
                             Divider()
@@ -437,9 +464,9 @@ struct DocsView: View {
                         Spacer()
                         Text("\(hits.count) loaded").font(.caption.monospacedDigit())
                     } else {
-                        Text("\(hits.count) \(hits.count == 1 ? "result" : "results")").font(.caption.weight(.semibold))
+                        Text(hits.count == searchLimit ? "Top \(searchLimit) results" : "\(hits.count) \(hits.count == 1 ? "result" : "results")")
+                            .font(.caption.weight(.semibold))
                         Spacer()
-                        if searching { ProgressView().controlSize(.mini) }
                     }
                 }
                 .foregroundStyle(.secondary)
@@ -454,8 +481,11 @@ struct DocsView: View {
             }
             .frame(minWidth: 195, idealWidth: 245, maxWidth: 290)
             .background(.quaternary.opacity(0.22))
-            reader
-                .frame(minWidth: 345, maxWidth: .infinity, maxHeight: .infinity)
+            Group {
+                if searching && directDocumentID == nil { Color.clear }
+                else { reader }
+            }
+            .frame(minWidth: 345, maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -477,28 +507,30 @@ struct DocsView: View {
 
     private var articleListContent: some View {
         List(selection: Binding(get: { selectedID }, set: { value in
-            guard value != selectedID else { return }
-            if value != nil { directDocumentID = nil; resetReaderTarget(); automaticSelection = false }
+            guard hasCurrentResults, let value, value != selectedID, hits.contains(where: { $0.id == value }) else { return }
+            directDocumentID = nil
+            resetReaderTarget()
+            automaticSelection = false
             selectedID = value
         })) {
-            ForEach(hits) { hit in
+            ForEach(hasCurrentResults ? hits : []) { hit in
                 let name = packName(hit.packId, stack: hit.stack)
                 let title = ReaderMarkup.title(hit.title, fallback: "\(name) Overview")
+                let label = isBrowsingPack ? title : hit.symbol ?? title
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(!isBrowsingPack ? hit.symbol ?? title : title).font(.body.weight(.medium))
+                    Text(label).font(.body.weight(.medium))
                         .lineLimit(2, reservesSpace: isBrowsingPack)
-                    if !isBrowsingPack, hit.symbol != nil {
-                        Text(title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                    if let match = hit.matchText, !match.isEmpty, hit.symbol == nil, title.caseInsensitiveCompare(match) != .orderedSame {
-                        Text(ReaderMarkup.summary(match)).font(.caption.monospaced()).lineLimit(1)
-                    }
                     if !isBrowsingPack {
+                        if label != title {
+                            Text(title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
                         Text("\(name) · \(displayDocVersion(hit.version))")
                             .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        if hit.matchText == nil && !hit.snippet.isEmpty {
-                            Text(ReaderMarkup.summary(hit.snippet))
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        if let preview = resultPreview(hit, title: title, label: label) {
+                            Text(preview)
+                                .font(hit.symbol == nil ? .caption : .caption.monospaced())
+                                .foregroundStyle(.secondary).lineLimit(2)
+                                .help(preview)
                         }
                     }
                 }
@@ -508,7 +540,7 @@ struct DocsView: View {
                 .tag(hit.id)
                 .id(hit.id)
             }
-            if isBrowsingPack {
+            if isBrowsingPack && hasCurrentResults {
                 paginationRow
                     .frame(minHeight: browseRowHeight, alignment: .leading)
                     .listRowInsets(browseRowInsets)
@@ -521,9 +553,17 @@ struct DocsView: View {
         .scrollContentBackground(.hidden)
     }
 
+    private func resultPreview(_ hit: SearchHit, title: String, label: String) -> String? {
+        let candidates = hit.symbol == nil ? [hit.snippet, hit.matchText] : [hit.matchText, hit.snippet]
+        return candidates.compactMap { $0.map(ReaderMarkup.summary) }.first { preview in
+            !preview.isEmpty && preview.caseInsensitiveCompare(label) != .orderedSame
+                && preview.caseInsensitiveCompare(title) != .orderedSame
+        }
+    }
+
     private var paginationRow: some View {
         VStack(alignment: .leading, spacing: 5) {
-            if searching || loadingMore {
+            if loadingMore {
                 HStack(spacing: 7) {
                     ProgressView().controlSize(.mini)
                     Text("Loading Articles…").font(.callout).foregroundStyle(.secondary)
@@ -545,9 +585,9 @@ struct DocsView: View {
     }
 
     @ViewBuilder private var reader: some View {
-        if let document, document.id == readingID {
+        if let document {
             DocReader(document: document, packName: packName(document.packId, stack: document.stack),
-                      anchor: navigationAnchor, focus: navigationFocus, restoredPosition: navigationPosition, restoredOffset: navigationOffset,
+                      anchor: readerAnchor, focus: navigationFocus, restoredPosition: navigationPosition, restoredOffset: navigationOffset,
                       isSaved: reading.isSaved(document.id),
                       save: { anchor, focus in
                           var location = currentLocation(document)
@@ -563,8 +603,8 @@ struct DocsView: View {
                           reading.updatePosition(id: document.id, fraction: fraction, anchor: anchor, anchorOffset: offset)
                       })
                 .id(document.id)
-        } else if let documentError {
-            ContentUnavailableView("Document Unavailable", systemImage: "exclamationmark.circle", description: Text(documentError))
+        } else if let failure = documentFailure, failure.key == readKey {
+            ContentUnavailableView("Document Unavailable", systemImage: "exclamationmark.circle", description: Text(failure.message))
         } else if readingID != nil {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -588,6 +628,7 @@ struct DocsView: View {
     private func setStack(_ value: String?) {
         useProjectScope = false
         directDocumentID = nil
+        resetReaderTarget()
         packReference = nil
         browseCategory = nil
         stack = value
@@ -608,20 +649,22 @@ struct DocsView: View {
     }
 
     private func commitSearchSelection() {
-        guard committedSearch == searchKey else { return }
+        guard hasCurrentResults else {
+            if searching, !trimmedQuery.isEmpty { submittedSearch = searchKey }
+            return
+        }
         let selection = hits.first { $0.id == selectedID } ?? hits.first
         guard let selection else { return }
         automaticSelection = false
-        if let document, document.id == selection.id {
-            let location = currentLocation(document)
-            Task { await reading.didOpen(location, restoring: false, searchPreview: false) }
-        } else if selectedID != selection.id || directDocumentID != nil {
+        if selectedID != selection.id || directDocumentID != nil {
             selectAndReveal(selection.id)
+        } else if document != nil {
+            reading.commitSearchPreview()
         }
     }
 
     private func moveSelection(by offset: Int) -> KeyPress.Result {
-        guard committedSearch == searchKey, !hits.isEmpty else { return .ignored }
+        guard hasCurrentResults, !hits.isEmpty else { return .ignored }
         automaticSelection = false
         let index = hits.firstIndex { $0.id == selectedID } ?? -1
         if index + offset >= hits.count, isBrowsingPack, moreArticles {
@@ -634,28 +677,27 @@ struct DocsView: View {
     }
 
     private func search(_ key: SearchKey) async {
+        guard key == searchKey, !Task.isCancelled else { return }
         let pack = currentPack
         pageRequest = nil
         browseError = nil
         moreArticles = false
+        searchFailure = nil
         guard (!key.query.isEmpty || pack != nil), !packs.isEmpty else {
             hits = []
             selectedID = nil
             committedSearch = nil
-            searchError = nil
-            searching = false
             return
         }
 
-        searchError = nil
-        searching = true
         do {
-            if !key.query.isEmpty { try await Task.sleep(for: .milliseconds(30)) }
+            if !key.query.isEmpty { try await Task.sleep(for: .milliseconds(120)) }
+            guard key == searchKey else { return }
             let inheritedScope = pack == nil && key.project != nil
             let results: [SearchHit] = try await Core.request(
                 CoreRequest("docs.search", version: pack?.version, query: key.query,
                             stack: inheritedScope ? nil : pack?.stack ?? key.stack, packId: pack?.id,
-                            limit: key.query.isEmpty ? browseLimit + 1 : 30,
+                            limit: key.query.isEmpty ? browseLimit + 1 : searchLimit,
                             category: key.category, projectStack: inheritedScope ? key.stack : nil,
                             projectPath: inheritedScope ? key.project : nil)
             )
@@ -664,8 +706,8 @@ struct DocsView: View {
             hits = key.query.isEmpty ? Array(results.prefix(browseLimit)) : results
             moreArticles = key.query.isEmpty && results.count > browseLimit
             committedSearch = key
-            if directDocumentID == nil { automaticSelection = true }
-            if directDocumentID == nil, !hits.contains(where: { $0.id == selectedID }) {
+            if directDocumentID == nil {
+                automaticSelection = true
                 if let first = hits.first { selectAndReveal(first.id) }
                 else { selectedID = nil }
             }
@@ -673,21 +715,23 @@ struct DocsView: View {
                 selectedID = id
                 reveal = ListReveal(articleID: id)
             }
-            searching = false
+            if submittedSearch == key {
+                submittedSearch = nil
+                commitSearchSelection()
+            }
         } catch is CancellationError {
         } catch {
-            guard key == searchKey else { return }
-            searchError = error.localizedDescription
+            guard key == searchKey, !Task.isCancelled else { return }
+            searchFailure = (key, error.localizedDescription)
+            if submittedSearch == key { submittedSearch = nil }
             hits = []
             selectedID = nil
             committedSearch = nil
-            searching = false
         }
     }
 
     private func loadMoreArticles(advanceSelection: Bool = false) async {
-        guard let pack = currentPack, isBrowsingPack, moreArticles, !loadingMore,
-              !searching, committedSearch == searchKey else { return }
+        guard let pack = currentPack, isBrowsingPack, moreArticles, !loadingMore, hasCurrentResults else { return }
         let key = searchKey
         let request = UUID()
         let offset = hits.count
@@ -729,22 +773,19 @@ struct DocsView: View {
     }
 
     private func loadDocument(_ key: ReadKey) async {
-        guard directDocumentID != nil || committedSearch == searchKey else { return }
-        documentError = nil
-        if document?.id != key.id { document = nil }
-        guard let id = key.id else { return }
+        guard key == readKey, !Task.isCancelled, let id = key.id else { return }
+        documentFailure = nil
         do {
-            let value: Document = try await Core.request(CoreRequest("docs.show", id: id, query: key.query))
+            let value: Document = try await Core.request(CoreRequest("docs.show", id: id, query: key.query, focusText: key.focus))
             try Task.checkCancellation()
             guard key == readKey else { return }
-            document = value
-            let restoring = restoringHistory
-            restoringHistory = false
-            await reading.didOpen(currentLocation(value), restoring: restoring, searchPreview: automaticSelection)
+            loadedDocument = (key, value)
+            await reading.didOpen(currentLocation(value), restoring: historyNavigationToken == key.token,
+                                  searchPreview: automaticSelection)
         } catch is CancellationError {
         } catch {
-            guard key == readKey else { return }
-            documentError = error.localizedDescription
+            guard key == readKey, !Task.isCancelled else { return }
+            documentFailure = (key, error.localizedDescription)
         }
     }
 
@@ -755,14 +796,14 @@ struct DocsView: View {
         navigationPosition = nil
         navigationOffset = nil
         navigationQuery = ""
-        restoringHistory = false
+        historyNavigationToken = nil
         pendingBrowseReveal = nil
         navigationToken = UUID()
     }
 
     private func currentLocation(_ value: Document) -> ReferenceLocation {
         ReferenceLocation(id: value.id, query: query, stack: stack, pack: packReference, category: browseCategory,
-                          anchor: currentReaderAnchor ?? navigationAnchor,
+                          anchor: currentReaderAnchor ?? readerAnchor,
                           focusText: currentReaderAnchor == nil ? navigationFocus ?? value.focusText : nil,
                           browseIndex: isBrowsingPack ? hits.firstIndex { $0.id == value.id } : nil)
     }
@@ -782,7 +823,7 @@ struct DocsView: View {
         navigationPosition = location.position
         navigationOffset = location.anchorOffset
         navigationToken = request.token
-        restoringHistory = request.restoring
+        historyNavigationToken = request.restoring ? request.token : nil
         automaticSelection = false
         if request.restoring, location.pack != nil, trimmedQuery.isEmpty, let index = location.browseIndex {
             let scope = SearchKey(query: "", stack: location.stack, pack: location.pack,
@@ -843,6 +884,8 @@ struct DocsView: View {
     private struct ReadKey: Equatable {
         let id: String?
         let query: String
+        let focus: String?
+        let anchor: String?
         let token: UUID
     }
 }

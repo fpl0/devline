@@ -1,6 +1,32 @@
 use anyhow::Result;
 use rusqlite::{params, Connection, TransactionBehavior};
 
+mod sections;
+
+pub(super) fn ensure_sections(
+    db: &mut Connection,
+    ctx: &crate::Context,
+    releases: &str,
+) -> Result<()> {
+    sections::ensure(db, ctx, releases)
+}
+
+pub(super) fn index_pack_sections(
+    tx: &rusqlite::Transaction<'_>,
+    pack: &crate::DocPack,
+) -> Result<()> {
+    sections::ensure_schema(tx)?;
+    sections::index_pack(tx, &pack.id, &pack.version, pack.markdown.as_deref())
+}
+
+pub(super) fn section_focus(
+    db: &Connection,
+    id: &str,
+    alias: &str,
+) -> Result<Option<(String, Option<String>)>> {
+    sections::focus(db, id, alias)
+}
+
 pub(super) fn without_call(reference: &str) -> &str {
     let reference = reference.trim().trim_matches('`');
     if let Some((name, _)) = reference.split_once('(').filter(|(name, _)| {

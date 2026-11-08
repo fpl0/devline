@@ -397,6 +397,7 @@ fn import_doc_pack(
         params![pack.id, pack.version, digest, count],
     )?;
     doc_index::mark_pack(tx, &pack.id, &pack.version)?;
+    doc_index::index_pack_sections(tx, pack)?;
     doc_updates::record_installed(tx, pack)?;
     Ok(json!({"id":pack.id,"version":pack.version,"count":count}))
 }

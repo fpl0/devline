@@ -77,6 +77,10 @@ struct ReferenceHistory: Codable {
         }
     }
 
+    mutating func commitSearchPreview() {
+        lastSearchAt = nil
+    }
+
     mutating func move(_ direction: Int) -> ReferenceLocation? {
         let target = index + direction
         guard entries.indices.contains(target) else { return nil }

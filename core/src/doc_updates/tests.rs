@@ -122,14 +122,24 @@ fn installs_verified_archive_caches_originals_and_rolls_back() {
 #[test]
 fn retention_purges_verified_older_revisions_and_their_search_entries() -> Result<()> {
     let (_stage, ctx) = fixture();
-    let old = br#"[{"id":"old","title":"OldSymbol","body":"Superseded documentation","source_url":"https://example.org/docs/old"}]"#;
-    let new = br#"[{"id":"new","title":"NewSymbol","body":"Current documentation","source_url":"https://example.org/docs/new"}]"#;
+    let old = br#"[{"id":"old","title":"OldSymbol","body":"Superseded documentation","html":"<h2 id=\"legacy\">Legacy Details</h2>","source_url":"https://example.org/docs/old"}]"#;
+    let new = br#"[{"id":"new","title":"NewSymbol","body":"Current documentation","html":"<h2 id=\"current\">Current Details</h2>","source_url":"https://example.org/docs/new"}]"#;
     let first = checked_release(&ctx, pack("1.9.0"), old, true);
     install(&ctx, &json!({"id":"sample"}))?;
     let second = checked_release(&ctx, pack("1.10.0"), new, true);
     install(&ctx, &json!({"id":"sample"}))?;
+    assert_eq!(
+        ctx.database()?.query_row(
+            "SELECT count(*) FROM doc_sections_fts WHERE doc_sections_fts MATCH 'details'",
+            [],
+            |row| row.get::<_, usize>(0)
+        )?,
+        2
+    );
     rollback(&ctx, &json!({"id":"sample"}))?;
     assert_eq!(preferences(&ctx.database()?)?["sample"], first.pack.version);
+    let results = crate::doc_search::search(&ctx, &json!({"query":"legacy details"}))?;
+    assert_eq!(results[0]["match_anchor"], "legacy");
 
     updates::retention(&ctx, &json!({"keep_latest":true}))?;
     let invalid = checked_release(&ctx, pack("1.11.0"), new, false);
@@ -156,6 +166,14 @@ fn retention_purges_verified_older_revisions_and_their_search_entries() -> Resul
             |row| row.get::<_, usize>(0)
         )?,
         0
+    );
+    assert_eq!(
+        db.query_row(
+            "SELECT heading FROM doc_sections_fts WHERE doc_sections_fts MATCH 'details'",
+            [],
+            |row| row.get::<_, String>(0)
+        )?,
+        "Current Details"
     );
     Ok(())
 }
