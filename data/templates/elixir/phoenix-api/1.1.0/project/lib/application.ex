@@ -7,14 +7,14 @@ end
 defmodule DevlinePhoenix.Router do
   use Phoenix.Router
 
-  pipeline :json do
+  pipeline :release_json do
     plug(Plug.Parsers, parsers: [:json], json_decoder: Jason, length: 128_000)
   end
 
   get("/healthz", DevlinePhoenix.Health, :show)
 
   scope "/" do
-    pipe_through(:json)
+    pipe_through(:release_json)
 
     get("/", ReleaseDesk.Controller, :index)
     post("/releases", ReleaseDesk.Controller, :submit)
