@@ -352,6 +352,26 @@
     "id": "rails",
     "name": "Ruby on Rails",
     "stack": "ruby",
+    "version": "8.1.4.1+devline.1",
+    "description": "Official Rails guides for routing, controllers, views, models, jobs and deployment.",
+    "source_url": "https://guides.rubyonrails.org/v8.1.4.1/",
+    "license": "CC-BY-SA-4.0",
+    "path": "docs/rails/8.1.4.1+devline.1",
+    "markdown": [],
+    "upstream_version": "8.1.4.1",
+    "snapshot_date": "2026-11-08",
+    "coverage": [
+      "Application guides, Active Record, controllers, routing, jobs, and deployment"
+    ],
+    "omissions": [
+      "The full Rails API class catalog is omitted",
+      "Four upstream links target headings absent from this snapshot"
+    ]
+  },
+  {
+    "id": "rails",
+    "name": "Ruby on Rails",
+    "stack": "ruby",
     "version": "8.1.3+devline.2",
     "description": "Official Rails guides for routing, controllers, views, models, jobs and deployment.",
     "source_url": "https://guides.rubyonrails.org/v8.1/",

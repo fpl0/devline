@@ -1,0 +1,26 @@
+<h1>Rails Notes</h1>
+
+<%= form_with model: @note do |form| %>
+  <% if @note.errors.any? %>
+    <ul role="alert" id="note-errors">
+      <% @note.errors.full_messages.each do |message| %>
+        <li><%= message %></li>
+      <% end %>
+    </ul>
+  <% end %>
+  <%= form.label :body, "New note" %>
+  <%= form.text_area :body, rows: 4, required: true, maxlength: 1000,
+        aria: { describedby: ("note-errors" if @note.errors.any?) } %>
+  <%= form.submit "Save note" %>
+<% end %>
+
+<h2>Saved notes</h2>
+<% if @notes.any? %>
+  <ul class="notes">
+    <% @notes.each do |note| %>
+      <li><%= note.body %></li>
+    <% end %>
+  </ul>
+<% else %>
+  <p>No notes yet.</p>
+<% end %>

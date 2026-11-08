@@ -318,7 +318,7 @@ impl Feed {
             Self::Spring => "https://repo.maven.apache.org/maven2/org/springframework/boot/spring-boot-starter-parent/maven-metadata.xml",
             Self::Phoenix => "https://hex.pm/api/packages/phoenix",
             Self::EntityFramework => "https://api.nuget.org/v3-flatcontainer/microsoft.entityframeworkcore.sqlite/index.json",
-            Self::Rails => "https://rubygems.org/api/v1/versions/rails/latest.json",
+            Self::Rails => "https://rubygems.org/api/v1/versions/rails.json",
             Self::Ecto => "https://hex.pm/api/packages/ecto",
             Self::Node => "https://nodejs.org/dist/index.json",
             Self::React => "https://registry.npmjs.org/react/latest",
@@ -371,6 +371,7 @@ impl Feed {
             Self::Spring => major == 4 && minor == 1,
             Self::Phoenix => major == 1 && minor == 8,
             Self::EntityFramework => major == 10 && minor == 0,
+            Self::Rails => major == 8 && minor == 1 && parts >= &[8, 1, 4, 1],
             _ => true,
         }
     }
@@ -578,7 +579,13 @@ fn feed_versions(feed: Feed, body: &str) -> Result<Vec<String>> {
                     .flatten()
                     .filter_map(|row| row.as_str().map(str::to_owned))
                     .collect()),
-                Feed::Rails => one(json["version"].as_str()),
+                Feed::Rails => Ok(json
+                    .as_array()
+                    .context("Read RubyGems version list")?
+                    .iter()
+                    .filter(|row| row["prerelease"] == false)
+                    .filter_map(|row| row["number"].as_str().map(str::to_owned))
+                    .collect()),
                 _ => unreachable!("Text feeds handled above"),
             }
         }
@@ -867,6 +874,7 @@ fn starter_feed(id: &str) -> Option<Feed> {
         "java/spring-api" | "java/spring-mvc" => Some(Feed::Spring),
         "elixir/phoenix-api" => Some(Feed::Phoenix),
         "dotnet/aspnet-api" => Some(Feed::EntityFramework),
+        "ruby/rails-web" => Some(Feed::Rails),
         "node/react-web" => Some(Feed::React),
         "node/playwright-automation" => Some(Feed::Playwright),
         "node/service-kit" => Some(Feed::Fastify),
@@ -875,6 +883,13 @@ fn starter_feed(id: &str) -> Option<Feed> {
 }
 
 fn dependency_version(feed: Feed, project: &Path) -> Option<String> {
+    if matches!(feed, Feed::Rails) {
+        let lock = fs::read_to_string(project.join("Gemfile.lock")).ok()?;
+        return lock.lines().find_map(|line| {
+            let version = line.strip_prefix("    rails (")?.strip_suffix(')')?;
+            stable_version(version).map(|_| version.to_owned())
+        });
+    }
     let npm = match feed {
         Feed::React => Some("react"),
         Feed::Playwright => Some("@playwright/test"),
@@ -973,13 +988,17 @@ fn template_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> 
             let pinned = dependency_version(feed, &project);
             match (pinned, prefs.observations.get(feed.id())) {
                 (Some(pinned), Some(observation)) => {
+                    let compatible = observation
+                        .compatible
+                        .as_deref()
+                        .filter(|v| stable_version(v).is_some_and(|parts| feed.compatible(&parts)));
                     if let Some(error) = &observation.error {
                         item.state = "error";
                         append_detail(&mut item, &format!("{} check failed: {error}", feed.name()));
-                        if let Some(version) = &observation.compatible {
+                        if let Some(version) = compatible {
                             append_detail(&mut item, &format!("Last successful recipe-range result: {version}."));
                         }
-                    } else if let Some(upstream) = &observation.compatible {
+                    } else if let Some(upstream) = compatible {
                         item.state = if newer(upstream, &pinned) { "available" } else { "current" };
                         append_detail(&mut item, &format!("Bundled {} {pinned}. Latest within the recipe’s version range: {upstream}. Rebuild resolves the complete dependency set.", feed.name()));
                     } else {
@@ -1318,6 +1337,38 @@ pub fn check(ctx: &Context) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rails_starter_keeps_update_checks_within_the_recipe_range() -> Result<()> {
+        let feed = starter_feed("ruby/rails-web").expect("Rails update feed");
+        let versions = feed_versions(
+            feed,
+            r#"[
+                {"number":"8.2.1", "prerelease":false},
+                {"number":"8.1.5.rc1", "prerelease":true},
+                {"number":"8.1.4.2", "prerelease":false},
+                {"number":"8.1.4.1", "prerelease":false},
+                {"number":"8.1.4", "prerelease":false}
+            ]"#,
+        )?;
+        assert_eq!(latest(versions.iter().map(String::as_str)), Some("8.2.1"));
+        let compatible: Vec<_> = versions
+            .iter()
+            .map(String::as_str)
+            .filter(|v| stable_version(v).is_some_and(|parts| feed.compatible(&parts)))
+            .collect();
+        assert_eq!(compatible, ["8.1.4.2", "8.1.4.1"]);
+
+        let project = templates::Stage::new(&std::env::temp_dir().canonicalize()?)?;
+        fs::write(
+            project.0.join("Gemfile.lock"),
+            "GEM\n  specs:\n    app (1.0)\n      rails (>= 8.0)\n    rails (8.1.4.1)\n\nDEPENDENCIES\n  rails (~> 8.1.0, >= 8.1.4.1)\n",
+        )?;
+        let pinned = dependency_version(feed, &project.0).context("Read pinned Rails version")?;
+        assert_eq!(pinned, "8.1.4.1");
+        assert!(newer(latest(compatible.into_iter()).unwrap(), &pinned));
+        Ok(())
+    }
 
     #[test]
     fn node_and_npm_updates_use_stable_publisher_versions() {

@@ -1,0 +1,12 @@
+/.bundle/
+/.bundle-gems/
+/.bundler/
+/.env
+/.env.local
+/config/master.key
+/config/credentials/*.key
+/log/
+/public/assets/
+/ruby-runtime/
+/storage/
+/tmp/

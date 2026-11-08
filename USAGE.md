@@ -208,7 +208,7 @@ Each starter includes its local dependency closure and an offline test. Use `dev
 - **Go** ships a Chi API, a PostgreSQL and Redis Taskboard, a service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3 and JWT, and a file-index CLI.
 - **Rust** ships an Axum API, a service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, HTTP and JWT, and a JSONL report CLI.
 - **Python** ships a FastAPI API, a service kit with Psycopg, PyMySQL, SQLite, Redis, Pika, NATS, Boto3, JWT and HTTPX, and a DuckDB and HTTPX data automation CLI.
-- **Ruby** ships a JSON CLI, a Sinatra service kit with Sequel, PostgreSQL, MySQL, SQLite, Redis, RabbitMQ, NATS, S3, JWT and Faraday, and a Thor and Rake task automation starter. The native Ruby service dependencies require Apple Command Line Tools and OpenSSL 3.
+- **Ruby** ships a Rails web app with SQLite and Puma (`ruby/rails-web`), a JSON CLI, a Sinatra service kit with Sequel, PostgreSQL, MySQL, SQLite, Redis, RabbitMQ, NATS, S3, JWT and Faraday, and a Thor and Rake task automation starter. The Rails starter uses Apple Command Line Tools for native gems. The Sinatra service kit also requires OpenSSL 3 development files.
 - **C# and .NET** ship a JSON file CLI (`dotnet/json-cli`), a SQLite task REST API (`dotnet/aspnet-api`), and an MVC task board with Razor and Keycloak (`dotnet/aspnet-mvc`).
 - **Java** ships a JSON file CLI (`java/json-tool`), an in-memory Spring Boot task REST API (`java/spring-api`), and a Spring MVC task board with Thymeleaf and Keycloak (`java/spring-mvc`).
 - **Elixir** ships a Phoenix API with Ecto SQL, Postgrex, MyXQL, SQLite, Redis, RabbitMQ, S3 and Joken, and an OTP report worker.

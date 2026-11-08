@@ -41,6 +41,9 @@ ASPNET_SAMPLES_COMMIT = "8dbb6f86c84f78cfd4a61f9207d55199635595bf"
 ASPNET_SAMPLES_ARCHIVE = f"aspnet-samples-{ASPNET_SAMPLES_COMMIT}.tar.gz"
 NODE_VERSION = "26.13.0"
 NODE_DOC_BASE = f"https://nodejs.org/dist/v{NODE_VERSION}/docs/api/"
+RAILS_VERSION = "8.1.4.1"
+RAILS_ARCHIVE = f"rails-{RAILS_VERSION}.tar.gz"
+RAILS_SNAPSHOT_DATE = "2026-11-08"
 NODE_PAGES = (
     "assert async_context buffer child_process cli console crypto dgram dns events fs http http2 https "
     "module net os path perf_hooks process readline sqlite stream test timers tls url util worker_threads zlib esm packages typescript"
@@ -74,7 +77,7 @@ DOWNLOADS = {
     "python-LICENSE": "https://raw.githubusercontent.com/python/cpython/v3.15.2/LICENSE",
     "fastapi-0.162.0.tar.gz": "https://codeload.github.com/fastapi/fastapi/tar.gz/refs/tags/0.162.0",
     "ruby.tar.gz": "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-4.0.9.tar.gz",
-    "rails.tar.gz": "https://codeload.github.com/rails/rails/tar.gz/refs/tags/v8.1.3",
+    RAILS_ARCHIVE: f"https://codeload.github.com/rails/rails/tar.gz/refs/tags/v{RAILS_VERSION}",
     "elixir-docs.tar.gz": "https://repo.hex.pm/docs/elixir-1.20.5.tar.gz",
     "elixir-LICENSE": "https://raw.githubusercontent.com/elixir-lang/elixir/v1.20.5/LICENSE",
     "phoenix-LICENSE": "https://raw.githubusercontent.com/phoenixframework/phoenix/v1.8.16/LICENSE.md",
@@ -90,7 +93,7 @@ DOWNLOADS = {
 CONTENT_REVISION = "devline.1"
 CONTENT_REVISIONS = {
     "csharp": "devline.5", "aspnet": "devline.4", "python": "devline.2",
-    "go": "devline.3", "java": "devline.2", "rails": "devline.2", "ruby": "devline.2",
+    "go": "devline.3", "java": "devline.2", "ruby": "devline.2",
     "infrastructure": INFRASTRUCTURE_REVISION,
 }
 REFRESHED_SNAPSHOTS = {
@@ -150,6 +153,7 @@ SNAPSHOT_OMISSIONS = {
     ("java", "26.0.2.1+devline.2"): ["One link targets a heading absent from this snapshot"],
     ("python", "3.15.2+devline.2"): ["Two links target headings absent from this snapshot"],
     ("rails", "8.1.3+devline.2"): ["Eight links target headings absent from this snapshot"],
+    ("rails", "8.1.4.1+devline.1"): ["Four upstream links target headings absent from this snapshot"],
     ("ruby", "4.0.9+devline.2"): ["One link targets a heading absent from this snapshot"],
     ("rust", "1.99.1+devline.1"): ["Six links target headings absent from this snapshot"],
     ("spring-boot", "4.1.2+devline.1"): ["Five links target headings absent from this snapshot"],
@@ -159,9 +163,12 @@ SNAPSHOT_OMISSIONS = {
 def pack_metadata(pack_id, upstream, snapshot_version, missing=0):
     coverage, omission = PACK_SCOPE[pack_id]
     expanded_go = (pack_id, snapshot_version) == ("go", "1.27.3+devline.3")
+    snapshot_date = "2026-11-07" if (pack_id, snapshot_version) in REFRESHED_SNAPSHOTS else "2026-11-06"
+    if pack_id == "rails" and upstream == RAILS_VERSION:
+        snapshot_date = RAILS_SNAPSHOT_DATE
     result = {
         "upstream_version": "10.0" if pack_id in {"csharp", "aspnet"} else upstream,
-        "snapshot_date": "2026-11-07" if (pack_id, snapshot_version) in REFRESHED_SNAPSHOTS else "2026-11-06",
+        "snapshot_date": snapshot_date,
         "coverage": [coverage],
         "omissions": [omission, *SNAPSHOT_OMISSIONS.get((pack_id, snapshot_version), [])],
     }
@@ -1104,16 +1111,18 @@ JSON.generate URI.parse Net::HTTP.get CSV.foreach Pathname#join OptionParser#par
 
 
 def rails_pack(cache, scratch, rust_docs):
-    pack = Pack("rails", "Ruby on Rails", "ruby", "8.1.3",
+    pack = Pack("rails", "Ruby on Rails", "ruby", RAILS_VERSION,
                 "Official Rails guides for routing, controllers, views, models, jobs and deployment.",
-                "https://guides.rubyonrails.org/v8.1/", "CC-BY-SA-4.0",
-                "Ruby on Rails contributors, guides/source at tag v8.1.3. "
+                f"https://guides.rubyonrails.org/v{RAILS_VERSION}/", "CC-BY-SA-4.0",
+                f"Ruby on Rails contributors, guides/source at tag v{RAILS_VERSION}. "
+                f"https://github.com/rails/rails/tree/v{RAILS_VERSION}/guides/source\n\n"
+                f"Snapshot date: {RAILS_SNAPSHOT_DATE}. "
                 "Adapted as searchable text under the same CC BY-SA 4.0 license.")
     pack.notice(rust_docs.parent / "licenses/CC-BY-SA-4.0.txt", "LICENSE")
-    safe_extract_tar(cache / "rails.tar.gz", scratch, lambda name:
+    safe_extract_tar(cache / RAILS_ARCHIVE, scratch, lambda name:
                      str(name).partition("/")[2].startswith("guides/source/") and name.suffix == ".md"
                      or str(name).partition("/")[2].startswith("guides/assets/images/") and name.suffix in IMAGE_SUFFIXES)
-    guides = scratch / "rails-8.1.3/guides"
+    guides = scratch / f"rails-{RAILS_VERSION}/guides"
     base = guides / "source"
     for file in sorted(base.glob("*.md")):
         if re.match(r"^[0-9]|^upgrading", file.name):
@@ -1661,7 +1670,7 @@ def main():
             "java": ((), java_source),
             "spring-boot": (("spring-LICENSE",), lambda: spring_pack(reference, cache)),
             "ruby": (("ruby.tar.gz",), lambda: ruby_pack(cache, scratch, options.ruby or Path(shutil.which("ruby")).resolve())),
-            "rails": (("rails.tar.gz",), lambda: rails_pack(cache, scratch, rust_docs_source())),
+            "rails": ((RAILS_ARCHIVE,), lambda: rails_pack(cache, scratch, rust_docs_source())),
             "rust": ((), lambda: rust_pack(rust_docs_source())),
             "axum": ((), axum_source),
             "elixir": (("elixir-docs.tar.gz", "elixir-LICENSE"), lambda: hex_pack(cache, scratch, reference, "elixir")),

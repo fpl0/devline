@@ -1,0 +1,12 @@
+source "https://rubygems.org"
+
+ruby "~> 4.0.0"
+
+gem "rails", "~> 8.1.0", ">= 8.1.4.1"
+gem "puma", ">= 5.0"
+gem "sqlite3", ">= 2.1"
+gem "propshaft"
+
+group :test do
+  gem "minitest"
+end

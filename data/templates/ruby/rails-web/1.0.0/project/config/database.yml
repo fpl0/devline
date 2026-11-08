@@ -1,0 +1,16 @@
+default: &default
+  adapter: sqlite3
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5) %>
+  timeout: 5000
+
+development:
+  <<: *default
+  database: storage/development.sqlite3
+
+test:
+  <<: *default
+  database: <%= File.join(ENV.fetch("DEVLINE_RAILS_TEST_DIR", "storage"), "test.sqlite3").to_json %>
+
+production:
+  <<: *default
+  database: storage/production.sqlite3

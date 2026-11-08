@@ -362,6 +362,24 @@
     "target": "darwin-arm64"
   },
   {
+    "id": "ruby/rails-web",
+    "name": "Ruby on Rails Web App",
+    "stack": "ruby",
+    "version": "1.0.0",
+    "description": "A server-rendered Rails 8.1 web app with SQLite, Puma, and a bundled gem cache for offline development.",
+    "app_type": "web",
+    "path": "templates/ruby/rails-web/1.0.0",
+    "toolchain": "ruby",
+    "minimum_version": "4.0.9",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "ruby",
+      "rails"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
     "id": "ruby/service-kit",
     "name": "Ruby Service Kit",
     "stack": "ruby",
