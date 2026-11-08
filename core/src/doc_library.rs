@@ -68,12 +68,11 @@ pub(crate) fn import_local(ctx: &Context, id: &str, version: &str) -> Result<Val
     let _lock = lock_library(ctx)?;
     let active = doc_updates::preferences(&ctx.database()?)?;
     let prefer = active.get(id).is_none_or(|current| {
-        fn upstream(release: &str) -> &str {
-            release
-                .split_once("+devdocs.")
-                .map_or(release, |(base, _)| base)
-        }
-        !updates::compare_doc_releases(upstream(version), upstream(current)).is_lt()
+        !updates::compare_doc_releases(
+            updates::doc_release(version).0,
+            updates::doc_release(current).0,
+        )
+        .is_lt()
     });
     let cached = doc_updates::store_original(ctx, pack, &source)?;
     install_doc_pack_with_preference(ctx, pack, &cached, prefer)
@@ -398,6 +397,7 @@ fn import_doc_pack(
         params![pack.id, pack.version, digest, count],
     )?;
     doc_index::mark_pack(tx, &pack.id, &pack.version)?;
+    doc_index::index_pack_sections(tx, pack)?;
     doc_updates::record_installed(tx, pack)?;
     Ok(json!({"id":pack.id,"version":pack.version,"count":count}))
 }

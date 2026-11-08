@@ -135,6 +135,17 @@ class DevDocsImportTests(unittest.TestCase):
             self.assertEqual(len(installed), 2)
             self.assertEqual(next(pack["version"] for pack in installed if pack["id"] == "devdocs-astro"), release)
             self.assertIn("Offline archive article", query("docs", "show", "GoFixture")["body"])
+            go_release = next(pack["version"] for pack in installed if pack["id"] == "devdocs-go")
+            old_go = {**go_meta, "slug": "go~1.9", "release": "1.9.5", "version": "1.9"}
+            archive_files(source / "go~1.9.tar.gz", {
+                "./meta.json": old_go,
+                "./index.json": {"entries": [{"name": "OldGoFixture", "path": "index"}]},
+                "./db.json": {"index": "<h1>Earlier Go docs</h1>"},
+            })
+            self.run_command(*importer, "--doc", "go", "--doc", "go")
+            self.assertIn("Offline archive article", query("docs", "show", "GoFixture")["body"])
+            query("docs", "remove", "devdocs-go", "--version", go_release)
+            self.assertEqual(query("docs", "install", "devdocs-go")["version"], go_release)
             output = root / "private.devlinebundle"
             self.run_command(*cli, "bundle", "export", str(output), "--doc", f"devdocs-astro@{release}", success=False)
             self.assertFalse(output.exists())
@@ -150,7 +161,7 @@ class DevDocsImportTests(unittest.TestCase):
 
             archive_files(source / "broken.tar.gz", {"../db.json": {}, "./index.json": {"entries": []}})
             report = json.loads(self.run_command(*importer, success=False))
-            self.assertEqual({entry["slug"] for entry in report["installed"]}, {"astro", "go~1.27"})
+            self.assertEqual({entry["slug"] for entry in report["installed"]}, {"astro", "go~1.27", "go~1.9"})
             self.assertEqual([entry["slug"] for entry in report["failed"]], ["broken"])
             self.assertFalse((root / "db.json").exists())
 
@@ -161,6 +172,9 @@ class DevDocsImportTests(unittest.TestCase):
             query("docs", "remove", "devdocs-astro", "--version", latest)
             query("docs", "install", selected)
             self.assertTrue(query("offline", "status", "--doc", selected)["ready_offline"])
+            query("library", "purge")
+            retained = {pack["id"]: pack["version"] for pack in query("docs", "list", "--installed")}
+            self.assertEqual(retained, {"devdocs-astro": latest, "devdocs-go": go_release})
 
 
 if __name__ == "__main__":

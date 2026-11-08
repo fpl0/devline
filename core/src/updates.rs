@@ -401,6 +401,11 @@ fn newer(candidate: &str, current: &str) -> bool {
 }
 
 pub(super) fn doc_release(version: &str) -> (&str, u64) {
+    if let Some((upstream, _)) = version.split_once("+devdocs.").filter(|(_, digest)| {
+        digest.len() == 64 && digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+    }) {
+        return (upstream, 0);
+    }
     version
         .split_once("+devline.")
         .and_then(|(upstream, revision)| Some((upstream, revision.parse().ok()?)))

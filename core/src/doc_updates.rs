@@ -1,7 +1,7 @@
 use crate::{
     doc_library::{install_doc_pack_with_preference, shard_name, valid_doc_id, valid_doc_version},
     lock_library, updates,
-    updates::compare_doc_releases,
+    updates::{compare_doc_releases, doc_release},
     Context, DocPack,
 };
 use anyhow::{bail, Context as _, Result};
@@ -474,9 +474,14 @@ pub(crate) fn prune(ctx: &Context, installed: Option<&[(&str, &str)]>) -> Result
     let mut db = ctx.database()?;
     let indexed = installed_versions(&db)?;
     let cached = cached_packs(ctx)?;
+    let preferred = preferences(&db)?;
     let mut latest = BTreeMap::<&str, &str>::new();
     for (id, versions) in &indexed {
-        latest.insert(id, &versions[0]);
+        let newest = &versions[0];
+        let selected = preferred.get(id).filter(|version| {
+            crate::doc_library::is_devdocs(id) && doc_release(version).0 == doc_release(newest).0
+        });
+        latest.insert(id, selected.unwrap_or(newest));
     }
     for (pack, _) in &cached {
         // A cached source can outlive its index (e.g. after docs remove).
@@ -491,7 +496,10 @@ pub(crate) fn prune(ctx: &Context, installed: Option<&[(&str, &str)]>) -> Result
     let superseded = |id: &str, version: &str| {
         latest.get(id).is_some_and(|newest| {
             installed.is_none_or(|installed| installed.contains(&(id, newest)))
-                && compare_doc_releases(version, newest).is_lt()
+                && version != *newest
+                && (compare_doc_releases(version, newest).is_lt()
+                    || crate::doc_library::is_devdocs(id)
+                        && doc_release(version).0 == doc_release(newest).0)
         })
     };
     let mut removed = BTreeSet::new();

@@ -137,14 +137,14 @@ def local_inputs(source):
 def selected_slugs(available, requested):
     if not requested:
         return list(available)
-    selected = dict.fromkeys(requested)
-    for slug in requested:
+    selected = {}
+    for slug in dict.fromkeys(requested):
         if slug in available:
+            selected[slug] = None
             continue
         versions = [candidate for candidate in available if candidate.partition("~")[0] == slug]
         if not versions:
             raise ValueError(f"DevDocs docset {slug!r} was not found")
-        del selected[slug]
         selected.update(dict.fromkeys(versions))
     return list(selected)
 
