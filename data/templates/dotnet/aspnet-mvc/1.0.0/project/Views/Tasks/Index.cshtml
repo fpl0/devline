@@ -1,0 +1,47 @@
+@model TaskBoardModel
+@{
+    ViewData["Title"] = "My tasks";
+}
+<section aria-labelledby="heading">
+    <h1 id="heading">My tasks</h1>
+    <form class="create" asp-action="Create" method="post">
+        <label for="title">New task</label>
+        <div class="field">
+            <input id="title" name="title" maxlength="160" required>
+            <button type="submit">Add task</button>
+        </div>
+        <div asp-validation-summary="All" class="error"></div>
+    </form>
+</section>
+
+@if (Model.Tasks.Count == 0)
+{
+    <p class="empty">Your board is empty. Add a task to get started.</p>
+}
+else
+{
+    <ul class="tasks" aria-label="Task list">
+        @foreach (var task in Model.Tasks)
+        {
+            <li data-task-id="@task.Id">
+                <div>
+                    <strong>@task.Title</strong>
+                    <div class="status">
+                        @(task.Completed ? "Completed" : "Open") · @(task.DeliveredAt is null ? "Awaiting delivery" : "Delivered")
+                    </div>
+                </div>
+                <div class="actions">
+                    @if (!task.Completed)
+                    {
+                        <form asp-action="Complete" asp-route-id="@task.Id" method="post">
+                            <button type="submit" class="secondary">Complete</button>
+                        </form>
+                    }
+                    <form asp-action="Delete" asp-route-id="@task.Id" method="post">
+                        <button type="submit" class="secondary">Delete</button>
+                    </form>
+                </div>
+            </li>
+        }
+    </ul>
+}

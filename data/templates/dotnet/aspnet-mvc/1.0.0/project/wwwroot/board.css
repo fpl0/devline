@@ -1,0 +1,100 @@
+:root {
+    color-scheme: light dark;
+    font-family: system-ui, sans-serif;
+    line-height: 1.5;
+    --border: color-mix(in srgb, CanvasText 22%, Canvas);
+    --surface: color-mix(in srgb, CanvasText 5%, Canvas);
+    --accent: #155b55;
+}
+
+body {
+    margin: 0;
+    background: Canvas;
+    color: CanvasText;
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .6rem;
+    padding: 1rem max(1rem, calc((100vw - 45rem) / 2));
+    border-bottom: 1px solid var(--border);
+}
+
+.topbar a {
+    color: inherit;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+main {
+    max-width: 45rem;
+    padding: 2rem 1rem;
+    margin-inline: auto;
+}
+
+h1 { line-height: 1.15; }
+
+label {
+    display: block;
+    margin-bottom: .35rem;
+    font-weight: 600;
+}
+
+.field, .actions, .topbar form {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+}
+
+.field input {
+    flex: 1;
+    min-width: 8rem;
+    padding: .55rem;
+    border: 1px solid var(--border);
+    border-radius: .35rem;
+    font: inherit;
+}
+
+button, .button {
+    display: inline-block;
+    padding: .5rem .75rem;
+    font: inherit;
+    color: white;
+    background: var(--accent);
+    border: 1px solid transparent;
+    border-radius: .35rem;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.secondary {
+    background: Canvas;
+    border-color: var(--border);
+    color: CanvasText;
+}
+
+.tasks {
+    display: grid;
+    gap: .65rem;
+    padding: 0;
+    margin-top: 1.5rem;
+    list-style: none;
+}
+
+.tasks li {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .75rem;
+    padding: .85rem;
+    border: 1px solid var(--border);
+    border-radius: .45rem;
+    background: var(--surface);
+    overflow-wrap: anywhere;
+}
+
+.status, .user, .empty { font-size: .9rem; }
+.error { color: light-dark(#9c1b21, #ffabaf); }

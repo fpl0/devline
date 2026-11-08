@@ -40,9 +40,9 @@ impl Fixture {
         fs::write(root.join("devline.json"),json!({"schema_version":1,"run":{"command":["python3","server.py"],"url":format!("http://127.0.0.1:{port}"),"health_path":"/health"}}).to_string()).unwrap();
         fs::write(
             root.join("server.py"),
-            format!(
-                r#"import errno, signal, socket
+            r#"import errno, os, signal, socket
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlsplit
 signal.signal(signal.SIGTERM, signal.SIG_IGN)
 try:
     socket.create_connection(('1.1.1.1',443),timeout=1)
@@ -54,9 +54,9 @@ else:
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200); self.end_headers(); self.wfile.write(b'offline')
-HTTPServer(('127.0.0.1',{port}),Handler).serve_forever()
-"#
-            ),
+origin = urlsplit(os.environ['DEVLINE_APP_URL'])
+HTTPServer((origin.hostname, origin.port), Handler).serve_forever()
+"#,
         )
         .unwrap();
         Self { root, port }

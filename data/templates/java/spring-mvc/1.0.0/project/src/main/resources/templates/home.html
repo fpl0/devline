@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Task board</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<main>
+    <h1>Task board</h1>
+    <p>Keep a private task list. Completed tasks are recorded by a background worker.</p>
+    <p><a class="button" th:href="@{/oauth2/authorization/keycloak}">Sign in with Keycloak</a></p>
+</main>
+</body>
+</html>

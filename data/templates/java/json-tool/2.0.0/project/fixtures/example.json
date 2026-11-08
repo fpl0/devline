@@ -1,0 +1,7 @@
+{
+  "list": "Weekend errands",
+  "items": [
+    {"title": "Buy coffee", "done": true},
+    {"title": "Return books", "done": false}
+  ]
+}

@@ -284,6 +284,13 @@ fn command(ctx: &Context, project: &Path, arguments: &[String]) -> Result<Comman
     Ok(command)
 }
 
+fn set_launch_url(command: &mut Command, address: std::net::SocketAddr) {
+    let origin = format!("http://{address}");
+    command
+        .env("DEVLINE_APP_URL", &origin)
+        .env("ASPNETCORE_URLS", &origin);
+}
+
 fn run_arguments<'a>(action: &'a Action, project: &Path) -> Result<&'a [String]> {
     if action.command.is_empty() {
         bail!(
@@ -308,10 +315,7 @@ pub fn foreground(request: &Value, supplied: &[String]) -> Result<i32> {
     let mut app = command(&ctx, &path, arguments)?;
     if let Some(config) = config {
         if let Some(url) = config.run.url {
-            app.env(
-                "ASPNETCORE_URLS",
-                format!("http://{}", loopback_address(&url)?),
-            );
+            set_launch_url(&mut app, loopback_address(&url)?);
         }
         start_services(&ctx, &path)?;
     }
@@ -423,9 +427,11 @@ pub(crate) fn start(ctx: &Context, request: &Value) -> Result<Value> {
     }
     let config = configuration(&path.project)?;
     let args = run_arguments(&config.run, &path.project)?;
-    let app = command(ctx, &path.project, args)?;
+    let mut app = command(ctx, &path.project, args)?;
     if let Some(url) = &config.run.url {
-        TcpListener::bind(loopback_address(url)?).with_context(||format!("The app port in {url} is already in use. Stop that app or change run.url and its matching launch setting in {}.", configuration_file(&path.project)))?;
+        let address = loopback_address(url)?;
+        TcpListener::bind(address).with_context(||format!("The app port in {url} is already in use. Stop that app or change run.url and its matching launch setting in {}.", configuration_file(&path.project)))?;
+        set_launch_url(&mut app, address);
     }
     start_services(ctx, &path.project)?;
     let mut random = [0u8; 16];
@@ -457,12 +463,6 @@ pub(crate) fn start(ctx: &Context, request: &Value) -> Result<Value> {
     supervisor.args(["-c", "exit_file=$1; shift; trap 'while :; do /bin/sleep 1; done' TERM INT; \"$@\" & child=$!; wait \"$child\"; result=$?; printf '%s' \"$result\" > \"$exit_file\"; trap '' TERM INT; kill -TERM -- -$$; /bin/sleep 0.25; kill -KILL -- -$$", &token])
         .arg(&exit_file).arg(app.get_program()).args(app.get_args()).envs(app.get_envs().filter_map(|(k,v)|v.map(|v|(k,v))))
         .current_dir(&path.project).stdin(Stdio::null()).stdout(log.try_clone()?).stderr(log);
-    if let Some(url) = &config.run.url {
-        supervisor.env(
-            "ASPNETCORE_URLS",
-            format!("http://{}", loopback_address(url)?),
-        );
-    }
     unsafe {
         supervisor.pre_exec(|| {
             if libc::setsid() == -1 {

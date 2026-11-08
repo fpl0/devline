@@ -1,0 +1,22 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: #f5f7f7; color: #182e2b; font: 1rem/1.55 system-ui, sans-serif; }
+main { max-width: 44rem; margin: clamp(1.5rem, 8vw, 5rem) auto; padding: 0 1.25rem; }
+h1 { margin: 0; }
+header, footer, .tasks li, .actions, .add-task div {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem;
+}
+header { margin-bottom: 1.5rem; }
+header p { margin: .25rem 0 0; }
+footer { margin-top: 1.5rem; }
+.tasks { list-style: none; padding: 0; }
+.tasks li { padding: .75rem 0; border-bottom: 1px solid #b7c8c4; }
+.tasks small { display: block; }
+label { display: block; font-weight: 600; margin-bottom: .25rem; }
+input { flex: 1; min-width: 10rem; border: 1px solid #58756f; border-radius: .25rem; padding: .5rem; font: inherit; }
+a { color: #15584e; }
+button, .button {
+    display: inline-block; padding: .5rem .75rem; border: 1px solid #15584e; border-radius: .25rem;
+    background: #15584e; color: white; text-decoration: none; font: inherit; cursor: pointer;
+}
+.secondary { background: white; color: #15584e; }
+.error { color: #98272b; }

@@ -604,13 +604,30 @@
       "target": "darwin-arm64"
     },
     {
-      "id": "dotnet/aspnet-api",
-      "name": "ASP.NET Core API",
+      "id": "dotnet/json-cli",
+      "name": "C# JSON File Tool",
       "stack": "dotnet",
       "version": "1.0.0",
-      "description": "ASP.NET Core with EF Core and a bundled SQLite NuGet feed.",
+      "description": "Inspect, format, and select JSON from a file or standard input using the .NET 10 standard library.",
+      "app_type": "cli",
+      "path": "templates/dotnet/json-cli/1.0.0",
+      "toolchain": "dotnet",
+      "minimum_version": "10.0.400",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "csharp"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "dotnet/aspnet-api",
+      "name": "ASP.NET Core Task API",
+      "stack": "dotnet",
+      "version": "2.0.0",
+      "description": "A JSON REST API with task CRUD, request validation, SQLite persistence through EF Core, and offline tests.",
       "app_type": "api",
-      "path": "templates/dotnet/aspnet-api/1.0.0",
+      "path": "templates/dotnet/aspnet-api/2.0.0",
       "toolchain": "dotnet",
       "minimum_version": "10.0.400",
       "test_command": "./test-offline.sh",
@@ -622,13 +639,55 @@
       "target": "darwin-arm64"
     },
     {
-      "id": "java/spring-api",
-      "name": "Spring Boot API",
-      "stack": "java",
+      "id": "dotnet/aspnet-mvc",
+      "name": "ASP.NET Core MVC Task Board",
+      "stack": "dotnet",
       "version": "1.0.0",
-      "description": "Spring Boot 4.1.2 and JDK 26 with a bundled Maven repository.",
+      "description": "A Razor task board with Keycloak sign-in, PostgreSQL persistence, Redis list caching, and a RabbitMQ background consumer.",
+      "app_type": "web",
+      "path": "templates/dotnet/aspnet-mvc/1.0.0",
+      "toolchain": "dotnet",
+      "minimum_version": "10.0.400",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "csharp",
+        "aspnet",
+        "infrastructure"
+      ],
+      "verified": true,
+      "target": "darwin-arm64",
+      "services": [
+        "postgres@18.6",
+        "redis@8.10.1",
+        "rabbitmq@4.3.7",
+        "keycloak@26.8.2"
+      ]
+    },
+    {
+      "id": "java/json-tool",
+      "name": "Java JSON File Tool",
+      "stack": "java",
+      "version": "2.0.0",
+      "description": "Inspect, format, and select JSON from a file or standard input with Picocli, Jackson, and an executable JAR.",
+      "app_type": "cli",
+      "path": "templates/java/json-tool/2.0.0",
+      "toolchain": "mvn",
+      "minimum_version": "3.10.0",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "java"
+      ],
+      "verified": true,
+      "target": "darwin-arm64"
+    },
+    {
+      "id": "java/spring-api",
+      "name": "Spring Boot Task API",
+      "stack": "java",
+      "version": "2.0.0",
+      "description": "A Spring Boot 4.1 REST API with in-memory task CRUD, request validation, and HTTP problem responses.",
       "app_type": "api",
-      "path": "templates/java/spring-api/1.0.0",
+      "path": "templates/java/spring-api/2.0.0",
       "toolchain": "mvn",
       "minimum_version": "3.10.0",
       "test_command": "./test-offline.sh",
@@ -638,6 +697,31 @@
       ],
       "verified": true,
       "target": "darwin-arm64"
+    },
+    {
+      "id": "java/spring-mvc",
+      "name": "Spring Boot MVC Task Board",
+      "stack": "java",
+      "version": "1.0.0",
+      "description": "A Thymeleaf task board with Spring Security and Keycloak sign-in, PostgreSQL persistence, Redis list caching, and a RabbitMQ consumer.",
+      "app_type": "web",
+      "path": "templates/java/spring-mvc/1.0.0",
+      "toolchain": "mvn",
+      "minimum_version": "3.10.0",
+      "test_command": "./test-offline.sh",
+      "docs": [
+        "java",
+        "spring-boot",
+        "infrastructure"
+      ],
+      "verified": true,
+      "target": "darwin-arm64",
+      "services": [
+        "postgres@18.6",
+        "redis@8.10.1",
+        "rabbitmq@4.3.7",
+        "keycloak@26.8.2"
+      ]
     },
     {
       "id": "ruby/json-cli",
@@ -935,42 +1019,6 @@
       "target": "darwin-arm64"
     },
     {
-      "id": "dotnet/aspnet-api",
-      "name": "ASP.NET Core API",
-      "stack": "dotnet",
-      "version": "1.1.0",
-      "description": "ASP.NET Core 10 with EF Core SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, S3, JWT, and xUnit in a locked local NuGet feed.",
-      "app_type": "api",
-      "path": "templates/dotnet/aspnet-api/1.1.0",
-      "toolchain": "dotnet",
-      "minimum_version": "10.0.400",
-      "test_command": "./test-offline.sh",
-      "docs": [
-        "csharp",
-        "aspnet"
-      ],
-      "verified": true,
-      "target": "darwin-arm64"
-    },
-    {
-      "id": "java/spring-api",
-      "name": "Spring Boot API",
-      "stack": "java",
-      "version": "1.1.0",
-      "description": "Spring Boot 4.1.2 with PostgreSQL, MySQL, SQLite, Redis, RabbitMQ, S3, JWT, and JUnit in a local Maven repository.",
-      "app_type": "api",
-      "path": "templates/java/spring-api/1.1.0",
-      "toolchain": "mvn",
-      "minimum_version": "3.10.0",
-      "test_command": "./test-offline.sh",
-      "docs": [
-        "java",
-        "spring-boot"
-      ],
-      "verified": true,
-      "target": "darwin-arm64"
-    },
-    {
       "id": "elixir/phoenix-api",
       "name": "Phoenix HTTP API",
       "stack": "elixir",
@@ -984,41 +1032,6 @@
       "docs": [
         "elixir",
         "phoenix"
-      ],
-      "verified": true,
-      "target": "darwin-arm64"
-    },
-    {
-      "id": "dotnet/report-worker",
-      "name": "Hosted Report Worker",
-      "stack": "dotnet",
-      "version": "1.0.0",
-      "description": "A .NET Generic Host worker with typed configuration, cancellation, and an atomic local JSON report.",
-      "app_type": "worker",
-      "path": "templates/dotnet/report-worker/1.0.0",
-      "toolchain": "dotnet",
-      "minimum_version": "10.0.400",
-      "test_command": "./test-offline.sh",
-      "docs": [
-        "csharp",
-        "aspnet"
-      ],
-      "verified": true,
-      "target": "darwin-arm64"
-    },
-    {
-      "id": "java/json-tool",
-      "name": "JSON File Tool",
-      "stack": "java",
-      "version": "1.0.0",
-      "description": "An offline Java CLI with Picocli, Jackson, JUnit, and an executable JAR.",
-      "app_type": "cli",
-      "path": "templates/java/json-tool/1.0.0",
-      "toolchain": "mvn",
-      "minimum_version": "3.10.0",
-      "test_command": "./test-offline.sh",
-      "docs": [
-        "java"
       ],
       "verified": true,
       "target": "darwin-arm64"
@@ -1074,25 +1087,6 @@
       "docs": [
         "swift@6.4.0+devline.1",
         "swiftui"
-      ],
-      "verified": true,
-      "target": "darwin-arm64"
-    },
-    {
-      "id": "dotnet/aspnet-api",
-      "name": "ASP.NET Core API",
-      "stack": "dotnet",
-      "version": "1.2.0",
-      "description": "A working notes app with PostgreSQL persistence, RabbitMQ delivery, SQLite fallback, and locked offline packages. Includes a browser interface and live service health.",
-      "app_type": "api",
-      "path": "templates/dotnet/aspnet-api/1.2.0",
-      "toolchain": "dotnet",
-      "minimum_version": "10.0.400",
-      "test_command": "./test-offline.sh",
-      "docs": [
-        "csharp",
-        "aspnet",
-        "infrastructure"
       ],
       "verified": true,
       "target": "darwin-arm64"

@@ -94,7 +94,7 @@ In a generated project, `.devline/config.json` declares commands and the optiona
 }
 ```
 
-Commands are argument arrays and run from the project folder. Keep the app in the foreground so Devline can track and stop it. The optional `url` must use HTTP with a loopback address and an explicit port; configure the app to listen there. Devline supplies this address as `ASPNETCORE_URLS` for ASP.NET Core. The optional `health_path` must return HTTP 200 before **Open App** is enabled; without it, Devline checks that the port accepts connections. Omit both fields for command-line or native desktop apps.
+Commands are argument arrays and run from the project folder. Keep the app in the foreground so Devline can track and stop it. The optional `url` must use HTTP with a loopback address and an explicit port. Devline passes the loopback origin as `DEVLINE_APP_URL` and as `ASPNETCORE_URLS` for ASP.NET Core. Configure the app to listen on that address. The optional `health_path` must return HTTP 200 before **Open App** is enabled; without it, Devline checks that the port accepts connections. Omit both fields for command-line or native desktop apps.
 
 Devline also reads `devline.json` in older projects. For projects without a launch configuration, it looks for `run.sh`, then a .NET project in the selected folder, and recognizes `test-offline.sh` for testing. Devline uses the compatible toolchain installed on your Mac.
 
@@ -190,10 +190,12 @@ Each starter includes its local dependency closure and an offline test. Use `dev
 - **Rust** ships an Axum API, a service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, HTTP and JWT, and a JSONL report CLI.
 - **Python** ships a FastAPI API, a service kit with Psycopg, PyMySQL, SQLite, Redis, Pika, NATS, Boto3, JWT and HTTPX, and a DuckDB and HTTPX data automation CLI.
 - **Ruby** ships a JSON CLI, a Sinatra service kit with Sequel, PostgreSQL, MySQL, SQLite, Redis, RabbitMQ, NATS, S3, JWT and Faraday, and a Thor and Rake task automation starter. The native Ruby service dependencies require Apple Command Line Tools and OpenSSL 3.
-- **C# and .NET** ship an ASP.NET Core API with EF Core, SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, S3 and JWT, and a hosted report worker.
-- **Java** ships a Spring Boot API with SQLite, PostgreSQL and MySQL JDBC, Redis, RabbitMQ, S3 and JOSE, and a JSON file tool.
+- **C# and .NET** ship a JSON file CLI (`dotnet/json-cli`), a SQLite task REST API (`dotnet/aspnet-api`), and an MVC task board with Razor and Keycloak (`dotnet/aspnet-mvc`).
+- **Java** ships a JSON file CLI (`java/json-tool`), an in-memory Spring Boot task REST API (`java/spring-api`), and a Spring MVC task board with Thymeleaf and Keycloak (`java/spring-mvc`).
 - **Elixir** ships a Phoenix API with Ecto SQL, Postgrex, MyXQL, SQLite, Redis, RabbitMQ, S3 and Joken, and an OTP report worker.
 - **Node.js and TypeScript** ship a Fastify service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JOSE and Zod, a React and Vite web app, and Playwright browser and API automation with bundled WebKit for Apple Silicon on macOS 26.5 or later.
+
+Choose **Run Offline** in **Current Project** to launch any of the Java and C# demos. The CLI demos run the bundled example and put the result in **App Logs**. For REST and MVC, choose **Open App** once it is ready.
 
 ### Transfer a library
 
@@ -218,12 +220,14 @@ Service networks disable outbound NAT and use local DNS settings by default whil
 
 A service image runs the server. A client library lets your code talk to that server. The service picker shows client suggestions for the project's runtime, including package versions, offline availability, and anything already included. Optional libraries start unchecked: select **Add … to project** only when you want Devline to add that dependency. Selecting an image alone does not change your code dependencies. Built-in capabilities and unsupported combinations are identified without offering an unsuitable package.
 
-For example, the ASP.NET Core API starter already includes PostgreSQL and RabbitMQ clients. Select the two services when creating it, then open the project and choose **Run Offline**. Its notes app stores notes in PostgreSQL and processes them through RabbitMQ. The project guide explains the code, tests, and the SQLite fallback when no services are configured.
+The Java and C# MVC task boards require PostgreSQL, Redis, RabbitMQ, and Keycloak. Devline adds those four services automatically. Archive their images once while connected, or import them from a Devline vault bundle. Then you can create, build, test, and run either board offline. The app creates a local Keycloak realm for the demo. Sign in using an account from the generated README, then add a task to see it persisted in PostgreSQL and read through Redis. Follow the README to see the RabbitMQ consumer process a task event. The CLI and REST API starters need no containers.
 
 ```sh
-devline new dotnet/aspnet-api@1.2.0 ./notes \
-  --service postgres@18.6 --service rabbitmq@4.3.7
-./notes/devline.sh start
+devline --offline new dotnet/aspnet-mvc@1.0.0 ./dotnet-board
+./dotnet-board/devline.sh start
+
+devline --offline new java/spring-mvc@1.0.0 ./java-board
+./java-board/devline.sh start
 ```
 
 For a starter that does not already declare a supported client, add an explicit selection such as `--client dotnet:postgres` to `devline new`. New client choices modify the project's dependency declarations and prepare their offline closure. Leave the flag out to keep the starter's dependencies unchanged.
@@ -347,6 +351,8 @@ python3 scripts/seal-service-client-packs.py --check
 ```
 
 Use the ignored `.build/` directory for local verification outputs. For example, `python3 scripts/test-service-client-journeys.py --output .build/service-client-journeys` keeps the fixtures, logs, and results outside the tracked source tree.
+
+To exercise the six Java and C# starters through the CLI, run `cargo build --release --locked --manifest-path core/Cargo.toml` and `python3 scripts/test-java-dotnet-templates.py`. The full run needs the two toolchains, a running Docker engine, and the four MVC images archived in your Devline library. Use `--kind cli` or `--kind api` to run without Docker.
 
 The build uses checked-in catalog snapshots and may download locked Rust dependencies and Sparkle. The app uses `~/Library/Application Support/Devline` for new libraries and can reopen a library from an earlier installation. Use `DEVLINE_HOME` or `--home` to isolate the library and `DEVLINE_CATALOG` or `--catalog` to select another catalog. [Storage and catalog](CONTRACT.md#storage-and-catalog)
 

@@ -1,7 +1,0 @@
-@host = http://localhost:5080
-
-GET {{host}}/
-
-###
-
-GET {{host}}/notes

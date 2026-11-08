@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@ViewData["Title"] | C# Task Board</title>
+    <link rel="stylesheet" href="~/board.css" asp-append-version="true">
+</head>
+<body>
+    <header class="topbar">
+        <a asp-controller="Account" asp-action="Index">C# Task Board</a>
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <form asp-controller="Account" asp-action="Logout" method="post">
+                <span class="user">@User.Identity.Name</span>
+                <button type="submit" class="secondary">Sign out</button>
+            </form>
+        }
+    </header>
+    <main>
+        @RenderBody()
+    </main>
+</body>
+</html>

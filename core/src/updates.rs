@@ -859,7 +859,7 @@ fn starter_feed(id: &str) -> Option<Feed> {
         "python/fastapi-api" | "python/service-kit" => Some(Feed::FastApi),
         "rust/axum-api" | "rust/service-kit" => Some(Feed::Axum),
         "rust/tauri-desktop" => Some(Feed::Tauri),
-        "java/spring-api" => Some(Feed::Spring),
+        "java/spring-api" | "java/spring-mvc" => Some(Feed::Spring),
         "elixir/phoenix-api" => Some(Feed::Phoenix),
         "dotnet/aspnet-api" => Some(Feed::EntityFramework),
         "node/react-web" => Some(Feed::React),

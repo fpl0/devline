@@ -1,0 +1,31 @@
+@base = http://127.0.0.1:5080
+# Paste the id from POST here to try GET, PUT and DELETE.
+@id = 00000000-0000-0000-0000-000000000000
+
+GET {{base}}/health/ready
+
+###
+
+GET {{base}}/api/tasks
+
+###
+
+POST {{base}}/api/tasks
+Content-Type: application/json
+
+{"title":"Read the offline docs","completed":false}
+
+###
+
+GET {{base}}/api/tasks/{{id}}
+
+###
+
+PUT {{base}}/api/tasks/{{id}}
+Content-Type: application/json
+
+{"title":"Read the offline docs","completed":true}
+
+###
+
+DELETE {{base}}/api/tasks/{{id}}
