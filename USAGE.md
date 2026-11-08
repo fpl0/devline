@@ -116,10 +116,6 @@ devline --offline docs search 'tauri:commands'
 
 Both projects support `./devline.sh run`, `./devline.sh build`, and `./devline.sh test`. Build output stays under `target/` for Tauri and `.build/` for SwiftUI. The generated `.app` is signed locally for development. Tauri’s recipe refreshes compatible 2.x dependencies, vendors them, and verifies the result. The SwiftUI recipe rebuilds against the selected local SDK.
 
-![Tauri desktop starter inspecting Unicode text](press/tauri-starter.jpg)
-
-![SwiftUI Idea Board with locally saved notes](press/swiftui-starter-dark.png)
-
 The desktop documentation includes an official Tauri snapshot and **The Swift Programming Language**.
 
 ### Prepare the SwiftUI SDK reference
@@ -330,7 +326,7 @@ Use **Read Devline Guide** or `devline guide` for setup instructions specific to
 - [`integrations/`](integrations/) contains the VS Code and Neovim adapters and their tests. The adapters pass the selected symbol and its context to Devline in a `devline://search` URL.
 - [`data/`](data/) contains the offline library shipped with the app. `docs/` holds publisher reference packs, `help/` holds Devline guides, and `templates/` holds versioned starter payloads and build recipes. `project-adapters/` and `service-clients/` support offline project preparation. After editing `docs-catalog.json` or `templates-catalog.json`, run `python3 scripts/sync-catalog.py` to refresh the combined runtime catalog.
 - [`scripts/`](scripts/) contains the tools and tests for content ingestion, packaging, and releases. `infrastructure-docs/upstream/` holds the publisher inputs used to rebuild the infrastructure reference. [CI workflow](.github/workflows/validate.yml)
-- [`press/`](press/) holds the screenshots used by the README and this guide. [`third-party/`](third-party/) holds redistribution notices and package inputs used by the release build.
+- [`press/`](press/) holds the README screenshots. [`third-party/`](third-party/) holds redistribution notices and package inputs used by the release build.
 
 ## Build and validate
 
