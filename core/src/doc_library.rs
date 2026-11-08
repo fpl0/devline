@@ -10,6 +10,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::BTreeMap,
     fs,
     io::{self, Read},
     path::{Path, PathBuf},
@@ -27,6 +28,10 @@ pub(crate) struct Document {
     aliases: Vec<String>,
     #[serde(default)]
     category: Option<String>,
+    #[serde(default)]
+    group: Option<String>,
+    #[serde(default)]
+    alias_anchors: BTreeMap<String, String>,
 }
 
 impl Document {
@@ -57,6 +62,16 @@ pub(crate) fn import_local(
     version: &str,
     keep_latest: bool,
 ) -> Result<Value> {
+    import_local_with_checkpoint(ctx, id, version, keep_latest, &mut || Ok(()))
+}
+
+pub(crate) fn import_local_with_checkpoint(
+    ctx: &Context,
+    id: &str,
+    version: &str,
+    keep_latest: bool,
+    checkpoint: &mut impl FnMut() -> Result<()>,
+) -> Result<Value> {
     validate_doc_identity(id, version)?;
     let pack = ctx
         .catalog
@@ -71,6 +86,7 @@ pub(crate) fn import_local(
     }
     let source = safe_catalog_path(ctx, &pack.path)?;
     let _lock = lock_library(ctx)?;
+    checkpoint()?;
     let automatic_retention = updates::keep_latest(ctx)?;
     let db = ctx.database()?;
     let active = doc_updates::preferences(&db)?;
@@ -98,8 +114,27 @@ pub(crate) fn import_local(
     let prefer = active
         .get(id)
         .is_none_or(|current| !updates::compare_devdocs_versions(version, current).is_lt());
-    let cached = doc_updates::store_original(ctx, pack, &source)?;
-    let installed = install_doc_pack_with_preference(ctx, pack, &cached, prefer)?;
+    let (cached, created) = doc_updates::store_original_with_status(ctx, pack, &source)?;
+    let installed = match install_doc_pack_with_checkpoint(ctx, pack, &cached, prefer, checkpoint) {
+        Ok(installed) => installed,
+        Err(error) => {
+            if created
+                && ctx
+                    .database()
+                    .and_then(|db| {
+                        Ok(db.query_row(
+                            "SELECT EXISTS(SELECT 1 FROM packs WHERE id=?1 AND version=?2)",
+                            params![id, version],
+                            |row| row.get::<_, bool>(0),
+                        )?)
+                    })
+                    .is_ok_and(|installed| !installed)
+            {
+                let _ = fs::remove_dir_all(cached);
+            }
+            return Err(error);
+        }
+    };
     if keep_latest && !automatic_retention {
         doc_updates::prune(ctx, Some(&[(id, version)]))?;
     }
@@ -311,16 +346,28 @@ pub(crate) fn install_doc_pack_with_preference(
     directory: &Path,
     prefer: bool,
 ) -> Result<Value> {
+    install_doc_pack_with_checkpoint(ctx, pack, directory, prefer, &mut || Ok(()))
+}
+
+fn install_doc_pack_with_checkpoint(
+    ctx: &Context,
+    pack: &DocPack,
+    directory: &Path,
+    prefer: bool,
+    checkpoint: &mut impl FnMut() -> Result<()>,
+) -> Result<Value> {
+    checkpoint()?;
     let pack = verify_doc_source(ctx, pack, directory)?;
     let mut db = ctx.database()?;
     let tx = db.transaction()?;
-    let mut result = import_doc_pack(&tx, pack, directory)?;
+    let mut result = import_doc_pack(&tx, pack, directory, checkpoint)?;
     if prefer {
         doc_updates::prefer_release(&tx, &pack.id, &pack.version)?;
     }
     if pack.local_only {
         result["local_only"] = json!(true);
     }
+    checkpoint()?;
     tx.commit()?;
     doc_updates::prune_after_install(ctx, &[(pack.id.as_str(), pack.version.as_str())])?;
     Ok(result)
@@ -336,7 +383,7 @@ pub(crate) fn install_doc_packs(ctx: &Context, packs: &[(DocPack, PathBuf)]) -> 
     let tx = db.transaction()?;
     let results = packs
         .into_iter()
-        .map(|(pack, path)| import_doc_pack(&tx, pack, path))
+        .map(|(pack, path)| import_doc_pack(&tx, pack, path, &mut || Ok(())))
         .collect::<Result<Vec<_>>>()?;
     tx.commit()?;
     Ok(results)
@@ -346,6 +393,7 @@ fn import_doc_pack(
     tx: &rusqlite::Transaction<'_>,
     pack: &DocPack,
     directory: &Path,
+    checkpoint: &mut impl FnMut() -> Result<()>,
 ) -> Result<Value> {
     let shards = pack.shards.unwrap_or(1);
     if !(1..=1024).contains(&shards) {
@@ -365,7 +413,10 @@ fn import_doc_pack(
         let mut fts =
             tx.prepare("INSERT INTO docs_fts(rowid,title,body,stack) VALUES(?1,?2,?3,?4)")?;
         let mut aliases = tx.prepare("INSERT INTO aliases VALUES(?1,?2)")?;
+        let mut groups = tx.prepare("INSERT INTO doc_navigation VALUES(?1,?2)")?;
+        let mut anchors = tx.prepare("INSERT OR IGNORE INTO doc_alias_anchors VALUES(?1,?2,?3)")?;
         for shard in 1..=shards {
+            checkpoint()?;
             let bytes = read_doc_shard(directory, pack, shard)?;
             add_shard_to_pack_digest(&mut hash, pack, &bytes);
             if previous.is_some() {
@@ -378,7 +429,10 @@ fn import_doc_pack(
                 bail!("Documentation pack shard {shard} is empty");
             }
             count += docs.len();
-            for doc in docs {
+            for (offset, doc) in docs.into_iter().enumerate() {
+                if offset % 256 == 0 {
+                    checkpoint()?;
+                }
                 if doc.id.is_empty() || doc.title.is_empty() {
                     bail!("Document id and title must be present");
                 }
@@ -401,9 +455,25 @@ fn import_doc_pack(
                     doc.body,
                     pack.stack
                 ])?;
+                if let Some(group) = doc.group.as_deref().map(str::trim).filter(|group| {
+                    !group.is_empty() && group.len() <= 256 && !group.chars().any(char::is_control)
+                }) {
+                    groups.execute(params![id, group])?;
+                }
                 for alias in std::iter::once(&doc.title).chain(doc.aliases.iter()) {
                     aliases.execute(params![alias.to_lowercase(), id])?;
                     doc_index::add_alias(tx, &id, alias)?;
+                    if let Some(anchor) = doc.alias_anchors.get(alias).filter(|anchor| {
+                        !anchor.is_empty()
+                            && anchor.len() <= 4096
+                            && !anchor.chars().any(char::is_control)
+                    }) {
+                        anchors.execute(params![
+                            id,
+                            doc_index::without_call(alias).to_lowercase(),
+                            anchor
+                        ])?;
+                    }
                 }
             }
         }
@@ -419,6 +489,21 @@ fn import_doc_pack(
         }
         doc_updates::record_installed(tx, pack)?;
         return Ok(json!({"id":pack.id,"version":pack.version,"count":count}));
+    }
+    if let Some(entry) = &pack.entry_id {
+        let id = format!("{}@{}/{}", pack.id, pack.version, entry);
+        let exists: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM documents WHERE id=?1 AND pack_id=?2 AND version=?3)",
+            params![id, pack.id, pack.version],
+            |row| row.get(0),
+        )?;
+        if !exists {
+            bail!(
+                "Documentation contents page does not exist in {}@{}",
+                pack.id,
+                pack.version
+            );
+        }
     }
     tx.execute(
         "INSERT INTO packs VALUES(?1,?2,?3,?4)",
@@ -474,6 +559,7 @@ pub(crate) fn catalog(ctx: &Context, db: &Connection) -> Result<Vec<Value>> {
             older.version.clone_from(version);
             older.markdown = None;
             older.shards = None;
+            older.entry_id = None;
             older.upstream_version = None;
             older.snapshot_date = None;
             older.coverage.clear();

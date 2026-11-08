@@ -11,6 +11,10 @@ struct ReferenceLocation: Equatable, Codable {
     var position: Double?
     var anchorOffset: Double?
     var browseIndex: Int?
+    var scope: String?
+    var group: String?
+    var projectScoped: Bool?
+    var searchMatch: Bool?
 }
 
 struct ReferenceHistory: Codable {
@@ -51,7 +55,8 @@ struct ReferenceHistory: Codable {
     mutating func record(_ location: ReferenceLocation, searchPreview: Bool, now: Date = Date()) {
         if let current, current.id == location.id, current.query == location.query,
            current.stack == location.stack, current.pack == location.pack, current.category == location.category,
-           current.anchor == location.anchor, current.focusText == location.focusText {
+           current.anchor == location.anchor, current.focusText == location.focusText,
+           current.scope == location.scope, current.group == location.group, current.projectScoped == location.projectScoped {
             if !searchPreview { lastSearchAt = nil }
             if let browseIndex = location.browseIndex { entries[index].browseIndex = browseIndex }
             return

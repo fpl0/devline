@@ -13,12 +13,13 @@ struct DocPack: Decodable, Hashable, Sendable {
     let upstreamVersion, snapshotDate: String?
     let coverage, omissions: [String]?
     let active: Bool?
+    let entryId: String?
     let localOnly: Bool
 
     var reference: String { "\(id)@\(version)" }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, stack, version, description, sourceUrl, installed, upstreamVersion, snapshotDate, coverage, omissions, active, localOnly
+        case id, name, stack, version, description, sourceUrl, installed, upstreamVersion, snapshotDate, coverage, omissions, active, localOnly, entryId
     }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -34,6 +35,7 @@ struct DocPack: Decodable, Hashable, Sendable {
         coverage = try values.decodeIfPresent([String].self, forKey: .coverage)
         omissions = try values.decodeIfPresent([String].self, forKey: .omissions)
         active = try values.decodeIfPresent(Bool.self, forKey: .active)
+        entryId = try values.decodeIfPresent(String.self, forKey: .entryId)
         localOnly = try values.decodeIfPresent(Bool.self, forKey: .localOnly) ?? false
     }
 }

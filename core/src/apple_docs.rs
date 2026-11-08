@@ -515,7 +515,7 @@ fn pack(sdk: &Sdk, total: usize, documented: usize) -> DocPack {
         path: format!("docs/{PACK_ID}/{}", sdk.version), source_url: REFERENCE.into(),
         description: format!("Apple SwiftUI reference extracted from the selected macOS {} SDK ({}).", sdk.sdk_version, sdk.build),
         license: "Apple SDK documentation. Local use under the applicable Apple SDK terms.".into(),
-        markdown: Some(vec!["symbol/*".into()]), shards: None,
+        markdown: Some(vec!["symbol/*".into()]), shards: None, entry_id: None,
         upstream_version: Some(sdk.sdk_version.clone()), snapshot_date: None,
         coverage: vec![format!("{total} public declarations, including {documented} with original Apple SDK documentation comments.")],
         omissions: vec!["Apple Developer website articles, tutorials, and illustrations are outside this SDK snapshot. Some SDK symbols have declarations only.".into()],

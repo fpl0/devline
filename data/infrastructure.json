@@ -63,7 +63,7 @@
         "license_url": "https://www.postgresql.org/about/licence/"
       },
       "help_ref": "postgres",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/postgres/index",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/postgres/index",
       "docs_coverage": "Complete English HTML manual for 18.6, including the tutorial, SQL language, administration, interfaces, tools, extensions, and release notes.",
       "docs_omissions": "Separate PDF and duplicate man page formats are outside the searchable snapshot.",
       "connection": "postgresql://devline:{{secret:password}}@127.0.0.1:{{port:database}}/devline",
@@ -136,7 +136,7 @@
         "license_url": "https://github.com/mysql/mysql-server/blob/mysql-8.4.11/LICENSE"
       },
       "help_ref": "mysql",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/mysql/image",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/mysql/image",
       "docs_coverage": "The Docker Official Image manual and 27 MySQL 8.4.11 man pages cover initialization, configuration, command-line SQL, administration, table maintenance, logs, backup, and restore.",
       "docs_omissions": "Oracle's full online SQL, storage engine, replication, and connector manuals have separate redistribution terms and are linked online. NDB Cluster and standalone MySQL Router tools are outside the managed image scope.",
       "connection": "mysql://devline:{{secret:password}}@127.0.0.1:{{port:database}}/devline",
@@ -217,7 +217,7 @@
         "license_url": "https://github.com/rabbitmq/rabbitmq-server/blob/v4.3.7/LICENSE-MPL-RabbitMQ"
       },
       "help_ref": "rabbitmq",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/rabbitmq/index",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/rabbitmq/index",
       "docs_coverage": "The RabbitMQ 4.3 server manual, including configuration, AMQP, management HTTP API, reliability, security, backup and troubleshooting, plus the publisher's RabbitMQ tutorials and client library guides.",
       "docs_omissions": "Patch-specific 4.3.7 release notes (https://github.com/rabbitmq/rabbitmq-server/releases/tag/v4.3.7), other manual editions, the blog, separately published client API and protocol specifications, illustrations the offline renderer cannot embed, and interactive media are outside this snapshot.",
       "connection": "amqp://devline:{{secret:password}}@127.0.0.1:{{port:amqp}}/devline",
@@ -288,7 +288,7 @@
         "license_url": "https://redis.io/legal/licenses/"
       },
       "help_ref": "redis",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/redis/configuration",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/redis/configuration",
       "docs_coverage": "All 449 commands exposed by the pinned Redis image, including vector sets, with server and Sentinel configuration, CLI help, and 61 official guides on data types, persistence, transactions, scripting, security, and operations.",
       "docs_omissions": "The archived guides predate 8.10.1 and omit interactive client examples and illustrations. The current Redis website manual and separately shipped modules are outside this snapshot.",
       "connection": "redis://:{{secret:password}}@127.0.0.1:{{port:redis}}/0",
@@ -369,7 +369,7 @@
         "license_url": "https://www.mongodb.com/legal/licensing/server-side-public-license"
       },
       "help_ref": "mongodb",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/mongodb/image",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/mongodb/image",
       "docs_coverage": "The image manual and exact-version server, shell, and Database Tools help cover initialization, configuration, connections, CRUD and aggregation methods, maintenance, and logical backups and restores.",
       "docs_omissions": "The full 8.0 database manual, query and aggregation operator guides, driver manuals, and specifications remain online under the publisher's separate documentation terms.",
       "connection": "mongodb://devline:{{secret:password}}@127.0.0.1:{{port:database}}/devline?authSource=admin",
@@ -454,7 +454,7 @@
         "license_url": "https://github.com/nats-io/nats-server/blob/v2.15.2/LICENSE"
       },
       "help_ref": "nats",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/nats/concepts/intro",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/nats/concepts/intro",
       "docs_coverage": "NATS concepts, tutorials and Learn guides, plus the 2.15 server configuration, protocols, monitoring, authentication, JetStream APIs, operational reference, and version-series upgrade guides.",
       "docs_omissions": "Patch-specific 2.15.2 release notes (https://github.com/nats-io/nats-server/releases/tag/v2.15.2), other reference versions, linked external content, and interactive demonstrations are outside this snapshot.",
       "connection": "nats://devline:{{secret:password}}@127.0.0.1:{{port:nats}}",
@@ -528,7 +528,7 @@
         "license_url": "https://github.com/axllent/mailpit/blob/v1.33.0/LICENSE"
       },
       "help_ref": "mailpit",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/mailpit/index",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/mailpit/index",
       "docs_coverage": "Mailpit's official documentation for installation, configuration, integrations, usage and troubleshooting, plus the complete REST API v1 operation and schema reference from the managed release.",
       "docs_omissions": "Interactive Swagger controls and linked external content are outside this snapshot.",
       "connection": "smtp://127.0.0.1:{{port:smtp}}",
@@ -594,7 +594,7 @@
         "license_url": "https://github.com/meilisearch/meilisearch/blob/v1.56.1/LICENSE"
       },
       "help_ref": "meilisearch",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/meilisearch/resources/self_hosting/getting_started/quick_start",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/meilisearch/resources/self_hosting/getting_started/quick_start",
       "docs_coverage": "Self-hosting, configuration, security, troubleshooting, data backup, search and indexing capabilities, SDK quick starts, errors, and the published REST endpoint reference for the 1.56.1 OpenAPI snapshot.",
       "docs_omissions": "Cloud operations, Cloud analytics, Enterprise sharding guides, most older release notes, hosted assets, interactive API consoles, and complete SDK API manuals are outside this snapshot.",
       "connection": "http://127.0.0.1:{{port:http}}",
@@ -668,7 +668,7 @@
         "license_url": "https://github.com/seaweedfs/seaweedfs/blob/4.52/LICENSE"
       },
       "help_ref": "seaweedfs",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/seaweedfs/overview",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/seaweedfs/overview",
       "docs_coverage": "Single-node and Docker setup, Filer and master HTTP REST API, S3 SDK compatibility, IAM and STS, policy, retention, lifecycle, CORS, encryption, reverse proxy behavior, backup commands, and upstream configuration examples.",
       "docs_omissions": "The separately hosted wiki, its full S3 operation matrix, some illustrations, and AWS SDK API references remain online.",
       "connection": "http://127.0.0.1:{{port:s3}}",
@@ -746,7 +746,7 @@
         "license_url": "https://github.com/keycloak/keycloak/blob/26.8.2/LICENSE.txt"
       },
       "help_ref": "keycloak",
-      "docs_ref": "infrastructure@2026.11.07+devline.3/reference/keycloak/getting-started/getting-started-docker",
+      "docs_ref": "infrastructure@2026.11.07+devline.4/reference/keycloak/getting-started/getting-started-docker",
       "docs_coverage": "Docker and local setup, server and provider configuration, realm and client administration, OIDC/SAML and authorization, developer guides, importing and exporting realms, deployment, high availability, observability, troubleshooting, upgrades, and the Admin REST API.",
       "docs_omissions": "Java API Javadoc, third-party adapter manuals, unlinked site pages, larger illustrations, and hosted interactive tools remain online.",
       "connection": "http://127.0.0.1:{{port:http}}",

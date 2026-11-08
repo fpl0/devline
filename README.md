@@ -4,8 +4,6 @@ Devline is a macOS app and CLI for trying frameworks and building prototypes off
 
 [Download Devline 0.7.0 for Apple Silicon](https://github.com/fpl0/devline/releases/download/v0.7.0/Devline-macos-arm64.dmg) · [Usage guide](USAGE.md)
 
-![Devline Toolbox with installed documentation, starters, image archives, and detected toolchains](press/toolbox-dark.png)
-
 ## What you can do
 
 - **Read the docs for your project.** Search official references with code examples and links between installed pages. Devline matches documentation to supported project dependencies and lets you pin an exact release.
@@ -18,7 +16,7 @@ Devline is a macOS app and CLI for trying frameworks and building prototypes off
 
 Devline requires an Apple Silicon Mac running macOS 14 or later. Open the DMG, drag **Devline** into **Applications**, and follow the first-launch instructions in the DMG.
 
-Open a project folder with **⌘O**, or pick a starter in **App Starters**. Install the matching toolchain if Devline reports it missing. In **Current Project**, choose **Prepare Offline** to see what’s ready and what still needs attention.
+Open a project folder with **⌘O**, or choose **New from Starter** in **Projects**. Install the matching toolchain if Devline reports it missing. Choose **Prepare Offline** to see what’s ready and what needs attention.
 
 ### From the terminal
 
@@ -33,12 +31,12 @@ devline --offline project --path ./status-api run -- go test ./...
 
 ### Import DevDocs
 
-Builds from `main` include a DevDocs importer. With the Devline CLI installed and Python 3.9 or later on your `PATH`, run this in Terminal to import Astro:
+In **Docs → Manage Docs → Import from DevDocs**, choose a docset and release. After it downloads, find it under **Imported**. You can also import a docset from the CLI:
 
 ```sh
 devline docs import-devdocs --online --doc astro
 ```
 
-Return to Devline and look for **DevDocs · Astro** in **Library**. To import one current release per docset, run `devline docs import-devdocs --online --latest`. For local archives and more options, see the [DevDocs import guide](USAGE.md#import-devdocs-into-your-local-library).
+For local archives and more options, see the [DevDocs import guide](USAGE.md#import-devdocs-into-your-local-library).
 
 [Editor integrations](integrations/README.md) · [Build from source](USAGE.md#build-and-validate) · [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)

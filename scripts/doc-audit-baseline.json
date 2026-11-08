@@ -2,6 +2,16 @@
   "csharp@2026.11.06+devline.4:core/additional-tools/uninstall-tool-cli-remove.md: empty example block",
   "aspnet@2026.11.06+devline.3:tutorials/signalr-typescript-webpack.md: empty example block",
   "java@26.0.2.1+devline.1:java.management/java/lang/management/PlatformLoggingMXBean.html: nested example block"
+], "known_source_omissions": [
+  ["aspnet@2026.11.06+devline.5", "fundamentals/app-state.md", "learn.microsoft.com/en-us/aspnet/core/security/gdpr", "tempdata-provider-and-session-state-cookies-arent-essential"],
+  ["aspnet@2026.11.06+devline.5", "fundamentals/servers/kestrel.md", "learn.microsoft.com/en-us/aspnet/core/fundamentals/servers/kestrel/http3", "early-request-processing"],
+  ["aspnet@2026.11.06+devline.5", "security/authentication/cookie.md", "learn.microsoft.com/en-us/aspnet/core/security/gdpr", "essential-cookies"],
+  ["aspnet@2026.11.06+devline.5", "test/integration-tests.md", "learn.microsoft.com/en-us/aspnet/core/security/gdpr", "essential-cookies"],
+  ["aspnet@2026.11.06+devline.5", "tutorials/first-web-api.md", "learn.microsoft.com/en-us/aspnet/core/security/enforcing-ssl", "trust-ff"],
+  ["aspnet@2026.11.06+devline.5", "tutorials/min-web-api.md", "learn.microsoft.com/en-us/aspnet/core/security/enforcing-ssl", "trust-ff"],
+  ["aspnet@2026.11.06+devline.5", "tutorials/publish-to-azure-webapp-using-vscode.md", "learn.microsoft.com/en-us/aspnet/core/security/enforcing-ssl", "trust-ff"],
+  ["aspnet@2026.11.06+devline.5", "tutorials/web-api-help-pages-using-swagger.md", "learn.microsoft.com/en-us/aspnet/core/tutorials/getting-started-with-swashbuckle", "xml-comments"],
+  ["python@3.15.2+devline.3", "library/audit_events.html", "docs.python.org/3.15/library/os.html", "os._clearenv"]
 ], "missing_anchors": [
   ["aspnet@2026.11.06+devline.3", "fundamentals/app-state.md", "learn.microsoft.com/en-us/aspnet/core/security/gdpr", "tempdata-provider-and-session-state-cookies-arent-essential"],
   ["aspnet@2026.11.06+devline.3", "fundamentals/host/generic-host.md", "learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/index", "iis-options"],

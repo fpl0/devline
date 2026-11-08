@@ -12,6 +12,7 @@ import copy
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from filecmp import cmp
+import hashlib
 import html
 import json
 import os
@@ -26,7 +27,7 @@ from urllib.request import Request, urlopen
 import zipfile
 
 from infrastructure_sources import REVISION as INFRASTRUCTURE_REVISION, UPSTREAM as INFRASTRUCTURE_UPSTREAM
-from infrastructure_sources import VERSION as INFRASTRUCTURE_VERSION, document_id, read_sources, source_path
+from infrastructure_sources import VERSION as INFRASTRUCTURE_VERSION, document_id, example_text, read_sources, source_path
 from reference_io import atomic_json, command, read_text, safe_extract_tar, write_shards
 from reference_rendering import (
     IMAGE_SUFFIXES, PANDOC_VERSION, Node, archive_assets, article_from_html, as_text, clean_text,
@@ -39,6 +40,8 @@ DOTNET_COMMIT = "37fe0bfc5f596bf0bafd74bf927010384f184d96"
 ASPNET_COMMIT = "47d6f5c46f7a4c552fbf8ca9077439b95150c719"
 ASPNET_SAMPLES_COMMIT = "8dbb6f86c84f78cfd4a61f9207d55199635595bf"
 ASPNET_SAMPLES_ARCHIVE = f"aspnet-samples-{ASPNET_SAMPLES_COMMIT}.tar.gz"
+PYTHON_ARCHIVE_URL = "https://www.python.org/ftp/python/doc/3.15.2/python-3.15.2-docs-html.zip"
+PYTHON_ARCHIVE_SHA256 = "05867a551db84f1e705579d305e2ef50c5baecfbbf9c751d1b532c105c0354da"
 NODE_VERSION = "26.13.0"
 NODE_DOC_BASE = f"https://nodejs.org/dist/v{NODE_VERSION}/docs/api/"
 RAILS_VERSION = "8.1.4.1"
@@ -73,7 +76,7 @@ NODE_ANCHOR_REPAIRS = {
 }
 
 DOWNLOADS = {
-    "python.zip": "https://docs.python.org/3.15/archives/python-3.15-docs-html.zip",
+    "python.zip": PYTHON_ARCHIVE_URL,
     "python-LICENSE": "https://raw.githubusercontent.com/python/cpython/v3.15.2/LICENSE",
     "fastapi-0.162.0.tar.gz": "https://codeload.github.com/fastapi/fastapi/tar.gz/refs/tags/0.162.0",
     "ruby.tar.gz": "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-4.0.9.tar.gz",
@@ -92,10 +95,21 @@ DOWNLOADS = {
 
 CONTENT_REVISION = "devline.1"
 CONTENT_REVISIONS = {
-    "csharp": "devline.5", "aspnet": "devline.4", "python": "devline.2",
+    "csharp": "devline.5", "aspnet": "devline.5", "python": "devline.3",
     "go": "devline.3", "java": "devline.2", "ruby": "devline.2",
     "infrastructure": INFRASTRUCTURE_REVISION,
 }
+PILOT_REVISIONS = {"python", "aspnet", "infrastructure"}
+ASPNET_GROUPS = {
+    "fundamentals": "Fundamentals",
+    "host-and-deploy": "Host and deploy",
+    "performance": "Performance",
+    "security": "Security and Identity",
+    "test": "Test",
+    "tutorials": "Tutorials",
+    "web-api": "APIs",
+}
+LINK_REPAIRS = Path(__file__).resolve().parents[1] / "core" / "src" / "doc_link_repairs.json"
 REFRESHED_SNAPSHOTS = {
     ("csharp", "2026.11.06+devline.5"), ("aspnet", "2026.11.06+devline.4"),
     ("go", "1.27.3+devline.3"), ("java", "26.0.2.1+devline.2"),
@@ -105,7 +119,9 @@ REFRESHED_SNAPSHOTS = {
     ("playwright", "1.65.0+devline.1"), ("react", "19.3.1+devline.1"), ("vite", "8.3.6+devline.1"),
 }
 PACK_SCOPE = {
-    "python": ("Tutorial, language reference, HOWTOs, and standard library API pages", "Packaging tools and third-party libraries are separate references"),
+    "python": ("Tutorial, language and built-ins reference, HOWTOs, standard library and C API, "
+               "release notes, glossary, and other pages listed in the publisher's contents",
+               "Search pages, generated indexes, packaging tools, and third-party libraries are outside this snapshot"),
     "fastapi": ("Tutorial, advanced patterns, deployment, and generated API pages", "Translated guides and upstream release history are omitted"),
     "csharp": ("C# language, .NET fundamentals, SDK tooling, and compatibility notes", "The full .NET API catalog is outside this snapshot"),
     "aspnet": ("ASP.NET Core fundamentals, Web APIs, security, tests, hosting, and tutorials", "The full ASP.NET API catalog and version variants are outside this snapshot"),
@@ -140,6 +156,7 @@ SNAPSHOT_OMISSIONS = {
         "One source example is blank",
     ],
     ("aspnet", "2026.11.06+devline.4"): ["59 links target headings absent from this snapshot"],
+    ("aspnet", "2026.11.06+devline.5"): ["Eight links target headings unavailable in the selected .NET 10 articles"],
     ("csharp", "2026.11.06+devline.4"): [
         "One link targets a heading absent from this snapshot",
         "One source example is blank",
@@ -152,6 +169,7 @@ SNAPSHOT_OMISSIONS = {
     ],
     ("java", "26.0.2.1+devline.2"): ["One link targets a heading absent from this snapshot"],
     ("python", "3.15.2+devline.2"): ["Two links target headings absent from this snapshot"],
+    ("python", "3.15.2+devline.3"): ["The operating-system audit-event link to the unavailable os._clearenv entry remains online"],
     ("rails", "8.1.3+devline.2"): ["Eight links target headings absent from this snapshot"],
     ("rails", "8.1.4.1+devline.1"): ["Four upstream links target headings absent from this snapshot"],
     ("ruby", "4.0.9+devline.2"): ["One link targets a heading absent from this snapshot"],
@@ -166,6 +184,11 @@ def pack_metadata(pack_id, upstream, snapshot_version, missing=0):
     snapshot_date = "2026-11-07" if (pack_id, snapshot_version) in REFRESHED_SNAPSHOTS else "2026-11-06"
     if pack_id == "rails" and upstream == RAILS_VERSION:
         snapshot_date = RAILS_SNAPSHOT_DATE
+    if (pack_id, snapshot_version) in {
+        ("python", "3.15.2+devline.3"), ("aspnet", "2026.11.06+devline.5"),
+        ("infrastructure", f"{INFRASTRUCTURE_VERSION}+{INFRASTRUCTURE_REVISION}"),
+    }:
+        snapshot_date = "2026-11-08"
     result = {
         "upstream_version": "10.0" if pack_id in {"csharp", "aspnet"} else upstream,
         "snapshot_date": snapshot_date,
@@ -262,11 +285,13 @@ class Pack:
     missing: set = field(default_factory=set)
     attachments: dict = field(default_factory=dict)
     scope: dict = field(default_factory=dict)
+    entry_id: str | None = None
+    groups: dict = field(default_factory=dict)
 
-    def add(self, key, title, body, source, aliases=(), markup=None):
+    def add(self, key, title, body, source, aliases=(), markup=None, alias_anchors=None):
         if not body or (self.id != "infrastructure" and len(body) < 40):
             return
-        self.documents.append({
+        document = {
             "id": key,
             "title": title,
             "body": body,
@@ -274,7 +299,12 @@ class Pack:
             "source_url": source,
             "aliases": list(dict.fromkeys(a for a in aliases if a and len(a) < 200)),
             "category": document_category(self.id, key),
-        })
+        }
+        if group := self.groups.get(key):
+            document["group"] = group
+        if alias_anchors:
+            document["alias_anchors"] = alias_anchors
+        self.documents.append(document)
 
     def add_markdown(self, key, title, raw, source, aliases=(), assets=None):
         self.markdown.append((key, title, raw, source, aliases, assets))
@@ -300,6 +330,10 @@ class Pack:
         ids = [document["id"] for document in self.documents]
         if len(ids) != len(set(ids)):
             raise RuntimeError(f"Duplicate document IDs in {self.id}")
+        if self.entry_id and self.entry_id not in ids:
+            raise RuntimeError(f"Missing contents article {self.entry_id} in {self.id}")
+        if self.id in PILOT_REVISIONS:
+            repair_pilot_links(self.documents)
         snapshot_version = f"{self.version}+{CONTENT_REVISIONS.get(self.id, CONTENT_REVISION)}"
         target = data / "docs" / self.id / snapshot_version
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -345,9 +379,33 @@ class Pack:
         metadata["markdown"] = []
         metadata.update(pack_metadata(self.id, self.version, snapshot_version, len(self.missing)))
         metadata.update(self.scope)
+        if self.entry_id:
+            metadata["entry_id"] = self.entry_id
         if shard_count > 1:
             metadata["shards"] = shard_count
         return metadata
+
+
+def repair_pilot_links(documents):
+    # Apply only curated corrections whose exact destination survives this build.
+    repairs = json.loads(read_text(LINK_REPAIRS))
+    anchors = {
+        doc["source_url"]: {html.unescape(value) for value in re.findall(r'\bid="([^"]+)"', doc["html"])}
+        for doc in documents
+    }
+    for doc in documents:
+        def replace(match):
+            target = urlsplit(urljoin(doc["source_url"], html.unescape(match[1])))
+            base = target._replace(fragment="").geturl()
+            anchor = unquote(target.fragment)
+            correction = repairs.get(base, {}).get(anchor)
+            if correction and anchor not in anchors.get(base, ()):
+                destination = urlsplit(urljoin(base, correction))
+                page = destination._replace(fragment="").geturl()
+                if unquote(destination.fragment) in anchors.get(page, ()):
+                    return 'href="' + html.escape(destination.geturl(), quote=True) + '"'
+            return match[0]
+        doc["html"] = re.sub(r'\bhref="([^"]+)"', replace, doc["html"])
 
 
 def html_page(pack, raw, key, *, mode="main", source=None, title_prefix="", aliases=(), assets=None):
@@ -364,7 +422,8 @@ def html_page(pack, raw, key, *, mode="main", source=None, title_prefix="", alia
             qualified = [f"{name}.{item.partition('(')[0]}" for name in aliases for item in extracted]
         elif aliases and (pack.stack == "rust" or pack.id == "axum"):
             qualified = [f"{name}::{item.partition('.')[2]}" for name in aliases for item in extracted if "." in item]
-        pack.add(key, title_prefix + title, body, source, [*aliases, *qualified, *extracted], markup)
+        anchors = {anchor: anchor for anchor in extracted if len(anchor) < 200} if pack.id == "python" else None
+        pack.add(key, title_prefix + title, body, source, [*aliases, *qualified, *extracted], markup, anchors)
 
 
 def python_pack(cache):
@@ -372,23 +431,36 @@ def python_pack(cache):
                 "Official language reference, tutorial and standard library manual.",
                 "https://docs.python.org/3.15/", "PSF-2.0; examples also 0BSD",
                 "Python Software Foundation, Python 3.15.2 HTML documentation archive. "
-                "https://docs.python.org/3.15/download.html")
+                f"{PYTHON_ARCHIVE_URL}\n\n"
+                f"Publisher archive SHA-256: `{PYTHON_ARCHIVE_SHA256}`.")
     pack.notice(cache / "python-LICENSE", "LICENSE")
-    groups = {"library", "reference", "tutorial", "using", "howto", "installing", "distributing"}
-    with zipfile.ZipFile(cache / "python.zip") as archive:
+    pack.entry_id = "contents.html"
+    groups = {"builtins", "c-api", "deprecations", "distributing", "extending", "faq",
+              "howto", "installing", "library", "reference", "tutorial", "using", "whatsnew"}
+    standalone = {"about.html", "bugs.html", "copyright.html", "glossary.html", "index.html", "license.html", pack.entry_id}
+    archive_path = cache / "python.zip"
+    with archive_path.open("rb") as stream:
+        if hashlib.file_digest(stream, "sha256").hexdigest() != PYTHON_ARCHIVE_SHA256:
+            raise RuntimeError("Python HTML archive differs from the pinned 3.15.2 input")
+    with zipfile.ZipFile(archive_path) as archive:
         index = next(name for name in archive.namelist() if name.count("/") == 1 and name.endswith("/index.html"))
         if "Python 3.15.2 documentation" not in archive.read(index).decode():
             raise RuntimeError("Python HTML archive no longer corresponds to 3.15.2")
+        prefix = index.partition("/")[0]
+        titles = {
+            group: article_from_html(archive.read(f"{prefix}/{group}/index.html").decode(), "sphinx", group)[0]
+            for group in groups
+        }
         for name in sorted(archive.namelist()):
             key = name.partition("/")[2]
             file = Path(key)
-            if file.suffix != ".html" or file.parts[0] not in groups:
+            if file.suffix != ".html" or (key not in standalone and file.parts[0] not in groups):
                 continue
-            if file.stem in {"index", "genindex"}:
-                continue
+            if file.parts[0] in titles:
+                pack.groups[key] = titles[file.parts[0]]
             raw = archive.read(name).decode()
             html_page(pack, raw, key, mode="sphinx", aliases=(file.stem,),
-                      assets=archive_assets(archive, name.partition("/")[0], key))
+                      assets=archive_assets(archive, prefix, key))
     return pack
 
 
@@ -791,6 +863,7 @@ def microsoft_pack(cache, scratch, *, aspnet=False):
                     "https://learn.microsoft.com/en-us/aspnet/core/", "CC-BY-4.0; accompanying code MIT",
                     source_detail + "\n\nASP.NET Core 10.0 moniker. Samples repository commit: "
                     f"https://github.com/dotnet/AspNetCore.Docs.Samples/tree/{ASPNET_SAMPLES_COMMIT}")
+        pack.entry_id = "overview.md"
         base = repo / "aspnetcore"
     else:
         pack = Pack("csharp", "C# and .NET", "dotnet", "2026.11.06",
@@ -829,6 +902,8 @@ def microsoft_pack(cache, scratch, *, aspnet=False):
             pack.xrefs[uid[1].strip().strip("\"'")] = url
         pages.append((file, key, raw, url))
     for file, key, raw, url in pages:
+        if aspnet and (group := ASPNET_GROUPS.get(key.partition("/")[0])):
+            pack.groups[key] = group
         title, body = markdown_article(docfx_includes(raw, file, base, repo, pack), slug_title(file))
         pack.add_markdown(key, title, body, url, (file.stem, "ASP.NET " + title if aspnet else "C# " + title),
                           file_assets(file, base))
@@ -1257,6 +1332,7 @@ def add_infrastructure_page(pack, service, root, page):
     file = source_path(root, page["path"])
     url = page["source_url"]
     key = document_id(service["id"], page["id"])
+    pack.groups[key] = service["name"]
     assets = file_assets(file, root)
     markdown = file.suffix in {".md", ".mdx"}
     raw = read_text(file)
@@ -1275,6 +1351,14 @@ def add_infrastructure_page(pack, service, root, page):
                 raise RuntimeError(f"Publisher article selector did not match: {url}")
         article.children = [child for child in article.children if not isinstance(child, Node)
                             or child.attrs.get("class") not in {"navheader", "navfooter"}]
+        if examples := page.get("examples"):
+            slots = [node for block in article.walk() if block.tag == "pre"
+                     for node in block.children if isinstance(node, Node) and node.tag == "code"
+                     and as_text(node, pre=True).strip() == "loading..."]
+            if len(slots) != len(examples):
+                raise RuntimeError(f"Publisher example references do not match the rendered article: {url}")
+            for node, example in zip(slots, examples):
+                node.children = [example_text(root, example)]
         if service["id"] == "postgres":
             for node in article.walk():
                 if node.tag == "object" and node.attrs.get("type") == "image/svg+xml":

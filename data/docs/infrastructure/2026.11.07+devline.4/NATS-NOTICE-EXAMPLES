@@ -1,0 +1,18 @@
+NATS documentation examples
+
+The upstream website build extracts snippets from examples in the listed Apache-2.0-licensed client repositories. Branch heads shown were observed on the snapshot date. Local examples belong to nats-io/nats.docs.v2. See that repository's LICENSE and NOTICE.
+
+Repository and branch snapshots:
+- https://github.com/nats-io/nats.c/tree/b3d9954b9d57df6fc3c005c6944ac78fa8fc82a2 (main)
+- https://github.com/nats-io/nats.go/tree/d1774d1093462da643693f3140edbfc82c8f9a81 (main)
+- https://github.com/nats-io/nats.java/tree/bd522df45f853eab6bb8f3202c8c4de917b04b7c (main)
+- https://github.com/nats-io/nats.js/tree/a968b2a769484e094faec47612b20c254e00e5e1 (core-docs)
+- https://github.com/nats-io/nats.js/tree/8fe1c4871a29f89a3e0f341c15a1613abf18654e (docs-io-nats-examples)
+- https://github.com/nats-io/nats.js/tree/1b6b00699080fa18b3b070109ea51790ec701679 (jetstream-docs)
+- https://github.com/nats-io/nats.net/tree/a3b3bd53525f6d48938575313ff4710a5b44d02f (main)
+- https://github.com/nats-io/nats.py/tree/7ff05e7a6c2f6b3c573d709a782fda5a698ca533 (main)
+- https://github.com/nats-io/nats.rs/tree/2269277b7fe12d51580baf5de50e2467b4432c72 (main)
+- https://github.com/synadia-io/orbit.go/tree/3b87d6bb1d1a4564670d48a5f8fe373d4b902007 (main)
+- https://github.com/synadia-io/orbit.java/tree/0ba8ce6b12726dccd22b1f7fce65a3092282c49e (main)
+- https://github.com/synadia-io/orbit.net/tree/5433a7c7fe2e1704ef7d9706ebd8b0b593630e1c (main)
+- https://github.com/synadia-io/orbit.rs/tree/d820e11eacb7d017f8e92a7e60e7d78aefeb68bb (main)

@@ -32,6 +32,14 @@ SAFE_CLASSES = {"admonition", "admonition-title", "attention", "caution", "dange
 PANDOC_VERSION = "3.13"
 MAX_IMAGE_BYTES = 750_000
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
+PLAIN_CODE = {"default", "none", "nohighlight", "no-highlight", "output", "plain", "plaintext", "text", "txt"}
+CODE_ALIASES = {"python3": "python", "pycon": "python-repl", "shell-session": "plaintext", "dotnetcli": "bash"}
+BARE_CODE_LANGUAGES = {
+    "bash", "cs", "csharp", "dotnetcli", "html", "http", "javascript", "js", "json",
+    "powershell", "razor", "sh", "sql", "typescript", "vb", "xml", "yaml", "yml",
+}
+LANGUAGE_NAME = re.compile(r"[a-z][a-z0-9+#.-]{0,24}")
+SQL_START = re.compile(r"(?:ALTER|ANALYZE|BEGIN|CALL|COMMIT|COPY|CREATE|DELETE|DROP|EXPLAIN|GRANT|INSERT|MERGE|PREPARE|RESET|REVOKE|ROLLBACK|SELECT|SET|SHOW|TABLE|TRUNCATE|UPDATE|VACUUM|VALUES|WITH)\b")
 
 
 @dataclass
@@ -282,7 +290,54 @@ def render_html(node):
     return f"<{node.tag}{attrs}>" + ("" if node.tag in VOID else f"{inner}</{node.tag}>")
 
 
+def code_language(node):
+    classes = (node.attrs.get("class") or "").lower().split()
+    language = node.attrs.get("data-lang") or node.attrs.get("data-language")
+    if language:
+        language = language.strip().lower()
+    elif PLAIN_CODE.intersection(classes):
+        language = "plaintext"
+    else:
+        language = next((value.partition("-")[2] for value in classes
+                         if value.startswith(("language-", "lang-", "highlight-"))), None)
+        if not language and node.tag in {"pre", "code"}:
+            language = next((value for value in classes if value in BARE_CODE_LANGUAGES), None)
+    if language in PLAIN_CODE:
+        return "plaintext"
+    if language and LANGUAGE_NAME.fullmatch(language):
+        return CODE_ALIASES.get(language, language)
+    return None
+
+
+def normalize_code_blocks(node, *, postgres=False, inherited=None):
+    hint = code_language(node)
+    if node.tag == "pre":
+        code = next((child for child in node.children if isinstance(child, Node) and child.tag == "code"), None)
+        language = (code_language(code) if code else None) or hint or inherited
+        if language == "python" and re.search(r"^\s*>>> ", as_text(node, pre=True), re.M):
+            language = "python-repl"
+        if not language and postgres:
+            classes = (node.attrs.get("class") or "").split()
+            if "screen" in classes:
+                language = "plaintext"
+            elif {"programlisting", "synopsis"}.intersection(classes):
+                sample = as_text(node, pre=True).lstrip()
+                if SQL_START.match(sample):
+                    language = "pgsql"
+        if language:
+            if code is None:
+                code = Node("code", children=node.children)
+                node.children = [code]
+            code.attrs["class"] = "language-" + language
+        return
+    for child in node.children:
+        if isinstance(child, Node):
+            normalize_code_blocks(child, postgres=postgres, inherited=hint or inherited)
+
+
 def prepared_html(node, source, pack_id, xrefs=None, assets=None):
+    if pack_id in {"python", "aspnet", "infrastructure"} or pack_id.startswith("devdocs-"):
+        normalize_code_blocks(node, postgres=urlsplit(source).hostname == "www.postgresql.org")
     normalized = sanitize(node, source, pack_id, xrefs or {}, assets)
     if pack_id == "ruby":
         ruby_label_links(normalized, source)

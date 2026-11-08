@@ -2,13 +2,18 @@
 """Audit shipped docset metadata, offline HTML, code examples, and local links."""
 
 import argparse
+import base64
+from binascii import Error as Base64Error
 from collections import Counter, defaultdict
 from datetime import date
+import hashlib
 from html.parser import HTMLParser
 import json
 from pathlib import Path
 import re
 from urllib.parse import unquote, urljoin, urlsplit
+
+from infrastructure_sources import REFERENCE as INFRASTRUCTURE_REFERENCE, UPSTREAM, example_text
 
 
 FORBIDDEN_TAGS = {"base", "embed", "form", "iframe", "input", "link", "meta", "object", "script", "style"}
@@ -26,26 +31,59 @@ EXAMPLES = {
     ("react", "reference/react/useState"): ("updating-state-based-on-the-previous-state", 2),
     ("vite", "config/shared-options"): ("input", 1),
 }
+PYTHON_REFERENCE = "python@3.15.2+devline.3"
+ASPNET_REFERENCE = "aspnet@2026.11.06+devline.5"
+PILOT_LINKS = {
+    (PYTHON_REFERENCE, "contents.html"): ("https://docs.python.org/3.15/library/index.html",),
+    (PYTHON_REFERENCE, "library/audit_events.html"): (
+        "https://docs.python.org/3.15/library/_thread.html#thread.start_new_thread",
+    ),
+    (ASPNET_REFERENCE, "web-api/index.md"): (
+        "https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis/parameter-binding#asparam7",
+    ),
+    (INFRASTRUCTURE_REFERENCE, "reference/postgres/queries-select-lists"): (
+        "https://www.postgresql.org/docs/18/queries-table-expressions.html#QUERIES-TABLE-ALIASES",
+    ),
+    (INFRASTRUCTURE_REFERENCE, "reference/rabbitmq/tutorials/tutorial-one-dotnet"): (
+        "https://www.rabbitmq.com/docs/4.3/networking#ports",
+    ),
+}
+# Exact code from the pinned Python HTML, ASP.NET Markdown, and PostgreSQL HTML.
+PILOT_CODE = {
+    (PYTHON_REFERENCE, "library/pathlib.html"): ("python-repl", ">>> from pathlib import Path"),
+    (ASPNET_REFERENCE, "web-api/index.md"): (
+        "csharp", "if (!ModelState.IsValid)\n{\n    return BadRequest(ModelState);\n}",
+    ),
+    (INFRASTRUCTURE_REFERENCE, "reference/postgres/tutorial-select"): ("pgsql", "\nSELECT * FROM weather;"),
+}
+PILOT_PATHLIB = (PYTHON_REFERENCE, "library/pathlib.html")
+# _images/pathlib-inheritance.png in the pinned Python 3.15.2 HTML archive.
+PATHLIB_IMAGE_SHA256 = "4bd5db0b21f178fd8b16f7d999d0da20a00ca8d271cd556cfb1d26dea91aac88"
 
 
 def source_key(url):
     parsed = urlsplit(url)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         return None
-    return parsed.hostname, unquote(parsed.path).rstrip("/")
+    query = "?" + parsed.query if parsed.query else ""
+    return parsed.hostname, unquote(parsed.path).rstrip("/") + query
 
 
 class Article(HTMLParser):
-    def __init__(self):
+    def __init__(self, capture=False):
         super().__init__(convert_charrefs=True)
         self.anchors = set()
         self.links = set()
         self.tags = Counter()
         self.errors = []
         self.pre_text = None
+        self.pre_language = ""
         self.inline_code = 0
         self.examples = 0
         self.prose = []
+        self.capture = capture
+        self.code_blocks = []
+        self.images = set()
 
     def handle_starttag(self, tag, attributes):
         self.tags[tag] += 1
@@ -53,8 +91,16 @@ class Article(HTMLParser):
         if tag in FORBIDDEN_TAGS or any(key.lower().startswith("on") for key in attrs):
             self.errors.append(f"active markup <{tag}>")
         if tag == "img":
-            if not IMAGE.fullmatch(attrs.get("src") or ""):
+            image = attrs.get("src") or ""
+            if not IMAGE.fullmatch(image):
                 self.errors.append("non-offline image")
+            elif self.capture and attrs.get("alt"):
+                try:
+                    content = base64.b64decode(image.partition(",")[2], validate=True)
+                except Base64Error:
+                    self.errors.append("invalid embedded image data")
+                else:
+                    self.images.add(hashlib.sha256(content).hexdigest())
         elif any(key in attrs for key in ("src", "srcset")):
             self.errors.append(f"resource attribute on <{tag}>")
         if "srcset" in attrs or "style" in attrs:
@@ -71,8 +117,12 @@ class Article(HTMLParser):
             if self.pre_text is not None:
                 self.errors.append("nested example block")
             self.pre_text = []
+            self.pre_language = ""
         if tag == "code":
             self.inline_code += 1
+            if self.capture and self.pre_text is not None:
+                self.pre_language = next((value.removeprefix("language-") for value in (attrs.get("class") or "").split()
+                                          if value.startswith("language-")), "")
 
     def handle_startendtag(self, tag, attrs):
         self.handle_starttag(tag, attrs)
@@ -80,8 +130,11 @@ class Article(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag == "pre" and self.pre_text is not None:
-            if "".join(self.pre_text).strip():
+            example = "".join(self.pre_text)
+            if example.strip():
                 self.examples += 1
+                if self.capture:
+                    self.code_blocks.append((self.pre_language, example.rstrip("\n")))
             else:
                 self.errors.append("empty example block")
             self.pre_text = None
@@ -109,6 +162,46 @@ def document_files(data, pack):
         yield directory / f"documents-{shard}.json"
 
 
+def rabbitmq_examples():
+    root = UPSTREAM / "rabbitmq"
+    manifest = json.loads((root / "manifest.json").read_text())
+    return {
+        (INFRASTRUCTURE_REFERENCE, "reference/rabbitmq/" + page["id"]):
+        [("csharp", example_text(root, example).rstrip("\n")) for example in page["examples"]]
+        for page in manifest["documents"] if page.get("examples")
+    }
+
+
+def check_pilot(articles, targets, rabbitmq):
+    errors = []
+    for (release, key), links in PILOT_LINKS.items():
+        source, article = articles.get((release, key), ("", Article()))
+        linked = {urljoin(source, href) for href in article.links}
+        for link in links:
+            fragment = unquote(urlsplit(link).fragment)
+            destination = targets.get(source_key(link), {}).get(release)
+            if link not in linked or destination is None or (fragment and fragment not in destination):
+                errors.append(f"{release}:{key}: pilot link does not resolve in this release: {link}")
+    for (release, key), example in PILOT_CODE.items():
+        _, article = articles.get((release, key), ("", Article()))
+        if example not in article.code_blocks:
+            errors.append(f"{release}:{key}: pinned publisher code or its language hint changed")
+    for (release, key), examples in rabbitmq.items():
+        _, article = articles.get((release, key), ("", Article()))
+        if Counter(examples) - Counter(article.code_blocks) or any(code == "loading..." for _, code in article.code_blocks):
+            errors.append(f"{release}:{key}: missing or changed RabbitMQ publisher code")
+    _, pathlib = articles.get(PILOT_PATHLIB, ("", Article()))
+    if "pathlib.Path.read_text" not in pathlib.anchors or PATHLIB_IMAGE_SHA256 not in pathlib.images:
+        errors.append(f"{PYTHON_REFERENCE}:library/pathlib.html: missing publisher API anchor or inheritance diagram")
+    _, events = articles.get((PYTHON_REFERENCE, "library/audit_events.html"), ("", Article()))
+    if not events.tags["table"] or not {"Audit event", "Arguments", "References"} <= set(events.prose):
+        errors.append(f"{PYTHON_REFERENCE}:library/audit_events.html: missing publisher audit event table")
+    _, query = articles.get((INFRASTRUCTURE_REFERENCE, "reference/postgres/tutorial-select"), ("", Article()))
+    if not any(language == "plaintext" and "(1 row)" in code for language, code in query.code_blocks):
+        errors.append(f"{INFRASTRUCTURE_REFERENCE}: PostgreSQL tutorial output lost its plain-text rendering")
+    return errors
+
+
 def audit(data, *, require_examples=True):
     catalog = json.loads((data / "docs-catalog.json").read_text())
     errors = []
@@ -116,6 +209,9 @@ def audit(data, *, require_examples=True):
     packs = {}
     targets = defaultdict(dict)
     pending = set()
+    articles = {}
+    rabbitmq = rabbitmq_examples() if require_examples else {}
+    pilot_keys = set(PILOT_LINKS) | set(PILOT_CODE) | set(rabbitmq) if require_examples else set()
     expected = set(EXAMPLES) if require_examples else set()
     for pack in catalog:
         pack_id, version = pack["id"], pack["version"]
@@ -123,6 +219,8 @@ def audit(data, *, require_examples=True):
         totals = Counter()
         packs[release] = totals
         ids = set()
+        if require_examples and not (data / pack["path"] / "SOURCES.md").is_file():
+            errors.append(f"{release}: missing SOURCES.md")
         for field in ("upstream_version", "snapshot_date", "coverage", "omissions"):
             if not pack.get(field):
                 errors.append(f"{release}: missing {field}")
@@ -144,12 +242,19 @@ def audit(data, *, require_examples=True):
                     errors.append(f"{location}: missing source, body, or title")
                 if doc.get("category") not in {"guide", "api", "compatibility", "reference"}:
                     errors.append(f"{location}: invalid category")
-                article = Article()
+                capture = (release, name) in pilot_keys
+                article = Article(capture=capture)
                 article.feed(doc.get("html") or "")
                 article.close()
+                if capture:
+                    articles[(release, name)] = (doc["source_url"], article)
                 errors.extend(f"{location}: {error}" for error in article.errors)
                 if not article.tags:
                     errors.append(f"{location}: missing rendered HTML")
+                aliases = set(doc.get("aliases", ()))
+                for alias, anchor in doc.get("alias_anchors", {}).items():
+                    if alias not in aliases or anchor not in article.anchors:
+                        errors.append(f"{location}: invalid alias destination for {alias}")
                 totals["examples"] += article.examples
                 totals["tables"] += article.tags["table"]
                 totals["embedded_images"] += article.tags["img"]
@@ -166,6 +271,8 @@ def audit(data, *, require_examples=True):
                     if ((needle in doc["body"] or needle in article.anchors)
                             and article.examples >= examples):
                         expected.discard(probe)
+        if pack.get("entry_id") and pack["entry_id"] not in ids:
+            errors.append(f"{release}: missing publisher contents article {pack['entry_id']}")
         counts.update(totals)
     missing = []
     for release, name, source, target, fragment in sorted(pending):
@@ -182,18 +289,28 @@ def audit(data, *, require_examples=True):
             missing.append({"release": release, "document": name, "target": "".join(target),
                             "fragment": fragment, "same_page": source == target})
     errors.extend(f"Missing source example probe {pack}:{doc}" for pack, doc in sorted(expected))
+    if require_examples:
+        errors.extend(check_pilot(articles, targets, rabbitmq))
     counts["missing_local_anchors"] = len(missing)
     counts["missing_same_page_anchors"] = sum(link["same_page"] for link in missing)
     return {"counts": dict(counts), "releases": packs, "errors": errors, "missing_anchors": missing}
 
 
+def anchor_key(link):
+    return link["release"], link["document"], link["target"], link["fragment"]
+
+
 def regressions(report, baseline):
     known_errors = set(baseline.get("render_errors", []))
     known_anchors = {tuple(item) for item in baseline.get("missing_anchors", [])}
+    known_omissions = {tuple(item) for item in baseline.get("known_source_omissions", [])}
+    observed = {anchor_key(link) for link in report["missing_anchors"]}
+    stale_omissions = sorted(item for item in known_omissions - observed if item[0] in report["releases"])
     return (
-        [error for error in report["errors"] if error not in known_errors],
-        [link for link in report["missing_anchors"]
-         if (link["release"], link["document"], link["target"], link["fragment"]) not in known_anchors],
+        [error for error in report["errors"] if error not in known_errors]
+        + [f"{release}:{document}: recheck known omission {target}#{fragment}"
+           for release, document, target, fragment in stale_omissions],
+        [link for link in report["missing_anchors"] if anchor_key(link) not in known_anchors | known_omissions],
     )
 
 
@@ -206,10 +323,13 @@ def main():
     report = audit(options.data)
     baseline = json.loads(options.baseline.read_text())
     errors, anchors = regressions(report, baseline)
+    omissions = {tuple(item) for item in baseline.get("known_source_omissions", [])}
+    report["known_source_omissions"] = [link for link in report["missing_anchors"] if anchor_key(link) in omissions]
     report["regressions"] = {"errors": errors, "missing_anchors": anchors}
     if options.output:
         options.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"counts": report["counts"], "known_render_errors": len(report["errors"]) - len(errors),
+    print(json.dumps({"counts": report["counts"], "known_source_omissions": len(report["known_source_omissions"]),
+                      "known_render_errors": len(set(report["errors"]) & set(baseline.get("render_errors", []))),
                       "new_render_errors": len(errors), "new_missing_anchors": len(anchors)}, indent=2))
     for error in errors[:20]:
         print(error)

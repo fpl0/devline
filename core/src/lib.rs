@@ -11,6 +11,8 @@ use std::{
 mod apple_docs;
 mod content_updates;
 mod context;
+mod devdocs;
+mod devdocs_html;
 mod doc_index;
 mod doc_library;
 mod doc_links;
@@ -73,6 +75,8 @@ pub fn execute(request: &Value) -> Result<Value> {
             Path::new(text_arg(request, "path")?),
             text_arg(request, "id")?,
         ),
+        "docs.devdocs.catalog" => devdocs::catalog(request),
+        "docs.devdocs.import" => devdocs::import(&ctx, request, None),
         "docs.distribution.status" => doc_updates::status(&ctx),
         "docs.local.status" => {
             if request["id"]
@@ -113,8 +117,10 @@ pub fn execute(request: &Value) -> Result<Value> {
             request["keep_latest"] == true,
         ),
         "docs.search" => doc_search::search(&ctx, request),
+        "docs.navigation" => doc_search::navigation(&ctx, request),
         "docs.show" => doc_search::show(&ctx, request),
         "docs.resolve" => doc_links::resolve(&ctx, request),
+        "docs.link-status" => doc_links::status(&ctx, request),
         "guide.list" => guides::list(&ctx),
         "guide.show" => guides::show(&ctx, text_arg(request, "id")?),
         "reading.list" => reference::list(&ctx),

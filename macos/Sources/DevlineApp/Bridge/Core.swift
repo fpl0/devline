@@ -15,10 +15,12 @@ struct CoreRequest: Encodable, Sendable {
     var destination: String?
     var path: String?
     var url: String?
+    var urls: [String]?
     var dryRun: Bool?
     var anchor: String?
     var focusText: String?
     var category: String?
+    var group: String?
     var projectStack: String?
     var projectPath: String?
     var kind: String?
@@ -40,8 +42,8 @@ struct CoreRequest: Encodable, Sendable {
     init(
         _ command: String, id: String? = nil, version: String? = nil,
         query: String? = nil, stack: String? = nil, packId: String? = nil, limit: Int? = nil, offset: Int? = nil,
-        destination: String? = nil, path: String? = nil, dryRun: Bool? = nil, url: String? = nil,
-        anchor: String? = nil, focusText: String? = nil, category: String? = nil, projectStack: String? = nil,
+        destination: String? = nil, path: String? = nil, dryRun: Bool? = nil, url: String? = nil, urls: [String]? = nil,
+        anchor: String? = nil, focusText: String? = nil, category: String? = nil, group: String? = nil, projectStack: String? = nil,
         projectPath: String? = nil, kind: String? = nil, docs: [String]? = nil, starters: [String]? = nil, trustStarters: Bool? = nil,
         jobId: String? = nil, images: [String]? = nil, services: [String]? = nil, clients: [String]? = nil, tail: Int? = nil, ports: [String: Int]? = nil, offline: Bool? = nil, trustImages: Bool? = nil, manifestSha256: String? = nil, keepLatest: Bool? = nil, confirmedOnly: Bool? = nil
     ) {
@@ -57,9 +59,11 @@ struct CoreRequest: Encodable, Sendable {
         self.destination = destination
         self.path = path
         self.url = url
+        self.urls = urls
         self.anchor = anchor
         self.focusText = focusText
         self.category = category
+        self.group = group
         self.projectStack = projectStack
         self.dryRun = dryRun
         self.projectPath = projectPath

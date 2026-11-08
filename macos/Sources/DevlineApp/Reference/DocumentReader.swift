@@ -3,14 +3,18 @@ import SwiftUI
 
 struct DocReader: View {
     let document: Document
+    let pack: DocPack?
     let packName: String
     var anchor: String?
     var focus: String?
     var restoredPosition: Double?
     var restoredOffset: Double?
+    var cueSearchMatch = false
     var isSaved = false
     var save: (String?, String?) -> Void = { _, _ in }
-    var navigate: (URL) -> Void = { NSWorkspace.shared.open($0) }
+    let linkRevision: String
+    let linkStatuses: ([String]) async throws -> [DocLinkStatus]
+    let navigate: (String, DocLinkStatus?) -> Void
     var openPart: (String) -> Void = { _ in }
     var reportPosition: (Double, String?, Double?) -> Void = { _, _, _ in }
     @AppStorage("devline.readerScale") private var scale = 1.0
@@ -22,6 +26,7 @@ struct DocReader: View {
     @State private var htmlSections: [ReaderSection] = []
     @State private var findVisible = false
     @State private var outlineVisible = false
+    @State private var sourceVisible = false
     @State private var outlineFilter = ""
     @State private var outlineSelection: String?
     @State private var findText = ""
@@ -37,6 +42,12 @@ struct DocReader: View {
     }
     private var initialTarget: ReaderTarget {
         ReaderTarget(anchor: anchor, focus: focus ?? document.focusText, position: restoredPosition, offset: restoredOffset)
+    }
+    private var imported: Bool { document.packId.hasPrefix("devdocs-") }
+    private var source: URL? { safeExternalURL(document.sourceUrl) }
+    private var sourceLabel: String {
+        guard imported else { return "Open Publisher Site" }
+        return source?.host == "devdocs.io" ? "Open DevDocs" : "Open Publisher Site"
     }
 
     var body: some View {
@@ -61,11 +72,11 @@ struct DocReader: View {
             if let position = initialTarget.position {
                 request = ReaderRequest(action: .restore(position, anchor: initialTarget.anchor, offset: initialTarget.offset))
             } else if let anchor = initialTarget.anchor, !anchor.isEmpty, html != nil {
-                request = ReaderRequest(action: .jump(ReaderSection(title: "", target: .anchor(anchor), fallbackText: initialTarget.focus)))
+                request = ReaderRequest(action: .jump(ReaderSection(title: "", target: .anchor(anchor), fallbackText: initialTarget.focus)), cue: cueSearchMatch)
             } else if let focus = initialTarget.focus, !focus.isEmpty {
                 let target = html != nil || article?.contents.string.localizedCaseInsensitiveContains(focus) == true
                     ? focus : ReaderMarkup.summary(focus)
-                if !target.isEmpty { request = ReaderRequest(action: .focus(target)) }
+                if !target.isEmpty { request = ReaderRequest(action: .focus(target), cue: cueSearchMatch) }
             }
         }
     }
@@ -75,7 +86,8 @@ struct DocReader: View {
                 OfflineArticle(html: html, title: ReaderMarkup.title(document.title, fallback: "\(packName) Overview"),
                                sourceURL: document.sourceUrl, packID: document.packId, scale: scale, request: request,
                                report: reportFind, reportSections: { htmlSections = $0 },
-                               navigate: navigate, reportPosition: { fraction, anchor, offset, userInitiated in
+                               linkRevision: linkRevision, linkStatuses: linkStatuses, navigate: navigate,
+                               reportPosition: { fraction, anchor, offset, userInitiated in
                                    if userInitiated { currentAnchor = anchor; currentFocus = nil }
                                    reportPosition(fraction, anchor, offset)
                                })
@@ -83,7 +95,7 @@ struct DocReader: View {
             } else if let article {
                 GeometryReader { geometry in
                     PlainArticle(article: article, horizontalInset: max(25, (geometry.size.width - 710 * scale) / 2),
-                                 scale: scale, request: request, report: reportFind,
+                                 scale: scale, request: request, report: reportFind, navigate: { navigate($0, nil) },
                                  reportPosition: { reportPosition($0, currentAnchor, nil) })
                 }
             } else {
@@ -92,10 +104,17 @@ struct DocReader: View {
     }
 
     private var readerBar: some View {
+        ViewThatFits(in: .horizontal) {
+            readerBar(showActionLabels: true)
+            readerBar(showActionLabels: false)
+        }
+    }
+
+    private func readerBar(showActionLabels: Bool) -> some View {
         HStack(spacing: 12) {
             Label("\(packName) · \(displayDocVersion(document.version))", systemImage: "book")
                 .font(.callout.weight(.medium)).foregroundStyle(.secondary).lineLimit(1)
-                .help("\(packName) \(document.version) — installed offline")
+                .help("\(packName) · Installed")
             Spacer(minLength: 5)
             Button { focusReading.toggle() } label: { Image(systemName: focusReading ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right") }
                 .buttonStyle(.borderless).keyboardShortcut("r", modifiers: [.command, .shift])
@@ -109,7 +128,10 @@ struct DocReader: View {
                 Button {
                     outlineFilter = ""; outlineSelection = nil
                     if contentsPinned { outlineFocused = true } else { outlineVisible.toggle() }
-                } label: { Label("Contents", systemImage: "list.bullet") }
+                } label: {
+                    if showActionLabels { Label("Contents", systemImage: "list.bullet").fixedSize() }
+                    else { Image(systemName: "list.bullet") }
+                }
                     .buttonStyle(.borderless).keyboardShortcut("o", modifiers: [.command, .shift])
                     .help("Search Page Contents (⇧⌘O)").accessibilityLabel("Search Page Contents")
                     .popover(isPresented: $outlineVisible, arrowEdge: .bottom) {
@@ -126,14 +148,31 @@ struct DocReader: View {
                 Toggle("Pin Page Contents", isOn: $contentsPinned)
                 Divider()
                 Button("Copy Reference Link") { copyReferenceLink() }
-                Button("Copy Official URL") { copyToPasteboard(document.sourceUrl) }
             } label: { Image(systemName: "textformat.size") }
                 .menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Reading Options")
-            if let source = safeExternalURL(document.sourceUrl) {
-                Link(destination: source) { Image(systemName: "arrow.up.right.square") }
-                    .help("Open Official Source in Browser").accessibilityLabel("Open Official Source")
+            Button { sourceVisible.toggle() } label: {
+                if showActionLabels { Label("Source", systemImage: "info.circle").fixedSize() }
+                else { Image(systemName: "info.circle") }
             }
+            .buttonStyle(.borderless).accessibilityLabel("Source Details").help("Source Details")
+            .popover(isPresented: $sourceVisible) { sourceDetails }
         }.padding(.horizontal, 20).padding(.vertical, 10)
+    }
+
+    private var sourceDetails: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(packName).font(.headline)
+            Text(imported ? "Imported via DevDocs" : pack?.localOnly == true ? "Prepared from the local SDK" : "Publisher reference")
+                .foregroundStyle(.secondary)
+            Text(document.version).font(.caption.monospaced()).textSelection(.enabled)
+            if let date = pack?.snapshotDate { Text("Snapshot \(date)").font(.caption).foregroundStyle(.secondary) }
+            if let source {
+                HStack {
+                    Link(sourceLabel + " ↗", destination: source)
+                    Button("Copy URL") { copyToPasteboard(source.absoluteString) }.buttonStyle(.borderless)
+                }
+            }
+        }.padding(16).frame(width: 340, alignment: .leading)
     }
 
     private func outlineContents(pinned: Bool) -> some View {

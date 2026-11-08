@@ -6,6 +6,7 @@ struct InfrastructureView: View {
     @ObservedObject var model: WorkspaceModel
     @ObservedObject var library: InfrastructureLibrary
     let openDocs: (String) -> Void
+    let openProjectServices: (() -> Void)?
     @State private var selection: String?
     @State private var query = ""
     @State private var archivedOnly = false
@@ -160,9 +161,10 @@ struct InfrastructureView: View {
                 Divider()
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Use in a project").font(.headline)
-                    Text("Add this service when creating a project, or open an existing project and choose Add Services. Devline keeps the version pinned and gives each project its own data volumes.")
+                    Text("Add this service when creating a project or from Project Services.")
                         .font(.callout).foregroundStyle(.secondary)
                     HStack {
+                        if let openProjectServices { Button("Project Services", action: openProjectServices) }
                         if let help = service.helpRef {
                             Button("Read Devline Guide") { helpRequest = HelpRequest(id: help) }
                         }

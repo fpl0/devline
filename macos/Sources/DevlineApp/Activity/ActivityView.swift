@@ -1,15 +1,33 @@
 import AppKit
 import SwiftUI
 
-struct ActivityView: View {
+struct ActivitySheet: View {
+    @Environment(\.dismiss) private var dismiss
     @ObservedObject var model: WorkspaceModel
+    @State private var selectedJob: JobRecord?
+
     var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Activity").font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
+            }.padding(18)
+            Divider()
+            history
+        }
+        .frame(width: 640, height: 475)
+        .task { await model.refreshJobs() }
+        .sheet(item: $selectedJob) { JobDetailsView(job: $0, model: model) }
+    }
+
+    private var history: some View {
         Group {
             if model.jobs.isEmpty {
                 ContentUnavailableView("No Activity Yet", systemImage: "clock", description: Text("Downloads, starter builds, verification and bundle transfers appear here with their full logs."))
             } else {
                 List(model.jobs) { job in
-                    Button { model.inspectedJob = job } label: {
+                    Button { selectedJob = job } label: {
                         HStack(spacing: 12) {
                             Image(systemName: job.icon).foregroundStyle(job.needsAttention ? Color.orange : .secondary)
                             VStack(alignment: .leading, spacing: 5) {
@@ -28,7 +46,7 @@ struct ActivityView: View {
                     }.buttonStyle(.plain)
                 }.listStyle(.inset)
             }
-        }.task { await model.refreshJobs() }
+        }
     }
 }
 

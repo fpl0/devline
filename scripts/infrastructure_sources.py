@@ -10,7 +10,7 @@ from urllib.parse import quote, urlsplit
 
 UPSTREAM = Path(__file__).resolve().parent / "infrastructure-docs" / "upstream"
 VERSION = "2026.11.07"
-REVISION = "devline.3"
+REVISION = "devline.4"
 REFERENCE = f"infrastructure@{VERSION}+{REVISION}"
 DOCUMENT_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:/[A-Za-z0-9][A-Za-z0-9_.-]*)*")
 
@@ -24,6 +24,18 @@ def source_path(root, path):
     if not candidate.is_relative_to(root.resolve()) or not candidate.is_file():
         raise ValueError(f"Missing or unsafe documentation source: {root / path}")
     return candidate
+
+
+def example_text(root, example):
+    path = source_path(root, example["path"])
+    code = path.read_text(encoding="utf-8")
+    if "lines" not in example:
+        return code
+    start, end = example["lines"]
+    lines = code.splitlines(keepends=True)
+    if not 1 <= start <= end <= len(lines):
+        raise ValueError(f"Invalid publisher example line range {start}–{end}: {path}")
+    return "".join(lines[start - 1:end])
 
 
 def archive_documents(root, source):

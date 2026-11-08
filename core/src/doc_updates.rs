@@ -907,13 +907,24 @@ fn publish_source(stage: Stage, destination: &Path, record: &CachedPack) -> Resu
 
 // The caller holds the library lock.
 pub(crate) fn store_original(ctx: &Context, pack: &DocPack, source: &Path) -> Result<PathBuf> {
+    store_original_with_status(ctx, pack, source).map(|(path, _)| path)
+}
+
+// The caller holds the library lock and can remove a newly cached source if
+// its installation fails before the SQLite transaction commits.
+pub(crate) fn store_original_with_status(
+    ctx: &Context,
+    pack: &DocPack,
+    source: &Path,
+) -> Result<(PathBuf, bool)> {
     let destination = pack_dir(ctx, pack)?;
-    if destination.try_exists()? && source.canonicalize()? == destination.canonicalize()? {
+    let existing = destination.try_exists()?;
+    if existing && source.canonicalize()? == destination.canonicalize()? {
         verify_record(
             &destination,
             &read_record(&destination, &pack.id, &pack.version)?,
         )?;
-        return Ok(destination);
+        return Ok((destination, false));
     }
     let stage = Stage::new(destination.parent().unwrap())?;
     let mut files = BTreeMap::new();
@@ -928,7 +939,7 @@ pub(crate) fn store_original(ctx: &Context, pack: &DocPack, source: &Path) -> Re
             asset_sha256: None,
         },
     )?;
-    Ok(destination)
+    Ok((destination, !existing))
 }
 
 fn extract_archive(archive: &Path, destination: &Path) -> Result<BTreeMap<String, CachedFile>> {

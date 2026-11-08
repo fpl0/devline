@@ -57,6 +57,7 @@ struct JobRecord: Decodable, Identifiable, Sendable {
         case "infra_import": "Import Image Archives"
         case "docs_prepare": "Prepare Local Documentation"
         case "docs_install": "Download Documentation"
+        case "docs_import_devdocs": "Import from DevDocs"
         case "bundle_export": "Export Offline Bundle"
         case "bundle_import": "Import Offline Bundle"
         default: kind.capitalized

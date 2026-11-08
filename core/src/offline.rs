@@ -1201,6 +1201,7 @@ mod tests {
             path: "docs/go/1.2.3".into(),
             markdown: None,
             shards: None,
+            entry_id: None,
             upstream_version: None,
             snapshot_date: None,
             coverage: Vec::new(),

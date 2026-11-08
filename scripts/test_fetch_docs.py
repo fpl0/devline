@@ -19,6 +19,23 @@ spec.loader.exec_module(ingest)
 
 
 class ReferenceIngestionTests(unittest.TestCase):
+    def test_publisher_code_hints_survive_offline_rendering(self):
+        upstream = (
+            '<main><div class="highlight-python3"><div><pre>&gt;&gt;&gt; print(1)</pre></div></div>'
+            '<pre data-language="json"><code>{"count": 10}</code></pre>'
+            '<pre class="no-highlight"><code>actual output</code></pre>'
+            '<pre class="csharp"><code>await CallAsync();</code></pre></main>'
+        )
+        _, node, _ = rendering.article_from_html(upstream, "main", "Fixture")
+        _, markup = rendering.prepared_html(node, "https://example.org/guide", "aspnet")
+        for expected in (
+            '<code class="language-python-repl">&gt;&gt;&gt; print(1)</code>',
+            '<code class="language-json">{"count": 10}</code>',
+            '<code class="language-plaintext">actual output</code>',
+            '<code class="language-csharp">await CallAsync();</code>',
+        ):
+            self.assertIn(expected, markup)
+
     def test_infrastructure_links_keep_upstream_github_filenames(self):
         base = "https://github.com/example/service/blob/v1/docs/setup.md"
         target = rendering.link_destination("./backup.md#restore", base, "infrastructure", {})

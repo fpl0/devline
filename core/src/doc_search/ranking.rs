@@ -260,11 +260,22 @@ impl TextMatch {
         let title = hit.title.to_lowercase();
         let title_tokens: Vec<_> = words(&title).collect();
         let (title_words, title_phrase, exact_title) = evidence(&title_tokens, terms);
-        let mut score =
-            45 * title_words + i32::from(title_phrase) * 26 + i32::from(exact_title) * 35;
+        // Pack titles can prefix the actual topic with its publisher. An exact
+        // topic at the end of a contextual query earns the exact-title bonus.
+        let exact_topic = title.split_once(" · ").is_some_and(|(_, topic)| {
+            let tokens: Vec<_> = words(topic).collect();
+            !tokens.is_empty()
+                && terms
+                    .len()
+                    .checked_sub(tokens.len())
+                    .is_some_and(|start| contains_phrase(&tokens, &terms[start..]))
+        });
+        let mut score = 45 * title_words
+            + i32::from(title_phrase || exact_topic) * 26
+            + i32::from(exact_title || exact_topic) * 35;
         if let Some(heading) = &heading {
-            // An FTS heading hit has matching terms, possibly with stemming or
-            // identifier splitting. Count an article's repeated title only once.
+            // A section can match by stemming or identifier splitting. An
+            // assignment containing a code example is not a named topic.
             let heading = heading.to_lowercase();
             if heading != title {
                 let tokens: Vec<_> = heading
@@ -272,11 +283,16 @@ impl TextMatch {
                     .filter(|word| !word.is_empty())
                     .collect();
                 let (heading_words, heading_phrase, exact_heading) = evidence(&tokens, terms);
-                score += 22
-                    + 20 * terms.len() as i32
-                    + 4 * heading_words
-                    + i32::from(heading_phrase) * 18
-                    + i32::from(exact_heading) * 25;
+                let example = heading
+                    .split_once('(')
+                    .is_some_and(|(prefix, _)| prefix.contains(" = "));
+                if !example || exact_heading {
+                    score += 22
+                        + 20 * terms.len() as i32
+                        + 4 * heading_words
+                        + i32::from(heading_phrase) * 18
+                        + i32::from(exact_heading) * 25;
+                }
             }
         } else {
             let snippet = hit.snippet.to_lowercase();

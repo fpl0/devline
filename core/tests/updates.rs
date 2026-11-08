@@ -297,6 +297,22 @@ fn bulk_offline_update_installs_bundled_docs_without_claiming_unchecked_sources_
     fixture
         .call(json!({"command":"docs.install","id":"go","version":"1.27.2"}))
         .unwrap();
+    let assets = fixture
+        .call(json!({"command":"updates.apply","offline":true,"category":"assets","confirmed_only":true}))
+        .unwrap();
+    assert_eq!(assets["updated"], 0);
+    assert_eq!(assets["complete"], true);
+    assert!(!assets["snapshot"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["kind"] == "docs"));
+    assert_eq!(
+        fixture
+            .call(json!({"command":"docs.distribution.status"}))
+            .unwrap()["packs"][0]["installed_versions"],
+        json!(["1.27.2"])
+    );
     let result = fixture
         .call(json!({"command":"updates.apply","offline":true}))
         .unwrap();

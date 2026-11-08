@@ -28,4 +28,5 @@ struct ReaderRequest: Equatable {
 
     let id = UUID()
     let action: Action
+    var cue = false
 }

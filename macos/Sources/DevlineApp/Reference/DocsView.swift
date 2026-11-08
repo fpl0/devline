@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 
 struct DocsView: View {
-    @Environment(\.defaultMinListRowHeight) private var standardRowHeight
     @ObservedObject var model: WorkspaceModel
     @ObservedObject var reading: ReadingSession
     @Binding var query: String
@@ -14,543 +13,321 @@ struct DocsView: View {
     let clearProject: () -> Void
     let focusRequest: Int
     let lookupRevision: Int
+    let projectScopeRequested: Bool
     let openLibrary: () -> Void
-    @AppStorage("devline.focusReading") private var focusReading = false
+    let installDocset: (String?) -> Void
 
+    @AppStorage("devline.focusReading") private var focusReading = false
+    @FocusState private var searchFocused: Bool
+    @State private var scope: Scope = .installed
+    @State private var group: String?
+    @State private var browsedPackInProject = false
+    @State private var navigation: DocsetNavigation?
     @State private var showReferences = false
     @State private var showProjectReferences = false
-    @State private var useProjectScope = true
-    @State private var showSavedReferences = true
-    @State private var externalLink: URL?
+    @State private var openedLocation: ReferenceLocation?
     @State private var navigationToken = UUID()
-    @State private var navigationAnchor: String?
-    @State private var navigationFocus: String?
     @State private var currentReaderAnchor: String?
-    @State private var navigationPosition: Double?
-    @State private var navigationOffset: Double?
-    @State private var navigationQuery = ""
-    @State private var historyNavigationToken: UUID?
-    @State private var automaticSelection = false
-    @State private var browseCategory: String?
+    @State private var restoring = false
+    @State private var loadedDocument: (key: ReadKey, value: Document)?
+    @State private var documentFailure: (key: ReadKey, message: String)?
+    @State private var linkIssue: LinkIssue?
+
     @State private var hits: [SearchHit] = []
     @State private var selectedID: String?
     @State private var committedSearch: SearchKey?
     @State private var submittedSearch: SearchKey?
-    @State private var reveal: ListReveal?
-    @State private var pendingBrowseReveal: BrowseReveal?
-    @State private var loadedDocument: (key: ReadKey, value: Document)?
-    @State private var documentFailure: (key: ReadKey, message: String)?
     @State private var searchFailure: (key: SearchKey, message: String)?
     @State private var pageRequest: UUID?
     @State private var moreArticles = false
     @State private var browseError: String?
+    @State private var reveal: UUID?
+    @State private var pendingBrowseReveal: (id: String, index: Int)?
     private let browseLimit = 80
     private let searchLimit = 30
-    private let browseRowHeight: CGFloat = 42
-    private let browseRowInsets = EdgeInsets(top: 0, leading: 8, bottom: 0, trailing: 8)
-    @FocusState private var searchFocused: Bool
 
     private var packs: [DocPack] { model.catalog?.docs.filter(\.installed) ?? [] }
-    private var stacks: [String] { Array(Set(packs.map(\.stack))).sorted() }
-    private var currentPack: DocPack? { packs.first { $0.reference == packReference } }
-    private var currentPackVersions: [DocPack] {
-        guard let currentPack else { return [] }
-        return packs.filter { $0.id == currentPack.id }
-            .sorted { $0.version.compare($1.version, options: .numeric) == .orderedDescending }
+    private var selectedPack: DocPack? { packs.first { $0.reference == packReference } }
+    private var currentPack: DocPack? {
+        if scope != .docset, let document, let pack = docset(document.packId, version: document.version) { return pack }
+        return selectedPack
     }
-    private var visibleStacks: [String] { stack.map { [$0] } ?? stacks }
+    private var scopedPack: DocPack? { scope == .docset ? currentPack : nil }
+    private var currentPackVersions: [DocPack] { packs.filter { $0.id == scopedPack?.id } }
     private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var isBrowsingPack: Bool { currentPack != nil && trimmedQuery.isEmpty }
-    private var searchKey: SearchKey {
-        SearchKey(query: trimmedQuery, stack: stack, pack: packReference, category: trimmedQuery.isEmpty ? browseCategory : nil,
-                  revision: model.libraryRevision, project: useProjectScope ? projectContext?.path : nil,
-                  pins: projectContext?.pins?.map { "\($0.id)@\($0.version)" }.joined(separator: ",") ?? "")
-    }
-    private var loadingMore: Bool { pageRequest != nil }
-    private var readingID: String? { readKey.id }
+    private var browsing: Bool { trimmedQuery.isEmpty && scopedPack != nil }
+    private var showingIndex: Bool { browsing && group == nil && searchKey.category == nil && navigation?.groups.isEmpty == false }
     private var hasCurrentResults: Bool { committedSearch == searchKey }
     private var searchError: String? { searchFailure?.key == searchKey ? searchFailure?.message : nil }
     private var searching: Bool { !hasCurrentResults && searchError == nil }
-    private var searchProgressTitle: String { isBrowsingPack ? "Loading Articles…" : "Searching Documentation…" }
-    private var document: Document? { loadedDocument?.key == readKey ? loadedDocument?.value : nil }
-    private var readerAnchor: String? { navigationAnchor ?? readKey.anchor }
-    private var readKey: ReadKey {
-        if let directDocumentID {
-            return ReadKey(id: directDocumentID, query: navigationQuery, focus: navigationFocus, anchor: nil, token: navigationToken)
-        }
-        guard hasCurrentResults, let hit = hits.first(where: { $0.id == selectedID }) else {
-            return ReadKey(id: nil, query: "", focus: nil, anchor: nil, token: navigationToken)
-        }
-        return ReadKey(id: hit.id, query: hit.symbol ?? trimmedQuery, focus: hit.matchText, anchor: hit.matchAnchor,
-                       token: navigationToken)
+    private var searchKey: SearchKey {
+        SearchKey(query: trimmedQuery, scope: scope, pack: scopedPack?.reference, group: browsing ? group : nil,
+                  stack: scope == .installed ? stack : nil,
+                  category: browsing && group == nil ? openedLocation?.category : nil,
+                  revision: model.libraryRevision, project: scope == .project ? projectContext?.path : nil,
+                  pins: projectContext?.pins?.map { "\($0.id)@\($0.version)" }.joined(separator: ",") ?? "")
     }
-    private var browseRevealKey: BrowseRevealKey? {
-        let scope = searchKey
-        guard let target = pendingBrowseReveal, target.token == navigationToken,
-              target.scope == scope, isBrowsingPack, hasCurrentResults else { return nil }
-        return BrowseRevealKey(target: target, loaded: hits.count)
+    private var readKey: ReadKey { ReadKey(id: directDocumentID, token: navigationToken) }
+    private var document: Document? { loadedDocument?.key == readKey ? loadedDocument?.value : nil }
+    private var visiblePacks: [DocPack] {
+        if scope == .project {
+            let releases = Set(projectContext?.docsets?.compactMap { docset in
+                docset.version.map { "\(docset.id)@\($0)" }
+            } ?? [])
+            return packs.filter { releases.contains($0.reference) }.sorted(by: packPrecedes)
+        }
+        let matching = packs.filter { isImported($0.id) == (scope == .imported) }
+        return Dictionary(grouping: matching, by: \.id).values
+            .compactMap { versions in versions.first(where: { $0.active == true }) ?? versions.first }
+            .sorted(by: packPrecedes)
     }
 
     var body: some View {
-        let scope = searchKey
-        let target = readKey
         VStack(spacing: 0) {
-            if !focusReading || readingID == nil {
-                searchBar
-                if let projectContext { projectBar(projectContext) }
+            if focusReading && directDocumentID != nil {
+                reader
+            } else {
+                toolbar
                 Divider()
+                HSplitView {
+                    sidebar.frame(minWidth: 190, idealWidth: 225, maxWidth: 275, maxHeight: .infinity)
+                    reader.frame(minWidth: 345, maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
-            content
+        }
+        .task {
+            if let request = reading.request { restore(request) }
+            else { applyEntryPoint() }
+            await reading.refresh()
         }
         .task(id: focusRequest) {
             if focusRequest > 0 { focusReading = false; searchFocused = true }
         }
-        .onChange(of: focusReading) { _, _ in
-            if let location = reading.history.current, location.id == readingID {
-                navigationPosition = location.position
-                navigationAnchor = location.anchor
-                navigationOffset = location.anchorOffset
-            }
-        }
-        .task(id: scope) { await search(scope) }
-        .task(id: target) { await loadDocument(target) }
-        .task(id: browseRevealKey) { if let key = browseRevealKey { await revealBrowseHistory(key) } }
-        .onChange(of: searchKey) { _, scope in
-            if let target = pendingBrowseReveal, target.scope != scope { pendingBrowseReveal = nil }
-            if submittedSearch != scope { submittedSearch = nil }
-        }
-        .task { useProjectScope = packReference == nil; if let request = reading.request { restore(request) }; await reading.refresh() }
-        .onChange(of: reading.error) { _, error in if let error { model.error = error; reading.error = nil } }
+        .task(id: searchKey) { await search(searchKey) }
+        .task(id: readKey) { await loadDocument(readKey) }
+        .task(id: hits.count) { await revealBrowseHistory() }
+        .onChange(of: lookupRevision) { _, _ in applyEntryPoint() }
         .onChange(of: reading.request) { _, request in if let request { restore(request) } }
-        .sheet(isPresented: $showReferences) { ReferenceShelf(reading: reading, open: openReference, initialSaved: showSavedReferences) }
+        .onChange(of: reading.error) { _, error in if let error { model.error = error; reading.error = nil } }
+        .onChange(of: projectContext?.path) { _, path in
+            if path == nil && scope == .project { changeScope(.installed) }
+        }
+        .onChange(of: model.libraryRevision) { _, _ in
+            if scope == .docset && currentPack == nil { changeScope(.installed) }
+            if let document, docset(document.packId, version: document.version) == nil {
+                navigationToken = UUID()
+            }
+            linkIssue = nil
+        }
+        .onChange(of: focusReading) { _, _ in
+            guard let location = reading.history.current, location.id == directDocumentID else { return }
+            openedLocation?.position = location.position
+            openedLocation?.anchor = location.anchor
+            openedLocation?.anchorOffset = location.anchorOffset
+        }
+        .sheet(isPresented: $showReferences) { ReferenceShelf(reading: reading, open: openReference) }
         .sheet(isPresented: $showProjectReferences) {
             if let projectContext { ProjectReferencesView(project: projectContext, model: model, updated: updateProject) }
         }
-        .onChange(of: projectContext?.path) { _, _ in useProjectScope = true; packReference = nil; browseCategory = nil }
-        .onChange(of: lookupRevision) { _, _ in
-            useProjectScope = packReference == nil; browseCategory = nil; resetReaderTarget()
-        }
-        .alert("Link Unavailable Offline", isPresented: Binding(get: { externalLink != nil }, set: { if !$0 { externalLink = nil } })) {
-            Button("Open in Browser") { if let url = externalLink { NSWorkspace.shared.open(url) }; externalLink = nil }
-            Button("Cancel", role: .cancel) { externalLink = nil }
-        } message: {
-            Text("This page or section is unavailable in your installed documentation. Open \(externalLink?.host ?? "the linked page") in your browser when you have a connection.")
-        }
-        .onChange(of: stack) { _, stack in
-            if let currentPack, currentPack.stack != stack { packReference = nil }
-        }
-        .onChange(of: model.libraryRevision) { _, _ in
-            if let stack, !stacks.contains(stack) { self.stack = nil }
-            if currentPack == nil { packReference = nil }
-        }
     }
 
-    @ViewBuilder private var content: some View {
-        if focusReading && readingID != nil {
-            reader
-        } else if directDocumentID != nil && hits.isEmpty {
-            reader
-        } else if directDocumentID == nil && model.catalog == nil {
-            ContentUnavailableView {
-                Label("Local Library", systemImage: "tray")
-            } description: {
-                Text("Load the catalog to browse available documentation.")
-            } actions: {
-                Button("Reload Catalog") { Task { await model.refresh() } }
-            }
-        } else if directDocumentID == nil && packs.isEmpty {
-            ContentUnavailableView {
-                Label("Install Documentation", systemImage: "book.closed")
-            } description: {
-                Text("Choose the languages and frameworks you want to read offline.")
-            } actions: {
-                Button("Open Library", action: openLibrary).buttonStyle(.borderedProminent)
-            }
-        } else if directDocumentID == nil && trimmedQuery.isEmpty && currentPack == nil {
-            libraryOverview
-        } else if directDocumentID == nil, let searchError {
-            ContentUnavailableView {
-                Label("Documentation Unavailable", systemImage: "exclamationmark.circle")
-            } description: {
-                Text(searchError)
-            } actions: {
-                Button("Browse Docsets", action: resetToBrowse)
-            }
-        } else if hits.isEmpty && searching {
-            ProgressView(searchProgressTitle).frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if hits.isEmpty {
-            noResults
-        } else {
-            searchResults
-        }
-    }
-
-    private var categoryTitle: String {
-        switch browseCategory {
-        case "guide": "Guides"
-        case "api": "APIs"
-        case "reference": "Reference"
-        case "compatibility": "Compatibility Notes"
-        default: "All Articles"
-        }
-    }
-
-    private var noResults: some View {
-        ContentUnavailableView {
-            Label(isBrowsingPack ? "No Articles" : "No Results", systemImage: "magnifyingglass")
-        } description: {
-            if isBrowsingPack, browseCategory != nil {
-                Text("This release has no articles in \(categoryTitle).")
-            } else if isBrowsingPack {
-                Text("This release has no indexed articles.")
-            } else if let currentPack {
-                Text("No matches for “\(trimmedQuery)” in \(currentPack.name).")
-            } else if let stack {
-                Text("No matches for “\(trimmedQuery)” in \(displayStack(stack)) documentation.")
-            } else {
-                Text("No matches for “\(trimmedQuery)”. Try a shorter phrase or a symbol such as Path.read_text.")
-            }
-        } actions: {
-            if isBrowsingPack, browseCategory != nil {
-                Button("All Articles") { browseCategory = nil }
-            }
-            if packReference != nil || stack != nil || searchKey.project != nil {
-                Button("Search All Docsets") { clearScope() }.buttonStyle(.borderedProminent)
-            }
-            Button("Browse Docsets", action: resetToBrowse)
-        }
-    }
-
-    private func projectBar(_ project: ProjectContext) -> some View {
-        HStack(spacing: 9) {
-            Image(systemName: "folder").foregroundStyle(.secondary)
-            Text(URL(fileURLWithPath: project.path).lastPathComponent)
-                .font(.callout.weight(.medium))
-                .lineLimit(1)
-                .help(project.path)
-            if project.stacks.isEmpty {
-                Text("No supported stack detected").font(.caption).foregroundStyle(.secondary)
-            } else if let detected = project.stack, stack == detected && currentPack == nil && useProjectScope {
-                Text("Project scope · \(displayStack(detected))").font(.caption).foregroundStyle(.secondary)
-            } else {
-                Text(project.stacks.map(displayStack).joined(separator: ", "))
-                    .font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            Spacer()
-            Button {
-                showProjectReferences = true
-            } label: {
-                Label((project.docsets ?? []).contains(where: \.needsAttention) ? "Review Versions" : "Project References",
-                      systemImage: (project.docsets ?? []).contains(where: \.needsAttention) ? "exclamationmark.triangle" : "pin")
-            }.controlSize(.small)
-            if let stack = project.stack, !stacks.contains(stack) {
-                Button("Install \(displayStack(stack)) Docs", action: openLibrary)
-                    .controlSize(.small)
-            } else if let detected = project.stack, stack != detected || currentPack != nil || !useProjectScope {
-                Button("Use Project Scope") { setStack(detected); useProjectScope = true }
-                    .controlSize(.small)
-            }
-            Button(action: clearProject) { Image(systemName: "xmark.circle") }
-                .buttonStyle(.borderless)
-                .help("Clear Project Context")
-                .accessibilityLabel("Clear Project Context")
-        }
-        .padding(.horizontal, 18)
-        .padding(.bottom, 10)
-    }
-
-    private var searchBar: some View {
-        HStack(spacing: 10) {
-            HStack(spacing: 3) {
-                Button { reading.move(-1) } label: { Image(systemName: "chevron.left").frame(width: 16) }
-                    .disabled(!reading.history.canGoBack).keyboardShortcut("[")
-                    .help("Back (⌘[)").accessibilityLabel("Back")
-                Button { reading.move(1) } label: { Image(systemName: "chevron.right").frame(width: 16) }
-                    .disabled(!reading.history.canGoForward).keyboardShortcut("]")
-                    .help("Forward (⌘])").accessibilityLabel("Forward")
-                Button(action: resetToBrowse) { Image(systemName: "books.vertical").frame(width: 16) }
-                    .help("Browse Documentation").accessibilityLabel("Browse Documentation")
-            }.buttonStyle(.borderless)
-            Button { showSavedReferences = true; showReferences = true } label: { Image(systemName: "bookmark").frame(width: 16) }
-                .buttonStyle(.borderless).keyboardShortcut("b", modifiers: [.command, .shift])
-                .help("Saved and Recent References (⇧⌘B)").accessibilityLabel("Saved and Recent References")
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField(currentPack.map { "Search \($0.name)" } ?? "Search symbols, topics, and guides", text: Binding(
-                    get: { query }, set: { value in
-                        guard value != query else { return }
-                        query = value
-                        directDocumentID = nil
-                        resetReaderTarget()
-                    }
-                ))
-                    .textFieldStyle(.plain)
-                    .focused($searchFocused)
-                    .help("Search installed documentation. Try a topic or a scoped symbol like py:Path.read_text.")
-                    .onSubmit(commitSearchSelection)
-                    .onKeyPress(.downArrow) { moveSelection(by: 1) }
-                    .onKeyPress(.upArrow) { moveSelection(by: -1) }
-                if !query.isEmpty {
-                    Button {
-                        query = ""
-                        directDocumentID = nil
-                        resetReaderTarget()
-                        searchFocused = true
-                    } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Clear search")
-                } else {
-                    Text("⌘F").font(.caption).foregroundStyle(.tertiary)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 7))
-            scopeMenu
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-    }
-
-    private var scopeMenu: some View {
-        Menu {
-            Button("All Docsets") { clearScope() }
-            if currentPackVersions.count > 1 {
-                Section("Releases") {
-                    ForEach(currentPackVersions, id: \.reference) { pack in
-                        Button { choosePack(pack, clearSearch: false) } label: {
-                            if pack.reference == packReference { Label(pack.version, systemImage: "checkmark") }
-                            else { Text(pack.version) }
-                        }
-                    }
-                }
-            }
-            Section("Stacks") {
-                ForEach(stacks, id: \.self) { name in
-                    Menu(displayStack(name)) {
-                        Button("All \(displayStack(name)) Docsets") { setStack(name) }
-                        Divider()
-                        ForEach(groupPacks(name), id: \.reference) { pack in
-                            Button("\(pack.name) · \(pack.version)") { choosePack(pack, clearSearch: false) }
-                        }
-                    }
-                }
-            }
-        } label: {
-            if let currentPack {
-                Label("\(currentPack.name) · \(currentPack.version.components(separatedBy: "+")[0])", systemImage: "book")
-                    .lineLimit(1)
-            } else {
-                Text(stack.map(displayStack) ?? "All Docsets").lineLimit(1)
-            }
-        }
-        .menuStyle(.borderedButton)
-        .fixedSize()
-        .accessibilityLabel("Documentation scope")
-    }
-
-    private var libraryOverview: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Browse Documentation")
-                            .font(.title2.weight(.semibold))
-                            .accessibilityAddTraits(.isHeader)
-                        Text("Open a docset or search your offline library.")
-                            .font(.callout).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button("Manage Library", action: openLibrary)
-                        .controlSize(.small)
-                }
-
-                if !reading.library.saved.isEmpty || !reading.library.recent.isEmpty {
-                    referenceOverview
-                }
-                HStack(spacing: 8) {
-                    Text("Quick lookup").font(.caption).foregroundStyle(.secondary)
-                    ForEach(["py:Path.read_text", "go:http.Handler", "rust:Vec::push"], id: \.self) { example in
-                        Button(example) { clearScope(); query = example; searchFocused = true }
-                            .buttonStyle(.link).font(.caption.monospaced())
-                    }
-                }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220, maximum: 335), spacing: 26, alignment: .topLeading)],
-                          alignment: .leading, spacing: 22) {
-                    ForEach(visibleStacks, id: \.self) { name in
-                        VStack(alignment: .leading, spacing: 7) {
-                            Text(displayStack(name))
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .accessibilityAddTraits(.isHeader)
-                            Divider()
-                            ForEach(groupPacks(name), id: \.reference) { pack in
-                                DocsetRow(pack: pack) { choosePack(pack, clearSearch: true) }
-                            }
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: 950, alignment: .leading)
-            .padding(.horizontal, 26)
-            .padding(.vertical, 24)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
-    }
-
-    private var referenceOverview: some View {
-        HStack(alignment: .top, spacing: 32) {
-            referenceColumn("Saved", icon: "bookmark", entries: Array(reading.library.saved.prefix(4)))
-            referenceColumn("Recently Opened", icon: "clock", entries: Array(reading.library.recent.prefix(4)))
-        }
-    }
-
-    private func referenceColumn(_ title: String, icon: String, entries: [ReadingReference]) -> some View {
+    private var toolbar: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label(title, systemImage: icon).font(.callout.weight(.semibold))
-                Spacer()
-                Button("View All") { showSavedReferences = icon == "bookmark"; showReferences = true }.font(.caption).buttonStyle(.link)
-            }
-            if entries.isEmpty {
-                Text("Keep useful pages here with ⌘D.").font(.caption).foregroundStyle(.secondary)
-            }
-            ForEach(entries) { reference in
-                Button { openReference(reference) } label: {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(ReaderMarkup.title(reference.title, fallback: reference.packId)).lineLimit(1)
-                        Text("\(reference.packId) · \(displayDocVersion(reference.version))")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-                }.buttonStyle(.plain).disabled(!reference.installed).padding(.vertical, 3)
-            }
-        }.frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-
-    private func groupPacks(_ name: String) -> [DocPack] {
-        let matching = packs.filter { $0.stack == name }
-        let byPack: [String: [DocPack]] = Dictionary(grouping: matching, by: \.id)
-        let preferred: [DocPack] = byPack.values.compactMap { versions in
-            if let active = versions.first(where: { $0.active == true }) { return active }
-            return versions.max { earlier, later in
-                earlier.version.compare(later.version, options: .numeric) == .orderedAscending
-            }
-        }
-        return preferred.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-    }
-
-    private var searchResults: some View {
-        HSplitView {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    if searching {
-                        ProgressView().controlSize(.mini)
-                        Text(searchProgressTitle).font(.caption.weight(.semibold))
-                        Spacer()
-                    } else if isBrowsingPack {
-                        Menu {
-                            Button("All Articles") { browseCategory = nil }
-                            Divider()
-                            Button("Guides") { browseCategory = "guide" }
-                            Button("APIs") { browseCategory = "api" }
-                            Button("Reference") { browseCategory = "reference" }
-                            Button("Compatibility Notes") { browseCategory = "compatibility" }
-                        } label: {
-                            Text(categoryTitle).font(.caption.weight(.semibold))
-                        }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Article Category")
-                        Spacer()
-                        Text("\(hits.count) loaded").font(.caption.monospacedDigit())
-                    } else {
-                        Text(hits.count == searchLimit ? "Top \(searchLimit) results" : "\(hits.count) \(hits.count == 1 ? "result" : "results")")
-                            .font(.caption.weight(.semibold))
-                        Spacer()
+            HStack(spacing: 10) {
+                HStack(spacing: 5) {
+                    Button { reading.move(-1) } label: { Image(systemName: "chevron.left").frame(width: 17) }
+                        .disabled(!reading.history.canGoBack).keyboardShortcut("[")
+                        .help("Back (⌘[)").accessibilityLabel("Back")
+                    Button { reading.move(1) } label: { Image(systemName: "chevron.right").frame(width: 17) }
+                        .disabled(!reading.history.canGoForward).keyboardShortcut("]")
+                        .help("Forward (⌘])").accessibilityLabel("Forward")
+                    Button { showReferences = true } label: { Image(systemName: "bookmark").frame(width: 17) }
+                        .keyboardShortcut("b", modifiers: [.command, .shift])
+                        .help("Saved and Recent References (⇧⌘B)").accessibilityLabel("Saved and Recent References")
+                }.buttonStyle(.borderless)
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("Search documentation", text: $query)
+                        .textFieldStyle(.plain).focused($searchFocused)
+                        .onSubmit(commitSearchSelection)
+                        .onKeyPress(.downArrow) { moveSelection(1) }
+                        .onKeyPress(.upArrow) { moveSelection(-1) }
+                    if !query.isEmpty {
+                        Button { query = ""; searchFocused = true } label: {
+                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        }.buttonStyle(.borderless).accessibilityLabel("Clear search")
                     }
                 }
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 9)
-                ScrollViewReader { proxy in
-                    articleList
-                        .onChange(of: reveal) { _, request in
-                            if let request { proxy.scrollTo(request.articleID) }
-                        }
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 7))
+                Button("Manage Docs", action: openLibrary).controlSize(.small)
+            }
+            HStack(spacing: 7) {
+                scopeButton(scope == .installed ? stack.map { "Installed · \(displayStack($0))" } ?? "Installed" : "Installed",
+                            scope: .installed)
+                if projectContext != nil { scopeButton("This Project", scope: .project) }
+                scopeButton("Imported", scope: .imported)
+                if let currentPack { scopeButton(displayName(currentPack), scope: .docset) }
+                Spacer(minLength: 0)
+                if scope == .project && projectContext != nil {
+                    Button("Project Versions") { showProjectReferences = true }.controlSize(.small)
                 }
             }
-            .frame(minWidth: 195, idealWidth: 245, maxWidth: 290)
-            .background(.quaternary.opacity(0.22))
-            Group {
-                if searching && directDocumentID == nil { Color.clear }
-                else { reader }
-            }
-            .frame(minWidth: 345, maxWidth: .infinity, maxHeight: .infinity)
-        }
+        }.padding(.horizontal, 16).padding(.vertical, 9)
     }
 
-    @ViewBuilder private var articleList: some View {
-        if #available(macOS 15, *) {
-            articleListContent
-                .onScrollGeometryChange(for: Bool.self) { geometry in
-                    geometry.contentOffset.y > 0 && geometry.visibleRect.height > 0
-                        && geometry.visibleRect.maxY + 120 >= geometry.contentSize.height
-                } action: { _, nearEnd in
-                    if nearEnd && browseError == nil {
-                        Task { await loadMoreArticles() }
-                    }
-                }
+    private func scopeButton(_ title: String, scope item: Scope) -> some View {
+        Button { changeScope(item) } label: {
+            Text(title).font(.caption.weight(scope == item ? .semibold : .regular)).lineLimit(1)
+                .padding(.horizontal, 9).padding(.vertical, 4)
+                .background(scope == item ? Color.accentColor.opacity(0.18) : .clear,
+                            in: RoundedRectangle(cornerRadius: 5))
+                .contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityAddTraits(scope == item ? [.isSelected] : [])
+    }
+
+    @ViewBuilder private var sidebar: some View {
+        if trimmedQuery.isEmpty && !browsing {
+            docsets
         } else {
-            articleListContent
+            VStack(alignment: .leading, spacing: 0) {
+                if let pack = scopedPack, browsing { browseHeader(pack) }
+                if let error = searchError {
+                    sidebarMessage("Couldn't Load Documentation", detail: error)
+                } else if searching {
+                    ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if showingIndex, let navigation {
+                    groupIndex(navigation)
+                } else if hits.isEmpty {
+                    sidebarMessage(browsing ? "No Articles" : "No Results",
+                                   detail: browsing ? nil : "Try a different term or search scope.")
+                } else {
+                    results
+                }
+            }
         }
     }
 
-    private var articleListContent: some View {
-        List(selection: Binding(get: { selectedID }, set: { value in
-            guard hasCurrentResults, let value, value != selectedID, hits.contains(where: { $0.id == value }) else { return }
-            directDocumentID = nil
-            resetReaderTarget()
-            automaticSelection = false
-            selectedID = value
-        })) {
-            ForEach(hasCurrentResults ? hits : []) { hit in
-                let name = packName(hit.packId, stack: hit.stack)
-                let title = ReaderMarkup.title(hit.title, fallback: "\(name) Overview")
-                let label = isBrowsingPack ? title : hit.symbol ?? title
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(label).font(.body.weight(.medium))
-                        .lineLimit(2, reservesSpace: isBrowsingPack)
-                    if !isBrowsingPack {
-                        if label != title {
-                            Text(title).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+    private var docsets: some View {
+        Group {
+            if visiblePacks.isEmpty {
+                VStack(spacing: 8) {
+                    sidebarMessage(scope == .imported ? "No Imported Docs" : "No Installed Docs")
+                    Button(scope == .imported ? "Manage Imports" : "Install Docs", action: openLibrary)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 2) {
+                        if scope == .project, let projectContext {
+                            Text(URL(fileURLWithPath: projectContext.path).lastPathComponent)
+                                .font(.callout.weight(.semibold)).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(.bottom, 4)
                         }
-                        Text("\(name) · \(displayDocVersion(hit.version))")
-                            .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        if let preview = resultPreview(hit, title: title, label: label) {
-                            Text(preview)
-                                .font(hit.symbol == nil ? .caption : .caption.monospaced())
-                                .foregroundStyle(.secondary).lineLimit(2)
-                                .help(preview)
+                        ForEach(visiblePacks, id: \.reference) { pack in
+                            Button { choosePack(pack, inProject: scope == .project) } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "book.closed").foregroundStyle(.secondary)
+                                    Text(displayName(pack)).lineLimit(1)
+                                    Spacer(minLength: 4)
+                                    Text(release(pack)).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                                }.padding(8).contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                        }
+                    }.padding(8)
+                }
+            }
+        }.frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func browseHeader(_ pack: DocPack) -> some View {
+        HStack {
+            if group != nil {
+                Button { group = nil; selectedID = nil } label: { Image(systemName: "chevron.left") }
+                    .buttonStyle(.borderless).accessibilityLabel("All Sections")
+            }
+            Text(group.map { $0.isEmpty ? "Other Articles" : $0 } ?? "Contents")
+                .font(.callout.weight(.semibold)).lineLimit(1)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            if let entry = pack.entryId {
+                Button { open(packEntryID(pack, entry)) } label: { Image(systemName: "list.bullet.rectangle") }
+                    .buttonStyle(.borderless).help("Open Contents Page").accessibilityLabel("Open Contents Page")
+            }
+            if currentPackVersions.count > 1 {
+                Menu(release(pack)) {
+                    ForEach(currentPackVersions, id: \.reference) { version in
+                        Button(release(version)) { choosePack(version, inProject: false) }
+                    }
+                }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Docset Release")
+            }
+        }.padding(.horizontal, 12).padding(.vertical, 9)
+    }
+
+    private func groupIndex(_ navigation: DocsetNavigation) -> some View {
+        ScrollView {
+            LazyVStack(spacing: 2) {
+                ForEach(navigation.groups + (navigation.hasUngrouped ? [""] : []), id: \.self) { name in
+                    Button {
+                        group = name
+                        selectedID = nil
+                    } label: {
+                        HStack {
+                            Text(name.isEmpty ? "Other Articles" : name)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+                        }.padding(8).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                }
+            }.padding(8)
+        }
+    }
+
+    private var results: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    ForEach(hits) { hit in
+                        let name = docset(hit.packId, version: hit.version).map(displayName) ?? displayStack(hit.stack)
+                        let title = ReaderMarkup.title(hit.title, fallback: name)
+                        let label = browsing ? title : hit.symbol ?? title
+                        Button { open(hit) } label: {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(label).font(.callout.weight(.medium)).lineLimit(2)
+                                if !browsing {
+                                    Text("\(name) · \(displayDocVersion(hit.version))")
+                                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    if let preview = resultPreview(hit, title: title, label: label) {
+                                        Text(preview).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                    }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(8)
+                            .background(selectedID == hit.id ? Color.accentColor.opacity(0.15) : .clear,
+                                        in: RoundedRectangle(cornerRadius: 6))
+                            .contentShape(Rectangle())
+                        }.buttonStyle(.plain).id(hit.id)
+                            .accessibilityAddTraits(selectedID == hit.id ? [.isSelected] : [])
+                    }
+                    if moreArticles {
+                        if pageRequest != nil {
+                            ProgressView().controlSize(.small).padding(8)
+                        } else {
+                            Button(browseError == nil ? "Load More" : "Retry") { Task { await loadMoreArticles() } }
+                                .buttonStyle(.borderless).padding(8)
                         }
                     }
-                }
-                .padding(.vertical, isBrowsingPack ? 0 : 5)
-                .frame(height: isBrowsingPack ? browseRowHeight : nil, alignment: .leading)
-                .listRowInsets(isBrowsingPack ? browseRowInsets : nil)
-                .tag(hit.id)
-                .id(hit.id)
-            }
-            if isBrowsingPack && hasCurrentResults {
-                paginationRow
-                    .frame(minHeight: browseRowHeight, alignment: .leading)
-                    .listRowInsets(browseRowInsets)
-                    .selectionDisabled()
-                    .listRowSeparator(.hidden)
-            }
+                    if let browseError { Text(browseError).font(.caption).foregroundStyle(.secondary).padding(8) }
+                }.padding(8)
+            }.onChange(of: reveal) { _, _ in if let selectedID { proxy.scrollTo(selectedID) } }
         }
-        .environment(\.defaultMinListRowHeight, isBrowsingPack ? browseRowHeight : standardRowHeight)
-        .listStyle(.inset)
-        .scrollContentBackground(.hidden)
+    }
+
+    private func sidebarMessage(_ title: String, detail: String? = nil) -> some View {
+        VStack(spacing: 5) {
+            Text(title).font(.callout.weight(.medium))
+            if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center) }
+        }.frame(maxWidth: .infinity, maxHeight: detail == nil ? nil : .infinity).padding(12)
     }
 
     private func resultPreview(_ hit: SearchHit, title: String, label: String) -> String? {
@@ -561,91 +338,133 @@ struct DocsView: View {
         }
     }
 
-    private var paginationRow: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if loadingMore {
-                HStack(spacing: 7) {
-                    ProgressView().controlSize(.mini)
-                    Text("Loading Articles…").font(.callout).foregroundStyle(.secondary)
-                }
-            } else if moreArticles {
-                Button(browseError == nil ? "Load More Articles" : "Retry Loading Articles") {
-                    Task { await loadMoreArticles() }
-                }
-                .buttonStyle(.borderless)
-            } else {
-                Label("All Articles Loaded", systemImage: "checkmark.circle")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if let browseError {
-                Text(browseError).font(.caption).foregroundStyle(.secondary)
-            }
-        }
-        .padding(.vertical, 5)
-    }
-
     @ViewBuilder private var reader: some View {
         if let document {
-            DocReader(document: document, packName: packName(document.packId, stack: document.stack),
-                      anchor: readerAnchor, focus: navigationFocus, restoredPosition: navigationPosition, restoredOffset: navigationOffset,
-                      isSaved: reading.isSaved(document.id),
-                      save: { anchor, focus in
-                          var location = currentLocation(document)
-                          location.anchor = anchor
-                          location.focusText = focus
-                          Task { await reading.toggleSaved(location) }
-                      },
-                      navigate: { url in Task { await follow(url, from: document) } },
-                      openPart: { id in reading.open(ReferenceLocation(id: id, query: query, stack: stack, pack: packReference, category: browseCategory)) },
-                      reportPosition: { [token = navigationToken] fraction, anchor, offset in
-                          guard token == navigationToken else { return }
-                          currentReaderAnchor = anchor
-                          reading.updatePosition(id: document.id, fraction: fraction, anchor: anchor, anchorOffset: offset)
-                      })
-                .id(document.id)
+            let pack = docset(document.packId, version: document.version)
+            VStack(spacing: 0) {
+                if let linkIssue {
+                    HStack(spacing: 10) {
+                        Image(systemName: "info.circle").foregroundStyle(.secondary)
+                        Text(linkIssue.message).font(.callout)
+                        Spacer()
+                        if let packID = linkIssue.installPack { Button("Install Docs") { installDocset(packID) } }
+                        if let url = linkIssue.source { Link("Open Source", destination: url) }
+                        Button { self.linkIssue = nil } label: { Image(systemName: "xmark") }
+                            .buttonStyle(.borderless).accessibilityLabel("Dismiss Link Message")
+                    }.padding(10).background(.bar)
+                    Divider()
+                }
+                DocReader(document: document, pack: pack, packName: pack.map(displayName) ?? displayStack(document.stack),
+                          anchor: openedLocation?.anchor, focus: openedLocation?.focusText,
+                          restoredPosition: openedLocation?.position, restoredOffset: openedLocation?.anchorOffset,
+                          cueSearchMatch: openedLocation?.searchMatch == true,
+                          isSaved: reading.isSaved(document.id),
+                          save: { anchor, focus in
+                              var location = currentLocation(document)
+                              location.anchor = anchor
+                              location.focusText = focus
+                              Task { await reading.toggleSaved(location) }
+                          },
+                          linkRevision: "\(model.libraryRevision):\(searchKey.pins)",
+                          linkStatuses: { urls in try await classifyLinks(urls, in: document) },
+                          navigate: { url, status in Task { await follow(url, status: status, from: document) } },
+                          openPart: { id in open(id, documentContext: true) },
+                          reportPosition: { [token = navigationToken] fraction, anchor, offset in
+                              guard token == navigationToken else { return }
+                              if let anchor { currentReaderAnchor = anchor }
+                              reading.updatePosition(id: document.id, fraction: fraction, anchor: anchor, anchorOffset: offset)
+                          })
+                    .id(document.id)
+            }
         } else if let failure = documentFailure, failure.key == readKey {
-            ContentUnavailableView("Document Unavailable", systemImage: "exclamationmark.circle", description: Text(failure.message))
-        } else if readingID != nil {
+            ContentUnavailableView("Document Unavailable", systemImage: "doc.text", description: Text(failure.message))
+        } else if directDocumentID != nil {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            ContentUnavailableView("Select an Article", systemImage: "doc.text")
+            ContentUnavailableView("Documentation", systemImage: "book",
+                                   description: Text("Choose a docset or search for a symbol or topic."))
         }
     }
 
-    private func packName(_ id: String, stack: String) -> String {
-        packs.first { $0.id == id }?.name ?? displayStack(stack)
+    private func packPrecedes(_ a: DocPack, _ b: DocPack) -> Bool {
+        displayName(a).localizedStandardCompare(displayName(b)) == .orderedAscending
     }
 
-    private func choosePack(_ pack: DocPack, clearSearch: Bool) {
-        directDocumentID = nil
-        resetReaderTarget()
-        browseCategory = nil
-        if clearSearch { query = "" }
+    private func docset(_ id: String, version: String) -> DocPack? {
+        packs.first { $0.id == id && $0.version == version }
+    }
+
+    private func isImported(_ id: String) -> Bool { id.hasPrefix("devdocs-") }
+
+    private func displayName(_ pack: DocPack) -> String {
+        let prefix = "DevDocs · "
+        return isImported(pack.id) && pack.name.hasPrefix(prefix) ? String(pack.name.dropFirst(prefix.count)) : pack.name
+    }
+
+    private func release(_ pack: DocPack) -> String { displayDocVersion(pack.version) }
+    private func packEntryID(_ pack: DocPack, _ entry: String) -> String { "\(pack.reference)/\(entry)" }
+
+    private func applyEntryPoint() {
+        scope = selectedPack != nil ? .docset : projectScopeRequested && projectContext != nil ? .project : .installed
+        group = nil
+        browsedPackInProject = projectScopeRequested && scope == .docset
+        openedLocation = nil
+        currentReaderAnchor = nil
+        linkIssue = nil
+        restoring = false
+        navigationToken = UUID()
+        if directDocumentID == nil && trimmedQuery.isEmpty, let pack = currentPack, let entry = pack.entryId {
+            open(packEntryID(pack, entry))
+        }
+    }
+
+    private func changeScope(_ value: Scope) {
+        guard scope != value || (value == .installed && stack != nil) else { return }
+        if value == .docset, let currentPack {
+            packReference = currentPack.reference
+            browsedPackInProject = openedLocation?.projectScoped == true
+        }
+        scope = value
+        group = nil
+        stack = nil
+        selectedID = nil
+        pendingBrowseReveal = nil
+    }
+
+    private func choosePack(_ pack: DocPack, inProject: Bool) {
+        scope = .docset
         stack = pack.stack
         packReference = pack.reference
-    }
-
-    private func setStack(_ value: String?) {
-        useProjectScope = false
-        directDocumentID = nil
-        resetReaderTarget()
-        packReference = nil
-        browseCategory = nil
-        stack = value
-    }
-
-    private func clearScope() { setStack(nil) }
-
-    private func resetToBrowse() {
         query = ""
-        clearScope()
+        group = nil
+        browsedPackInProject = inProject
+        selectedID = nil
+        pendingBrowseReveal = nil
+        if let entry = pack.entryId {
+            open(packEntryID(pack, entry), projectScoped: inProject)
+        } else {
+            directDocumentID = nil
+            openedLocation = nil
+            linkIssue = nil
+        }
     }
 
-    private func selectAndReveal(_ id: String) {
-        directDocumentID = nil
-        resetReaderTarget()
-        selectedID = id
-        reveal = ListReveal(articleID: id)
+    private func open(_ hit: SearchHit) {
+        selectedID = hit.id
+        open(hit.id, anchor: hit.matchAnchor, focus: browsing ? nil : hit.matchText, searchMatch: !browsing)
+    }
+
+    private func open(_ id: String, anchor: String? = nil, focus: String? = nil,
+                      projectScoped: Bool? = nil, documentContext: Bool = false, searchMatch: Bool = false) {
+        let project = projectScoped ?? (scope == .project || (scope == .docset && browsedPackInProject))
+        var location = ReferenceLocation(id: id, query: query, stack: stack, pack: packReference,
+                                         anchor: anchor, focusText: focus,
+                                         browseIndex: browsing ? hits.firstIndex { $0.id == id } : nil)
+        location.scope = scope.rawValue
+        location.group = group
+        location.projectScoped = documentContext ? openedLocation?.projectScoped : project
+        location.searchMatch = searchMatch ? true : nil
+        reading.open(location)
     }
 
     private func commitSearchSelection() {
@@ -653,104 +472,96 @@ struct DocsView: View {
             if searching, !trimmedQuery.isEmpty { submittedSearch = searchKey }
             return
         }
-        let selection = hits.first { $0.id == selectedID } ?? hits.first
-        guard let selection else { return }
-        automaticSelection = false
-        if selectedID != selection.id || directDocumentID != nil {
-            selectAndReveal(selection.id)
-        } else if document != nil {
-            reading.commitSearchPreview()
-        }
+        if let hit = hits.first(where: { $0.id == selectedID }) ?? hits.first { open(hit) }
     }
 
-    private func moveSelection(by offset: Int) -> KeyPress.Result {
+    private func moveSelection(_ offset: Int) -> KeyPress.Result {
         guard hasCurrentResults, !hits.isEmpty else { return .ignored }
-        automaticSelection = false
-        let index = hits.firstIndex { $0.id == selectedID } ?? -1
-        if index + offset >= hits.count, isBrowsingPack, moreArticles {
+        let index = hits.firstIndex { $0.id == selectedID } ?? (offset > 0 ? -1 : hits.count)
+        if index + offset >= hits.count, browsing, moreArticles {
             Task { await loadMoreArticles(advanceSelection: true) }
         } else {
-            let next = hits[min(max(index + offset, 0), hits.count - 1)].id
-            if next != selectedID { selectAndReveal(next) }
+            selectedID = hits[min(max(index + offset, 0), hits.count - 1)].id
+            reveal = UUID()
         }
         return .handled
     }
 
     private func search(_ key: SearchKey) async {
         guard key == searchKey, !Task.isCancelled else { return }
-        let pack = currentPack
         pageRequest = nil
         browseError = nil
         moreArticles = false
         searchFailure = nil
-        guard (!key.query.isEmpty || pack != nil), !packs.isEmpty else {
+        navigation = nil
+        if submittedSearch != key { submittedSearch = nil }
+        let pack = scopedPack
+        guard !key.query.isEmpty || pack != nil else {
             hits = []
             selectedID = nil
             committedSearch = nil
             return
         }
-
         do {
             if !key.query.isEmpty { try await Task.sleep(for: .milliseconds(120)) }
-            guard key == searchKey else { return }
-            let inheritedScope = pack == nil && key.project != nil
+            if let pack, key.query.isEmpty, key.group == nil {
+                let index: DocsetNavigation = try await Core.request(CoreRequest("docs.navigation", version: pack.version, packId: pack.id))
+                try Task.checkCancellation()
+                guard key == searchKey else { return }
+                navigation = index
+                if !index.groups.isEmpty && key.category == nil {
+                    hits = []
+                    committedSearch = key
+                    return
+                }
+            }
             let results: [SearchHit] = try await Core.request(
-                CoreRequest("docs.search", version: pack?.version, query: key.query,
-                            stack: inheritedScope ? nil : pack?.stack ?? key.stack, packId: pack?.id,
-                            limit: key.query.isEmpty ? browseLimit + 1 : searchLimit,
-                            category: key.category, projectStack: inheritedScope ? key.stack : nil,
-                            projectPath: inheritedScope ? key.project : nil)
+                CoreRequest("docs.search", version: pack?.version, query: key.query, stack: key.stack, packId: pack?.id,
+                            limit: key.query.isEmpty ? browseLimit + 1 : searchLimit, category: key.category,
+                            group: key.group, projectPath: key.project,
+                            kind: key.scope == .docset ? nil : key.scope.rawValue)
             )
             try Task.checkCancellation()
             guard key == searchKey else { return }
             hits = key.query.isEmpty ? Array(results.prefix(browseLimit)) : results
             moreArticles = key.query.isEmpty && results.count > browseLimit
             committedSearch = key
-            if directDocumentID == nil {
-                automaticSelection = true
-                if let first = hits.first { selectAndReveal(first.id) }
-                else { selectedID = nil }
-            }
-            if pendingBrowseReveal == nil, let id = directDocumentID, hits.contains(where: { $0.id == id }) {
-                selectedID = id
-                reveal = ListReveal(articleID: id)
-            }
+            selectedID = results.contains(where: { $0.id == directDocumentID }) ? directDocumentID : nil
+            if selectedID != nil { reveal = UUID() }
             if submittedSearch == key {
                 submittedSearch = nil
                 commitSearchSelection()
             }
+            await revealBrowseHistory()
         } catch is CancellationError {
         } catch {
             guard key == searchKey, !Task.isCancelled else { return }
             searchFailure = (key, error.localizedDescription)
-            if submittedSearch == key { submittedSearch = nil }
             hits = []
             selectedID = nil
-            committedSearch = nil
         }
     }
 
     private func loadMoreArticles(advanceSelection: Bool = false) async {
-        guard let pack = currentPack, isBrowsingPack, moreArticles, !loadingMore, hasCurrentResults else { return }
+        guard let pack = scopedPack, browsing, moreArticles, pageRequest == nil, hasCurrentResults else { return }
         let key = searchKey
         let request = UUID()
         let offset = hits.count
         let previousSelection = selectedID
         pageRequest = request
         browseError = nil
-        defer {
-            if pageRequest == request { pageRequest = nil }
-        }
+        defer { if pageRequest == request { pageRequest = nil } }
         do {
             let next: [SearchHit] = try await Core.request(
-                CoreRequest("docs.search", version: pack.version, query: "", stack: pack.stack,
-                            packId: pack.id, limit: browseLimit + 1, offset: offset, category: key.category)
+                CoreRequest("docs.search", version: pack.version, query: "", packId: pack.id,
+                            limit: browseLimit + 1, offset: offset, category: key.category, group: key.group)
             )
             guard pageRequest == request, key == searchKey, hits.count == offset else { return }
             hits.append(contentsOf: next.prefix(browseLimit))
             moreArticles = next.count > browseLimit
             if advanceSelection, selectedID == previousSelection, let first = next.first {
-                selectAndReveal(first.id)
+                selectedID = first.id
+                reveal = UUID()
             }
         } catch is CancellationError {
         } catch {
@@ -759,13 +570,13 @@ struct DocsView: View {
         }
     }
 
-    private func revealBrowseHistory(_ key: BrowseRevealKey) async {
-        guard key == browseRevealKey, !Task.isCancelled else { return }
-        if hits.contains(where: { $0.id == key.target.id }) {
-            selectedID = key.target.id
-            reveal = ListReveal(articleID: key.target.id)
+    private func revealBrowseHistory() async {
+        guard let target = pendingBrowseReveal, browsing, hasCurrentResults, !Task.isCancelled else { return }
+        if hits.contains(where: { $0.id == target.id }) {
+            selectedID = target.id
+            reveal = UUID()
             pendingBrowseReveal = nil
-        } else if moreArticles, hits.count <= key.target.index {
+        } else if moreArticles && hits.count <= target.index && browseError == nil {
             await loadMoreArticles()
         } else {
             pendingBrowseReveal = nil
@@ -776,12 +587,12 @@ struct DocsView: View {
         guard key == readKey, !Task.isCancelled, let id = key.id else { return }
         documentFailure = nil
         do {
-            let value: Document = try await Core.request(CoreRequest("docs.show", id: id, query: key.query, focusText: key.focus))
+            let location = openedLocation
+            let value: Document = try await Core.request(CoreRequest("docs.show", id: id, focusText: location?.focusText))
             try Task.checkCancellation()
             guard key == readKey else { return }
             loadedDocument = (key, value)
-            await reading.didOpen(currentLocation(value), restoring: historyNavigationToken == key.token,
-                                  searchPreview: automaticSelection)
+            await reading.didOpen(currentLocation(value), restoring: restoring, searchPreview: false)
         } catch is CancellationError {
         } catch {
             guard key == readKey, !Task.isCancelled else { return }
@@ -789,23 +600,13 @@ struct DocsView: View {
         }
     }
 
-    private func resetReaderTarget() {
-        navigationAnchor = nil
-        currentReaderAnchor = nil
-        navigationFocus = nil
-        navigationPosition = nil
-        navigationOffset = nil
-        navigationQuery = ""
-        historyNavigationToken = nil
-        pendingBrowseReveal = nil
-        navigationToken = UUID()
-    }
-
     private func currentLocation(_ value: Document) -> ReferenceLocation {
-        ReferenceLocation(id: value.id, query: query, stack: stack, pack: packReference, category: browseCategory,
-                          anchor: currentReaderAnchor ?? readerAnchor,
-                          focusText: currentReaderAnchor == nil ? navigationFocus ?? value.focusText : nil,
-                          browseIndex: isBrowsingPack ? hits.firstIndex { $0.id == value.id } : nil)
+        var location = openedLocation ?? ReferenceLocation(id: value.id)
+        if let currentReaderAnchor {
+            location.anchor = currentReaderAnchor
+            location.focusText = nil
+        }
+        return location
     }
 
     private func restore(_ request: ReferenceRequest) {
@@ -813,25 +614,19 @@ struct DocsView: View {
         query = location.query
         stack = location.stack
         packReference = location.pack
-        browseCategory = location.category
+        scope = location.scope.flatMap(Scope.init(rawValue:)) ?? (location.pack == nil ? .installed : .docset)
+        if scope == .project && projectContext == nil { scope = .installed }
+        group = location.group
+        if scope == .docset { browsedPackInProject = location.projectScoped == true }
         selectedID = location.id
         directDocumentID = location.id
-        navigationQuery = location.query
-        navigationAnchor = location.anchor
+        openedLocation = location
         currentReaderAnchor = location.anchor
-        navigationFocus = location.focusText
-        navigationPosition = location.position
-        navigationOffset = location.anchorOffset
         navigationToken = request.token
-        historyNavigationToken = request.restoring ? request.token : nil
-        automaticSelection = false
-        if request.restoring, location.pack != nil, trimmedQuery.isEmpty, let index = location.browseIndex {
-            let scope = SearchKey(query: "", stack: location.stack, pack: location.pack,
-                                  category: location.category, revision: model.libraryRevision, project: searchKey.project, pins: searchKey.pins)
-            pendingBrowseReveal = BrowseReveal(id: location.id, index: index, token: request.token, scope: scope)
-        } else {
-            pendingBrowseReveal = nil
-        }
+        restoring = request.restoring
+        linkIssue = nil
+        pendingBrowseReveal = request.restoring && location.pack != nil && trimmedQuery.isEmpty
+            ? location.browseIndex.map { (location.id, $0) } : nil
         if reading.request?.token == request.token { reading.request = nil }
     }
 
@@ -841,79 +636,83 @@ struct DocsView: View {
                                        anchor: reference.anchor, focusText: reference.focusText))
     }
 
-    private func follow(_ url: URL, from document: Document) async {
+    private func classifyLinks(_ urls: [String], in document: Document) async throws -> [DocLinkStatus] {
+        try await Core.request(
+            CoreRequest("docs.link-status", id: document.id, urls: urls,
+                        projectPath: openedLocation?.projectScoped == true ? projectContext?.path : nil)
+        )
+    }
+
+    private func follow(_ url: String, status: DocLinkStatus?, from document: Document) async {
         let origin = readKey
         do {
-            let resolved: ResolvedReference? = try await Core.request(CoreRequest("docs.resolve", id: document.id,
-                                                                                version: document.version,
-                                                                                packId: document.packId, url: url.absoluteString))
-            guard origin == readKey else { return }
-            if let resolved {
-                reading.open(ReferenceLocation(id: resolved.id, query: query, stack: stack, pack: packReference, category: browseCategory,
-                                               anchor: resolved.anchor, focusText: resolved.focusText))
-            } else { externalLink = url }
-        } catch { if origin == readKey { model.error = error.localizedDescription } }
+            let result: DocLinkStatus?
+            if let status { result = status }
+            else { result = try await classifyLinks([url], in: document).first }
+            guard origin == readKey, !Task.isCancelled else { return }
+            let source = URL(string: url, relativeTo: URL(string: document.sourceUrl))
+                .flatMap { safeExternalURL($0.absoluteURL.absoluteString) }
+            switch result?.kind {
+            case .installed:
+                if let id = result?.id { open(id, anchor: result?.anchor, focus: result?.focusText, documentContext: true) }
+            case .online:
+                if let source { NSWorkspace.shared.open(source) }
+            case .missingDocument:
+                let packReference = result?.packId.map { id in result?.version.map { "\(id)@\($0)" } ?? id }
+                linkIssue = LinkIssue(message: "This page is unavailable in your installed documentation.",
+                                      source: source, installPack: result?.canInstall == true ? packReference : nil)
+            case .missingSection:
+                linkIssue = LinkIssue(message: "This section is unavailable in the installed release.", source: source)
+            default:
+                linkIssue = LinkIssue(message: "This link is unavailable.")
+            }
+        } catch {
+            guard origin == readKey, !Task.isCancelled else { return }
+            linkIssue = LinkIssue(message: "Couldn't check this link. Try again.")
+        }
     }
 
-    private struct ListReveal: Equatable {
-        let articleID: String
-        private let generation = UUID()
-    }
-
-    private struct BrowseReveal: Equatable {
-        let id: String
-        let index: Int
-        let token: UUID
-        let scope: SearchKey
-    }
-
-    private struct BrowseRevealKey: Equatable {
-        let target: BrowseReveal
-        let loaded: Int
-    }
-
+    private enum Scope: String, Equatable { case installed, project, imported, docset }
     private struct SearchKey: Equatable {
         let query: String
-        let stack, pack: String?
-        let category: String?
+        let scope: Scope
+        let pack, group, stack, category: String?
         let revision: Int
         let project: String?
         let pins: String
     }
-
     private struct ReadKey: Equatable {
         let id: String?
-        let query: String
-        let focus: String?
-        let anchor: String?
         let token: UUID
+    }
+    private struct LinkIssue {
+        let message: String
+        var source: URL?
+        var installPack: String?
     }
 }
 
-private struct DocsetRow: View {
-    let pack: DocPack
-    let select: () -> Void
-    @State private var hovered = false
+private struct DocsetNavigation: Decodable, Sendable {
+    let groups: [String]
+    let hasUngrouped: Bool
+}
 
-    var body: some View {
-        Button(action: select) {
-            HStack(spacing: 7) {
-                Image(systemName: "book.closed").foregroundStyle(.secondary)
-                Text(pack.name).font(.callout.weight(.medium)).lineLimit(1)
-                Spacer(minLength: 6)
-                Text(pack.version.components(separatedBy: "+")[0]).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
+struct DocLinkStatus: Decodable, Sendable {
+    enum Kind: String, Decodable, Sendable {
+        case installed, online, missingDocument, missingSection, unavailable
+
+        var label: String {
+            switch self {
+            case .installed: "Available offline"
+            case .online: "Online"
+            case .missingDocument: "Page unavailable offline"
+            case .missingSection: "Section unavailable offline"
+            case .unavailable: "Unavailable"
             }
-            .padding(.horizontal, 7)
-            .padding(.vertical, 7)
-            .background {
-                if hovered { RoundedRectangle(cornerRadius: 5).fill(.quaternary) }
-            }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .onHover { hovered = $0 }
-        .help(pack.description)
-        .accessibilityLabel("Browse \(pack.name) \(pack.version)")
     }
+    let url: String
+    let kind: Kind
+    let id, anchor, focusText, packId, version: String?
+    let canInstall: Bool?
 }

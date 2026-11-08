@@ -161,6 +161,14 @@ pub fn start(ctx: &Context, request: &Value) -> Result<Value> {
         | "infra_restore" | "infra_verify" | "infra_update" => {
             text_arg(request, "id")?;
         }
+        "docs_import_devdocs" => {
+            if request["path"].as_str().is_none() {
+                text_arg(request, "id")?;
+                if request["offline"] == true {
+                    bail!("Downloading DevDocs requires a connection.");
+                }
+            }
+        }
         "bundle_export"
         | "bundle_import"
         | "infra_export"
@@ -497,6 +505,7 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
                     Some(&mut job),
                 )
             }
+            "docs_import_devdocs" => crate::devdocs::import(&ctx, &request, Some(&mut job)),
             "project_prepare" => crate::project_prepare::prepare(&ctx, &request, Some(&mut job)),
             "toolbox_prepare" => crate::toolbox::prepare(&ctx, &request, Some(&mut job)),
             "service_clients_add" => crate::service_clients::add(&ctx, &request, Some(&mut job)),
@@ -527,7 +536,11 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
         Ok(result) => {
             let incomplete = (kind == "toolbox_prepare" && result["ready_offline"] == false)
                 || (kind == "content_update" && result["complete"] == false)
-                || (kind == "content_check" && result["all_checked"] == false);
+                || (kind == "content_check" && result["all_checked"] == false)
+                || (kind == "docs_import_devdocs"
+                    && result["failed"]
+                        .as_array()
+                        .is_some_and(|rows| !rows.is_empty()));
             job.record.state = if incomplete {
                 State::Failed
             } else {
@@ -535,12 +548,24 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
             };
             job.record.stage = if incomplete {
                 "Needs attention"
+            } else if kind == "docs_import_devdocs"
+                && result["skipped"]
+                    .as_array()
+                    .is_some_and(|rows| !rows.is_empty())
+                && result["installed"].as_array().is_some_and(Vec::is_empty)
+            {
+                "Kept the newer installed release"
             } else {
                 "Complete"
             }
             .into();
             if incomplete {
-                job.record.error = Some("Some resources still need attention. Review the result for completed steps and remaining blockers.".into());
+                let detail = (kind == "docs_import_devdocs")
+                    .then(|| result["failed"][0]["error"].as_str())
+                    .flatten();
+                job.record.error = Some(detail.unwrap_or(
+                    "Some resources still need attention. Review the result for completed steps and remaining blockers."
+                ).into());
             }
             job.record.result = Some(result);
         }

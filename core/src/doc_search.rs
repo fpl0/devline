@@ -52,8 +52,9 @@ impl<'a> DocScope<'a> {
         let (term, selectors) = scoped_term(input, &known_packs, &known_stacks);
         let pack = request["pack_id"].as_str().unwrap_or("");
         let version = request["version"].as_str().unwrap_or("");
+        let kind = request["kind"].as_str();
         let automatic = latest
-            && selectors.is_empty()
+            && (selectors.is_empty() || kind == Some("project"))
             && pack.is_empty()
             && version.is_empty()
             && request["stack"].as_str().is_none();
@@ -75,7 +76,13 @@ impl<'a> DocScope<'a> {
             None => "",
         };
         let eligible = |id: &str, release: &str, family: &str| {
-            (stack.is_empty() || stack == family)
+            let imported = crate::doc_library::is_devdocs(id);
+            (match kind {
+                Some("installed") => !imported,
+                Some("imported") => imported,
+                Some("project") => project_releases.is_some(),
+                _ => true,
+            }) && (stack.is_empty() || stack == family)
                 && (pack.is_empty() || pack == id)
                 && (version.is_empty() || version == release)
                 && project_releases.as_ref().is_none_or(|releases| {
@@ -307,6 +314,26 @@ pub(super) fn plain_title(title: &str, fallback: &str) -> String {
 
 const DOC_COLUMNS: &str = "d.id,d.pack_id,d.title,d.stack,d.version,d.source_url,d.category";
 const DOC_PREVIEW: &str = "substr(d.body,1,200)";
+
+pub(super) fn navigation(ctx: &Context, request: &Value) -> Result<Value> {
+    let pack = text_arg(request, "pack_id")?;
+    let version = text_arg(request, "version")?;
+    let db = ctx.database()?;
+    let mut statement = db.prepare(
+        "SELECT DISTINCT n.group_name FROM documents d
+         LEFT JOIN doc_navigation n ON n.document_id=d.id
+         WHERE d.pack_id=?1 AND d.version=?2 AND d.id NOT GLOB '*::part-[0-9]*'
+         ORDER BY n.group_name COLLATE NOCASE,n.group_name",
+    )?;
+    let groups = statement
+        .query_map(params![pack, version], |row| {
+            row.get::<_, Option<String>>(0)
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(
+        json!({"groups": groups.iter().flatten().collect::<Vec<_>>(), "has_ungrouped": groups.contains(&None)}),
+    )
+}
 
 pub(super) fn related_root(id: &str) -> &str {
     id.rsplit_once("::part-")
@@ -680,15 +707,18 @@ pub(super) fn search(ctx: &Context, request: &Value) -> Result<Value> {
     }
     if query.is_empty() {
         let offset = request["offset"].as_u64().unwrap_or(0).min(100_000) as i64;
+        let group = request["group"].as_str();
         let sql = format!(
             "SELECT {DOC_COLUMNS},{DOC_PREVIEW} FROM json_each(?1) r JOIN documents d
              ON d.pack_id=substr(r.value,1,instr(r.value,'@')-1)
              AND d.version=substr(r.value,instr(r.value,'@')+1)
+             LEFT JOIN doc_navigation n ON n.document_id=d.id
              WHERE d.id NOT GLOB '*::part-[0-9]*' {category}
+             AND (?4 IS NULL OR n.group_name=?4 OR (?4='' AND n.group_name IS NULL))
              ORDER BY lower(d.title), d.id LIMIT ?2 OFFSET ?3"
         );
         let mut stmt = db.prepare(&sql)?;
-        for row in stmt.query_map(params![scope.releases, limit, offset], summary)? {
+        for row in stmt.query_map(params![scope.releases, limit, offset, group], summary)? {
             results.push(row?.json(ctx, None, None));
         }
         return Ok(json!(results));
@@ -870,9 +900,28 @@ fn append_aliases(
             hit.snippet = compact_excerpt(&preview);
             (hit, None)
         };
-        let symbol = display_symbol(&candidate.label, &hit, focus.as_deref());
-        let mut anchor = None;
-        if exact && symbol.is_some() {
+        let indexed_target: Option<(String, String)> = db
+            .query_row(
+                "SELECT a.anchor,coalesce(s.alias,?4) FROM doc_alias_anchors a
+                 LEFT JOIN doc_symbol_keys s ON s.document_id=a.document_id AND s.key=?3
+                 WHERE a.document_id=?1 AND a.alias=?2",
+                params![
+                    hit.id,
+                    candidate.label.to_lowercase(),
+                    doc_index::symbol_key(&candidate.label),
+                    candidate.label
+                ],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        let (mut anchor, symbol) = match indexed_target {
+            Some((anchor, label)) => (Some(anchor), Some(label)),
+            None => (
+                None,
+                display_symbol(&candidate.label, &hit, focus.as_deref()),
+            ),
+        };
+        if exact && symbol.is_some() && anchor.is_none() {
             if let Some((heading, target)) =
                 doc_index::section_focus(db, &hit.id, &candidate.label)?
             {

@@ -132,11 +132,13 @@ class DocDistributionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as scratch:
             data = Path(scratch)
             fixture(data, '<h1 id="api.read">Read</h1><a href="#api.read">Read</a>'
-                    '<a href="#missing">Missing</a><pre><code>read()</code></pre>'
+                    '<a href="#missing">Missing</a><a href="?view=older#old">Older release</a>'
+                    '<pre><code>read()</code></pre>'
                     '<img src="https://example.org/img.png"><script>alert(1)</script>')
             report = audit.audit(data, require_examples=False)
             self.assertEqual(report["counts"]["examples"], 1)
             self.assertEqual(report["counts"]["missing_same_page_anchors"], 1)
+            self.assertEqual(report["counts"]["links_outside_snapshot"], 1)
             baseline = {"missing_anchors": [["fixture@1.0.0+devline.1", "article", "example.org/article", "missing"]]}
             errors, anchors = audit.regressions(report, baseline)
             self.assertEqual(anchors, [])

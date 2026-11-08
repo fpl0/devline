@@ -144,7 +144,7 @@ class DevDocsImportTests(unittest.TestCase):
             options_url = "https://docs.astro.build/en/reference/options/"
             pages = {
                 "guides/actions/index": '<h1>Actions</h1><h2 id="server">Server</h2>'
-                '<p>starlightxylophone</p><pre><code>defineAction()</code></pre>'
+                '<p>starlightxylophone</p><pre data-language="typescript"><code>defineAction()</code></pre>'
                 '<a href="../../reference/options/index#configure">Options</a>'
                 '<a href="javascript:alert(1)" onclick="alert(1)">Bad</a><script>alert(1)</script>'
                 f'<div class="_attribution"><a class="_attribution-link" href="{actions_url}">Source</a></div>',
@@ -176,9 +176,11 @@ class DevDocsImportTests(unittest.TestCase):
             self.assertTrue(installed[0]["local_only"])
             self.assertEqual(query("docs", "search", "starlightxylophone")[0]["title"], "Actions")
             hit = query("docs", "search", "AstroActionFixture()", "--docset", "devdocs-astro")[0]
+            self.assertEqual(hit["match_anchor"], "server")
             article = query("docs", "show", hit["id"])
             self.assertEqual(article["source_url"], actions_url)
             self.assertIn("defineAction()", article["body"])
+            self.assertIn('data-language="typescript"', article["html"])
             self.assertIn(f'href="{options_url}#configure"', article["html"])
             self.assertNotIn("javascript:", article["html"])
             self.assertNotIn("onclick=", article["html"])

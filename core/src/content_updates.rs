@@ -327,7 +327,7 @@ fn stage(job: &mut Option<&mut Job>, label: &str) -> Result<()> {
 }
 
 pub(crate) fn status(ctx: &Context) -> Result<Value> {
-    gather(ctx, false, None)
+    gather(ctx, false, false, None)
 }
 
 pub(crate) fn check(ctx: &Context, request: &Value, job: Option<&mut Job>) -> Result<Value> {
@@ -336,10 +336,15 @@ pub(crate) fn check(ctx: &Context, request: &Value, job: Option<&mut Job>) -> Re
             "Checking update publishers requires a connection. Saved update status works offline."
         );
     }
-    gather(ctx, true, job)
+    gather(ctx, true, request["category"] == "assets", job)
 }
 
-fn gather(ctx: &Context, online: bool, mut job: Option<&mut Job>) -> Result<Value> {
+fn gather(
+    ctx: &Context,
+    online: bool,
+    assets_only: bool,
+    mut job: Option<&mut Job>,
+) -> Result<Value> {
     let mut errors = Vec::new();
     stage(
         &mut job,
@@ -358,16 +363,20 @@ fn gather(ctx: &Context, online: bool, mut job: Option<&mut Job>) -> Result<Valu
         "upstream",
         &mut errors,
     );
-    stage(&mut job, "Checking official documentation releases")?;
-    let docs = collect(
-        if online {
-            doc_updates::check(ctx)
-        } else {
-            doc_updates::status(ctx)
-        },
-        "docs",
-        &mut errors,
-    );
+    let docs = if assets_only {
+        Value::Null
+    } else {
+        stage(&mut job, "Checking official documentation releases")?;
+        collect(
+            if online {
+                doc_updates::check(ctx)
+            } else {
+                doc_updates::status(ctx)
+            },
+            "docs",
+            &mut errors,
+        )
+    };
     stage(&mut job, "Checking image publishers")?;
     let images = collect(
         infrastructure::execute(
@@ -378,14 +387,41 @@ fn gather(ctx: &Context, online: bool, mut job: Option<&mut Job>) -> Result<Valu
         "images",
         &mut errors,
     );
-    stage(&mut job, "Reading local library and selected SDK")?;
+    stage(&mut job, "Reading local library")?;
     let vault = collect(
         infrastructure::execute(ctx, &json!({"command":"infra.status"}), None),
         "vault",
         &mut errors,
     );
-    let local = collect(apple_docs::status(ctx), "local", &mut errors);
-    with_pending(ctx, compose(upstream, docs, images, vault, local, &errors))
+    let local = if assets_only {
+        Value::Null
+    } else {
+        collect(apple_docs::status(ctx), "local", &mut errors)
+    };
+    let mut snapshot = with_pending(ctx, compose(upstream, docs, images, vault, local, &errors))?;
+    if assets_only {
+        let items = snapshot["items"]
+            .as_array_mut()
+            .context("Invalid update items")?;
+        items.retain(|item| item["kind"] != "docs");
+        snapshot["available_content"] =
+            json!(items.iter().filter(|item| is_content_update(item)).count());
+        let sources = snapshot["sources"]
+            .as_array_mut()
+            .context("Invalid update sources")?;
+        sources.retain(|source| source["id"] != "docs" && source["id"] != "local");
+        let all_checked = sources.iter().all(|source| source["state"] == "current");
+        snapshot["checked_at"] = if all_checked {
+            json!(sources
+                .iter()
+                .filter_map(|source| source["checked_at"].as_u64())
+                .min())
+        } else {
+            Value::Null
+        };
+        snapshot["all_checked"] = json!(all_checked);
+    }
+    Ok(snapshot)
 }
 
 pub(crate) fn apply(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> Result<Value> {
@@ -406,7 +442,8 @@ pub(crate) fn apply(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -
             Err(error) => return Err(error.into()),
         }
     }
-    let before = status(ctx)?;
+    let assets_only = request["category"] == "assets";
+    let before = gather(ctx, false, assets_only, None)?;
     let selected = request["id"].as_str();
     let plan: Vec<_> = rows(&before, "items")
         .iter()
@@ -490,7 +527,7 @@ pub(crate) fn apply(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -
         .filter(|step| step["state"] == "succeeded")
         .count();
     let failed = steps.len() - updated;
-    let snapshot = status(ctx)?;
+    let snapshot = gather(ctx, false, assets_only, None)?;
     Ok(
         json!({"status":if failed == 0 {"complete"} else {"needs_attention"},"complete":failed == 0,"ready":failed == 0,
         "updated":updated,"failed":failed,"steps":steps,"snapshot":snapshot}),

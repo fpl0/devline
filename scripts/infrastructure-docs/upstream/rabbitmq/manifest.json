@@ -1,12 +1,13 @@
 {
   "publisher": "RabbitMQ documentation contributors and Broadcom",
   "version": "4.3.7",
-  "provenance": "RabbitMQ website source commit 3a9290749b67dfb9d6658ab7f6cc3f92090ca9d4 (https://github.com/rabbitmq/rabbitmq-website/tree/3a9290749b67dfb9d6658ab7f6cc3f92090ca9d4/versioned_docs/version-4.3). The publisher's 4.3 edition covers the managed 4.3 series and labels its landing page 4.3.6. Rendered with the publisher's Docusaurus build, with article bodies and eligible local illustrations extracted, tabs flattened under their original labels, and highlighted code retained as plain code. Unversioned RabbitMQ documentation links are directed to the matching 4.3 article when the destination and any named heading are available in this snapshot.",
+  "provenance": "RabbitMQ website source commit 3a9290749b67dfb9d6658ab7f6cc3f92090ca9d4 (https://github.com/rabbitmq/rabbitmq-website/tree/3a9290749b67dfb9d6658ab7f6cc3f92090ca9d4/versioned_docs/version-4.3). The publisher's 4.3 edition covers the managed 4.3 series and labels its landing page 4.3.6. Rendered with the publisher's Docusaurus build, with article bodies and eligible local illustrations extracted, tabs flattened under their original labels, and highlighted code retained as plain code. Unversioned RabbitMQ documentation links are directed to the matching 4.3 article when the destination and any named heading are available in this snapshot. The dynamic C# examples from the publisher website’s .NET tutorials are expanded from the official RabbitMQ Tutorials source at commit f8d497dc67b4c2f92d4d443c3042a973714414b4 (https://github.com/rabbitmq/rabbitmq-tutorials/tree/f8d497dc67b4c2f92d4d443c3042a973714414b4), using the exact source-file and line ranges requested by the pinned tutorial Markdown. The sample code is Apache-2.0.",
   "license": "Apache-2.0 OR MPL-2.0",
   "notices": [
     "LICENSE-Apache-2.0",
     "LICENSE-MPL-2.0",
-    "NOTICE"
+    "NOTICE",
+    "tutorial-samples/LICENSE.txt"
   ],
   "coverage": "The RabbitMQ 4.3 server manual, including configuration, AMQP, management HTTP API, reliability, security, backup and troubleshooting, plus the publisher's RabbitMQ tutorials and client library guides.",
   "omissions": "Patch-specific 4.3.7 release notes (https://github.com/rabbitmq/rabbitmq-server/releases/tag/v4.3.7), other manual editions, the blog, separately published client API and protocol specifications, illustrations the offline renderer cannot embed, and interactive media are outside this snapshot.",
@@ -1680,6 +1681,14 @@
       "aliases": [
         "RabbitMQ tutorial - Topics",
         "RabbitMQ RabbitMQ tutorial - Topics"
+      ],
+      "examples": [
+        {
+          "path": "tutorial-samples/dotnet/EmitLogTopic/EmitLogTopic.cs"
+        },
+        {
+          "path": "tutorial-samples/dotnet/ReceiveLogsTopic/ReceiveLogsTopic.cs"
+        }
       ]
     },
     {
@@ -1820,6 +1829,42 @@
       "aliases": [
         "RabbitMQ tutorial - Routing",
         "RabbitMQ RabbitMQ tutorial - Routing"
+      ],
+      "examples": [
+        {
+          "path": "tutorial-samples/dotnet/ReceiveLogs/ReceiveLogs.cs",
+          "lines": [
+            15,
+            15
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/EmitLogDirect/EmitLogDirect.cs",
+          "lines": [
+            8,
+            8
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/EmitLogDirect/EmitLogDirect.cs",
+          "lines": [
+            12,
+            13
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/ReceiveLogsDirect/ReceiveLogsDirect.cs",
+          "lines": [
+            23,
+            29
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/EmitLogDirect/EmitLogDirect.cs"
+        },
+        {
+          "path": "tutorial-samples/dotnet/ReceiveLogsDirect/ReceiveLogsDirect.cs"
+        }
       ]
     },
     {
@@ -1960,6 +2005,42 @@
       "aliases": [
         "RabbitMQ tutorial - \"Hello World!\"",
         "RabbitMQ RabbitMQ tutorial - \"Hello World!\""
+      ],
+      "examples": [
+        {
+          "path": "tutorial-samples/dotnet/Send/Send.cs",
+          "lines": [
+            1,
+            2
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/Send/Send.cs",
+          "lines": [
+            1,
+            6
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/Send/Send.cs"
+        },
+        {
+          "path": "tutorial-samples/dotnet/Receive/Receive.cs",
+          "lines": [
+            1,
+            3
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/Receive/Receive.cs",
+          "lines": [
+            5,
+            10
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/Receive/Receive.cs"
+        }
       ]
     },
     {
@@ -2160,6 +2241,50 @@
       "aliases": [
         "RabbitMQ tutorial - Reliable Publishing with Publisher Confirms",
         "RabbitMQ RabbitMQ tutorial - Reliable Publishing with Publisher Confirms"
+      ],
+      "examples": [
+        {
+          "path": "tutorial-samples/dotnet/PublisherConfirms/PublisherConfirms.cs",
+          "lines": [
+            11,
+            15
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/PublisherConfirms/PublisherConfirms.cs",
+          "lines": [
+            57,
+            68
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/PublisherConfirms/PublisherConfirms.cs",
+          "lines": [
+            90,
+            102
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/PublisherConfirms/PublisherConfirms.cs",
+          "lines": [
+            108,
+            125
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/PublisherConfirms/PublisherConfirms.cs",
+          "lines": [
+            193,
+            216
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/PublisherConfirms/PublisherConfirms.cs",
+          "lines": [
+            144,
+            191
+          ]
+        }
       ]
     },
     {
@@ -2220,6 +2345,42 @@
       "aliases": [
         "RabbitMQ tutorial - Remote procedure call (RPC)",
         "RabbitMQ RabbitMQ tutorial - Remote procedure call (RPC)"
+      ],
+      "examples": [
+        {
+          "path": "tutorial-samples/dotnet/RPCClient/RPCClient.cs",
+          "lines": [
+            112,
+            120
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/RPCClient/RPCClient.cs",
+          "lines": [
+            60,
+            74
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/RPCServer/RPCServer.cs",
+          "lines": [
+            59,
+            68
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/RPCServer/RPCServer.cs"
+        },
+        {
+          "path": "tutorial-samples/dotnet/RPCClient/RPCClient.cs"
+        },
+        {
+          "path": "tutorial-samples/dotnet/RPCClient/RPCClient.cs",
+          "lines": [
+            112,
+            120
+          ]
+        }
       ]
     },
     {
@@ -2360,6 +2521,49 @@
       "aliases": [
         "RabbitMQ tutorial - Publish/Subscribe",
         "RabbitMQ RabbitMQ tutorial - Publish/Subscribe"
+      ],
+      "examples": [
+        {
+          "path": "tutorial-samples/dotnet/EmitLog/EmitLog.cs",
+          "lines": [
+            8,
+            8
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/Send/Send.cs",
+          "lines": [
+            12,
+            14
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/EmitLog/EmitLog.cs",
+          "lines": [
+            10,
+            12
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/ReceiveLogs/ReceiveLogs.cs",
+          "lines": [
+            13,
+            14
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/ReceiveLogs/ReceiveLogs.cs",
+          "lines": [
+            15,
+            15
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/EmitLog/EmitLog.cs"
+        },
+        {
+          "path": "tutorial-samples/dotnet/ReceiveLogs/ReceiveLogs.cs"
+        }
       ]
     },
     {
@@ -2500,6 +2704,49 @@
       "aliases": [
         "RabbitMQ tutorial - Work Queues",
         "RabbitMQ RabbitMQ tutorial - Work Queues"
+      ],
+      "examples": [
+        {
+          "path": "tutorial-samples/dotnet/NewTask/NewTask.cs",
+          "lines": [
+            11,
+            11
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/NewTask/NewTask.cs",
+          "lines": [
+            23,
+            26
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/NewTask/NewTask.cs",
+          "lines": [
+            8,
+            9
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/NewTask/NewTask.cs",
+          "lines": [
+            14,
+            17
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/Worker/Worker.cs",
+          "lines": [
+            9,
+            12
+          ]
+        },
+        {
+          "path": "tutorial-samples/dotnet/Worker/Worker.cs"
+        },
+        {
+          "path": "tutorial-samples/dotnet/NewTask/NewTask.cs"
+        }
       ]
     },
     {

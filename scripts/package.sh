@@ -31,9 +31,6 @@ ditto "$SWIFT_BUILD_PATH/release/DevlineMac_DevlineApp.bundle" "$APP/Contents/Re
 ditto "$SWIFT_BUILD_PATH/release/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$ROOT/core/target/release/devline" "$APP/Contents/MacOS/devline"
 ln -s devline "$APP/Contents/MacOS/devkit"
-mkdir -p "$APP/Contents/Resources/devdocs-import"
-cp "$ROOT/scripts/import-devdocs.py" "$ROOT/scripts/reference_io.py" \
-    "$ROOT/scripts/reference_rendering.py" "$APP/Contents/Resources/devdocs-import/"
 xcrun actool "$ROOT/macos/Assets/Devline.icon" \
     --compile "$APP/Contents/Resources" --platform macosx \
     --minimum-deployment-target 14.0 --app-icon Devline \

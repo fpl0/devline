@@ -80,7 +80,7 @@ function devlineApplyCodeTokens(block, source, markup) {
 }
 
 function devlineHighlightCode(article, packID) {
-    const fallback = devlineDocsetLanguages.get(packID);
+    const fallback = devlineDocsetLanguages.get(packID.replace(/^devdocs-/, ''));
     for (const block of article.querySelectorAll('pre')) {
         if (block.hasAttribute('data-devline-highlighted')) continue;
         const explicit = devlineCodeLanguage(block);

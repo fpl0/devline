@@ -96,7 +96,8 @@ private struct DevlineHelpArticle: View {
     var body: some View {
         OfflineArticle(html: html, title: title, sourceURL: sourceURL, packID: "", scale: 1,
                        request: request, report: { _, _ in }, reportSections: { _ in },
-                       navigate: navigate, reportPosition: { _, _, _, _ in })
+                       navigate: { url, _ in if let safe = safeExternalURL(url) { navigate(safe) } },
+                       reportPosition: { _, _, _, _ in })
             .task(id: navigation) {
                 let action = anchor.map { ReaderRequest.Action.jump(ReaderSection(title: "", target: .anchor($0))) }
                     ?? .restore(0, anchor: nil, offset: nil)

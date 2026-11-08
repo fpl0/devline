@@ -15,6 +15,7 @@ func shellQuote(_ text: String) -> String {
 }
 
 func displayDocVersion(_ version: String) -> String {
+    if let imported = version.range(of: "+devdocs.") { return String(version[..<imported.lowerBound]) }
     let components = version.components(separatedBy: "+devline.")
     guard components.count == 2 else { return version }
     return "\(components[0]) · revision \(components[1])"

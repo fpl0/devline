@@ -113,11 +113,12 @@ struct UpdatesView: View {
     }
 
     private var loading: Bool { loadedRevision != statusRevision }
-    private var updates: [UpdateItem] { snapshot?.items.filter(\.canUpdate) ?? [] }
+    private var updates: [UpdateItem] { snapshot?.items.filter { $0.canUpdate && $0.kind != .docs } ?? [] }
     private var jobs: [JobRecord] { model.jobs.filter { $0.kind == "content_check" || $0.kind == "content_update" } }
     private var activeJob: JobRecord? { jobs.first(where: \.isActive) }
     private var busy: Bool { loading || submitting || activeJob != nil || model.operation != nil }
-    private var sources: [UpdateSource] { snapshot?.sources ?? [] }
+    private var sources: [UpdateSource] { snapshot?.sources?.filter { $0.id != "docs" && $0.id != "local" } ?? [] }
+    private var allChecked: Bool { !sources.isEmpty && sources.allSatisfy { $0.state == "current" } }
     private var checkFailed: Bool { sources.contains { $0.state == "error" } }
 
     var body: some View {
@@ -142,7 +143,7 @@ struct UpdatesView: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Library Updates").font(.title2.weight(.semibold)).accessibilityAddTraits(.isHeader)
-                Text("Documentation, starters, and service images saved for offline use.")
+                Text("New releases for starters and saved service images.")
                     .font(.callout).foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)
@@ -231,7 +232,7 @@ struct UpdatesView: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach([UpdateItem.Kind.docs, .template, .image], id: \.self) { kind in
+                    ForEach([UpdateItem.Kind.template, .image], id: \.self) { kind in
                         let group = updates.filter { $0.kind == kind }.sorted {
                             $0.name.localizedStandardCompare($1.name) == .orderedAscending
                         }
@@ -294,7 +295,7 @@ struct UpdatesView: View {
             }
         } else if activeJob != nil || submitting {
             Spacer(minLength: 0)
-        } else if snapshot?.allChecked == true {
+        } else if allChecked {
             ContentUnavailableView("No Library Updates Found", systemImage: "checkmark.circle",
                                    description: Text("You can check again whenever you’re online."))
         } else if checkFailed {
@@ -332,7 +333,7 @@ struct UpdatesView: View {
             HStack {
                 if checkFailed {
                     Label("Some checks failed", systemImage: "exclamationmark.circle").foregroundStyle(.orange)
-                } else if let date = checkDate(snapshot?.checkedAt) {
+                } else if allChecked, let date = checkDate(sources.compactMap(\.checkedAt).min()) {
                     Text("Last checked \(date)").foregroundStyle(.secondary)
                 } else {
                     Text("Check incomplete").foregroundStyle(.secondary)
@@ -366,7 +367,7 @@ struct UpdatesView: View {
         guard !busy else { return }
         submitting = true
         defer { submitting = false }
-        if await model.startJob(CoreRequest("jobs.start", id: id, kind: kind,
+        if await model.startJob(CoreRequest("jobs.start", id: id, category: "assets", kind: kind,
                                             confirmedOnly: kind == "content_update" ? true : nil), inspect: false) == false {
             retry += 1
         }

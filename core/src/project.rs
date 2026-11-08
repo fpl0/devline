@@ -455,6 +455,23 @@ pub(super) fn search_releases(
     db: &Connection,
     path: &Path,
 ) -> Result<Option<BTreeMap<String, String>>> {
+    selected_releases(ctx, db, path, false)
+}
+
+pub(super) fn link_releases(
+    ctx: &Context,
+    db: &Connection,
+    path: &Path,
+) -> Result<Option<BTreeMap<String, String>>> {
+    selected_releases(ctx, db, path, true)
+}
+
+fn selected_releases(
+    ctx: &Context,
+    db: &Connection,
+    path: &Path,
+    include_uninstalled: bool,
+) -> Result<Option<BTreeMap<String, String>>> {
     let detected = detect_with_library(ctx, path)?;
     let scope = selection(ctx, db, &detected)?;
     if scope.docsets.is_empty() {
@@ -464,9 +481,12 @@ pub(super) fn search_releases(
         .docsets
         .into_iter()
         .filter_map(|pack| {
-            let version = pack.version?;
-            pack.installed_versions
-                .contains(&version)
+            let version = if include_uninstalled {
+                pack.version.or(pack.prepare_version)
+            } else {
+                pack.version
+            }?;
+            (include_uninstalled || pack.installed_versions.contains(&version))
                 .then_some((pack.id, version))
         })
         .collect();

@@ -9,6 +9,7 @@ extension Notification.Name {
     static let devlineLibrary = Self("Devline.library")
     static let devlineUpdates = Self("Devline.updates")
     static let devlineAppUpdates = Self("Devline.appUpdates")
+    static let devlineActivity = Self("Devline.activity")
 }
 
 @main
@@ -35,7 +36,7 @@ struct DevlineMacApp: App {
                 Button("Library Updates…") { announce(.devlineUpdates) }
             }
             CommandGroup(replacing: .newItem) {
-                Button("New Project…") { announce(.devlineNew) }
+                Button("New from Starter…") { announce(.devlineNew) }
                     .keyboardShortcut("n")
                 Button("Open Project Folder…") { announce(.devlineOpenProject) }
                     .keyboardShortcut("o")
@@ -54,8 +55,9 @@ struct DevlineMacApp: App {
             CommandMenu("Workspace") {
                 Button("Find in Docs") { announce(.devlineFind) }
                     .keyboardShortcut("f")
-                Button("Open Library") { announce(.devlineLibrary) }
+                Button("Open Offline Library") { announce(.devlineLibrary) }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
+                Button("Show Activity") { announce(.devlineActivity) }
             }
         }
 

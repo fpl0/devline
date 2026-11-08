@@ -66,6 +66,9 @@ impl Fixture {
                     html_at("iis/advanced", "Advanced IIS", "<h2 id=\"iis-configuration\">IIS configuration</h2>", "https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/advanced"),
                     html_at("iis/hosting-bundle", "Hosting Bundle", "<h2 id=\"install-the-net-hosting-bundle\">Install the .NET Hosting Bundle</h2>", "https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/iis/hosting-bundle"),
                     html_at("security/enforcing-ssl", "HTTPS", "<h2 id=\"http-strict-transport-security-hsts-protocol\">HSTS</h2><h2 id=\"Options&lt;T&gt;\">Options</h2><a name=\"legacy\"></a><pre>&lt;h2 id=\"missing\"&gt;</pre>", "https://learn.microsoft.com/en-us/aspnet/core/security/enforcing-ssl"),
+                    doc("reference/sql-select", "PostgreSQL · SELECT", "The SQL command SELECT retrieves rows from a table.", &[]),
+                    doc("reference/sql-functions", "PostgreSQL · Query Language (SQL) Functions", "SQL select queries can call functions. This chapter describes function parameters.", &[]),
+                    html_at("reference/db-shell", "MongoDB Shell · Database methods", "<h2 id=\"example\">const cursor = db.sql(\"SELECT * FROM myCollection\", options)</h2><p>An example.</p>", "https://example.org/db-shell"),
                 ]),
             ),
             (
@@ -265,6 +268,129 @@ fn html_links_land_on_exact_or_verified_sections() {
         resolve("#"),
         json!({"id":origin,"anchor":null,"focus_text":null})
     );
+}
+
+#[test]
+fn reader_preflights_link_destinations_without_changing_the_legacy_resolver() {
+    let fixture = Fixture::new();
+    let origin = "aspnet@10/security/enforcing-ssl";
+    let urls = [
+        "#Options%3CT%3E",
+        "#not-present",
+        "https://outside.example/tutorial",
+        "file:///etc/passwd",
+    ];
+    let status = fixture
+        .call(json!({"command":"docs.link-status","id":origin,"urls":urls}))
+        .unwrap();
+    assert_eq!(
+        status[0],
+        json!({"url":urls[0],"kind":"installed","id":origin,"anchor":"Options<T>","focus_text":null})
+    );
+    assert_eq!(status[1]["kind"], "missingSection");
+    assert_eq!(status[2]["kind"], "online");
+    assert_eq!(status[3]["kind"], "unavailable");
+    assert_eq!(
+        fixture
+            .call(json!({"command":"docs.resolve","id":origin,"url":urls[1]}))
+            .unwrap(),
+        Value::Null
+    );
+}
+
+#[test]
+fn reader_reports_an_uninstalled_project_pin_instead_of_opening_another_release() {
+    let fixture = Fixture::new();
+    let project = fixture.0.join("project");
+    fs::create_dir_all(&project).unwrap();
+    fs::write(
+        project.join("go.mod"),
+        "module example.org/project\ngo 1.27\n",
+    )
+    .unwrap();
+    let catalog_path = fixture.0.join("catalog/catalog.json");
+    let mut catalog: Value = serde_json::from_slice(&fs::read(&catalog_path).unwrap()).unwrap();
+    let mut available = catalog["docs"][0].clone();
+    available["version"] = json!("1.27+devline.2");
+    available["path"] = json!("docs/go/1.27+devline.2");
+    catalog["docs"].as_array_mut().unwrap().push(available);
+    fs::write(&catalog_path, serde_json::to_vec(&catalog).unwrap()).unwrap();
+    fixture
+        .call(json!({"command":"project.pin","path":project,"id":"go","version":"1.27+devline.2"}))
+        .unwrap();
+    let url = "https://example.org/net/http#Handler";
+    let result = fixture.call(json!({"command":"docs.link-status","id":"aspnet@10/security/enforcing-ssl","urls":[url],"project_path":project})).unwrap();
+    assert_eq!(
+        result[0],
+        json!({"url":url,"kind":"missingDocument","pack_id":"go","version":"1.27+devline.2","can_install":true})
+    );
+}
+
+#[test]
+fn exact_topic_precedes_a_related_chapter_and_an_example_heading() {
+    let fixture = Fixture::new();
+    for limit in [5, 30] {
+        let results = fixture
+            .call(json!({"command":"docs.search","query":"sql select","limit":limit}))
+            .unwrap();
+        assert_eq!(results[0]["title"], "PostgreSQL · SELECT");
+        let hits = results.as_array().unwrap();
+        assert!(hits
+            .iter()
+            .any(|hit| hit["title"] == "PostgreSQL · Query Language (SQL) Functions"));
+        assert!(hits.iter().any(|hit| hit["match_anchor"] == "example"));
+    }
+}
+
+#[test]
+fn imported_search_preserves_groups_and_exact_symbol_anchors() {
+    let fixture = Fixture::new();
+    let catalog_dir = fixture.0.join("catalog");
+    let catalog_path = catalog_dir.join("catalog.json");
+    let mut catalog: Value = serde_json::from_slice(&fs::read(&catalog_path).unwrap()).unwrap();
+    let id = "devdocs-go";
+    let path = "docs/devdocs-go/1.27";
+    catalog["docs"].as_array_mut().unwrap().push(json!({
+        "id":id,"name":"DevDocs · Go","stack":id,"version":"1.27","description":"Imported fixture",
+        "source_url":"https://devdocs.io/go/","license":"Fixture","path":path,"local_only":true,"entry_id":"index"
+    }));
+    fs::write(&catalog_path, serde_json::to_vec(&catalog).unwrap()).unwrap();
+    fs::create_dir_all(catalog_dir.join(path)).unwrap();
+    let articles = json!([
+        html_at("index", "Overview", "<h1>Overview</h1>", "https://devdocs.io/go/index"),
+        {"id":"http","title":"HTTP package","body":"HTTP functions.","html":"<h2 id=\"handler-section\">Handlers</h2>",
+         "source_url":"https://example.org/net/http","group":"Packages","aliases":["http.Handler"],
+         "alias_anchors":{"http.Handler":"handler-section"}}
+    ]);
+    fs::write(
+        catalog_dir.join(path).join("documents.json"),
+        serde_json::to_vec(&articles).unwrap(),
+    )
+    .unwrap();
+    fixture
+        .call(json!({"command":"docs.import.local","id":id,"version":"1.27"}))
+        .unwrap();
+    let navigation = fixture
+        .call(json!({"command":"docs.navigation","pack_id":id,"version":"1.27"}))
+        .unwrap();
+    assert_eq!(
+        navigation,
+        json!({"groups":["Packages"],"has_ungrouped":true})
+    );
+    let group = fixture
+        .call(json!({"command":"docs.search","pack_id":id,"group":"Packages"}))
+        .unwrap();
+    assert_eq!(group.as_array().unwrap().len(), 1);
+    assert_eq!(group[0]["id"], "devdocs-go@1.27/http");
+    let result = fixture
+        .call(json!({"command":"docs.search","kind":"imported","query":"http.Handler"}))
+        .unwrap();
+    assert_eq!(result[0]["symbol"], "http.Handler");
+    assert_eq!(result[0]["match_anchor"], "handler-section");
+    let curated = fixture
+        .call(json!({"command":"docs.search","kind":"installed","query":"http.Handler"}))
+        .unwrap();
+    assert_eq!(curated[0]["pack_id"], "go");
 }
 
 #[test]

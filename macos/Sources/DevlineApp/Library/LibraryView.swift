@@ -14,6 +14,7 @@ struct LibraryView: View {
     @ObservedObject var infrastructure: InfrastructureLibrary
     let catalog: Catalog
     let projectPath: String?
+    let manageDocs: () -> Void
     @State private var docs: Set<String> = []
     @State private var starters: Set<String> = []
     @State private var images: Set<String> = []
@@ -23,9 +24,7 @@ struct LibraryView: View {
     @State private var selectionRevision = 0
     @State private var checking = false
     @State private var error: String?
-    @State private var removePack: DocPack?
     @State private var infoPack: DocPack?
-    @State private var showingReleases = false
     @State private var importPath: String?
 
     private var readinessSelection: ReadinessSelection {
@@ -35,7 +34,7 @@ struct LibraryView: View {
     private var result: ToolboxStatus? { checkedSelection == readinessSelection ? checkedStatus : nil }
     private var selectionIsEmpty: Bool { docs.isEmpty && starters.isEmpty && images.isEmpty }
     private var defaultDocs: [DocPack] {
-        Dictionary(grouping: catalog.docs, by: \.id).values.compactMap { releases in
+        Dictionary(grouping: catalog.docs.filter { !$0.localOnly }, by: \.id).values.compactMap { releases in
             releases.first { $0.active == true } ?? releases.first
         }
     }
@@ -48,7 +47,7 @@ struct LibraryView: View {
         let defaults = Set(defaultDocs.map(\.reference))
         let checked = Set((result?.library.docs ?? []).map(\.reference))
         return catalog.docs.filter {
-            showAllVersions || defaults.contains($0.reference) || docs.contains($0.reference) || checked.contains($0.reference)
+            !$0.localOnly && (showAllVersions || defaults.contains($0.reference) || docs.contains($0.reference) || checked.contains($0.reference))
         }.sorted { releasePrecedes($0.name, $0.reference, $1.name, $1.reference) }
     }
     private var unlistedDocs: [OfflineStatus.Doc] {
@@ -72,7 +71,7 @@ struct LibraryView: View {
     }
     private var archivedImages: Set<String> { Set(infrastructure.archived.map(\.reference)) }
     private var hasInstalledItems: Bool {
-        catalog.docs.contains(where: \.installed) || catalog.templates.contains(where: \.isInstalled) || !archivedImages.isEmpty
+        catalog.docs.contains { $0.installed && !$0.localOnly } || catalog.templates.contains(where: \.isInstalled) || !archivedImages.isEmpty
     }
 
     var body: some View {
@@ -88,34 +87,20 @@ struct LibraryView: View {
         .onChange(of: readinessSelection) { _, _ in invalidateReadiness() }
         .onChange(of: catalog.docs.map(\.reference)) { _, references in docs.formIntersection(references) }
         .onChange(of: catalog.templates.map(\.reference)) { _, references in starters.formIntersection(references) }
-        .sheet(isPresented: $showingReleases) { DocDistributionView(model: model) }
         .sheet(isPresented: Binding(get: { infoPack != nil }, set: { if !$0 { infoPack = nil } })) {
             if let infoPack { DocsetInfoView(pack: infoPack) }
         }
         .sheet(isPresented: Binding(get: { importPath != nil }, set: { if !$0 { importPath = nil } })) {
             if let importPath { BundleImportView(path: importPath, model: model) }
         }
-        .confirmationDialog("Remove this doc pack?", isPresented: Binding(
-            get: { removePack != nil }, set: { if !$0 { removePack = nil } }
-        ), titleVisibility: .visible, presenting: removePack) { pack in
-            Button("Remove \(pack.name)", role: .destructive) {
-                Task {
-                    await model.mutate([CoreRequest("docs.remove", id: pack.id, version: pack.version)],
-                                       label: "Removing \(pack.name)", completion: "Removed \(pack.name) \(pack.version).")
-                }
-            }
-        } message: { pack in
-            Text("\(pack.name) \(pack.version) will no longer appear in offline search.")
-        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Install documentation and starters, check offline readiness, and transfer portable bundles.")
+            Text("Check offline readiness and transfer assets between Macs.")
                 .font(.callout).foregroundStyle(.secondary)
             HStack(spacing: 10) {
-                Button("Manage Releases…") { showingReleases = true }
-                    .help("Browse downloadable docsets, release notes, and installed versions")
+                Button("Manage Docs…", action: manageDocs)
                 Button("Import Bundle…", action: chooseImport)
                 Menu("Export Selected…") {
                     Button("Documentation and Starters…", action: exportBundle).disabled(portableDocs.isEmpty && starters.isEmpty)
@@ -145,7 +130,7 @@ struct LibraryView: View {
             Spacer()
             Menu("Selection") {
                 Button("Select Installed") {
-                    docs.formUnion(catalog.docs.filter(\.installed).map(\.reference))
+                    docs.formUnion(catalog.docs.filter { $0.installed && !$0.localOnly }.map(\.reference))
                     starters.formUnion(catalog.templates.filter(\.isInstalled).map(\.reference))
                     images.formUnion(archivedImages)
                 }.disabled(!hasInstalledItems)
@@ -161,9 +146,6 @@ struct LibraryView: View {
 
     private var selectionList: some View {
         ControlList {
-            ControlListSection("From This Mac") {
-                ControlListRow { LocalSDKReferenceView(model: model) }
-            }
             if let runtimes = result?.library.runtimes, !runtimes.isEmpty {
                 ControlListSection("Project Toolchains") {
                     ForEach(runtimes) { runtime in
@@ -226,26 +208,17 @@ struct LibraryView: View {
             Toggle(isOn: selection(pack.reference, in: $docs)) {
                 title(pack.name, detail: pack.description)
             }.toggleStyle(.checkbox)
-                .accessibilityLabel("\(pack.name) \(pack.version)")
+                .accessibilityLabel("\(pack.name) \(displayDocVersion(pack.version))")
             Spacer()
             if let checked = result?.library.docs.first(where: { $0.reference == pack.reference }) {
                 readiness(checked.readyOffline, detail: checked.detail)
             } else {
                 rowStatus(pack.installed ? "Installed" : "Not Installed")
             }
-            if pack.localOnly {
-                rowStatus("This Mac Only").help("Excluded from portable bundles")
-            }
-            Text(pack.version).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+            Text(displayDocVersion(pack.version)).font(.callout.monospacedDigit()).foregroundStyle(.secondary)
             Button { infoPack = pack } label: { Image(systemName: "info.circle") }
                 .buttonStyle(.borderless).help("Coverage and source for \(pack.name)")
-                .accessibilityLabel("Coverage and source for \(pack.name) \(pack.version)")
-            if pack.installed {
-                Button { removePack = pack } label: { Image(systemName: "ellipsis.circle") }
-                    .buttonStyle(.borderless).help("Remove \(pack.name) \(pack.version)")
-                    .accessibilityLabel("Remove \(pack.name) \(pack.version)")
-                    .disabled(model.operation != nil)
-            }
+                .accessibilityLabel("Coverage and source for \(pack.name) \(displayDocVersion(pack.version))")
         }
     }
 
@@ -383,56 +356,6 @@ struct LibraryView: View {
         panel.nameFieldStringValue = "Devline-images.devlineimages"
         if panel.runModal() == .OK, let path = panel.url?.path(percentEncoded: false) {
             Task { await model.startJob(CoreRequest("jobs.start", path: path, kind: "infra_export", images: images.sorted())) }
-        }
-    }
-}
-
-struct LocalSDKReferenceView: View {
-    @ObservedObject var model: WorkspaceModel
-    @State private var status: LocalDocumentationStatus?
-    @State private var failure: String?
-    @State private var checking = false
-    @State private var loadID = UUID()
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Label("SwiftUI · Apple API Reference", systemImage: "swift").font(.headline)
-                Spacer()
-                Button { Task { await load() } } label: {
-                    Image(systemName: "arrow.clockwise")
-                }.help("Check the selected Xcode SDK")
-                    .accessibilityLabel("Check the selected Xcode SDK").disabled(checking)
-                Button(status?.installed == true ? "Refresh from Xcode" : "Prepare from Xcode") {
-                    Task { await model.startJob(CoreRequest("jobs.start", id: "swiftui", kind: "docs_prepare")) }
-                }.disabled(status?.available != true || model.jobs.contains { $0.isActive && $0.kind == "docs_prepare" })
-            }
-            if let sdk = status?.sdkVersion {
-                Text("macOS SDK \(sdk)" + (status?.count.map { " · \($0.formatted()) indexed symbols" } ?? " · Ready to import"))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            Text(failure ?? status?.detail ?? "Checking the selected Xcode SDK…")
-                .font(.callout).foregroundStyle(.secondary)
-            Text("Apple’s API declarations, documentation comments, and examples from your installed SDK. Website tutorials are separate. Stored on this Mac; excluded from exports.")
-                .font(.caption).foregroundStyle(.secondary)
-        }.padding(.vertical, 6)
-        .task(id: model.libraryRevision) { await load() }
-    }
-
-    private func load() async {
-        let token = UUID()
-        loadID = token
-        checking = true
-        defer { if loadID == token { checking = false } }
-        do {
-            let next: LocalDocumentationStatus = try await Core.request(CoreRequest("docs.local.status", id: "swiftui"))
-            guard loadID == token, !Task.isCancelled else { return }
-            status = next
-            failure = nil
-        } catch is CancellationError {
-        } catch {
-            guard loadID == token, !Task.isCancelled else { return }
-            failure = error.localizedDescription
         }
     }
 }

@@ -558,45 +558,38 @@ fn import_devdocs(
     latest: bool,
     docs: &[String],
 ) -> Result<i32> {
-    if cli.offline && online {
-        bail!("Downloading DevDocs requires a connection. Pass a local source in offline mode.");
-    }
-    let exe = std::env::current_exe()?.canonicalize()?;
-    let executable_dir = exe
-        .parent()
-        .context("Devline executable has no parent directory")?;
-    let script = [
-        executable_dir.join("../Resources/devdocs-import/import-devdocs.py"),
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../scripts/import-devdocs.py"),
-    ]
-    .into_iter()
-    .find(|path| path.is_file())
-    .context("Could not find the DevDocs importer in this app or source checkout")?;
-    let mut command = Command::new("python3");
-    command.arg("-B").arg(script).arg("--devline").arg(exe);
-    if let Some(home) = &cli.home {
-        command.arg("--home").arg(home);
+    let result = request(
+        cli,
+        json!({
+            "command": "docs.devdocs.import", "path": source, "online": online,
+            "offline": cli.offline, "keep_latest": latest, "docs": docs,
+        }),
+    )?;
+    let installed = result["installed"]
+        .as_array()
+        .context("Invalid DevDocs import report")?;
+    let skipped = result["skipped"]
+        .as_array()
+        .context("Invalid DevDocs import report")?;
+    let failed = result["failed"]
+        .as_array()
+        .context("Invalid DevDocs import report")?;
+    for item in failed {
+        eprintln!("{}: {}", s(item, "slug"), s(item, "error"));
     }
     if cli.json {
-        command.arg("--json");
+        println!("{result}");
+    } else {
+        println!(
+            "Imported {} docsets. {} failed.",
+            installed.len(),
+            failed.len()
+        );
+        if !skipped.is_empty() {
+            println!("Kept {} newer installed docsets.", skipped.len());
+        }
     }
-    if online {
-        command.arg("--online");
-    }
-    if latest || request(cli, json!({"command":"library.retention"}))?["keep_latest"] == true {
-        command.arg("--latest");
-    }
-    for doc in docs {
-        command.arg(format!("--doc={doc}"));
-    }
-    if let Some(source) = source {
-        command.arg("--").arg(source);
-    }
-    Ok(command
-        .status()
-        .context("Run the DevDocs importer with Python 3.9 or later on PATH.")?
-        .code()
-        .unwrap_or(1))
+    Ok(i32::from(!failed.is_empty()))
 }
 
 fn exact_id(id: &str) -> bool {

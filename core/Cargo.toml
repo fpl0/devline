@@ -27,6 +27,11 @@ tar = { version = "0.4.46", default-features = false }
 flate2 = "1.1.11"
 toml = { version = "1", default-features = false, features = ["parse", "serde"] }
 roxmltree = "0.21"
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+html5ever = "0.39"
+percent-encoding = "2.3"
+tempfile = "3"
 
 [profile.release]
 lto = "thin"

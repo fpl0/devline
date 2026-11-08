@@ -3,6 +3,27 @@
     "id": "aspnet",
     "name": "ASP.NET Core",
     "stack": "dotnet",
+    "version": "2026.11.06+devline.5",
+    "description": "Microsoft Learn ASP.NET Core fundamentals, Web APIs and tutorials snapshot.",
+    "source_url": "https://learn.microsoft.com/en-us/aspnet/core/",
+    "license": "CC-BY-4.0; accompanying code MIT",
+    "path": "docs/aspnet/2026.11.06+devline.5",
+    "markdown": [],
+    "upstream_version": "10.0",
+    "snapshot_date": "2026-11-08",
+    "coverage": [
+      "ASP.NET Core fundamentals, Web APIs, security, tests, hosting, and tutorials"
+    ],
+    "omissions": [
+      "The full ASP.NET API catalog and version variants are outside this snapshot",
+      "Eight links target headings unavailable in the selected .NET 10 articles"
+    ],
+    "entry_id": "overview.md"
+  },
+  {
+    "id": "aspnet",
+    "name": "ASP.NET Core",
+    "stack": "dotnet",
     "version": "2026.11.06+devline.4",
     "description": "Microsoft Learn ASP.NET Core fundamentals, Web APIs and tutorials snapshot.",
     "source_url": "https://learn.microsoft.com/en-us/aspnet/core/",
@@ -198,6 +219,44 @@
     "id": "infrastructure",
     "name": "Infrastructure References",
     "stack": "infrastructure",
+    "version": "2026.11.07+devline.4",
+    "description": "Official publisher documentation for Devline's local services. See coverage for each service.",
+    "source_url": "https://github.com/fpl0/devline/tree/main/scripts/infrastructure-docs/upstream",
+    "license": "PostgreSQL; GPL-2.0-only (Oracle man pages) and MIT (Docker Official Image manual); Apache-2.0 OR MPL-2.0; AGPL-3.0-only option (Redis 8.10.1 source reference) and CC-BY-SA-4.0 (archived Redis guides); SSPL-1.0 (server CLI help), Apache-2.0 (shell and Database Tools help), and MIT (Docker Official Image manual); MIT and Apache-2.0; MIT; Apache-2.0",
+    "path": "docs/infrastructure/2026.11.07+devline.4",
+    "markdown": [],
+    "upstream_version": "2026.11.07",
+    "snapshot_date": "2026-11-08",
+    "coverage": [
+      "PostgreSQL 18.6 — Complete English HTML manual for 18.6, including the tutorial, SQL language, administration, interfaces, tools, extensions, and release notes.",
+      "MySQL 8.4.11 — The Docker Official Image manual and 27 MySQL 8.4.11 man pages cover initialization, configuration, command-line SQL, administration, table maintenance, logs, backup, and restore.",
+      "RabbitMQ 4.3.7 — The RabbitMQ 4.3 server manual, including configuration, AMQP, management HTTP API, reliability, security, backup and troubleshooting, plus the publisher's RabbitMQ tutorials and client library guides.",
+      "Redis 8.10.1 — All 449 commands exposed by the pinned Redis image, including vector sets, with server and Sentinel configuration, CLI help, and 61 official guides on data types, persistence, transactions, scripting, security, and operations.",
+      "MongoDB 8.0.34 — The image manual and exact-version server, shell, and Database Tools help cover initialization, configuration, connections, CRUD and aggregation methods, maintenance, and logical backups and restores.",
+      "NATS 2.15.2 — NATS concepts, tutorials and Learn guides, plus the 2.15 server configuration, protocols, monitoring, authentication, JetStream APIs, operational reference, and version-series upgrade guides.",
+      "Mailpit 1.33.0 — Mailpit's official documentation for installation, configuration, integrations, usage and troubleshooting, plus the complete REST API v1 operation and schema reference from the managed release.",
+      "Meilisearch 1.56.1 — Self-hosting, configuration, security, troubleshooting, data backup, search and indexing capabilities, SDK quick starts, errors, and the published REST endpoint reference for the 1.56.1 OpenAPI snapshot.",
+      "SeaweedFS S3 4.52 — Single-node and Docker setup, Filer and master HTTP REST API, S3 SDK compatibility, IAM and STS, policy, retention, lifecycle, CORS, encryption, reverse proxy behavior, backup commands, and upstream configuration examples.",
+      "Keycloak 26.8.2 — Docker and local setup, server and provider configuration, realm and client administration, OIDC/SAML and authorization, developer guides, importing and exporting realms, deployment, high availability, observability, troubleshooting, upgrades, and the Admin REST API."
+    ],
+    "omissions": [
+      "PostgreSQL 18.6 — Separate PDF and duplicate man page formats are outside the searchable snapshot.",
+      "MySQL 8.4.11 — Oracle's full online SQL, storage engine, replication, and connector manuals have separate redistribution terms and are linked online. NDB Cluster and standalone MySQL Router tools are outside the managed image scope.",
+      "RabbitMQ 4.3.7 — Patch-specific 4.3.7 release notes (https://github.com/rabbitmq/rabbitmq-server/releases/tag/v4.3.7), other manual editions, the blog, separately published client API and protocol specifications, illustrations the offline renderer cannot embed, and interactive media are outside this snapshot.",
+      "Redis 8.10.1 — The archived guides predate 8.10.1 and omit interactive client examples and illustrations. The current Redis website manual and separately shipped modules are outside this snapshot.",
+      "MongoDB 8.0.34 — The full 8.0 database manual, query and aggregation operator guides, driver manuals, and specifications remain online under the publisher's separate documentation terms.",
+      "NATS 2.15.2 — Patch-specific 2.15.2 release notes (https://github.com/nats-io/nats-server/releases/tag/v2.15.2), other reference versions, linked external content, and interactive demonstrations are outside this snapshot.",
+      "Mailpit 1.33.0 — Interactive Swagger controls and linked external content are outside this snapshot.",
+      "Meilisearch 1.56.1 — Cloud operations, Cloud analytics, Enterprise sharding guides, most older release notes, hosted assets, interactive API consoles, and complete SDK API manuals are outside this snapshot.",
+      "SeaweedFS S3 4.52 — The separately hosted wiki, its full S3 operation matrix, some illustrations, and AWS SDK API references remain online.",
+      "Keycloak 26.8.2 — Java API Javadoc, third-party adapter manuals, unlinked site pages, larger illustrations, and hosted interactive tools remain online."
+    ],
+    "shards": 2
+  },
+  {
+    "id": "infrastructure",
+    "name": "Infrastructure References",
+    "stack": "infrastructure",
     "version": "2026.11.07+devline.3",
     "description": "Official publisher documentation for Devline's local services. See coverage for each service.",
     "source_url": "https://github.com/fpl0/devline/tree/main/scripts/infrastructure-docs/upstream",
@@ -327,6 +386,27 @@
     "omissions": [
       "Other language examples and unselected API classes are omitted"
     ]
+  },
+  {
+    "id": "python",
+    "name": "Python",
+    "stack": "python",
+    "version": "3.15.2+devline.3",
+    "description": "Official language reference, tutorial and standard library manual.",
+    "source_url": "https://docs.python.org/3.15/",
+    "license": "PSF-2.0; examples also 0BSD",
+    "path": "docs/python/3.15.2+devline.3",
+    "markdown": [],
+    "upstream_version": "3.15.2",
+    "snapshot_date": "2026-11-08",
+    "coverage": [
+      "Tutorial, language and built-ins reference, HOWTOs, standard library and C API, release notes, glossary, and other pages listed in the publisher's contents"
+    ],
+    "omissions": [
+      "Search pages, generated indexes, packaging tools, and third-party libraries are outside this snapshot",
+      "The operating-system audit-event link to the unavailable os._clearenv entry remains online"
+    ],
+    "entry_id": "contents.html"
   },
   {
     "id": "python",

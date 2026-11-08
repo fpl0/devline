@@ -7,6 +7,7 @@ struct PlainArticle: NSViewRepresentable {
     let scale: Double
     let request: ReaderRequest?
     let report: (ReaderRequest, Bool) -> Void
+    let navigate: (String) -> Void
     let reportPosition: (Double) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator() }
@@ -18,6 +19,7 @@ struct PlainArticle: NSViewRepresentable {
         textView.drawsBackground = false
         textView.isEditable = false
         textView.isSelectable = true
+        textView.delegate = context.coordinator
         textView.textContainerInset = NSSize(width: horizontalInset, height: 20)
         textView.setAccessibilityLabel("Document contents")
         textView.textStorage?.setAttributedString(scaledContents())
@@ -28,6 +30,7 @@ struct PlainArticle: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
         context.coordinator.reportPosition = reportPosition
+        context.coordinator.navigate = navigate
         if context.coordinator.scale != scale {
             context.coordinator.scale = scale
             textView.textStorage?.setAttributedString(scaledContents())
@@ -55,7 +58,8 @@ struct PlainArticle: NSViewRepresentable {
                        in scrollView: NSScrollView) {
         switch request.action {
         case .focus(let text):
-            apply(ReaderRequest(action: .find(text: text, backwards: false, fromStart: true)), last: last, to: textView, in: scrollView)
+            let range = (textView.string as NSString).range(of: text, options: [.caseInsensitive, .diacriticInsensitive])
+            if range.location != NSNotFound { scrollTo(range, textView: textView, scrollView: scrollView) }
         case .restore(let fraction, _, _):
             let height = max(0, textView.frame.height - scrollView.contentView.bounds.height)
             scrollView.contentView.scroll(to: NSPoint(x: 0, y: height * min(1, max(0, fraction))))
@@ -111,11 +115,18 @@ struct PlainArticle: NSViewRepresentable {
         return contents
     }
 
-    final class Coordinator {
+    final class Coordinator: NSObject, NSTextViewDelegate {
         var last: ReaderRequest?
         var scale = 1.0
         var reportPosition: ((Double) -> Void)?
+        var navigate: ((String) -> Void)?
         private var observer: NSObjectProtocol?
+
+        func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
+            if let url = link as? URL { navigate?(url.absoluteString) }
+            else if let url = link as? String { navigate?(url) }
+            return true
+        }
         func attach(_ view: NSScrollView, report: @escaping (Double) -> Void) {
             reportPosition = report
             view.contentView.postsBoundsChangedNotifications = true

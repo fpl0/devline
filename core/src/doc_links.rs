@@ -1,15 +1,15 @@
 use crate::{
     doc_search::{focus_for_link, related_root},
     markdown::web_url,
-    text_arg,
+    project, text_arg,
     updates::{compare_doc_releases, doc_release},
-    Context,
+    Context, DocPack,
 };
-use anyhow::Result;
+use anyhow::{bail, Result};
 use fluent_uri::{Iri, IriRef};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
-use std::sync::OnceLock;
+use std::{collections::BTreeMap, path::Path, sync::OnceLock};
 
 pub(super) const SDK_LINK_PREFIX: &str =
     "https://developer.apple.com/documentation/swiftui#devline-sdk-symbol-";
@@ -34,64 +34,195 @@ fn fragment(url: &Iri<&str>) -> Option<String> {
 
 pub(super) fn resolve(ctx: &Context, request: &Value) -> Result<Value> {
     let raw = text_arg(request, "url")?.trim();
-    if raw.is_empty() || raw.len() > 8192 || raw.starts_with("//") {
+    if !valid_input(raw) {
         return Ok(Value::Null);
     }
     let db = ctx.database()?;
+    let origin = origin(&db, request)?;
+    let requested_origin = request["id"].as_str().is_some();
+    let resolution = if requested_origin && origin.is_none() {
+        LinkResolution::Unavailable
+    } else {
+        resolve_link(&db, request, raw, origin.as_ref(), None, false)?
+    };
+    Ok(match resolution {
+        LinkResolution::Installed(value) => value,
+        _ => Value::Null,
+    })
+}
+
+pub(super) fn status(ctx: &Context, request: &Value) -> Result<Value> {
+    text_arg(request, "id")?;
+    let Some(urls) = request["urls"].as_array() else {
+        bail!("Link status requires a list of URLs");
+    };
+    if urls.len() > 256 || urls.iter().any(|url| !url.is_string()) {
+        bail!("Link status accepts at most 256 URL strings");
+    }
+    let db = ctx.database()?;
+    let Some(origin) = origin(&db, request)? else {
+        return Ok(json!([]));
+    };
+    let releases = request["project_path"]
+        .as_str()
+        .map(|path| project::link_releases(ctx, &db, Path::new(path)))
+        .transpose()?
+        .flatten();
+    let mut results = Vec::with_capacity(urls.len());
+    for url in urls.iter().filter_map(Value::as_str) {
+        let raw = url.trim();
+        let mut value =
+            match resolve_link(&db, request, raw, Some(&origin), releases.as_ref(), true)? {
+                LinkResolution::Installed(mut value) => {
+                    value["kind"] = json!("installed");
+                    value
+                }
+                LinkResolution::MissingSection => json!({"kind":"missingSection"}),
+                LinkResolution::Online(target) => {
+                    missing_or_online(ctx, &db, &origin, &target, releases.as_ref())?
+                }
+                LinkResolution::Unavailable => json!({"kind":"unavailable"}),
+            };
+        value["url"] = json!(url);
+        results.push(value);
+    }
+    Ok(json!(results))
+}
+
+fn missing_or_online(
+    ctx: &Context,
+    db: &Connection,
+    origin: &Location,
+    target: &str,
+    releases: Option<&BTreeMap<String, String>>,
+) -> Result<Value> {
+    let candidates = Iri::parse(target)
+        .ok()
+        .map(|url| candidate_locations(db, &url))
+        .transpose()?
+        .unwrap_or_default();
+    let projected = releases.and_then(|releases| {
+        let mut matches = candidates.iter().filter_map(|page| {
+            releases
+                .get(&page.pack)
+                .map(|version| (&page.pack, version))
+        });
+        let first = matches.next()?;
+        matches.all(|candidate| candidate == first).then_some(first)
+    });
+    let expected = if candidates.iter().any(|page| page.pack == origin.pack) {
+        Some((&origin.pack, &origin.version))
+    } else {
+        projected
+    };
+    let (pack_id, version) = if let Some((id, version)) = expected {
+        (id, Some(version))
+    } else if let Some(pack) = known_pack(&ctx.catalog.docs, target, &origin.pack) {
+        (
+            &pack.id,
+            releases.and_then(|releases| releases.get(&pack.id)),
+        )
+    } else {
+        return Ok(json!({"kind":"online"}));
+    };
+    let present: bool = db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM packs WHERE id=?1 AND (?2 IS NULL OR version=?2))",
+        params![pack_id, version],
+        |row| row.get(0),
+    )?;
+    let installable = !present
+        && ctx.catalog.docs.iter().any(|pack| {
+            &pack.id == pack_id && version.is_none_or(|version| &pack.version == version)
+        });
+    Ok(
+        json!({"kind":"missingDocument", "pack_id":pack_id, "version":version, "can_install":installable}),
+    )
+}
+
+enum LinkResolution {
+    Installed(Value),
+    MissingSection,
+    Online(String),
+    Unavailable,
+}
+
+fn valid_input(raw: &str) -> bool {
+    !raw.is_empty() && raw.len() <= 8192 && !raw.starts_with("//")
+}
+
+fn origin(db: &Connection, request: &Value) -> Result<Option<Location>> {
+    let Some(id) = request["id"].as_str() else {
+        return Ok(None);
+    };
+    let pack = request["pack_id"].as_str().unwrap_or_default();
+    let version = request["version"].as_str().unwrap_or_default();
+    let row = db
+        .query_row(
+            "SELECT pack_id,version,source_url FROM documents WHERE id=?1",
+            [id],
+            |row| {
+                Ok(Location {
+                    id: id.into(),
+                    pack: row.get(0)?,
+                    version: row.get(1)?,
+                    source: row.get(2)?,
+                })
+            },
+        )
+        .optional()?;
+    Ok(row.filter(|row| {
+        (pack.is_empty() || pack == row.pack) && (version.is_empty() || version == row.version)
+    }))
+}
+
+fn resolve_link(
+    db: &Connection,
+    request: &Value,
+    raw: &str,
+    origin: Option<&Location>,
+    releases: Option<&BTreeMap<String, String>>,
+    reader: bool,
+) -> Result<LinkResolution> {
+    use LinkResolution::*;
+    if !valid_input(raw) {
+        return Ok(Unavailable);
+    }
     let mut pack = request["pack_id"].as_str().unwrap_or_default();
     let mut version = request["version"].as_str().unwrap_or_default();
-    let origin = if let Some(id) = request["id"].as_str() {
-        let row: Option<(String, String, String)> = db
-            .query_row(
-                "SELECT pack_id,version,source_url FROM documents WHERE id=?1",
-                [id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-            )
-            .optional()?;
-        let Some(row) = row else {
-            return Ok(Value::Null);
-        };
-        if (!pack.is_empty() && pack != row.0) || (!version.is_empty() && version != row.1) {
-            return Ok(Value::Null);
-        }
-        Some(row)
-    } else {
-        None
-    };
-    if let Some((id, release, _)) = &origin {
-        pack = id;
-        version = release;
+    if let Some(origin) = origin {
+        pack = &origin.pack;
+        version = &origin.version;
     }
     if let Some(hash) = raw.strip_prefix(SDK_LINK_PREFIX) {
-        return match &origin {
-            Some((pack, version, _)) if pack == crate::apple_docs::PACK_ID => {
-                resolve_sdk_symbol(&db, pack, version, hash)
+        if origin.is_some() && pack == crate::apple_docs::PACK_ID {
+            let value = resolve_sdk_symbol(db, pack, version, hash)?;
+            if !value.is_null() {
+                return Ok(Installed(value));
             }
-            _ => Ok(Value::Null),
-        };
+        }
+        return Ok(Unavailable);
     }
 
     let target = if let Ok(url) = Iri::parse(raw) {
         url.normalize()
     } else {
         let Some(source) = origin
-            .as_ref()
-            .and_then(|row| Iri::parse(row.2.as_str()).ok())
+            .and_then(|row| Iri::parse(row.source.as_str()).ok())
             .filter(web_url)
         else {
-            return Ok(Value::Null);
+            return Ok(Unavailable);
         };
         let Ok(link) = IriRef::parse(raw) else {
-            return Ok(Value::Null);
+            return Ok(Unavailable);
         };
         let Ok(url) = link.resolve_against(&source.strip_fragment()) else {
-            return Ok(Value::Null);
+            return Ok(Unavailable);
         };
         url.normalize()
     };
     let target = target.borrow();
     if !web_url(&target) {
-        return Ok(Value::Null);
+        return Ok(Unavailable);
     }
     let anchor = fragment(&target);
     if target
@@ -99,31 +230,77 @@ pub(super) fn resolve(ctx: &Context, request: &Value) -> Result<Value> {
         .is_some_and(|part| !part.as_str().is_empty())
         && anchor.is_none()
     {
-        return Ok(Value::Null);
+        return Ok(Unavailable);
     }
-    let Some(page) = locate(&db, &target, pack, version)? else {
-        return Ok(Value::Null);
+    if reader && raw.starts_with('#') {
+        if let (Some(origin), Some(anchor)) = (origin, &anchor) {
+            if stored_html(db, &origin.id)?.is_some_and(|html| has_anchor(&html, anchor)) {
+                return Ok(Installed(reference(&origin.id, Some(anchor), None)));
+            }
+        }
+    }
+    let Some(page) = locate(db, &target, pack, version, releases, reader)? else {
+        return Ok(Online(target.as_str().to_owned()));
     };
     let Some(anchor) = anchor else {
-        return Ok(reference(&page.id, None, None));
+        return Ok(Installed(reference(&page.id, None, None)));
     };
-    let Some(html) = stored_html(&db, &page.id)? else {
-        let (id, focus) = focus_for_link(&db, &page.id, &anchor)?;
-        return Ok(reference(&id, Some(&anchor), focus.as_deref()));
+    let Some(html) = stored_html(db, &page.id)? else {
+        let (id, focus) = focus_for_link(db, &page.id, &anchor)?;
+        if reader && focus.is_none() {
+            return Ok(if page.source_anchor().as_deref() == Some(&anchor) {
+                Installed(reference(&page.id, None, None))
+            } else {
+                MissingSection
+            });
+        }
+        return Ok(Installed(reference(&id, Some(&anchor), focus.as_deref())));
     };
     if has_anchor(&html, &anchor) {
-        return Ok(reference(&page.id, Some(&anchor), None));
+        return Ok(Installed(reference(&page.id, Some(&anchor), None)));
     }
     // A fragment in the record's own source URL can identify an entire
     // article, as in the standalone Ruby method records.
     if page.source_anchor().as_deref() == Some(&anchor) {
-        return Ok(reference(&page.id, None, None));
+        return Ok(Installed(reference(&page.id, None, None)));
     }
 
-    if let Some((page, anchor)) = repaired_location(&db, &page, &anchor)? {
-        return Ok(reference(&page.id, Some(&anchor), None));
+    if let Some((page, anchor)) = repaired_location(db, &page, &anchor)? {
+        return Ok(Installed(reference(&page.id, Some(&anchor), None)));
     }
-    Ok(Value::Null)
+    Ok(MissingSection)
+}
+
+fn known_pack<'a>(packs: &'a [DocPack], target: &str, origin: &str) -> Option<&'a DocPack> {
+    packs
+        .iter()
+        .filter_map(|pack| {
+            let source = Iri::parse(pack.source_url.as_str()).ok()?.normalize();
+            let base = source.strip_fragment();
+            let root = base.path().as_str().trim_matches('/').is_empty();
+            let base = base.as_str().trim_end_matches('/');
+            let suffix = target.strip_prefix(base)?;
+            let segment = suffix
+                .trim_start_matches('/')
+                .split(['/', '#', '?'])
+                .next()
+                .unwrap_or_default();
+            let docs_path = matches!(
+                segment,
+                "docs"
+                    | "api"
+                    | "guide"
+                    | "guides"
+                    | "tutorial"
+                    | "tutorials"
+                    | "reference"
+                    | "learn"
+            );
+            (suffix.is_empty() || suffix.starts_with(['/', '#', '?']) && (!root || docs_path))
+                .then_some(((base.len(), pack.id == origin), pack))
+        })
+        .max_by_key(|(rank, _)| *rank)
+        .map(|(_, pack)| pack)
 }
 
 fn resolve_sdk_symbol(db: &Connection, pack: &str, version: &str, hash: &str) -> Result<Value> {
@@ -211,7 +388,7 @@ fn repaired_location(
     let Some(anchor) = fragment(&destination) else {
         return Ok(None);
     };
-    let Some(repaired) = locate(db, &destination, &page.pack, &page.version)? else {
+    let Some(repaired) = locate(db, &destination, &page.pack, &page.version, None, false)? else {
         return Ok(None);
     };
     if repaired.pack != page.pack
@@ -223,13 +400,7 @@ fn repaired_location(
     Ok(Some((repaired, anchor)))
 }
 
-fn locate(
-    db: &Connection,
-    target: &Iri<&str>,
-    pack: &str,
-    version: &str,
-) -> Result<Option<Location>> {
-    let anchor = fragment(target);
+fn candidate_locations(db: &Connection, target: &Iri<&str>) -> Result<Vec<Location>> {
     let base = target.strip_fragment();
     let base = base.as_str();
     let mut candidates = Vec::new();
@@ -259,6 +430,21 @@ fn locate(
             candidates.push(row?);
         }
     }
+    Ok(candidates)
+}
+
+fn locate(
+    db: &Connection,
+    target: &Iri<&str>,
+    pack: &str,
+    version: &str,
+    releases: Option<&BTreeMap<String, String>>,
+    reader: bool,
+) -> Result<Option<Location>> {
+    let anchor = fragment(target);
+    let base = target.strip_fragment();
+    let base = base.as_str();
+    let mut candidates = candidate_locations(db, target)?;
     // A page opened from an older release must never jump to another release of that pack.
     if !pack.is_empty() && !version.is_empty() {
         if candidates.iter().any(|entry| entry.pack == pack)
@@ -272,6 +458,18 @@ fn locate(
     }
     if candidates.iter().any(|entry| entry.pack == pack) {
         candidates.retain(|entry| entry.pack == pack);
+    } else if let Some(releases) = releases.filter(|releases| {
+        candidates
+            .iter()
+            .any(|page| releases.contains_key(&page.pack))
+    }) {
+        candidates.retain(|entry| releases.get(&entry.pack) == Some(&entry.version));
+    } else if reader
+        && candidates
+            .iter()
+            .any(|entry| !crate::doc_library::is_devdocs(&entry.pack))
+    {
+        candidates.retain(|entry| !crate::doc_library::is_devdocs(&entry.pack));
     }
     if candidates.iter().any(|entry| {
         entry.source == base

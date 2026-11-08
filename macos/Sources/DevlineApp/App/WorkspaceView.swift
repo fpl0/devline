@@ -1,39 +1,36 @@
 import AppKit
 import SwiftUI
 
-enum Workspace: String, CaseIterable, Identifiable {
-    case toolbox = "Toolbox"
-    case project = "Current Project"
-    case infrastructure = "Infrastructure"
+private enum Workspace: String, CaseIterable, Identifiable {
+    case projects = "Projects"
     case docs = "Docs"
-    case templates = "Templates"
-    case runtimes = "Runtimes"
-    case library = "Library"
-    case updates = "Updates"
-    case activity = "Activity"
+    case services = "Services"
+    case library = "Offline Library"
 
     var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .docs: "Documentation"
-        case .templates: "App Starters"
-        case .runtimes: "Toolchains"
-        default: rawValue
-        }
-    }
     var icon: String {
         switch self {
-        case .toolbox: "shippingbox"
-        case .project: "folder"
-        case .infrastructure: "server.rack"
+        case .projects: "folder"
+        case .services: "server.rack"
         case .docs: "book.closed"
-        case .templates: "square.on.square"
-        case .runtimes: "terminal"
         case .library: "tray.full"
-        case .updates: "arrow.down.circle"
-        case .activity: "clock.arrow.circlepath"
         }
     }
+
+    static func restore(_ saved: String) -> Self {
+        if let current = Self(rawValue: saved) { return current }
+        switch saved {
+        case "Infrastructure": return .services
+        case "Library", "Ready Offline", "Runtimes", "Updates", "Activity": return .library
+        default: return .projects
+        }
+    }
+}
+
+private enum LibrarySection: String, CaseIterable {
+    case assets = "Assets"
+    case toolchains = "Toolchains"
+    case updates = "Updates"
 }
 
 struct WorkspaceView: View {
@@ -42,10 +39,20 @@ struct WorkspaceView: View {
     @ObservedObject var model: WorkspaceModel
     @StateObject private var reading = ReadingSession()
     @StateObject private var infrastructure = InfrastructureLibrary()
-    @State private var workspace: Workspace? = {
-        let saved = UserDefaults.standard.string(forKey: "devline.workspace") ?? ""
-        return saved == "Ready Offline" ? .library : Workspace(rawValue: saved) ?? .toolbox
+    @State private var workspace: Workspace? = Workspace.restore(UserDefaults.standard.string(forKey: "devline.workspace") ?? "")
+    @State private var showingStarters = UserDefaults.standard.string(forKey: "devline.workspace") == "Templates"
+    @AppStorage("devline.librarySection") private var librarySection: LibrarySection = {
+        switch UserDefaults.standard.string(forKey: "devline.workspace") {
+        case "Runtimes": return .toolchains
+        case "Updates": return .updates
+        default: return .assets
+        }
     }()
+    @State private var showingActivity = UserDefaults.standard.string(forKey: "devline.workspace") == "Activity"
+    @State private var showingManageDocs = false
+    @State private var manageDocsForInstall = false
+    @State private var manageDocsPackID: String?
+    @State private var showingProjectServices = true
     @AppStorage("devline.focusReading") private var focusReading = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var restoredSession = false
@@ -59,6 +66,7 @@ struct WorkspaceView: View {
     @State private var navigationRequest: UUID?
     @State private var focusRequest = 0
     @State private var lookupRevision = 0
+    @State private var projectScopeRequested = false
     @State private var starterReference: String?
     @State private var newStarter: Starter?
     @State private var showingAppUpdates = false
@@ -66,28 +74,11 @@ struct WorkspaceView: View {
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: $workspace) {
-                Section("Workspace") {
-                    sidebarRows([.toolbox, .project])
-                }
-                Section("Build") { sidebarRows([.templates, .infrastructure]) }
-                Section("Reference") { sidebarRows([.docs, .runtimes]) }
-                Section("Manage") {
-                    sidebarRows([.library, .updates, .activity])
+                ForEach(Workspace.allCases) { page in
+                    Label(page.rawValue, systemImage: page.icon).tag(page)
                 }
             }
             .listStyle(.sidebar)
-            .safeAreaInset(edge: .bottom) {
-                if let catalog = model.catalog {
-                    VStack(alignment: .leading, spacing: 5) {
-                        Divider()
-                        Label("\(Set(catalog.docs.filter(\.installed).map(\.id)).count) docsets · \(catalog.docs.filter(\.installed).count) versions", systemImage: "internaldrive")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 15)
-                            .padding(.bottom, 10)
-                    }
-                }
-            }
             .navigationSplitViewColumnWidth(min: 165, ideal: 190, max: 245)
         } detail: {
             Group {
@@ -97,7 +88,7 @@ struct WorkspaceView: View {
                     workspaceContent
                 }
             }
-            .navigationTitle((workspace ?? .toolbox).title)
+            .navigationTitle((workspace ?? .projects).rawValue)
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if let operation = model.operation {
                     StatusBar(text: operation, working: true)
@@ -106,18 +97,19 @@ struct WorkspaceView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .secondaryAction) {
-                    Button(action: chooseProjectFolder) {
-                        Label("Open Project Folder", systemImage: "folder")
+                if model.jobs.contains(where: \.isActive) {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button { showingActivity = true } label: {
+                            Label("Activity", systemImage: "clock.arrow.circlepath")
+                        }.help("View progress and logs")
                     }
-                    .help("Open Project Folder (⌘O)")
-                    .disabled(openingProject)
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: beginNewProject) {
-                        Label("New Project", systemImage: "plus")
+                if workspace == .projects && projectContext != nil && !showingStarters {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(action: beginNewProject) {
+                            Label("New from Starter", systemImage: "plus")
+                        }.help("New from Starter (⌘N)")
                     }
-                    .help("New Project (⌘N)")
                 }
             }
         }
@@ -158,6 +150,13 @@ struct WorkspaceView: View {
         }
         .sheet(item: $model.inspectedJob) { job in JobDetailsView(job: job, model: model) }
         .sheet(isPresented: $showingAppUpdates) { AppUpdatesSheet() }
+        .sheet(isPresented: $showingManageDocs) {
+            ManageDocsView(model: model, installRequested: manageDocsForInstall, requestedPackID: manageDocsPackID) { pack in
+                showingManageDocs = false
+                browseDocset(pack)
+            }
+        }
+        .sheet(isPresented: $showingActivity) { ActivitySheet(model: model) }
         .alert("Devline", isPresented: Binding(
             get: { model.error != nil },
             set: { if !$0 { model.error = nil } }
@@ -169,7 +168,6 @@ struct WorkspaceView: View {
         .onReceive(NotificationCenter.default.publisher(for: .devlineFind)) { _ in
             beginNavigation()
             workspace = .docs
-            directDocumentID = nil
             focusRequest += 1
         }
         .onReceive(NotificationCenter.default.publisher(for: .devlineNew)) { _ in beginNewProject() }
@@ -177,11 +175,12 @@ struct WorkspaceView: View {
         .onReceive(NotificationCenter.default.publisher(for: .devlineOpenRecent)) { notification in
             if let path = notification.object as? String { openProject(path) }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .devlineLibrary)) { _ in workspace = .library }
-        .onReceive(NotificationCenter.default.publisher(for: .devlineUpdates)) { _ in workspace = .updates }
+        .onReceive(NotificationCenter.default.publisher(for: .devlineLibrary)) { _ in openLibrary(.assets) }
+        .onReceive(NotificationCenter.default.publisher(for: .devlineUpdates)) { _ in openLibrary(.updates) }
+        .onReceive(NotificationCenter.default.publisher(for: .devlineActivity)) { _ in showingActivity = true }
         .onReceive(NotificationCenter.default.publisher(for: .devlineAppUpdates)) { _ in showingAppUpdates = true }
         .onChange(of: workspace) { _, page in
-            UserDefaults.standard.set(page?.rawValue ?? "Toolbox", forKey: "devline.workspace")
+            UserDefaults.standard.set(page?.rawValue ?? Workspace.projects.rawValue, forKey: "devline.workspace")
             columnVisibility = focusReading && page == .docs ? .detailOnly : .all
         }
         .onChange(of: focusReading) { _, focused in columnVisibility = focused && workspace == .docs ? .detailOnly : .all }
@@ -194,18 +193,45 @@ struct WorkspaceView: View {
 
     @ViewBuilder
     private var workspaceContent: some View {
-        switch workspace ?? .toolbox {
-        case .toolbox:
-            ToolboxView(model: model, infrastructure: infrastructure, project: projectContext,
-                navigate: { workspace = $0 }, openProject: chooseProjectFolder, openRecent: openProject)
-        case .project:
-            ProjectWorkspaceView(model: model, infrastructure: infrastructure, project: projectContext,
-                openProject: chooseProjectFolder, newProject: beginNewProject, showDocs: browseProjectDocs,
-                showInfrastructure: { workspace = .infrastructure }, showStarter: showStarter,
-                showToolchains: { workspace = .runtimes }, closeProject: clearProject)
-                .id(projectContext?.path)
-        case .infrastructure:
-            InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureReference)
+        switch workspace ?? .projects {
+        case .projects:
+            if showingStarters {
+                VStack(spacing: 0) {
+                    HStack {
+                        Button { showingStarters = false } label: {
+                            Label("Back to Projects", systemImage: "chevron.left")
+                        }.buttonStyle(.borderless)
+                        Spacer()
+                    }.padding(.horizontal, 20).padding(.vertical, 12)
+                    Divider()
+                    TemplatesView(model: model, selection: $starterReference, newStarter: $newStarter, openDocs: browseDocset)
+                }
+            } else {
+                ProjectWorkspaceView(model: model, project: projectContext,
+                    openProject: chooseProjectFolder, newProject: beginNewProject, showDocs: browseProjectDocs,
+                    showInfrastructure: { openServices(project: false) }, openRecent: openProject, showStarter: showStarter,
+                    showToolchains: { openLibrary(.toolchains) }, showProjectServices: { openServices(project: true) },
+                    closeProject: clearProject)
+                    .id(projectContext?.path)
+            }
+        case .services:
+            VStack(spacing: 0) {
+                if projectContext != nil {
+                    Picker("Services Section", selection: $showingProjectServices) {
+                        Text("Project Services").tag(true)
+                        Text("Image Library").tag(false)
+                    }.pickerStyle(.segmented).labelsHidden().fixedSize()
+                        .frame(maxWidth: .infinity).padding(12)
+                    Divider()
+                }
+                if let projectContext, showingProjectServices {
+                    ProjectServicesView(model: model, infrastructure: infrastructure, project: projectContext)
+                        .id(projectContext.path)
+                } else {
+                    InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureReference,
+                                       openProjectServices: projectContext == nil ? nil : { openServices(project: true) })
+                }
+            }
         case .docs:
             DocsView(
                 model: model,
@@ -223,16 +249,37 @@ struct WorkspaceView: View {
                 clearProject: clearProject,
                 focusRequest: focusRequest,
                 lookupRevision: lookupRevision,
-                openLibrary: { workspace = .library }
+                projectScopeRequested: projectScopeRequested,
+                openLibrary: { openDocsManager() },
+                installDocset: { openDocsManager(install: true, packID: $0) }
             )
-        case .templates:
-            TemplatesView(model: model, selection: $starterReference, newStarter: $newStarter, openDocs: browseDocset)
-        case .runtimes:
+        case .library:
+            VStack(spacing: 0) {
+                Picker("Offline Library Section", selection: $librarySection) {
+                    ForEach(LibrarySection.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented).labelsHidden().fixedSize()
+                .frame(maxWidth: .infinity).padding(12)
+                Divider()
+                libraryContent
+            }
+        }
+    }
+
+    @ViewBuilder private var libraryContent: some View {
+        switch librarySection {
+        case .assets:
+            if let catalog = model.catalog {
+                LibraryView(model: model, infrastructure: infrastructure, catalog: catalog, projectPath: projectContext?.path,
+                            manageDocs: { openDocsManager() })
+            }
+        case .toolchains:
             RuntimesView(
                 model: model,
                 projectStack: projectContext?.stack,
                 showStarter: showStarter,
                 showDocs: { stack in
+                    projectScopeRequested = false
                     directDocumentID = nil
                     docStack = stack
                     docPack = nil
@@ -240,17 +287,27 @@ struct WorkspaceView: View {
                     workspace = .docs
                     focusRequest += 1
                 },
-                showLibrary: { workspace = .library }
+                showLibrary: { openLibrary(.assets) }
             )
-        case .library:
-            if let catalog = model.catalog {
-                LibraryView(model: model, infrastructure: infrastructure, catalog: catalog, projectPath: projectContext?.path)
-            }
         case .updates:
             UpdatesView(model: model)
-        case .activity:
-            ActivityView(model: model)
         }
+    }
+
+    private func openLibrary(_ section: LibrarySection) {
+        librarySection = section
+        workspace = .library
+    }
+
+    private func openServices(project: Bool) {
+        showingProjectServices = project
+        workspace = .services
+    }
+
+    private func openDocsManager(install: Bool = false, packID: String? = nil) {
+        manageDocsForInstall = install
+        manageDocsPackID = packID
+        showingManageDocs = true
     }
 
     private func handleURL(_ url: URL) {
@@ -268,13 +325,10 @@ struct WorkspaceView: View {
         let focus: String? = items.first(where: { $0.name == "focus" })?.value
         let location = ReferenceLocation(id: id, anchor: anchor, focusText: focus)
         beginNavigation()
+        projectScopeRequested = false
         reading.open(location)
         directDocumentID = id
         workspace = .docs
-    }
-
-    private func sidebarRows(_ pages: [Workspace]) -> some View {
-        ForEach(pages) { page in Label(page.title, systemImage: page.icon).tag(page) }
     }
 
     private func openInfrastructureReference(_ reference: String) {
@@ -289,6 +343,7 @@ struct WorkspaceView: View {
                     label: "Preparing infrastructure reference", completion: "Infrastructure reference available offline.") else { return }
             }
             beginNavigation()
+            projectScopeRequested = false
             reading.open(ReferenceLocation(id: reference))
             directDocumentID = reference
             workspace = .docs
@@ -296,11 +351,12 @@ struct WorkspaceView: View {
     }
 
     private func beginNewProject() {
-        if workspace == .templates,
+        if workspace == .projects && showingStarters,
            let starter = model.catalog?.templates.first(where: { $0.reference == starterReference && $0.isInstalled }) {
             newStarter = starter
         } else {
-            workspace = .templates
+            workspace = .projects
+            showingStarters = true
         }
     }
 
@@ -365,7 +421,8 @@ struct WorkspaceView: View {
             directDocumentID = nil
             docPack = nil
             query = ""
-            workspace = .project
+            showingStarters = false
+            workspace = .projects
             guard let resolvedPath = projectContext?.path else { return }
             model.rememberProject(resolvedPath)
             do {
@@ -384,6 +441,7 @@ struct WorkspaceView: View {
         beginNavigation()
         projectRequest = nil
         projectContext = nil
+        projectScopeRequested = false
         UserDefaults.standard.removeObject(forKey: "devline.projectPath")
         docStack = nil
         docPack = nil
@@ -391,6 +449,7 @@ struct WorkspaceView: View {
 
     private func browseProjectDocs() {
         beginNavigation()
+        projectScopeRequested = true
         query = ""
         directDocumentID = nil
         docPack = nil
@@ -407,6 +466,7 @@ struct WorkspaceView: View {
             return
         }
         beginNavigation()
+        projectScopeRequested = false
         query = ""
         directDocumentID = nil
         docStack = pack.stack
@@ -422,16 +482,19 @@ struct WorkspaceView: View {
             return
         }
         starterReference = reference
-        workspace = .templates
+        showingStarters = true
+        workspace = .projects
     }
 
     private func lookUp(_ request: LookupRequest) {
         let navigation = beginNavigation()
+        projectScopeRequested = false
         if let path = request.path {
             openingProject = true
             Task {
                 defer { if navigationRequest == navigation { openingProject = false } }
                 guard await loadProjectContext(path, navigation: navigation), navigationRequest == navigation else { return }
+                projectScopeRequested = request.stack == nil
                 docStack = request.stack ?? projectContext?.stack
                 finishLookup(query: request.query, message: request.message)
             }

@@ -23,6 +23,8 @@ pub struct DocPack {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shards: Option<usize>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entry_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upstream_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snapshot_date: Option<String>,
@@ -131,6 +133,12 @@ impl Context {
             CREATE TABLE IF NOT EXISTS aliases(alias TEXT, document_id TEXT);
             CREATE INDEX IF NOT EXISTS aliases_lookup ON aliases(alias);
             CREATE INDEX IF NOT EXISTS documents_pack ON documents(pack_id,version);
+            CREATE TABLE IF NOT EXISTS doc_navigation(document_id TEXT PRIMARY KEY, group_name TEXT NOT NULL) WITHOUT ROWID;
+            CREATE TABLE IF NOT EXISTS doc_alias_anchors(document_id TEXT NOT NULL, alias TEXT NOT NULL, anchor TEXT NOT NULL, PRIMARY KEY(document_id,alias)) WITHOUT ROWID;
+            CREATE TRIGGER IF NOT EXISTS doc_navigation_remove_document AFTER DELETE ON documents BEGIN
+                DELETE FROM doc_navigation WHERE document_id=old.id;
+                DELETE FROM doc_alias_anchors WHERE document_id=old.id;
+            END;
             CREATE VIRTUAL TABLE IF NOT EXISTS docs_fts USING fts5(title,body,stack,content='documents',content_rowid='rowid');")?;
         doc_index::ensure(&mut db)?;
         Ok(db)
