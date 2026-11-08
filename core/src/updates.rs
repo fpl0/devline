@@ -416,6 +416,9 @@ pub(super) fn doc_release(version: &str) -> (&str, u64) {
 pub(super) fn compare_doc_releases(a: &str, b: &str) -> std::cmp::Ordering {
     let (a_base, a_revision) = doc_release(a);
     let (b_base, b_revision) = doc_release(b);
+    if a[a_base.len()..].starts_with("+devdocs.") && b[b_base.len()..].starts_with("+devdocs.") {
+        return compare_devdocs_versions(a, b).then(a.cmp(b));
+    }
     let sdk_base = |version: &str| stable_version(version.split_once("+sdk.")?.0);
     if let (Some(a_sdk), Some(b_sdk)) = (sdk_base(a_base), sdk_base(b_base)) {
         return a_sdk.cmp(&b_sdk).then(a.cmp(b));
@@ -425,6 +428,28 @@ pub(super) fn compare_doc_releases(a: &str, b: &str) -> std::cmp::Ordering {
         _ => a_base.cmp(b_base).then(a_revision.cmp(&b_revision)),
     }
     .then(a.cmp(b))
+}
+
+pub(super) fn compare_devdocs_versions(a: &str, b: &str) -> std::cmp::Ordering {
+    let key = |base: &str| {
+        let number = base.strip_prefix(['v', 'V']).unwrap_or(base);
+        let end = number
+            .find(|c: char| !c.is_ascii_digit() && c != '.')
+            .unwrap_or(number.len());
+        let numeric = stable_version(number[..end].trim_end_matches('.'));
+        // An unversioned snapshot represents a canonical current release, such as Ansible.
+        (base == "snapshot", numeric)
+    };
+    let a = doc_release(a).0;
+    let b = doc_release(b).0;
+    let a_key = key(a);
+    a_key.cmp(&key(b)).then_with(|| {
+        if a_key.1.is_none() {
+            a.cmp(b)
+        } else {
+            std::cmp::Ordering::Equal
+        }
+    })
 }
 
 fn latest<'a>(versions: impl Iterator<Item = &'a str>) -> Option<&'a str> {

@@ -51,7 +51,12 @@ pub(crate) fn is_devdocs(id: &str) -> bool {
         .is_some_and(|slug| !slug.is_empty())
 }
 
-pub(crate) fn import_local(ctx: &Context, id: &str, version: &str) -> Result<Value> {
+pub(crate) fn import_local(
+    ctx: &Context,
+    id: &str,
+    version: &str,
+    keep_latest: bool,
+) -> Result<Value> {
     validate_doc_identity(id, version)?;
     let pack = ctx
         .catalog
@@ -66,16 +71,39 @@ pub(crate) fn import_local(ctx: &Context, id: &str, version: &str) -> Result<Val
     }
     let source = safe_catalog_path(ctx, &pack.path)?;
     let _lock = lock_library(ctx)?;
-    let active = doc_updates::preferences(&ctx.database()?)?;
-    let prefer = active.get(id).is_none_or(|current| {
-        !updates::compare_doc_releases(
-            updates::doc_release(version).0,
-            updates::doc_release(current).0,
-        )
-        .is_lt()
-    });
+    let automatic_retention = updates::keep_latest(ctx)?;
+    let db = ctx.database()?;
+    let active = doc_updates::preferences(&db)?;
+    if keep_latest || automatic_retention {
+        let mut query = db.prepare("SELECT version FROM packs WHERE id=?1")?;
+        let installed = query
+            .query_map([id], |row| row.get::<_, String>(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        if let Some(newest) = installed
+            .into_iter()
+            .max_by(|a, b| updates::compare_doc_releases(a, b))
+            .filter(|newest| updates::compare_devdocs_versions(newest, version).is_gt())
+        {
+            drop(query);
+            drop(db);
+            let newest = active
+                .get(id)
+                .filter(|active| updates::compare_devdocs_versions(active, &newest).is_eq())
+                .unwrap_or(&newest);
+            doc_updates::prune(ctx, Some(&[(id, newest)]))?;
+            return Ok(json!({"id":id,"version":newest,"skipped":true}));
+        }
+    }
+    drop(db);
+    let prefer = active
+        .get(id)
+        .is_none_or(|current| !updates::compare_devdocs_versions(version, current).is_lt());
     let cached = doc_updates::store_original(ctx, pack, &source)?;
-    install_doc_pack_with_preference(ctx, pack, &cached, prefer)
+    let installed = install_doc_pack_with_preference(ctx, pack, &cached, prefer)?;
+    if keep_latest && !automatic_retention {
+        doc_updates::prune(ctx, Some(&[(id, version)]))?;
+    }
+    Ok(installed)
 }
 
 pub(crate) fn validate_doc_identity(id: &str, version: &str) -> Result<()> {

@@ -272,6 +272,9 @@ enum Docs {
         /// Download the current DevDocs catalog and selected snapshots.
         online: bool,
         #[arg(long)]
+        /// Import only the newest available snapshot per family. Versioned --doc slugs stay exact.
+        latest: bool,
+        #[arg(long)]
         /// Import only this DevDocs slug. Repeat to select several.
         doc: Vec<String>,
     },
@@ -280,6 +283,8 @@ enum Docs {
         id: String,
         #[arg(long)]
         version: String,
+        #[arg(long)]
+        keep_latest: bool,
     },
     #[command(about = "List available documentation packs")]
     List {
@@ -550,6 +555,7 @@ fn import_devdocs(
     cli: &Cli,
     source: Option<&std::path::Path>,
     online: bool,
+    latest: bool,
     docs: &[String],
 ) -> Result<i32> {
     if cli.offline && online {
@@ -576,6 +582,9 @@ fn import_devdocs(
     }
     if online {
         command.arg("--online");
+    }
+    if latest || request(cli, json!({"command":"library.retention"}))?["keep_latest"] == true {
+        command.arg("--latest");
     }
     for doc in docs {
         command.arg(format!("--doc={doc}"));
@@ -1315,15 +1324,20 @@ fn run(cli: &Cli) -> Result<i32> {
             Some(Docs::ImportDevdocs {
                 source,
                 online,
+                latest,
                 doc,
             }) => {
-                return import_devdocs(cli, source.as_deref(), *online, doc);
+                return import_devdocs(cli, source.as_deref(), *online, *latest, doc);
             }
-            Some(Docs::ImportLocal { id, version }) => (
+            Some(Docs::ImportLocal {
+                id,
+                version,
+                keep_latest,
+            }) => (
                 "install",
                 request(
                     cli,
-                    json!({"command":"docs.import.local","id":id,"version":version}),
+                    json!({"command":"docs.import.local","id":id,"version":version,"keep_latest":keep_latest}),
                 )?,
             ),
             Some(Docs::List { installed }) => {

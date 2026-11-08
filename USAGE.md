@@ -151,13 +151,15 @@ The CLI accepts `--offline` for operations that must stay local. An empty search
 
 ### Import DevDocs into your local library
 
-Devline includes a DevDocs importer. Install Python 3.9 or later and make sure `python3` is available on your `PATH`. Import a particular docset by slug, or omit `--doc` to import the full catalog. A full import downloads several gigabytes and builds a local search index. [DevDocs](https://devdocs.io/)
+Devline includes a DevDocs importer. Install Python 3.9 or later and make sure `python3` is available on your `PATH`. Use `--latest` to import one current release per docset. The importer also uses that mode when **Settings → Local Library → Keep only the latest version after updates** is on. [DevDocs](https://devdocs.io/)
 
 ```sh
 devline docs import-devdocs --online --doc astro
 devline --offline docs search --docset devdocs-astro 'Actions'
-devline docs import-devdocs --online
+devline docs import-devdocs --online --latest
 ```
+
+With that setting off, run `devline docs import-devdocs --online` to import every available release. A full import downloads several gigabytes and builds a local search index.
 
 You can also import a local DevDocs archive or a directory of downloaded docsets. Use the local `public/docs` directory from a DevDocs checkout after running `bundle exec thor docs:download --all`. [DevDocs download instructions](https://github.com/freeCodeCamp/devdocs#quick-start)
 

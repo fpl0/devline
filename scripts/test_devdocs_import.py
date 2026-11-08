@@ -55,6 +55,70 @@ class DevDocsImportTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0, result.stdout)
         return result.stdout
 
+    def test_latest_uses_catalog_metadata_and_respects_library_retention(self):
+        with tempfile.TemporaryDirectory(prefix="devline-test-devdocs-latest-") as temporary:
+            root = Path(temporary)
+            library = root / "library"
+            source = root / "docs"
+            source.mkdir()
+
+            def snapshot(slug, release=None, extracted=False):
+                metadata = {"name": slug, "slug": slug, "release": release}
+                files = {"meta.json": metadata, "index.json": {"entries": []},
+                         "db.json": {"index": f"<h1>{slug}</h1><p>Fixture documentation.</p>"}}
+                if extracted:
+                    path = source / slug
+                    path.mkdir()
+                    for name, data in files.items():
+                        write_json(path / name, data)
+                else:
+                    archive_files(source / f"{slug}.tar.gz", files)
+                return metadata
+
+            write_json(source / "docs.json", [
+                snapshot("python~3.9", "3.9.14"), snapshot("python~3.15", "3.15.0"),
+                snapshot("ansible"), snapshot("ansible~2.11", "2.11.0"),
+                snapshot("clojure~1.9", "1.9 (legacy)"), snapshot("clojure~1.11", "1.11"),
+                snapshot("powershell~scripting", "Scripting"), snapshot("powershell~7.7", "7.7"),
+            ])
+            snapshot("jinja~2.9")
+            snapshot("jinja~2.11")
+            snapshot("example", "1.0", extracted=True)
+            snapshot("example~2.0")
+
+            cli = [str(DEVLINE), "--offline", "--json", "--home", str(library),
+                   "--catalog", str(ROOT / "data")]
+
+            def query(*args):
+                return json.loads(self.run_command(*cli, *args))["data"]
+
+            def import_docs(*args):
+                return json.loads(self.run_command(*cli, "docs", "import-devdocs", str(source), *args))
+
+            historical = import_docs("--latest", "--doc", "python~3.9",
+                                     "--doc", "clojure~1.9", "--doc", "powershell~scripting")
+            self.assertEqual({item["slug"] for item in historical["installed"]},
+                             {"python~3.9", "clojure~1.9", "powershell~scripting"})
+            self.assertFalse(query("library", "retention")["keep_latest"])
+            latest = import_docs("--latest")
+            self.assertEqual({item["slug"] for item in latest["installed"]},
+                             {"python~3.15", "ansible", "jinja~2.11", "example~2.0",
+                              "clojure~1.11", "powershell~7.7"})
+            installed = query("docs", "list", "--installed")
+            self.assertEqual(len(installed), 6)
+            versions = [item["version"] for item in installed
+                        if item["id"] == "devdocs-python"]
+            self.assertEqual(len(versions), 1)
+            self.assertTrue(versions[0].startswith("3.15.0+"))
+            self.assertFalse(query("library", "retention")["keep_latest"])
+
+            query("library", "retention", "--keep-latest", "true")
+            automatic = import_docs("--doc", "python")
+            self.assertEqual([item["slug"] for item in automatic["installed"]], ["python~3.15"])
+            older = import_docs("--doc", "python~3.9")
+            self.assertEqual(older["installed"], [])
+            self.assertEqual([item["version"] for item in older["skipped"]], versions)
+
     def test_offline_import_search_link_and_private_versions(self):
         with tempfile.TemporaryDirectory(prefix="devline-test-devdocs-") as temporary:
             root = Path(temporary)

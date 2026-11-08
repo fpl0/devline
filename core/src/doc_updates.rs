@@ -1,7 +1,7 @@
 use crate::{
     doc_library::{install_doc_pack_with_preference, shard_name, valid_doc_id, valid_doc_version},
     lock_library, updates,
-    updates::{compare_doc_releases, doc_release},
+    updates::{compare_devdocs_versions, compare_doc_releases},
     Context, DocPack,
 };
 use anyhow::{bail, Context as _, Result};
@@ -479,7 +479,7 @@ pub(crate) fn prune(ctx: &Context, installed: Option<&[(&str, &str)]>) -> Result
     for (id, versions) in &indexed {
         let newest = &versions[0];
         let selected = preferred.get(id).filter(|version| {
-            crate::doc_library::is_devdocs(id) && doc_release(version).0 == doc_release(newest).0
+            crate::doc_library::is_devdocs(id) && compare_devdocs_versions(version, newest).is_eq()
         });
         latest.insert(id, selected.unwrap_or(newest));
     }
@@ -499,7 +499,7 @@ pub(crate) fn prune(ctx: &Context, installed: Option<&[(&str, &str)]>) -> Result
                 && version != *newest
                 && (compare_doc_releases(version, newest).is_lt()
                     || crate::doc_library::is_devdocs(id)
-                        && doc_release(version).0 == doc_release(newest).0)
+                        && compare_devdocs_versions(version, newest).is_eq())
         })
     };
     let mut removed = BTreeSet::new();
@@ -519,7 +519,13 @@ pub(crate) fn prune(ctx: &Context, installed: Option<&[(&str, &str)]>) -> Result
             removed.insert((&pack.id, &pack.version));
         }
     }
-    if (!removed.is_empty() || installed.is_none())
+    let devdocs_import = installed.is_some_and(|items| {
+        items
+            .iter()
+            .all(|(id, _)| crate::doc_library::is_devdocs(id))
+    });
+    if !devdocs_import
+        && (!removed.is_empty() || installed.is_none())
         && db.pragma_query_value(None, "freelist_count", |row| row.get::<_, u64>(0))? > 0
     {
         db.execute_batch("VACUUM")?;

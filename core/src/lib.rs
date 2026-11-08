@@ -110,6 +110,7 @@ pub fn execute(request: &Value) -> Result<Value> {
             &ctx,
             text_arg(request, "id")?,
             text_arg(request, "version")?,
+            request["keep_latest"] == true,
         ),
         "docs.search" => doc_search::search(&ctx, request),
         "docs.show" => doc_search::show(&ctx, request),

@@ -39,6 +39,6 @@ Builds from `main` include a DevDocs importer. With the Devline CLI installed an
 devline docs import-devdocs --online --doc astro
 ```
 
-Return to Devline and look for **DevDocs · Astro** in **Library**. Omit `--doc astro` to import the full catalog. For local archives and more options, see the [DevDocs import guide](USAGE.md#import-devdocs-into-your-local-library).
+Return to Devline and look for **DevDocs · Astro** in **Library**. To import one current release per docset, run `devline docs import-devdocs --online --latest`. For local archives and more options, see the [DevDocs import guide](USAGE.md#import-devdocs-into-your-local-library).
 
 [Editor integrations](integrations/README.md) · [Build from source](USAGE.md#build-and-validate) · [Core protocol](CONTRACT.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)

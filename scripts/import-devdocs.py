@@ -26,6 +26,7 @@ from reference_rendering import (
 MANIFEST_URL = "https://devdocs.io/docs.json"
 ARCHIVE_URL = "https://downloads.devdocs.io/"
 SLUG = re.compile(r"[a-z0-9][a-z0-9_.-]*(?:~[a-z0-9][a-z0-9_.-]*)?")
+VERSION_PREFIX = re.compile(r"v?([0-9]+(?:\.[0-9]+)*)", re.IGNORECASE)
 INPUT_FILES = {"meta.json", "index.json", "db.json"}
 MAX_DB_BYTES = 512 * 1024 * 1024
 MAX_ARCHIVE_BYTES = 1024 * 1024 * 1024
@@ -134,18 +135,58 @@ def local_inputs(source):
     return rows, paths
 
 
-def selected_slugs(available, requested):
-    if not requested:
+def local_selection_metadata(manifest, paths):
+    metadata = dict(manifest)
+    for slug, path in paths.items():
+        if not path.is_dir():
+            continue
+        try:
+            row = read_json(path / "meta.json", 1024 * 1024)
+        except (OSError, ValueError):
+            continue
+        if isinstance(row, dict) and row.get("slug", slug) == slug:
+            metadata[slug] = {**metadata.get(slug, {}), **row}
+    return metadata
+
+
+def snapshot_order(slug, row):
+    _, _, edition = slug.partition("~")
+    version = ()
+    for value in (row.get("release"), row.get("version"), edition):
+        match = VERSION_PREFIX.match(str(value or "").strip())
+        if match:
+            parts = [int(part) for part in match[1].split(".")]
+            while len(parts) > 1 and parts[-1] == 0:
+                parts.pop()
+            version = tuple(parts)
+            break
+    # Some families publish their current docs at an unversioned slug without
+    # declaring a release, while retaining older archives with numbered slugs.
+    canonical = not edition
+    mtime = row.get("mtime")
+    return canonical and not version, version, canonical, mtime if isinstance(mtime, int) else 0, slug
+
+
+def selected_slugs(available, requested, latest=False, metadata=None):
+    if not requested and not latest:
         return list(available)
+    families = defaultdict(list)
+    for slug in available:
+        families[slug.partition("~")[0]].append(slug)
+    metadata = metadata or {}
     selected = {}
-    for slug in dict.fromkeys(requested):
-        if slug in available:
+    for slug in dict.fromkeys(requested or families):
+        if slug in available and (not latest or "~" in slug):
             selected[slug] = None
             continue
-        versions = [candidate for candidate in available if candidate.partition("~")[0] == slug]
+        versions = families.get(slug)
         if not versions:
             raise ValueError(f"DevDocs docset {slug!r} was not found")
-        selected.update(dict.fromkeys(versions))
+        if latest:
+            newest = max(versions, key=lambda item: snapshot_order(item, metadata.get(item, {})))
+            selected[newest] = None
+        else:
+            selected.update(dict.fromkeys(versions))
     return list(selected)
 
 
@@ -274,7 +315,7 @@ def install_snapshot(path, slug, manifest, workspace, args):
         raise ValueError(f"Invalid DevDocs docset slug: {slug!r}")
     if manifest and slug != manifest["slug"]:
         raise ValueError("Docset metadata does not match its catalog slug")
-    family = slug.partition("~")[0]
+    family, _, edition = slug.partition("~")
     pack_id = "devdocs-" + family.replace(".", "_")
     if len(pack_id) > 64:
         raise ValueError("DevDocs docset slug is too long")
@@ -282,7 +323,10 @@ def install_snapshot(path, slug, manifest, workspace, args):
     output = workspace / "pack"
     output.mkdir()
     shards, _ = write_shards(output, articles(pages, index, base, pack_id, assets))
-    source_release = str(meta.get("release") or meta.get("version") or "snapshot")
+    version_hint = meta.get("release") or meta.get("version")
+    if not version_hint and VERSION_PREFIX.match(edition):
+        version_hint = edition
+    source_release = str(version_hint or "snapshot")
     release = re.sub(r"[^a-zA-Z0-9._-]", "-", source_release).strip("._-")[:40] or "snapshot"
     title = str(meta.get("name") or family)
     notice = meta.get("attribution") or "See the attribution supplied with each article where available."
@@ -313,7 +357,7 @@ def install_snapshot(path, slug, manifest, workspace, args):
             "path": relative, "local_only": True, "shards": shards,
             "coverage": ["Articles and symbol index provided by this DevDocs snapshot"],
             "omissions": ["Remote assets, interactive content and pages absent from DevDocs"]}
-    if meta.get("release") or meta.get("version"):
+    if version_hint:
         pack["upstream_version"] = source_release
     if isinstance(meta.get("mtime"), int) and 0 <= meta["mtime"] <= 253402300799:
         pack["snapshot_date"] = datetime.fromtimestamp(meta["mtime"], timezone.utc).date().isoformat()
@@ -321,8 +365,10 @@ def install_snapshot(path, slug, manifest, workspace, args):
     command = [args.devline, "--offline", "--json", "--catalog", str(workspace)]
     if args.home:
         command.extend(["--home", str(args.home)])
-    result = subprocess.run(command + ["docs", "import-local", pack_id, "--version", version],
-                            text=True, capture_output=True, check=False)
+    command.extend(["docs", "import-local", pack_id, "--version", version])
+    if args.latest:
+        command.append("--keep-latest")
+    result = subprocess.run(command, text=True, capture_output=True, check=False)
     if result.returncode:
         raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "Devline could not install this snapshot")
     return {"slug": slug, **json.loads(result.stdout)["data"]}
@@ -333,6 +379,8 @@ def main():
     parser.add_argument("source", nargs="?", type=Path, help="DevDocs checkout, docs directory, or .tar.gz archive")
     parser.add_argument("--online", action="store_true", help="Download from the DevDocs catalog")
     parser.add_argument("--doc", action="append", default=[], help="Import a docset slug or family (repeatable)")
+    parser.add_argument("--latest", action="store_true",
+                        help="Import one snapshot per family, while honoring explicitly versioned slugs")
     parser.add_argument("--devline", default="devline", help="Path to the Devline CLI")
     parser.add_argument("--home", type=Path, help="Use a separate Devline library")
     parser.add_argument("--json", action="store_true", help="Emit the import results as JSON")
@@ -348,13 +396,14 @@ def main():
             paths = {}
         else:
             manifest, paths = local_inputs(args.source.expanduser())
-        slugs = selected_slugs(manifest if args.online else paths, args.doc)
+        metadata = local_selection_metadata(manifest, paths) if args.latest and not args.online else manifest
+        slugs = selected_slugs(manifest if args.online else paths, args.doc, args.latest, metadata)
         if not slugs:
             raise ValueError("No DevDocs snapshots found")
     except (OSError, ValueError, TypeError) as error:
         parser.exit(1, f"DevDocs import: {error}\n")
 
-    installed, failed = [], []
+    installed, skipped, failed = [], [], []
     for number, slug in enumerate(slugs, 1):
         try:
             with TemporaryDirectory(prefix="devline-devdocs-") as scratch:
@@ -365,16 +414,24 @@ def main():
                 else:
                     path = paths[slug]
                 item = install_snapshot(path, slug, manifest.get(slug, {}), workspace, args)
-                installed.append(item)
-                if not args.json:
-                    print(f"[{number}/{len(slugs)}] {item['slug']}: {item['count']} articles", flush=True)
+                if item.get("skipped"):
+                    skipped.append(item)
+                    if not args.json:
+                        print(f"[{number}/{len(slugs)}] {item['slug']}: kept {item['version']}", flush=True)
+                else:
+                    installed.append(item)
+                    if not args.json:
+                        print(f"[{number}/{len(slugs)}] {item['slug']}: {item['count']} articles", flush=True)
         except (OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError, tarfile.TarError) as error:
             failed.append({"slug": slug, "error": str(error)})
             print(f"[{number}/{len(slugs)}] {slug}: {error}", file=sys.stderr, flush=True)
     if args.json:
-        print(json.dumps({"installed": installed, "failed": failed}, ensure_ascii=False))
+        print(json.dumps({"installed": installed, "skipped": skipped, "failed": failed}, ensure_ascii=False))
     else:
-        print(f"Imported {len(installed)} docsets. {len(failed)} failed.")
+        summary = f"Imported {len(installed)} docsets. {len(failed)} failed."
+        if skipped:
+            summary += f" Kept {len(skipped)} newer installed docsets."
+        print(summary)
     return int(bool(failed))
 
 
