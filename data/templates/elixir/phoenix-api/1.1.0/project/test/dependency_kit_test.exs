@@ -1,4 +1,4 @@
-defmodule DevKitPhoenix.DependencyKitTest do
+defmodule DevlinePhoenix.DependencyKitTest do
   use ExUnit.Case, async: true
 
   test "runs a query against a locally built SQLite NIF" do

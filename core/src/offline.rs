@@ -1179,6 +1179,7 @@ mod tests {
             name: "Sample".into(),
             stack: "go".into(),
             version: "1.2.3".into(),
+            bundled_revision: 0,
             description: "Starter".into(),
             app_type: "cli".into(),
             path: "templates/go/sample/1.2.3".into(),

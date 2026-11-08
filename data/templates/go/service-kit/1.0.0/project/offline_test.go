@@ -55,7 +55,7 @@ func TestNotesHTTPAndSQLite(t *testing.T) {
 	if err := prepareNotes(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(handler(db))
+	server := httptest.NewServer(handler(db, nil))
 	defer server.Close()
 	client := HTTPClient()
 	created, err := client.Post(server.URL+"/notes", "application/json", strings.NewReader(`{"text":"works offline"}`))

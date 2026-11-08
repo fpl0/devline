@@ -2,6 +2,8 @@
 
 A small data automation starter with DuckDB, HTTPX, and pytest. The included fixtures aggregate integer cents by category with SQL. CPython 3.15 on Apple Silicon macOS is required.
 
+Run the default CSV example with `./devline.sh run`. To pass a different file, use `./devline.sh exec python3 etl.py --input PATH`.
+
 ```sh
 ./setup-offline.sh
 .venv/bin/python etl.py --input fixtures/sales.csv --output summary.json

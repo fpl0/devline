@@ -1,11 +1,11 @@
 import Config
 
-config :devkit_phoenix, DevKitPhoenix.Endpoint,
+config :devline_phoenix, DevlinePhoenix.Endpoint,
   adapter: Bandit.PhoenixAdapter,
-  pubsub_server: DevKitPhoenix.PubSub,
+  pubsub_server: DevlinePhoenix.PubSub,
 
   http: [ip: {127, 0, 0, 1}, port: 4000],
-  server: System.get_env("PHX_SERVER") == "1",
+  server: false,
   url: [host: "localhost"]
 
 config :phoenix, :json_library, Jason
@@ -13,7 +13,7 @@ config :phoenix, :json_library, Jason
 # Build the pinned SQLite source with the local C compiler. The dependency
 # never looks for a precompiled NIF at build time.
 config :exqlite, :force_build, true
-config :ex_aws, :http_client, DevKitPhoenix.AwsHttp
+config :ex_aws, :http_client, DevlinePhoenix.AwsHttp
 
 # GNU Make sees relative build paths even when the project parent contains spaces.
 config :exqlite, :make_env, fn ->

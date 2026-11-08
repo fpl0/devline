@@ -1,6 +1,6 @@
 # Playwright automation
 
-Run `./devkit-test.sh` or `npm test`. The suite starts a local fixture server, fills a form using accessible locators, saves a screenshot, and checks a JSON API. It runs with the included npm packages and WebKit browser.
+Run `./devline.sh run`, `./devline.sh test`, or `npm test`. The suite starts a local fixture server, fills a form using accessible locators, saves a screenshot, and checks a JSON API. It runs with the included npm packages and WebKit browser.
 
 This release requires Node.js 26 and an Apple Silicon Mac with macOS 26.5 or later. The browser archive is checked and unpacked into a temporary directory for each test run. `BROWSER.json` records the exact Playwright release, browser build, and archive checksum. The browser files, source revision, patch, and licenses ship together.
 

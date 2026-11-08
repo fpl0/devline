@@ -39,6 +39,8 @@ pub struct Template {
     pub name: String,
     pub stack: String,
     pub version: String,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub bundled_revision: u32,
     pub description: String,
     pub app_type: String,
     pub path: String,
@@ -55,6 +57,11 @@ pub struct Template {
     pub verified: bool,
     pub target: String,
 }
+
+fn is_zero(value: &u32) -> bool {
+    *value == 0
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Catalog {
     pub schema_version: u32,

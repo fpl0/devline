@@ -17,6 +17,7 @@ gem "jwt"
 gem "faraday"
 gem "dotenv"
 gem "logger"
+gem "net-smtp", "0.5.1"
 
 group :test do
   gem "minitest"

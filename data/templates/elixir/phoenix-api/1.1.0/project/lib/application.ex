@@ -1,24 +1,44 @@
-defmodule DevKitPhoenix.Health do
+defmodule DevlinePhoenix.Health do
   use Phoenix.Controller, formats: [:json]
 
   def show(conn, _params), do: json(conn, %{status: "ok"})
 end
 
-defmodule DevKitPhoenix.Router do
+defmodule DevlinePhoenix.Router do
   use Phoenix.Router
 
-  get "/healthz", DevKitPhoenix.Health, :show
+  pipeline :json do
+    plug(Plug.Parsers, parsers: [:json], json_decoder: Jason, length: 128_000)
+  end
+
+  get("/healthz", DevlinePhoenix.Health, :show)
+
+  scope "/" do
+    pipe_through(:json)
+
+    get("/", ReleaseDesk.Controller, :index)
+    post("/releases", ReleaseDesk.Controller, :submit)
+    get("/releases/:id", ReleaseDesk.Controller, :show)
+    get("/releases/:id/audit", ReleaseDesk.Controller, :audit)
+    get("/releases/:id/artifact", ReleaseDesk.Controller, :artifact)
+    get("/search", ReleaseDesk.Controller, :search)
+  end
 end
 
-defmodule DevKitPhoenix.Endpoint do
-  use Phoenix.Endpoint, otp_app: :devkit_phoenix
-  plug DevKitPhoenix.Router
+defmodule DevlinePhoenix.Endpoint do
+  use Phoenix.Endpoint, otp_app: :devline_phoenix
+  plug(DevlinePhoenix.Router)
 end
 
-defmodule DevKitPhoenix.Application do
+defmodule DevlinePhoenix.Application do
   use Application
 
   def start(_type, _args) do
-    Supervisor.start_link([{Phoenix.PubSub, name: DevKitPhoenix.PubSub}, DevKitPhoenix.Endpoint], strategy: :one_for_one)
+    desk = if System.get_env("RELEASE_DESK") == "1", do: ReleaseDesk.Store.children(), else: []
+
+    Supervisor.start_link(
+      desk ++ [{Phoenix.PubSub, name: DevlinePhoenix.PubSub}, DevlinePhoenix.Endpoint],
+      strategy: :one_for_one
+    )
   end
 end

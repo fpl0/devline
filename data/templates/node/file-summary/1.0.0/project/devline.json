@@ -1,0 +1,4 @@
+{
+  "schema_version": 1,
+  "run": { "command": ["node", "src/summary.mjs", "fixtures/notes.txt"] }
+}

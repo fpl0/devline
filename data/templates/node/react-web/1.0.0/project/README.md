@@ -1,6 +1,6 @@
 # React web app
 
-Run `./devkit-test.sh` to type-check, execute DOM behavior tests, and build production assets with the vendored packages. Run `node node_modules/vite/bin/vite.js --host 127.0.0.1` for the local development server. No npm install is required.
+Run `./devkit-test.sh` to type-check, execute DOM behavior tests, and build production assets with the vendored packages. Run `./devline.sh run` for the local development server. No npm install is required.
 
 Includes React, React Router, TanStack Query, Zustand state, Zod validation, TypeScript, Vite, Vitest, Testing Library, and Happy DOM. The task form is a runnable example; replace it with your own application. Production output is `dist/`.
 

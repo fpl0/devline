@@ -1,16 +1,33 @@
-# Go Service Kit
+# Release Rehearsal
 
-Start a Chi HTTP service with SQLite and local clients for common databases, messaging and object storage. The Notes API uses SQLite immediately. Other clients are initialized only when your code requests them.
+Run a local rehearsal with the generated Go service and eight Devline infrastructure services. PostgreSQL records the release, SeaweedFS stores its notes as an artifact, RabbitMQ queues a delivery, and NATS broadcasts a release event. MySQL records an audit row, Meilisearch indexes the notes, and Mailpit captures the notification. Redis caches completed receipts.
+
+## Run locally
+
+Create the project from Devline with its default services. You need a running Docker engine and the eight pinned images in your Devline library. Prepare them while connected or import their offline archives. Devline starts the stack, passes the local service settings, and runs the application from its vendored dependencies.
 
 ```sh
-GOWORK=off GOTOOLCHAIN=local GOPROXY=off go run -mod=vendor .
-curl http://127.0.0.1:8080/healthz
-curl -H 'Content-Type: application/json' -d '{"text":"Offline notes"}' http://127.0.0.1:8080/notes
-curl http://127.0.0.1:8080/notes
+./devline.sh start
+./devline.sh status
 ```
 
-`SERVICE_LISTEN` changes the loopback address. `SERVICE_DB` changes the SQLite file path. Local service settings are passed to the constructors in `clients.go`. See `offline_test.go` for concrete PostgreSQL, MySQL, Redis, RabbitMQ, NATS, and S3 examples. Pass explicit local endpoints when working offline. Prepare and run their service images from Devline when an actual connection is needed.
+Open [the API index](http://127.0.0.1:7406). Pick a new release ID for each rehearsal. Use lowercase letters, digits, and hyphens.
 
-`./devkit-test.sh` exercises the HTTP Notes flow on in-memory SQLite, constructs each client without dialing remote services, and signs and verifies JWTs. Go 1.27.3 and `CGO_ENABLED=0` are used for qualification. `vendor/modules.txt` lists the complete source closure and its retained licenses.
+```sh
+url=http://127.0.0.1:7406
+id=demo-$(date +%s)
+curl -fsS "$url/releases/$id" -H 'Content-Type: application/json' \
+  -d '{"notes":"Verify the lighthouse release locally"}'
+curl -fsi "$url/releases/$id"
+curl -fsi "$url/releases/$id"
+curl -fsS "$url/releases/$id/artifact"
+curl -fsS "$url/search?q=lighthouse"
+```
 
-See `dependency-coverage.json` for the exact shipped package versions and size.
+The POST returns a completed receipt after the two brokers deliver their messages, the search index commits, and the inbox accepts the notification. The first receipt read reports `X-Release-Source: postgres`. A second read within 30 seconds reports `redis`. The artifact returns the original notes. Follow `mail_inbox` in the API index to see the captured message.
+
+The rehearsal claims a release ID before contacting the other services. A failure returns the failed stage and leaves an incomplete receipt. Use a fresh ID after checking the services. A duplicate request for the same ID returns 409 to avoid repeating the notification. The local inbox uses example addresses and retains the message for inspection.
+
+The original SQLite notes workflow is available at `GET /notes` and `POST /notes` with a JSON `text` field. It also runs when the app starts without the managed service environment. `./devline.sh test` exercises this path with the bundled dependencies and no services running.
+
+Use `./devline.sh stop` to stop the app and `./devline.sh services down` to stop its containers while retaining their data. To select another local app port, edit `run.url` in `.devline/config.json`.

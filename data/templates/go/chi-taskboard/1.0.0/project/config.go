@@ -31,6 +31,12 @@ func loadConfig() (configuration, error) {
 		return configuration{}, errors.New("TASKBOARD_LISTEN needs a numeric port")
 	}
 	postgres, redis := os.Getenv("TASKBOARD_DATABASE_URL"), os.Getenv("TASKBOARD_REDIS_URL")
+	if postgres == "" {
+		postgres = os.Getenv("DEVLINE_POSTGRES_URL")
+	}
+	if redis == "" {
+		redis = os.Getenv("DEVLINE_REDIS_URL")
+	}
 	if postgres == "" || redis == "" {
 		values, err := readCredentials()
 		if err != nil {

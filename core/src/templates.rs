@@ -842,6 +842,16 @@ pub(crate) fn publish_release(
     destination: &Path,
     verified_at: Option<u64>,
 ) -> Result<Value> {
+    let marker = write_release_marker(stage, template, verified_at)?;
+    stage.publish(destination)?;
+    Ok(installation_result(&marker.template, destination))
+}
+
+fn write_release_marker(
+    stage: &Stage,
+    template: Template,
+    verified_at: Option<u64>,
+) -> Result<Installed> {
     directory(&stage.0.join("project"))?;
     if fs::symlink_metadata(stage.0.join("installed.json")).is_ok() {
         bail!("Unexpected installed.json in release input");
@@ -855,8 +865,26 @@ pub(crate) fn publish_release(
         stage.0.join("installed.json"),
         serde_json::to_vec_pretty(&marker)?,
     )?;
-    stage.publish(destination)?;
-    Ok(installation_result(&marker.template, destination))
+    Ok(marker)
+}
+
+// Bundled compatibility fixes can replace a cached release without duplicating
+// its dependency closure. Swap directories so a failed copy keeps the old one.
+#[cfg(target_os = "macos")]
+fn replace_bundled_release(stage: &Stage, destination: &Path) -> Result<()> {
+    use std::{ffi::CString, os::unix::ffi::OsStrExt};
+
+    let from = CString::new(stage.0.as_os_str().as_bytes())?;
+    let to = CString::new(destination.as_os_str().as_bytes())?;
+    if unsafe { libc::renamex_np(from.as_ptr(), to.as_ptr(), libc::RENAME_SWAP) } != 0 {
+        return Err(io::Error::last_os_error()).context("Replace the installed bundled starter");
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn replace_bundled_release(_stage: &Stage, _destination: &Path) -> Result<()> {
+    bail!("Bundled starter revisions require macOS")
 }
 
 pub fn install(ctx: &Context, reference: &str) -> Result<Value> {
@@ -868,7 +896,17 @@ fn install_release(ctx: &Context, reference: &str, prune: bool) -> Result<Value>
     let entry = select(ctx, reference, false)?;
     let template = entry.template;
     let result = if let Some(path) = entry.installed {
-        verify_release(&path)?;
+        let marker = verify_release(&path)?;
+        if marker.verified_at.is_none()
+            && marker.template.bundled_revision < template.bundled_revision
+        {
+            let source = source(ctx, &template.path)?;
+            let base = installed_base(ctx, &template.id, false)?;
+            let stage = Stage::new(&base)?;
+            copy_tree(&source, &stage.0, None)?;
+            write_release_marker(&stage, template.clone(), None)?;
+            replace_bundled_release(&stage, &path)?;
+        }
         installation_result(&template, &path)
     } else {
         let source = source(ctx, &template.path)?;
@@ -2086,6 +2124,7 @@ mod tests {
                     name: "Starter fixture".into(),
                     stack: "fixture".into(),
                     version: version.into(),
+                    bundled_revision: 0,
                     description: "Fixture".into(),
                     app_type: "cli".into(),
                     path,
@@ -2139,6 +2178,36 @@ mod tests {
         assert_eq!(
             fs::read_to_string(older.join("main.txt"))?,
             "1.0.0 older-starter"
+        );
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn bundled_revision_replaces_the_cached_payload_after_staging() -> Result<()> {
+        let mut fixture = Fixture::new()?;
+        let reference = "fixture/starter@1.0.0";
+        install(&fixture.ctx, reference)?;
+        let path = fixture.ctx.home.join("templates/fixture/starter/1.0.0");
+        let original = verify_release(&path)?.digest;
+        let entry = &mut fixture.ctx.catalog.templates[0];
+        entry.bundled_revision = 1;
+        let project = fixture.ctx.catalog_dir.join(&entry.path).join("project");
+        fs::write(project.join("main.txt"), "Updated __PROJECT_NAME__")?;
+        std::os::unix::fs::symlink("main.txt", project.join("invalid"))?;
+        assert!(install(&fixture.ctx, reference).is_err());
+        assert_eq!(verify_release(&path)?.digest, original);
+        fs::remove_file(project.join("invalid"))?;
+
+        install(&fixture.ctx, reference)?;
+        let marker = verify_release(&path)?;
+        assert_eq!(marker.template.bundled_revision, 1);
+        assert_ne!(marker.digest, original);
+        let destination = fixture._root.0.join("revised");
+        create(&fixture.ctx, reference, &destination, false)?;
+        assert_eq!(
+            fs::read_to_string(destination.join("main.txt"))?,
+            "Updated revised"
         );
         Ok(())
     }

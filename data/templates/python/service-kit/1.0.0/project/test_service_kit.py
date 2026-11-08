@@ -65,3 +65,26 @@ def test_object_store_http_and_rsa_jwt():
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     token = jwt.encode({"sub": "local-user"}, private_key, algorithm="RS256")
     assert jwt.decode(token, private_key.public_key(), algorithms=["RS256"])["sub"] == "local-user"
+
+
+def test_ticket_workflow_with_sqlite(monkeypatch, tmp_path):
+    monkeypatch.delenv("DEVLINE_POSTGRES_URL", raising=False)
+    monkeypatch.delenv("DEVLINE_REDIS_URL", raising=False)
+    monkeypatch.delenv("DEVLINE_MEILISEARCH_URL", raising=False)
+    monkeypatch.setenv("SUPPORT_SQLITE_PATH", str(tmp_path / "support.sqlite3"))
+
+    async def journey():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1",
+        ) as client:
+            assert (await client.post("/tickets", json={"title": " ", "details": "Something broke"})).status_code == 422
+            created = await client.post("/tickets", json={"title": " Printer ", "details": "Paper jam"})
+            assert created.status_code == 201
+            ticket = created.json()
+            assert ticket["title"] == "Printer"
+            assert (await client.get("/tickets")).json() == [ticket]
+            assert (await client.get(f"/tickets/{ticket['id']}")).json() == ticket
+            assert (await client.get("/tickets/" + "0" * 32)).status_code == 404
+            assert (await client.get("/search", params={"q": "Printer"})).status_code == 503
+
+    asyncio.run(journey())

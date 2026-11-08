@@ -15,7 +15,8 @@
       "chi@5.2.4+devline.1"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "go/chi-api",
@@ -33,7 +34,8 @@
       "chi@5.2.4+devline.1"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "python/fastapi-api",
@@ -51,14 +53,15 @@
       "fastapi"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "rust/axum-api",
-    "name": "Axum HTTP API",
+    "name": "Axum Reading Queue",
     "stack": "rust",
     "version": "1.0.0",
-    "description": "Rust and Axum 0.8.9 with Tokio and vendored Cargo dependencies.",
+    "description": "An in-memory reading queue API with Axum, Tokio, JSON validation, and bundled dependencies.",
     "app_type": "api",
     "path": "templates/rust/axum-api/1.0.0",
     "toolchain": "cargo",
@@ -69,7 +72,8 @@
       "axum"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "dotnet/json-cli",
@@ -206,7 +210,8 @@
       "ruby"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "elixir/phoenix-api",
@@ -224,7 +229,8 @@
       "phoenix"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "go/chi-api",
@@ -242,7 +248,8 @@
       "chi@5.2.4+devline.1"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "go/chi-taskboard",
@@ -265,7 +272,8 @@
       "redis@8.10.1"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "python/fastapi-api",
@@ -283,7 +291,8 @@
       "fastapi"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "node/playwright-automation",
@@ -303,7 +312,8 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "minimum_macos": "26.5"
+    "minimum_macos": "26.5",
+    "bundled_revision": 1
   },
   {
     "id": "node/react-web",
@@ -323,14 +333,15 @@
       "vite@8.3.6+devline.1"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "python/service-kit",
-    "name": "Python Service Kit",
+    "name": "FastAPI Support Desk",
     "stack": "python",
     "version": "1.0.0",
-    "description": "FastAPI and an offline wheelhouse for SQL, Redis, RabbitMQ, NATS, S3, JWT, HTTP, and testing.",
+    "description": "A support ticket API with PostgreSQL persistence, Redis caching, RabbitMQ and Mailpit notifications, NATS activity, Meilisearch, and S3 exports.",
     "app_type": "api",
     "path": "templates/python/service-kit/1.0.0",
     "toolchain": "python3",
@@ -339,10 +350,21 @@
     "docs": [
       "python",
       "fastapi",
+      "infrastructure",
       "infrastructure"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1,
+    "services": [
+      "postgres@18.6",
+      "redis@8.10.1",
+      "rabbitmq@4.3.7",
+      "nats@2.15.2",
+      "mailpit@1.33.0",
+      "meilisearch@1.56.1",
+      "seaweedfs@4.52"
+    ]
   },
   {
     "id": "python/data-automation",
@@ -359,7 +381,8 @@
       "python"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "ruby/rails-web",
@@ -377,14 +400,15 @@
       "rails"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "ruby/service-kit",
-    "name": "Ruby Service Kit",
+    "name": "Sinatra Support Desk",
     "stack": "ruby",
     "version": "1.0.0",
-    "description": "Sinatra and a local gem cache for SQL, Redis, RabbitMQ, NATS, S3, JWT, HTTP, and testing.",
+    "description": "A support ticket API with PostgreSQL persistence, Redis caching, RabbitMQ and Mailpit notifications, NATS activity, Meilisearch, and S3 exports.",
     "app_type": "api",
     "path": "templates/ruby/service-kit/1.0.0",
     "toolchain": "ruby",
@@ -392,10 +416,21 @@
     "test_command": "./test-offline.sh",
     "docs": [
       "ruby",
+      "infrastructure",
       "infrastructure"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1,
+    "services": [
+      "postgres@18.6",
+      "redis@8.10.1",
+      "rabbitmq@4.3.7",
+      "nats@2.15.2",
+      "mailpit@1.33.0",
+      "meilisearch@1.56.1",
+      "seaweedfs@4.52"
+    ]
   },
   {
     "id": "ruby/task-automation",
@@ -412,14 +447,15 @@
       "ruby"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "go/service-kit",
-    "name": "Go Service Kit",
+    "name": "Go Release Rehearsal",
     "stack": "go",
     "version": "1.0.0",
-    "description": "Chi Notes API with SQLite and vendored PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JWT and HTTP clients.",
+    "description": "Exercise a release workflow with PostgreSQL, MySQL, Redis, RabbitMQ, NATS, Mailpit, Meilisearch, and SeaweedFS.",
     "app_type": "api",
     "path": "templates/go/service-kit/1.0.0",
     "toolchain": "go",
@@ -431,7 +467,18 @@
       "infrastructure"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1,
+    "services": [
+      "postgres@18.6",
+      "mysql@8.4.11",
+      "redis@8.10.1",
+      "rabbitmq@4.3.7",
+      "nats@2.15.2",
+      "mailpit@1.33.0",
+      "meilisearch@1.56.1",
+      "seaweedfs@4.52"
+    ]
   },
   {
     "id": "go/file-index",
@@ -448,14 +495,15 @@
       "go"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "rust/service-kit",
-    "name": "Rust Service Kit",
+    "name": "Rust Release Rehearsal",
     "stack": "rust",
     "version": "1.0.0",
-    "description": "Axum Notes API with SQLite and vendored PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JWT and HTTP clients.",
+    "description": "Exercise a release workflow with PostgreSQL, MySQL, Redis, RabbitMQ, NATS, Mailpit, Meilisearch, and SeaweedFS.",
     "app_type": "api",
     "path": "templates/rust/service-kit/1.0.0",
     "toolchain": "cargo",
@@ -467,7 +515,18 @@
       "infrastructure"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1,
+    "services": [
+      "postgres@18.6",
+      "mysql@8.4.11",
+      "redis@8.10.1",
+      "rabbitmq@4.3.7",
+      "nats@2.15.2",
+      "mailpit@1.33.0",
+      "meilisearch@1.56.1",
+      "seaweedfs@4.52"
+    ]
   },
   {
     "id": "rust/jsonl-report",
@@ -484,14 +543,15 @@
       "rust"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "node/service-kit",
-    "name": "Node.js Service Kit",
+    "name": "Fastify Release Desk",
     "stack": "node",
     "version": "1.0.0",
-    "description": "Working SQLite task API plus PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JWT, validation, HTTP, and test libraries stored locally.",
+    "description": "A Fastify release workflow with eight live services and an embedded SQLite mode.",
     "app_type": "service-kit",
     "path": "templates/node/service-kit/1.0.0",
     "toolchain": "node",
@@ -499,17 +559,29 @@
     "test_command": "./test-offline.sh",
     "docs": [
       "node@26.13.0+devline.1",
-      "infrastructure@2026.11.07+devline.2"
+      "infrastructure@2026.11.07+devline.2",
+      "infrastructure"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1,
+    "services": [
+      "postgres@18.6",
+      "mysql@8.4.11",
+      "rabbitmq@4.3.7",
+      "redis@8.10.1",
+      "nats@2.15.2",
+      "mailpit@1.33.0",
+      "meilisearch@1.56.1",
+      "seaweedfs@4.52"
+    ]
   },
   {
     "id": "elixir/phoenix-api",
-    "name": "Phoenix HTTP API",
+    "name": "Phoenix Release Desk",
     "stack": "elixir",
     "version": "1.1.0",
-    "description": "Phoenix 1.8 with vendored Ecto database adapters, Redis, AMQP, S3, JWT, and HTTP. SQLite needs a local C toolchain.",
+    "description": "A Phoenix release workflow with PostgreSQL, MySQL, Redis, RabbitMQ, Mailpit, Meilisearch and S3 storage.",
     "app_type": "api",
     "path": "templates/elixir/phoenix-api/1.1.0",
     "toolchain": "elixir",
@@ -517,10 +589,21 @@
     "test_command": "./test-offline.sh",
     "docs": [
       "elixir",
-      "phoenix"
+      "phoenix",
+      "infrastructure"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1,
+    "services": [
+      "postgres@18.6",
+      "mysql@8.4.11",
+      "rabbitmq@4.3.7",
+      "redis@8.10.1",
+      "mailpit@1.33.0",
+      "meilisearch@1.56.1",
+      "seaweedfs@4.52"
+    ]
   },
   {
     "id": "elixir/otp-worker",
@@ -537,7 +620,8 @@
       "elixir"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "rust/tauri-desktop",
@@ -556,7 +640,8 @@
       "tauri@2.12.5+devline.1"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 1
   },
   {
     "id": "swift/swiftui-app",
@@ -573,6 +658,86 @@
     "docs": [
       "swift@6.4.0+devline.1",
       "swiftui"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
+    "bundled_revision": 1
+  },
+  {
+    "id": "swift/expense-summary",
+    "name": "Swift Expense Summary",
+    "stack": "swift",
+    "version": "1.0.0",
+    "description": "A dependency-free Swift CLI that groups expenses by category and totals integer cents from a local JSON file.",
+    "app_type": "cli",
+    "path": "templates/swift/expense-summary/1.0.0",
+    "toolchain": "swift",
+    "minimum_version": "6.0",
+    "minimum_macos": "14.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "swift@6.4.0+devline.1"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "swift/release-dispatch",
+    "name": "Swift Release Dispatch",
+    "stack": "swift",
+    "version": "1.0.0",
+    "description": "Publish a release brief to SeaweedFS, cache it in Redis, hand it off through RabbitMQ and NATS, index it in Meilisearch, and send a Mailpit notification.",
+    "app_type": "cli",
+    "path": "templates/swift/release-dispatch/1.0.0",
+    "toolchain": "swift",
+    "minimum_version": "6.0",
+    "minimum_macos": "14.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "swift@6.4.0+devline.1",
+      "infrastructure"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
+    "services": [
+      "redis@8.10.1",
+      "rabbitmq@4.3.7",
+      "nats@2.15.2",
+      "mailpit@1.33.0",
+      "meilisearch@1.56.1",
+      "seaweedfs@4.52"
+    ]
+  },
+  {
+    "id": "node/file-summary",
+    "name": "Node.js File Summary CLI",
+    "stack": "node",
+    "version": "1.0.0",
+    "description": "Summarize a local text file from the command line with the standard library.",
+    "app_type": "cli",
+    "path": "templates/node/file-summary/1.0.0",
+    "toolchain": "node",
+    "minimum_version": "26.0.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "node@26.13.0+devline.1"
+    ],
+    "verified": true,
+    "target": "darwin-arm64"
+  },
+  {
+    "id": "elixir/file-summary",
+    "name": "Elixir File Summary CLI",
+    "stack": "elixir",
+    "version": "1.0.0",
+    "description": "Summarize a local text file from the command line with the standard library.",
+    "app_type": "cli",
+    "path": "templates/elixir/file-summary/1.0.0",
+    "toolchain": "elixir",
+    "minimum_version": "1.20.5",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "elixir"
     ],
     "verified": true,
     "target": "darwin-arm64"

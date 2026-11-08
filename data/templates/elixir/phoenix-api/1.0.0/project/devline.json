@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "run": {
+    "command": ["/bin/sh", "./run.sh"],
+    "url": "http://127.0.0.1:7500",
+    "health_path": "/healthz"
+  }
+}

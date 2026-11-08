@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "run": { "command": ["/bin/sh", "./run.sh"] },
+  "test": { "command": ["./test-offline.sh"] }
+}

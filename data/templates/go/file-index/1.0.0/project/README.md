@@ -3,7 +3,8 @@
 Index a directory as JSON Lines with relative paths, byte counts, and SHA-256 hashes. Use it to compare release directories, feed a script, or verify a copied set of files.
 
 ```sh
-GOWORK=off GOTOOLCHAIN=local GOPROXY=off go run . --root ./sample
+./devline.sh run
+./devline.sh exec ./.devline/scripts/run.sh --root ./examples
 ```
 
 Each regular file produces one JSON object on standard output. Paths are traversed in lexical order and symlinks are skipped. Errors go to standard error and return a failing exit status. Send redirected output to a path outside the indexed directory.

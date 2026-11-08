@@ -10,6 +10,7 @@ require "redis"
 require "sequel"
 require "sqlite3"
 require "trilogy"
+require "tmpdir"
 require_relative "app"
 
 class ServiceKitTest < Minitest::Test
@@ -62,5 +63,31 @@ class ServiceKitTest < Minitest::Test
     key = OpenSSL::PKey::RSA.generate(2048)
     token = JWT.encode({sub: "local-user"}, key, "RS256")
     assert_equal "local-user", JWT.decode(token, key.public_key, true, algorithm: "RS256").first.fetch("sub")
+  end
+
+  def test_ticket_workflow_with_sqlite
+    keys = %w[DEVLINE_POSTGRES_URL DEVLINE_REDIS_URL DEVLINE_MEILISEARCH_URL SUPPORT_SQLITE_PATH]
+    previous = keys.to_h { |key| [key, ENV.delete(key)] }
+    Dir.mktmpdir("support-test") do |directory|
+      ENV["SUPPORT_SQLITE_PATH"] = File.join(directory, "support.sqlite3")
+      header "Host", "localhost"
+      header "Content-Type", "application/json"
+      post "/tickets", JSON.generate(title: " ", details: "Something broke")
+      assert_equal 422, last_response.status
+      post "/tickets", JSON.generate(title: " Printer ", details: "Paper jam")
+      assert_equal 201, last_response.status
+      ticket = JSON.parse(last_response.body)
+      assert_equal "Printer", ticket.fetch("title")
+      get "/tickets"
+      assert_equal [ticket], JSON.parse(last_response.body)
+      get "/tickets/#{ticket.fetch('id')}"
+      assert_equal ticket, JSON.parse(last_response.body)
+      get "/tickets/#{"0" * 32}"
+      assert_equal 404, last_response.status
+      get "/search?q=Printer"
+      assert_equal 503, last_response.status
+    end
+  ensure
+    ENV.update(previous)
   end
 end

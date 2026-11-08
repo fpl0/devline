@@ -5,7 +5,7 @@ and bytes in a local file, writes an atomic JSON report, and sends a result
 message to the caller. The supervisor isolates task failures, so the next
 job can continue. Use a durable queue for jobs that must survive restarts.
 
-Run `./test-offline.sh` with Elixir 1.20 and Erlang/OTP 29. Start
+Run `./test-offline.sh` with Elixir 1.20 and Erlang/OTP 29. Use `./devline.sh run` to save the example report. Start
 `iex -S mix` and enqueue a sample job with
 `DevlineWorker.Queue.enqueue("fixtures/example.txt", "reports/example.json")`.
 Use `flush()` to see the result. The project uses the Erlang/OTP and Elixir

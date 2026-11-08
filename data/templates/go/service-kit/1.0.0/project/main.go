@@ -17,9 +17,19 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func handler(db *sql.DB) http.Handler {
+func handler(db *sql.DB, lab *releaseLab) http.Handler {
 	router := chi.NewRouter()
-	router.Use(http.NewCrossOriginProtection().Handler)
+	router.Use(localRequests, http.NewCrossOriginProtection().Handler)
+	links := map[string]string{"app": "Release Rehearsal", "health": "/healthz", "local_notes": "/notes"}
+	if lab != nil {
+		lab.routes(router)
+		links["rehearse"] = "POST /releases/{id}"
+		links["receipt"] = "/releases/{id}"
+		links["artifact"] = "/releases/{id}/artifact"
+		links["search"] = "/search?q=term"
+		links["mail_inbox"] = lab.mailURL
+	}
+	router.Get("/", func(w http.ResponseWriter, _ *http.Request) { reply(w, http.StatusOK, links) })
 	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		if err := db.PingContext(r.Context()); err != nil {
 			http.Error(w, "SQLite unavailable", http.StatusServiceUnavailable)
@@ -108,7 +118,17 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	server := &http.Server{Handler: handler(db), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 6 * time.Second, WriteTimeout: 8 * time.Second, IdleTimeout: 30 * time.Second}
+	var lab *releaseLab
+	if os.Getenv("DEVLINE_POSTGRES_URL") != "" {
+		initializing, cancel := context.WithTimeout(ctx, 20*time.Second)
+		lab, err = newReleaseLab(initializing)
+		cancel()
+		if err != nil {
+			return err
+		}
+		defer lab.close()
+	}
+	server := &http.Server{Handler: handler(db, lab), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 6 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 30 * time.Second}
 	go func() {
 		<-ctx.Done()
 		shutdown, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -120,4 +140,18 @@ func run() error {
 		return err
 	}
 	return nil
+}
+
+func localRequests(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host := r.Host
+		if address, _, err := net.SplitHostPort(host); err == nil {
+			host = address
+		}
+		if host != "localhost" && !net.ParseIP(strings.Trim(host, "[]")).IsLoopback() {
+			http.Error(w, "Open the app through localhost", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

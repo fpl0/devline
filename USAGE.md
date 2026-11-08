@@ -203,18 +203,21 @@ Source files, manifests, lockfiles, and convention-based directories such as Go'
 
 ### Starter inventory
 
-Each starter includes its local dependency closure and an offline test. Use `devline templates inspect STARTER@VERSION` for the exact packages and platform. Service kits exercise their SQLite workflows and client setup locally. Use the corresponding prepared infrastructure services when your app needs a live database, broker, cache, or object store.
+Each starter includes its local dependencies and an offline test. Use `devline templates inspect STARTER@VERSION` for its packages, platform, and service pins. The generated README walks through the app and its sample workflow.
 
-- **Go** ships a Chi API, a PostgreSQL and Redis Taskboard, a service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3 and JWT, and a file-index CLI.
-- **Rust** ships an Axum API, a service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, HTTP and JWT, and a JSONL report CLI.
-- **Python** ships a FastAPI API, a service kit with Psycopg, PyMySQL, SQLite, Redis, Pika, NATS, Boto3, JWT and HTTPX, and a DuckDB and HTTPX data automation CLI.
-- **Ruby** ships a Rails web app with SQLite and Puma (`ruby/rails-web`), a JSON CLI, a Sinatra service kit with Sequel, PostgreSQL, MySQL, SQLite, Redis, RabbitMQ, NATS, S3, JWT and Faraday, and a Thor and Rake task automation starter. The Rails starter uses Apple Command Line Tools for native gems. The Sinatra service kit also requires OpenSSL 3 development files.
+- **Go** starts with the file-index CLI and Chi API. The Chi Taskboard uses PostgreSQL and Redis. The Go Release Rehearsal (`go/service-kit`) exercises eight services in a release workflow.
+- **Rust** starts with the JSONL report CLI and Axum Reading Queue. The Rust Release Rehearsal (`rust/service-kit`) exercises eight services. A native Tauri desktop starter is also available.
+- **Python** starts with a data automation CLI and FastAPI. The FastAPI Support Desk (`python/service-kit`) uses seven services to store, search, notify, and export support tickets.
+- **Ruby** starts with a JSON CLI and a Rails app with SQLite and Puma. The Sinatra Support Desk (`ruby/service-kit`) uses seven services. Ruby also has a Thor and Rake task automation starter. Rails uses Apple Command Line Tools for native gems. Sinatra also requires OpenSSL 3 development files.
 - **C# and .NET** ship a JSON file CLI (`dotnet/json-cli`), a SQLite task REST API (`dotnet/aspnet-api`), and an MVC task board with Razor and Keycloak (`dotnet/aspnet-mvc`).
 - **Java** ships a JSON file CLI (`java/json-tool`), an in-memory Spring Boot task REST API (`java/spring-api`), and a Spring MVC task board with Thymeleaf and Keycloak (`java/spring-mvc`).
-- **Elixir** ships a Phoenix API with Ecto SQL, Postgrex, MyXQL, SQLite, Redis, RabbitMQ, S3 and Joken, and an OTP report worker.
-- **Node.js and TypeScript** ship a Fastify service kit with SQLite, PostgreSQL, MySQL, Redis, RabbitMQ, NATS, S3, JOSE and Zod, a React and Vite web app, and Playwright browser and API automation with bundled WebKit for Apple Silicon on macOS 26.5 or later.
+- **Elixir** starts with a file summary CLI and an OTP report worker. The Phoenix Release Desk (`elixir/phoenix-api@1.1.0`) exercises seven services.
+- **Node.js and TypeScript** start with a file summary CLI and a React and Vite web app. The Fastify Release Desk (`node/service-kit`) exercises eight services. The Playwright automation starter includes WebKit for Apple Silicon on macOS 26.5 or later.
+- **Swift** starts with an expense summary CLI and a native SwiftUI idea board. Release Dispatch (`swift/release-dispatch`) publishes a release brief through six services.
 
-Choose **Run Offline** in **Current Project** to launch any of the Java and C# demos. The CLI demos run the bundled example and put the result in **App Logs**. For REST and MVC, choose **Open App** once it is ready.
+Choose **Run Offline** in **Current Project** or use `./devline.sh start` in the generated project. Finite demos run the bundled example and put the result in **App Logs**. For local web apps, choose **Open App** once the health check passes. For desktop starters, Devline launches the app window.
+
+The infrastructure starters pin their required services. Devline prepares the images when creating a project while connected and starts them from the local vault when you run it offline. The generated README lists any service-specific steps for trying the workflow.
 
 ### Transfer a library
 

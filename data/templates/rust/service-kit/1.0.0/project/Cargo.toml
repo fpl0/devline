@@ -8,12 +8,14 @@ rust-version = "1.99"
 amqprs = { version = "2.1.5", features = ["urispec"] }
 async-nats = { version = "0.52.0", default-features = false, features = ["ring", "jetstream"] }
 axum = "0.8.9"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 jsonwebtoken = { version = "11.1.0", default-features = false, features = ["rust_crypto"] }
 object_store = { version = "0.14.2", default-features = false, features = ["aws-base", "reqwest", "ring"] }
 redis = { version = "1.8.1", default-features = false, features = ["tokio-rustls-comp", "tls-rustls-webpki-roots"] }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "mysql", "mysql-rsa", "sqlite"] }
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "net", "signal"] }
 tracing = "0.1"

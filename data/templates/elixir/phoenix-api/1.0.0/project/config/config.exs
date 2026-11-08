@@ -1,11 +1,11 @@
 import Config
 
-config :devkit_phoenix, DevKitPhoenix.Endpoint,
+config :devline_phoenix, DevlinePhoenix.Endpoint,
   adapter: Bandit.PhoenixAdapter,
-  pubsub_server: DevKitPhoenix.PubSub,
+  pubsub_server: DevlinePhoenix.PubSub,
 
   http: [ip: {127, 0, 0, 1}, port: 4000],
-  server: System.get_env("PHX_SERVER") == "1",
+  server: false,
   url: [host: "localhost"]
 
 config :phoenix, :json_library, Jason

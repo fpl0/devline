@@ -135,6 +135,9 @@ func taskMissing(w http.ResponseWriter) {
 func routes() http.Handler {
 	store := &taskStore{rows: make(map[int]task)}
 	router := chi.NewRouter()
+	router.Get("/", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"health": "/healthz", "version": "/version", "tasks": "/tasks"})
+	})
 	router.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})

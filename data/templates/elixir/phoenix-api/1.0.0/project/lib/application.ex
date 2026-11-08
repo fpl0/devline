@@ -1,24 +1,24 @@
-defmodule DevKitPhoenix.Health do
+defmodule DevlinePhoenix.Health do
   use Phoenix.Controller, formats: [:json]
 
   def show(conn, _params), do: json(conn, %{status: "ok"})
 end
 
-defmodule DevKitPhoenix.Router do
+defmodule DevlinePhoenix.Router do
   use Phoenix.Router
 
-  get "/healthz", DevKitPhoenix.Health, :show
+  get "/healthz", DevlinePhoenix.Health, :show
 end
 
-defmodule DevKitPhoenix.Endpoint do
-  use Phoenix.Endpoint, otp_app: :devkit_phoenix
-  plug DevKitPhoenix.Router
+defmodule DevlinePhoenix.Endpoint do
+  use Phoenix.Endpoint, otp_app: :devline_phoenix
+  plug DevlinePhoenix.Router
 end
 
-defmodule DevKitPhoenix.Application do
+defmodule DevlinePhoenix.Application do
   use Application
 
   def start(_type, _args) do
-    Supervisor.start_link([{Phoenix.PubSub, name: DevKitPhoenix.PubSub}, DevKitPhoenix.Endpoint], strategy: :one_for_one)
+    Supervisor.start_link([{Phoenix.PubSub, name: DevlinePhoenix.PubSub}, DevlinePhoenix.Endpoint], strategy: :one_for_one)
   end
 end

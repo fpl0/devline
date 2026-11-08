@@ -4,6 +4,7 @@
 /macos/.build/
 /macos/.swiftpm/
 /data/templates/**/.gradle/
+/data/templates/elixir/**/_build/
 xcuserdata/
 *.xcuserstate
 .DS_Store

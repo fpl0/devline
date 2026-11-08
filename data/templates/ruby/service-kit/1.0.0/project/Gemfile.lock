@@ -59,6 +59,8 @@ GEM
       uri (>= 0.11.1)
     net-protocol (0.4.0)
       timeout
+    net-smtp (0.5.1)
+      net-protocol
     openssl (4.0.2)
     pg (1.7.0-arm64-darwin)
     prism (2.1.0-arm64-darwin)
@@ -112,6 +114,7 @@ DEPENDENCIES
   logger
   minitest
   nats-pure
+  net-smtp (= 0.5.1)
   pg
   rack-test
   rackup
@@ -148,6 +151,7 @@ CHECKSUMS
   nats-pure (2.7.0) sha256=4ed79ce4a369c5bd27b6b9165f3830caf30b8565eb4fc3575e36fd1c7994c974
   net-http (0.10.0) sha256=1a2ff6e37a05724973c43f2bf7bf105f59c36a4cd0a7e9b1c021a0a566987c27
   net-protocol (0.4.0) sha256=f9f90c8c6f64794a45160bf422177a336db12809de3beeeaa26b88fcd2e8c853
+  net-smtp (0.5.1) sha256=ed96a0af63c524fceb4b29b0d352195c30d82dd916a42f03c62a3a70e5b70736
   openssl (4.0.2) sha256=1037ad2868ae58df9ad917891c0c0f9815a1172f6846d4bcdd508e4c2ee747c2
   pg (1.7.0-arm64-darwin) sha256=9fa895bbe28bdd579b83ccc80464c01d1015ea7549a7919134c9f8f10c060e4b
   prism (2.1.0-arm64-darwin) sha256=2d0c2e3e011cfd89c041940907d3ff3def379d7b0f2ba158d1d42238e8ad8afc

@@ -5,6 +5,7 @@ mode=${1:?prepare, verify, or run}; project=${2:?project}; cache=${3:?managed ca
 . "$(dirname "$0")/common.sh"
 cd "$project"
 export PATH="$(dirname "$tool"):$PATH"
+export_starter_toolchain "$tool"
 export npm_config_audit=false npm_config_fund=false npm_config_update_notifier=false CI=true
 [ -f package-lock.json ] || { echo 'Commit a package-lock.json first; Devline preserves its exact dependency graph.' >&2; exit 1; }
 command -v npm >/dev/null || { echo 'npm must be available alongside the detected Node.js installation.' >&2; exit 1; }
@@ -77,7 +78,12 @@ case "$mode" in
         fi
         "$@"
     else
-        [ -d node_modules ] || { echo 'Prepare the project before restoring its offline Node dependencies.' >&2; exit 1; }
+        if [ ! -d node_modules ]; then
+            "$tool" -e '
+                const { packages } = require("./package-lock.json");
+                process.exit(packages && Object.hasOwn(packages, "") && Object.keys(packages).length === 1 ? 0 : 1);
+            ' || { echo 'Prepare the project before restoring its offline Node dependencies.' >&2; exit 1; }
+        fi
         exec "$@"
     fi
     ;;

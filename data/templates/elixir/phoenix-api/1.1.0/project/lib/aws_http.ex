@@ -1,4 +1,4 @@
-defmodule DevKitPhoenix.AwsHttp do
+defmodule DevlinePhoenix.AwsHttp do
   @behaviour ExAws.Request.HttpClient
 
   @impl true

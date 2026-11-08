@@ -11,14 +11,12 @@ devline infra prepare postgres@18.6
 devline infra prepare redis@8.10.1
 ```
 
-In the generated project folder, configure services if the desktop app did not already do that for you. Start them offline and run the vendored Go app.
+In the generated project folder, run the board. Devline starts both configured services and runs the vendored Go app offline.
 
 ```sh
-devline infra configure . --service postgres@18.6 --service redis@8.10.1
-devline --offline infra run .
-GOWORK=off GOTOOLCHAIN=local GOPROXY=off go run -mod=vendor .
+./devline.sh run
 ```
 
-Open `http://127.0.0.1:8080`. The app reads the allocated ports and passwords from `.devline-infra/credentials.env`. You can set `TASKBOARD_LISTEN` to another loopback address or supply `TASKBOARD_DATABASE_URL` and `TASKBOARD_REDIS_URL` for your own loopback services. Keep the credentials file local.
+Open [the task board](http://127.0.0.1:7404). Add a task and reload to see Redis serve the list. Toggle the task to invalidate the cache. Change `run.url` in `.devline/config.json` to select another loopback port. Devline supplies the service URLs with the generated ports and credentials.
 
-Use `./devkit-test.sh` for the generated project's offline test, or `./test-offline.sh` in the starter source. With both services running, `./smoke-infra.sh` checks CRUD, PostgreSQL persistence, and Redis hits and invalidation. `devline infra stop .` stops services while retaining the database volume.
+Run `./devline.sh test` for the generated project's offline tests. With both services running, `./devline.sh smoke` checks CRUD, PostgreSQL persistence, and Redis hits and invalidation. `./devline.sh services down` stops the services and retains their data.
