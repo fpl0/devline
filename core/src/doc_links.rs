@@ -9,11 +9,16 @@ use anyhow::{bail, Result};
 use fluent_uri::{Iri, IriRef};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
-use std::{collections::BTreeMap, path::Path, sync::OnceLock};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    path::Path,
+    sync::OnceLock,
+};
 
 pub(super) const SDK_LINK_PREFIX: &str =
     "https://developer.apple.com/documentation/swiftui#devline-sdk-symbol-";
 
+#[derive(Clone)]
 struct Location {
     id: String,
     pack: String,
@@ -32,6 +37,49 @@ fn fragment(url: &Iri<&str>) -> Option<String> {
     (!decoded.is_empty() && !decoded.chars().any(char::is_control)).then(|| decoded.into_owned())
 }
 
+// A batch often points at many sections of the same page. Reuse the URL
+// lookup and the page's anchor set for the lifetime of this request only.
+struct LinkLookup<'a> {
+    db: &'a Connection,
+    locations: HashMap<String, Vec<Location>>,
+    anchors: Option<HashMap<String, Option<HashSet<String>>>>,
+}
+
+impl<'a> LinkLookup<'a> {
+    fn new(db: &'a Connection, batch: bool) -> Self {
+        Self {
+            db,
+            locations: HashMap::new(),
+            anchors: batch.then(HashMap::new),
+        }
+    }
+
+    fn locations(&mut self, target: &Iri<&str>) -> Result<&[Location]> {
+        let base = target.strip_fragment();
+        let key = base.as_str();
+        if !self.locations.contains_key(key) {
+            self.locations
+                .insert(key.to_owned(), candidate_locations(self.db, target)?);
+        }
+        Ok(&self.locations[key])
+    }
+
+    fn has_anchor(&mut self, id: &str, anchor: &str) -> Result<Option<bool>> {
+        let escaped = escape_anchor(anchor);
+        let Some(cache) = &mut self.anchors else {
+            // A single click can stop scanning as soon as it finds the anchor.
+            return Ok(stored_html(self.db, id)?
+                .map(|html| html_anchors(&html).any(|value| value == escaped)));
+        };
+        if !cache.contains_key(id) {
+            let anchors = stored_html(self.db, id)?
+                .map(|html| html_anchors(&html).map(str::to_owned).collect());
+            cache.insert(id.to_owned(), anchors);
+        }
+        Ok(cache[id].as_ref().map(|anchors| anchors.contains(&escaped)))
+    }
+}
+
 pub(super) fn resolve(ctx: &Context, request: &Value) -> Result<Value> {
     let raw = text_arg(request, "url")?.trim();
     if !valid_input(raw) {
@@ -43,7 +91,14 @@ pub(super) fn resolve(ctx: &Context, request: &Value) -> Result<Value> {
     let resolution = if requested_origin && origin.is_none() {
         LinkResolution::Unavailable
     } else {
-        resolve_link(&db, request, raw, origin.as_ref(), None, false)?
+        resolve_link(
+            &mut LinkLookup::new(&db, false),
+            request,
+            raw,
+            origin.as_ref(),
+            None,
+            false,
+        )?
     };
     Ok(match resolution {
         LinkResolution::Installed(value) => value,
@@ -69,20 +124,27 @@ pub(super) fn status(ctx: &Context, request: &Value) -> Result<Value> {
         .transpose()?
         .flatten();
     let mut results = Vec::with_capacity(urls.len());
+    let mut lookup = LinkLookup::new(&db, urls.len() > 1);
     for url in urls.iter().filter_map(Value::as_str) {
         let raw = url.trim();
-        let mut value =
-            match resolve_link(&db, request, raw, Some(&origin), releases.as_ref(), true)? {
-                LinkResolution::Installed(mut value) => {
-                    value["kind"] = json!("installed");
-                    value
-                }
-                LinkResolution::MissingSection => json!({"kind":"missingSection"}),
-                LinkResolution::Online(target) => {
-                    missing_or_online(ctx, &db, &origin, &target, releases.as_ref())?
-                }
-                LinkResolution::Unavailable => json!({"kind":"unavailable"}),
-            };
+        let mut value = match resolve_link(
+            &mut lookup,
+            request,
+            raw,
+            Some(&origin),
+            releases.as_ref(),
+            true,
+        )? {
+            LinkResolution::Installed(mut value) => {
+                value["kind"] = json!("installed");
+                value
+            }
+            LinkResolution::MissingSection => json!({"kind":"missingSection"}),
+            LinkResolution::Online(target) => {
+                missing_or_online(ctx, &mut lookup, &origin, &target, releases.as_ref())?
+            }
+            LinkResolution::Unavailable => json!({"kind":"unavailable"}),
+        };
         value["url"] = json!(url);
         results.push(value);
     }
@@ -91,16 +153,13 @@ pub(super) fn status(ctx: &Context, request: &Value) -> Result<Value> {
 
 fn missing_or_online(
     ctx: &Context,
-    db: &Connection,
+    lookup: &mut LinkLookup<'_>,
     origin: &Location,
     target: &str,
     releases: Option<&BTreeMap<String, String>>,
 ) -> Result<Value> {
-    let candidates = Iri::parse(target)
-        .ok()
-        .map(|url| candidate_locations(db, &url))
-        .transpose()?
-        .unwrap_or_default();
+    let db = lookup.db;
+    let candidates = lookup.locations(&Iri::parse(target)?)?;
     let projected = releases.and_then(|releases| {
         let mut matches = candidates.iter().filter_map(|page| {
             releases
@@ -125,11 +184,11 @@ fn missing_or_online(
     } else {
         return Ok(json!({"kind":"online"}));
     };
-    let present: bool = db.query_row(
-        "SELECT EXISTS(SELECT 1 FROM packs WHERE id=?1 AND (?2 IS NULL OR version=?2))",
-        params![pack_id, version],
-        |row| row.get(0),
-    )?;
+    let present: bool = db
+        .prepare_cached(
+            "SELECT EXISTS(SELECT 1 FROM packs WHERE id=?1 AND (?2 IS NULL OR version=?2))",
+        )?
+        .query_row(params![pack_id, version], |row| row.get(0))?;
     let installable = !present
         && ctx.catalog.docs.iter().any(|pack| {
             &pack.id == pack_id && version.is_none_or(|version| &pack.version == version)
@@ -176,7 +235,7 @@ fn origin(db: &Connection, request: &Value) -> Result<Option<Location>> {
 }
 
 fn resolve_link(
-    db: &Connection,
+    lookup: &mut LinkLookup<'_>,
     request: &Value,
     raw: &str,
     origin: Option<&Location>,
@@ -195,7 +254,7 @@ fn resolve_link(
     }
     if let Some(hash) = raw.strip_prefix(SDK_LINK_PREFIX) {
         if origin.is_some() && pack == crate::apple_docs::PACK_ID {
-            let value = resolve_sdk_symbol(db, pack, version, hash)?;
+            let value = resolve_sdk_symbol(lookup.db, pack, version, hash)?;
             if !value.is_null() {
                 return Ok(Installed(value));
             }
@@ -234,19 +293,19 @@ fn resolve_link(
     }
     if reader && raw.starts_with('#') {
         if let (Some(origin), Some(anchor)) = (origin, &anchor) {
-            if stored_html(db, &origin.id)?.is_some_and(|html| has_anchor(&html, anchor)) {
+            if lookup.has_anchor(&origin.id, anchor)? == Some(true) {
                 return Ok(Installed(reference(&origin.id, Some(anchor), None)));
             }
         }
     }
-    let Some(page) = locate(db, &target, pack, version, releases, reader)? else {
+    let Some(page) = locate(lookup, &target, pack, version, releases, reader)? else {
         return Ok(Online(target.as_str().to_owned()));
     };
     let Some(anchor) = anchor else {
         return Ok(Installed(reference(&page.id, None, None)));
     };
-    let Some(html) = stored_html(db, &page.id)? else {
-        let (id, focus) = focus_for_link(db, &page.id, &anchor)?;
+    let Some(found) = lookup.has_anchor(&page.id, &anchor)? else {
+        let (id, focus) = focus_for_link(lookup.db, &page.id, &anchor)?;
         if reader && focus.is_none() {
             return Ok(if page.source_anchor().as_deref() == Some(&anchor) {
                 Installed(reference(&page.id, None, None))
@@ -256,7 +315,7 @@ fn resolve_link(
         }
         return Ok(Installed(reference(&id, Some(&anchor), focus.as_deref())));
     };
-    if has_anchor(&html, &anchor) {
+    if found {
         return Ok(Installed(reference(&page.id, Some(&anchor), None)));
     }
     // A fragment in the record's own source URL can identify an entire
@@ -265,7 +324,7 @@ fn resolve_link(
         return Ok(Installed(reference(&page.id, None, None)));
     }
 
-    if let Some((page, anchor)) = repaired_location(db, &page, &anchor)? {
+    if let Some((page, anchor)) = repaired_location(lookup, &page, &anchor)? {
         return Ok(Installed(reference(&page.id, Some(&anchor), None)));
     }
     Ok(MissingSection)
@@ -332,41 +391,45 @@ fn reference(id: &str, anchor: Option<&str>, focus: Option<&str>) -> Value {
 }
 
 fn stored_html(db: &Connection, id: &str) -> rusqlite::Result<Option<String>> {
-    db.query_row("SELECT html FROM documents WHERE id=?1", [id], |row| {
-        row.get(0)
-    })
+    db.prepare_cached("SELECT html FROM documents WHERE id=?1")?
+        .query_row([id], |row| row.get(0))
 }
 
-fn has_anchor(html: &str, anchor: &str) -> bool {
+fn escape_anchor(anchor: &str) -> String {
     // fetch-docs.py emits escaped text and double-quoted, escaped attributes.
-    let escaped = anchor
+    anchor
         .replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
-        .replace('\'', "&#x27;");
-    html.split('<').skip(1).any(|tag| {
-        let Some((tag, _)) = tag.split_once('>') else {
-            return false;
-        };
-        if !tag.starts_with(|ch: char| ch.is_ascii_alphabetic()) {
-            return false;
-        }
-        let legacy_anchor = tag.starts_with("a ");
-        let mut parts = tag.split('"');
-        while let (Some(before), Some(value)) = (parts.next(), parts.next()) {
-            if value == escaped
-                && (before.ends_with(" id=") || legacy_anchor && before.ends_with(" name="))
-            {
-                return true;
-            }
-        }
-        false
-    })
+        .replace('\'', "&#x27;")
+}
+
+fn html_anchors(html: &str) -> impl Iterator<Item = &str> {
+    html.split('<')
+        .skip(1)
+        .filter_map(|tag| {
+            let (tag, _) = tag.split_once('>')?;
+            tag.starts_with(|ch: char| ch.is_ascii_alphabetic())
+                .then_some(tag)
+        })
+        .flat_map(|tag| {
+            let legacy_anchor = tag.starts_with("a ");
+            let mut parts = tag.split('"');
+            std::iter::from_fn(move || {
+                let before = parts.next()?;
+                let value = parts.next()?;
+                Some((before, value))
+            })
+            .filter_map(move |(before, value)| {
+                (before.ends_with(" id=") || legacy_anchor && before.ends_with(" name="))
+                    .then_some(value)
+            })
+        })
 }
 
 fn repaired_location(
-    db: &Connection,
+    lookup: &mut LinkLookup<'_>,
     page: &Location,
     anchor: &str,
 ) -> Result<Option<(Location, String)>> {
@@ -388,12 +451,13 @@ fn repaired_location(
     let Some(anchor) = fragment(&destination) else {
         return Ok(None);
     };
-    let Some(repaired) = locate(db, &destination, &page.pack, &page.version, None, false)? else {
+    let Some(repaired) = locate(lookup, &destination, &page.pack, &page.version, None, false)?
+    else {
         return Ok(None);
     };
     if repaired.pack != page.pack
         || repaired.version != page.version
-        || !stored_html(db, &repaired.id)?.is_some_and(|html| has_anchor(&html, &anchor))
+        || lookup.has_anchor(&repaired.id, &anchor)? != Some(true)
     {
         return Ok(None);
     }
@@ -434,7 +498,7 @@ fn candidate_locations(db: &Connection, target: &Iri<&str>) -> Result<Vec<Locati
 }
 
 fn locate(
-    db: &Connection,
+    lookup: &mut LinkLookup<'_>,
     target: &Iri<&str>,
     pack: &str,
     version: &str,
@@ -444,7 +508,7 @@ fn locate(
     let anchor = fragment(target);
     let base = target.strip_fragment();
     let base = base.as_str();
-    let mut candidates = candidate_locations(db, target)?;
+    let mut candidates: Vec<_> = lookup.locations(target)?.iter().collect();
     // A page opened from an older release must never jump to another release of that pack.
     if !pack.is_empty() && !version.is_empty() {
         if candidates.iter().any(|entry| entry.pack == pack)
@@ -518,7 +582,7 @@ fn locate(
         return Ok(None);
     }
 
-    Ok(candidates.into_iter().next())
+    Ok(candidates.first().map(|page| (*page).clone()))
 }
 
 #[cfg(test)]

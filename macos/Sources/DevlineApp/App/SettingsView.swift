@@ -3,7 +3,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var model: WorkspaceModel
-    @AppStorage("devline.appearance") private var appearance = "system"
+    @Preference("devline.appearance") private var appearance = "system"
     @State private var cliLocation: String?
     @State private var cliError: String?
     @State private var pathCopied = false
@@ -127,15 +127,8 @@ struct SettingsView: View {
     private func installCLI() {
         cliLocation = nil
         cliError = nil
-        guard let executable = Bundle.main.executableURL else {
-            cliError = "Open the packaged Devline.app to install the CLI."
-            return
-        }
-        let target = executable.deletingLastPathComponent().appendingPathComponent("devline")
-        let directory = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".local/bin", isDirectory: true)
         do {
-            cliLocation = try installDevlineLink(target: target, directory: directory).path(percentEncoded: false)
+            cliLocation = try installDevlineCommand().path(percentEncoded: false)
         } catch {
             cliError = error.localizedDescription
         }
@@ -144,6 +137,21 @@ struct SettingsView: View {
     private func copyPathCommand() {
         pathCopied = copyToPasteboard(#"export PATH="$HOME/.local/bin:$PATH""#)
     }
+}
+
+/// Where the `devline` command is linked for Terminal and for projects' `devline.sh`.
+var devlineCommandLocation: URL {
+    FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/devline")
+}
+
+/// Links the command bundled with this app into `~/.local/bin`.
+@discardableResult
+func installDevlineCommand() throws -> URL {
+    guard let executable = Bundle.main.executableURL else {
+        throw CoreError(message: "Open the packaged Devline.app to install the CLI.")
+    }
+    return try installDevlineLink(target: executable.deletingLastPathComponent().appendingPathComponent("devline"),
+                                  directory: devlineCommandLocation.deletingLastPathComponent())
 }
 
 private func installDevlineLink(target: URL, directory: URL) throws -> URL {

@@ -4,8 +4,8 @@
   "files": [
     {
       "path": "SOURCES.json",
-      "bytes": 76717,
-      "sha256": "fbef6fb97671668447e1b74a9b88caedbf53dfb642da5734bf6f5eaa19e07aa1"
+      "bytes": 92761,
+      "sha256": "c4c4246a9aa4f926d57b1f05bd7974621856243ac5a4e6e70f7f647ba5ea6e98"
     },
     {
       "path": "licenses/jakarta-mail-2.0.5-LICENSE.md",
@@ -188,6 +188,41 @@
       "sha256": "8771d5984806af37db26504af821339788caff79f6027ffe54b59804839ca759"
     },
     {
+      "path": "repository/com/fasterxml/jackson/core/jackson-core/2.21.7/_remote.repositories",
+      "bytes": 288,
+      "sha256": "0e573d3a52be72085f0330f52a8dfab6949f7eff7e1e208cfe015751b2a5300d"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7.jar",
+      "bytes": 594782,
+      "sha256": "8c5623b98f32d5f7e1287ff61ed50e08ab7b11381e991fff89327faabba42261"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7.jar.md5",
+      "bytes": 32,
+      "sha256": "a5292eaf1341d7f880b2b24720d30a6393bdd3332f10465c8945b70f2b73f21b"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7.jar.sha1",
+      "bytes": 40,
+      "sha256": "d64ac33f23347ca39ea5d955395b74983e11f787be4a13c3800d055aac5bad29"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7.pom",
+      "bytes": 9704,
+      "sha256": "70233c57a076fadb2f3af1ca25647dc65116d8c135df6c3cb79c95a2560eafce"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7.pom.md5",
+      "bytes": 32,
+      "sha256": "570e326c2749eef3ac8646a8464e3276049933aab05b7191f1b81e1a647d3511"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7.pom.sha1",
+      "bytes": 40,
+      "sha256": "6bc41e881db8b6e5c84450c68d2dc1ebd9e5c4f69f217aebd2fdf4b5e0171c57"
+    },
+    {
       "path": "repository/com/fasterxml/jackson/core/jackson-databind/2.21.0/_remote.repositories",
       "bytes": 296,
       "sha256": "1de50d8f5cd062a396418f46e5a691a3c3eb6d51a451ef8b0e2dbb8ecd95ea82"
@@ -223,6 +258,41 @@
       "sha256": "aaaff4efdea7ed45c5215f862b433367a558cad6652d0332ce347956fe5593ea"
     },
     {
+      "path": "repository/com/fasterxml/jackson/core/jackson-databind/2.21.7/_remote.repositories",
+      "bytes": 296,
+      "sha256": "bfff993500b5c10c5c385627baf51920a4ad8b1bfe88b988ba9ec4dbf9a41deb"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.jar",
+      "bytes": 1709095,
+      "sha256": "1290c2795e93e8a6861a6c4d9ff0d844d32f5ea178362cb2721edf5561e828b1"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.jar.md5",
+      "bytes": 32,
+      "sha256": "d015878fe54d49a51a72c8142d929e94a23e32f7d66af9fb8a817a8bd255b09f"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.jar.sha1",
+      "bytes": 40,
+      "sha256": "8535f83ffff42258c81a6c40987aa0881d044794cfea776472a9412805083d01"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.pom",
+      "bytes": 23024,
+      "sha256": "3191130a3cb7be2f1f05d4e68765e23a1880db719a23ee368a14a8b0477f7bb5"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.pom.md5",
+      "bytes": 32,
+      "sha256": "eed0dc5f7c7bfd4a77e58215bbe6b52c03f598d59e983564ed584ad9abc1b3c2"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.pom.sha1",
+      "bytes": 40,
+      "sha256": "3ff8c12862b26ac06efdd84a38d912f7d2c63e3fd1bcbc3257c3b97e7278df2b"
+    },
+    {
       "path": "repository/com/fasterxml/jackson/jackson-base/2.21.0/_remote.repositories",
       "bytes": 214,
       "sha256": "a89dad15709cedfbb412f7e2f6b18fda2bdecdf0f23d7b530a2165ac53c84855"
@@ -241,6 +311,26 @@
       "path": "repository/com/fasterxml/jackson/jackson-base/2.21.0/jackson-base-2.21.0.pom.sha1",
       "bytes": 40,
       "sha256": "25dca51b7a8e7e21212590c4d2a94ca20b0795aaae325910082376c124a9158a"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/jackson-base/2.21.7/_remote.repositories",
+      "bytes": 214,
+      "sha256": "99b6e7508965c2e1eeab79e4effda3e8deeef6e4cc0e4b6835e2ca84905af017"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/jackson-base/2.21.7/jackson-base-2.21.7.pom",
+      "bytes": 13361,
+      "sha256": "acf1265a240d27f58fb38fd8b6b2a57f5036bf6f8474e08da2eb626f29367f4c"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/jackson-base/2.21.7/jackson-base-2.21.7.pom.md5",
+      "bytes": 32,
+      "sha256": "0787a8f109dcff0d0739298b6e6fe5318d601c744eb82bb7c9c027961925204b"
+    },
+    {
+      "path": "repository/com/fasterxml/jackson/jackson-base/2.21.7/jackson-base-2.21.7.pom.sha1",
+      "bytes": 40,
+      "sha256": "a63ee60c6751dfbfdb2db138a9232917eb23c1e9241dbd70126b1cec698f3440"
     },
     {
       "path": "repository/com/fasterxml/jackson/jackson-bom/2.21.0/_remote.repositories",
@@ -1634,8 +1724,23 @@
     },
     {
       "path": "repository/io/netty/netty-buffer/4.1.138.Final/_remote.repositories",
-      "bytes": 221,
-      "sha256": "399728af006e6b4efbe07521813789875df84d8e724de70a920db7951657d6dd"
+      "bytes": 302,
+      "sha256": "76f1d4a5a303673313ef1e863d2d5ac36ad0fa37b1449e6338dd25ec3cefe878"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.1.138.Final/netty-buffer-4.1.138.Final.jar",
+      "bytes": 365379,
+      "sha256": "5bef3ea2b9e80c5e8d03151ca1609bd75fd1e264863bf3e2f8d538392c0f2c38"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.1.138.Final/netty-buffer-4.1.138.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "8773b827d433ff20773cc5dbb87e487fa85c300b72de108780fd3d029c49b608"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.1.138.Final/netty-buffer-4.1.138.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "05c33380a7eca2a3e83372ca4934e5fc79001d026854c82e20948b79cafa1c7d"
     },
     {
       "path": "repository/io/netty/netty-buffer/4.1.138.Final/netty-buffer-4.1.138.Final.pom",
@@ -1689,8 +1794,23 @@
     },
     {
       "path": "repository/io/netty/netty-buffer/4.2.13.Final/_remote.repositories",
-      "bytes": 220,
-      "sha256": "3bc9caa99d59100de2eadd9d60265cb0ff3069c87602ecdacc3bb24daea21653"
+      "bytes": 300,
+      "sha256": "329ff744ae4143622c18b96d31413492f00325522c5c9386a67ad19fb98035bc"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.2.13.Final/netty-buffer-4.2.13.Final.jar",
+      "bytes": 371633,
+      "sha256": "39e9ab9ecaff178898a5eb37568096f1efd4f768a7bd162e0cde3eefa19137d5"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.2.13.Final/netty-buffer-4.2.13.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "254aa40322f482f413550d3d0bdd88647271705f860d523ecb979b5067e011a1"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.2.13.Final/netty-buffer-4.2.13.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "0476bbe133b73a908e48636ca1dc6139fa39be607bc685d892ae22ff5f9494b8"
     },
     {
       "path": "repository/io/netty/netty-buffer/4.2.13.Final/netty-buffer-4.2.13.Final.pom",
@@ -1708,9 +1828,59 @@
       "sha256": "ea95112cda51e9fcdb0906fc83f0d30ce1a7b7e9266fe84d919c20ac8debee88"
     },
     {
+      "path": "repository/io/netty/netty-buffer/4.2.19.Final/_remote.repositories",
+      "bytes": 300,
+      "sha256": "c586fdb53d08ba79a8515ce36e2851bd6fb56523fbec687abdc280bb264cb844"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final.jar",
+      "bytes": 378371,
+      "sha256": "863f09b46cfe7d83872c9499086b9681cd9878c30a319d9f1f3a681bbfb0b12f"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "75eb95eb27ac1e0b0d8cf30d544fb6ad28f99bc163899888b85cb1f6d187020c"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "224f10510740812fef1d784ad1ade5e66ee4fd5f36383dd410b5d57be9159134"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final.pom",
+      "bytes": 5529,
+      "sha256": "63a8610b70d0bc82fca01fe231845d5c4010e65963c9c7afef996030dfc5be24"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "eb2c015654b922ff192453b69381d1e86e4af2c908e4e72ddef31684755a593e"
+    },
+    {
+      "path": "repository/io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "99f712baf404c9e64dcc2e238213133213bf2d7e577fee23131ccf914b8792d5"
+    },
+    {
       "path": "repository/io/netty/netty-codec/4.1.138.Final/_remote.repositories",
-      "bytes": 220,
-      "sha256": "d204639af14469a76050f548230c2cd06a562d5f2271c2c068806c177dbc478d"
+      "bytes": 300,
+      "sha256": "188a08bbd6f3af7214abf27253675b8042a1719997d981b206449ea446e8d023"
+    },
+    {
+      "path": "repository/io/netty/netty-codec/4.1.138.Final/netty-codec-4.1.138.Final.jar",
+      "bytes": 360280,
+      "sha256": "21b9b7717da9ed7034c7a9ef4fcea4a08825e8f52d775da4d898364edf99327f"
+    },
+    {
+      "path": "repository/io/netty/netty-codec/4.1.138.Final/netty-codec-4.1.138.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "890ba58ea41bafccce526b8e4153518ad9002b92e14a3fe5fb03dd16cc06192d"
+    },
+    {
+      "path": "repository/io/netty/netty-codec/4.1.138.Final/netty-codec-4.1.138.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "bbb5ea7c57006607842ae92eca26169793718d320b1bb43e692a063272ce3625"
     },
     {
       "path": "repository/io/netty/netty-codec/4.1.138.Final/netty-codec-4.1.138.Final.pom",
@@ -1763,6 +1933,41 @@
       "sha256": "2c4cb4d1022e8fb84233a8b7986d62ba00da2d2947fd7fbad8a45903f77ddcf2"
     },
     {
+      "path": "repository/io/netty/netty-codec/4.2.19.Final/_remote.repositories",
+      "bytes": 298,
+      "sha256": "093684f3e655295e0a026b74a11be185b841df504fc3b8ff6e363a02628265a7"
+    },
+    {
+      "path": "repository/io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final.jar",
+      "bytes": 3953,
+      "sha256": "9da978357522895ed6141e14c81f776173206f6cdd72e92b637c60e6e624735b"
+    },
+    {
+      "path": "repository/io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "b34a563bd0c04a7bdd545e83e3f325c96e6ce937b5220fba4a6d5436e311cec7"
+    },
+    {
+      "path": "repository/io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "690026aeb8b07ce857e817d6a8dba4a27528ae45f624c3f3b141f831cdc62b07"
+    },
+    {
+      "path": "repository/io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final.pom",
+      "bytes": 4896,
+      "sha256": "c591666042059464aeea1cfb5b8d49202373a58e1baa95405ed8b318ea5eb110"
+    },
+    {
+      "path": "repository/io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "e7d21765c8f62ba20ea85e70241d737420ff75c29b6f5f1e649a9f8dd7414799"
+    },
+    {
+      "path": "repository/io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "6ef89af19ccf0270c2eeb486ca994569a37981163a0122c269c89700bfbfb71f"
+    },
+    {
       "path": "repository/io/netty/netty-codec-base/4.2.12.Final/_remote.repositories",
       "bytes": 308,
       "sha256": "cae43f16479869580d8d3954c76d8ae3d64111324fbaacc30787285e54d33737"
@@ -1799,8 +2004,23 @@
     },
     {
       "path": "repository/io/netty/netty-codec-base/4.2.13.Final/_remote.repositories",
-      "bytes": 224,
-      "sha256": "0e3091d581e6a21e0f872967ff8a371108e5a763bd3184413850bff4d6f66d2c"
+      "bytes": 308,
+      "sha256": "5d41f277176ed492fd6e67909e06b73dba8fc3a95de082174706f71bc4d3fa8e"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.13.Final/netty-codec-base-4.2.13.Final.jar",
+      "bytes": 152909,
+      "sha256": "a0407d1e9b77e9807aabf367e06602475faab567bfcb8e07ff5bd22c24cd923e"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.13.Final/netty-codec-base-4.2.13.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "fc3029246ac8e6eb371dffd6b8ad194ffca066ea0a58ffa1920d6cec15c622d0"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.13.Final/netty-codec-base-4.2.13.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "f891687e36d56e4683b91cf264b011ce9b0537942853b331d60cdaecf2c94814"
     },
     {
       "path": "repository/io/netty/netty-codec-base/4.2.13.Final/netty-codec-base-4.2.13.Final.pom",
@@ -1816,6 +2036,41 @@
       "path": "repository/io/netty/netty-codec-base/4.2.13.Final/netty-codec-base-4.2.13.Final.pom.sha1",
       "bytes": 40,
       "sha256": "1b8c2ba798d1e957c83b4941457350acc64ad35a83450cf8fa9f62a398154bb8"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.19.Final/_remote.repositories",
+      "bytes": 308,
+      "sha256": "25bb046b20794d68337be0f3acb3ec087c58172a63517b5a364d39c73a164bea"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final.jar",
+      "bytes": 155753,
+      "sha256": "5702c8097cc81e939dd12e5b39ac2e81f83737c320f6f4d88553577842f9ceb6"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "9de5766497fe393ec6ce730990e66ca2cc0299b2ea55afe3883231656e5377a0"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "beaef4ab3f261c97d004cbb8a09d42084fee90a5141d7d1c5d55c5a5c35d785a"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final.pom",
+      "bytes": 3604,
+      "sha256": "708773af967e03e0e7364d88652fdb09d2f9af8b34169dc78088a3bd36fbdd2e"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "8e4e84612d78c47f2c66963eec7be8d63f0cd9c1f539310136ebf84bb110b17b"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "8bbe8b4c021e227d2a7dc73ec5c4a53f427ddc86d5d89cca18aeb76e3bbcb59d"
     },
     {
       "path": "repository/io/netty/netty-codec-compression/4.2.12.Final/_remote.repositories",
@@ -1853,6 +2108,41 @@
       "sha256": "9ee61536f38d4159deb05d801498277d6a1f321ecf8c150353f206255e65e046"
     },
     {
+      "path": "repository/io/netty/netty-codec-compression/4.2.19.Final/_remote.repositories",
+      "bytes": 322,
+      "sha256": "e1dda4606771a5cbf52c481d4beefdf51ba4d2fd82a57ea815f2243d4a94cae8"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final.jar",
+      "bytes": 237578,
+      "sha256": "8935c51c7217780ae56d178c938b50ea5729b1e088cf3c2568674e331665554c"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "6622818f13cd52e23ba02920a72fff6aea53dbce9eca452b49ab83df609ea8d1"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "0ba8556becab4d0e04efc16ce190bf6d39861267ad84eea9144563bcbac100fc"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final.pom",
+      "bytes": 5914,
+      "sha256": "ac6f588a4ecc110b06bcfcc13cdc5298f35fcbbc8b29358c382c5b59be5d1ce1"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "45cc6de7d0a21d32f63ac5b867bd2e66157441b97f26bb41ad415f70f97f22f2"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "cd311b90637d11582d9e164f20d715873e943bb8cf4786a30dc7a147738323e8"
+    },
+    {
       "path": "repository/io/netty/netty-codec-dns/4.2.13.Final/_remote.repositories",
       "bytes": 306,
       "sha256": "dbe920d34a93589d64c584dfb60891c1af813348fb225aaa945b6853c5e026d1"
@@ -1886,6 +2176,41 @@
       "path": "repository/io/netty/netty-codec-dns/4.2.13.Final/netty-codec-dns-4.2.13.Final.pom.sha1",
       "bytes": 40,
       "sha256": "b091d378a0fa866d6ae600fbf5badf1e18d254ba85bb1f902a3210b82ef301b4"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-dns/4.2.19.Final/_remote.repositories",
+      "bytes": 306,
+      "sha256": "eb6f04b7b70312a6a397d9e5b44ff732f3d15d98ab334445547949d3b76b4531"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final.jar",
+      "bytes": 72122,
+      "sha256": "d8177c55f0864807f6ab02d0af7c72a6b88dd6bfd1a39f3a17e5954e0942fcad"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "ada50c0fc344f9b17efbb7bfb5fa6edbd67e8fa0a92a2f479ade529810a89d0d"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "650713a6df3cf80f2fed4b1c1d3fcf9b6e26608a569b133ea88dd901edc90500"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final.pom",
+      "bytes": 3820,
+      "sha256": "3a6bdf295ff914e1ee671f081a8fc2c42001750a13cbb6db59c60d8d109ce5fe"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "48ac96fdecd2771f377c9b72835b58a970c495529173cef35c9e0127afcb0ec1"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "ca7fc28162968f9d0b5aae96da0e8bd54204eac2b5d38936bf0de1b02d07e97f"
     },
     {
       "path": "repository/io/netty/netty-codec-http/4.1.138.Final/_remote.repositories",
@@ -1923,6 +2248,41 @@
       "sha256": "4196e308503a91c9e190f6e0fa3031dbac9ad33adb0a2e3c27bd15cc5e40aa24"
     },
     {
+      "path": "repository/io/netty/netty-codec-http/4.2.19.Final/_remote.repositories",
+      "bytes": 308,
+      "sha256": "63f7dc0026254a4ca70bbf6363bbcc9c8b36df27e07024690724e830ba261c18"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final.jar",
+      "bytes": 683174,
+      "sha256": "7c28809a4f527746fbce2369f5ac5d5fcef45cfe9da21aa3dd9d3f6bdf00cbe0"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "8cf623cf980f465222d5300eab9e373d0f20c72f66773fbf4e61efc2a927eb31"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "b47abbc3f118f18b5c1f2b4c75f0abacb25c416bc62f58af848b255de1d5384f"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final.pom",
+      "bytes": 5663,
+      "sha256": "0ca3a267511493135bdac634dff5a5425c0a54095bde0f4cb964896607aecf27"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "ebece08cfbaf6ac1bb603ee950d771ca80e7d221302264f87d75a012496e741a"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "3e9abcc7985a06e11edef8d972705f12b69cb9c6532ad43fbeb9c48dce2ad78d"
+    },
+    {
       "path": "repository/io/netty/netty-codec-http2/4.1.138.Final/_remote.repositories",
       "bytes": 312,
       "sha256": "9e9500623515d1a41b1e79816594144dab150329b9ae3738e4a936af451b9036"
@@ -1956,6 +2316,41 @@
       "path": "repository/io/netty/netty-codec-http2/4.1.138.Final/netty-codec-http2-4.1.138.Final.pom.sha1",
       "bytes": 40,
       "sha256": "721e8765a3eb1654dab71e1fbd6c0e2d1b7763eb9069aec02f1bacceab7ba0d9"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http2/4.2.19.Final/_remote.repositories",
+      "bytes": 310,
+      "sha256": "d7407a47615876d69b9004cb21b1cbed2715d29c886c17845eb4dbf143558ab2"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final.jar",
+      "bytes": 503551,
+      "sha256": "f45756b12a75b907e98cd0158dc947308ca463cd3d27b9035d11a025a4fdbc4d"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "d7e9e711a373a1e8e011315a71ddb8363340396183bad11236a92e0a7465e806"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "d415a2225c1c2c2982943ce834296e1e6c3d4b5970765854b135384200cc5d4a"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final.pom",
+      "bytes": 7456,
+      "sha256": "05cc5e150552602305986f6dc74fc1643741452a38d436b6d3a88d2cfa9f1f49"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "6328fbd072ebd648139a2f6b5c4560765a43afb2dc3372ed1861fe7ed07866f0"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "ba7834516fa22adc9bf2d3c8898b2a4ecc935c1d25081763e1f3cd971cd11c49"
     },
     {
       "path": "repository/io/netty/netty-codec-marshalling/4.2.12.Final/_remote.repositories",
@@ -1993,6 +2388,41 @@
       "sha256": "c17da5cf0e0da8d440c0997a164e8c7582178d7bc0bba130eb8ca5e671a5b527"
     },
     {
+      "path": "repository/io/netty/netty-codec-marshalling/4.2.19.Final/_remote.repositories",
+      "bytes": 322,
+      "sha256": "e67556778ea909ce536e77a99a73a99ffd29c44d589cdbcc11e9e8f5689ce923"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final.jar",
+      "bytes": 20375,
+      "sha256": "5b24976fda31fd52a85fb7f79f2a5867a0416f68f7b03a9d6ea062b2959d50f7"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "89f4e80958ec1cb9001bdbf4b6563fe8a712f220d5a9788aed3bcb5d128151ae"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "446609ef3d6429e9f761ebe642d2f90e06b16973ab5b7ac8c37c9a4ad3897366"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final.pom",
+      "bytes": 4361,
+      "sha256": "39d15e7ad883ae4d3e9cfc8b62e199039ae636a8fae041a64fcabfd2a699272b"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "09cea2f042009651cbca2eec6a9ceb86160f22b88c4055cbe8fecac5f050ec51"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "7951015d2d89ba740f3b586bd16efcb84c1768f2024c740ae61566e94224f808"
+    },
+    {
       "path": "repository/io/netty/netty-codec-protobuf/4.2.12.Final/_remote.repositories",
       "bytes": 316,
       "sha256": "cef25d275106f4be9e664367a7f487544c17e0b7fc26186d1f0de8ea79a6f47a"
@@ -2028,9 +2458,59 @@
       "sha256": "138d54eaff0ec0e7d07ef1c32dee51157ed6202f945a0c42267f1f08c5bdbce9"
     },
     {
+      "path": "repository/io/netty/netty-codec-protobuf/4.2.19.Final/_remote.repositories",
+      "bytes": 316,
+      "sha256": "7c8fe0219558eac56640a86e791bc8a57c170fa9d3aee326c7bcc7cf6e09d8de"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final.jar",
+      "bytes": 15120,
+      "sha256": "f4d10c51f9237d4cffe78978dee2d2473c0eacdb021f0c04a0cc4f123e01f15d"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "6f511658817093713cf579c3f9ff910718eebd9c7c321bc72d6fc37d2a87e834"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "d5a77a045f7fb63ca594cf1b23e247a9ed3ccf37eee7927769bfc6df8403f6af"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final.pom",
+      "bytes": 3926,
+      "sha256": "bb0fbd0eb3c633205cc2024cbeccd3a1d721b0b76706540f64dfe32768923db8"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "f917d995f11801a30ed709be427336aaa9b90a71ce0cee9cb6a352e5c150e917"
+    },
+    {
+      "path": "repository/io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "c3508e9aaa30fce56c5cdcb98d7d3d3c96f47dc53dcf331ed8912c54e5d90f3d"
+    },
+    {
       "path": "repository/io/netty/netty-common/4.1.138.Final/_remote.repositories",
-      "bytes": 221,
-      "sha256": "366c9b9f56a2436375311d1629249b5ec8d67b1c141eef55dd6b679e74c48b1c"
+      "bytes": 302,
+      "sha256": "a8d6032a6f4f03be4aedf408b5d137d9372ae7523f00a211e54da225333636f0"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.1.138.Final/netty-common-4.1.138.Final.jar",
+      "bytes": 740310,
+      "sha256": "b4ebb8fa44cd5790731928a83fd0f25a530e41c407c093bef4a0196db30b693f"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.1.138.Final/netty-common-4.1.138.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "9aa0ac3b69ebea5cbd45f089cc75f4548ae74ccb2b8b1d6397696a73114dc713"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.1.138.Final/netty-common-4.1.138.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "1d09bc2e3205f5cd6975237f5cafc2bb569d81db4f9396a1db3ad1cdbd1948d2"
     },
     {
       "path": "repository/io/netty/netty-common/4.1.138.Final/netty-common-4.1.138.Final.pom",
@@ -2049,8 +2529,23 @@
     },
     {
       "path": "repository/io/netty/netty-common/4.2.12.Final/_remote.repositories",
-      "bytes": 220,
-      "sha256": "a7f6393187773b630f20a850c529bed57cf96570a9c784bf32bebbe66bff6c4d"
+      "bytes": 300,
+      "sha256": "ea0197c8886a70ab424a62bbda7046930e5402325433d067261047e1d812a935"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.2.12.Final/netty-common-4.2.12.Final.jar",
+      "bytes": 812527,
+      "sha256": "9b03e4d08ef4c3e4e97065186fd3e1485301532ef4303f9fc29049dd13475b8d"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.2.12.Final/netty-common-4.2.12.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "c2e95f424eac1a8716f7c19cd73a8e914a3ea845a9a9dd4e76d1dc511c814913"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.2.12.Final/netty-common-4.2.12.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "b9bdb4a143e497fb5990a4bc3efff6dcb93aae1a115e718f3424de2d71d879a6"
     },
     {
       "path": "repository/io/netty/netty-common/4.2.12.Final/netty-common-4.2.12.Final.pom",
@@ -2103,9 +2598,59 @@
       "sha256": "39b5109da56ed00e96c4fed542d65e6c5b6c2a18c89f9711f5d83177b7254020"
     },
     {
+      "path": "repository/io/netty/netty-common/4.2.19.Final/_remote.repositories",
+      "bytes": 300,
+      "sha256": "85ce07276e6715828ae482219a8e3a556e70b858f2b591048d883c1f17a6b1ae"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final.jar",
+      "bytes": 904505,
+      "sha256": "22fa74761f6e35c8c88972f35cf65664566b922dd73d3424528e97c34278fa79"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "de62060a6e7129e6ad335060f96d94fc8b9d4428b98e8f4c80117332e38a4e08"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "c8da2094ce0847047d94432d9e3e523ff5af10363f8f35ea70edc38d77e25dfe"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final.pom",
+      "bytes": 11842,
+      "sha256": "4e4b7bf5ffa97f2dd9f0256c0b81a3729902874a858db6d3a89e0b29fa8a67e9"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "86a3b22686633df9647ef931c237b6899c2c9e72ec2c21c6e3637747c65912e6"
+    },
+    {
+      "path": "repository/io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "fc433833a6e1fc9c8833b9e0bb3f7d342aed3cbac28503a58cc0529f9a24a34d"
+    },
+    {
       "path": "repository/io/netty/netty-handler/4.1.138.Final/_remote.repositories",
-      "bytes": 222,
-      "sha256": "ae462c6829ba583fb90e69930e140b9b7d61ec50a32f7794ae95b586d2808223"
+      "bytes": 304,
+      "sha256": "f8671b7697c4a42bae3f804f88f68dbcd74ef2968ed8357cdb29848951d1e05f"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.1.138.Final/netty-handler-4.1.138.Final.jar",
+      "bytes": 588803,
+      "sha256": "a79fb814e029db17da82baea25a0340172af2c59f107fd20b394c1fa28680f21"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.1.138.Final/netty-handler-4.1.138.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "b77a9348ef8c2476a060404060ce68e3bf5ecf1446b72da06b5a9ffe8c1b28d4"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.1.138.Final/netty-handler-4.1.138.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "6f14465f1f528afdc38dd6636fabc6e6e86d1e03524eefd69adbd9da3bbdc9a1"
     },
     {
       "path": "repository/io/netty/netty-handler/4.1.138.Final/netty-handler-4.1.138.Final.pom",
@@ -2159,8 +2704,23 @@
     },
     {
       "path": "repository/io/netty/netty-handler/4.2.13.Final/_remote.repositories",
-      "bytes": 221,
-      "sha256": "bd9fe2d2b81b8940f07176be39b0572f6d4a980da1224bbffa5b52c91c5bbb79"
+      "bytes": 302,
+      "sha256": "0a425c5fd4ac129a0a904a1fb1053c2f57ccc1ccc4f8adced5f1b766361ffa7b"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.13.Final/netty-handler-4.2.13.Final.jar",
+      "bytes": 583738,
+      "sha256": "50efc30aeca2ef21311f2502389e500bfc168c311edb1ae04a2db4d6bb5d7f7f"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.13.Final/netty-handler-4.2.13.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "d5b74be728888c7a15217224628259227174a72e26957c0a104e6f5e01c474b6"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.13.Final/netty-handler-4.2.13.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "1be55eff73f7fd0ff1019f194fcf702ea73b453175bdc4fe9b7e14810ad48d5b"
     },
     {
       "path": "repository/io/netty/netty-handler/4.2.13.Final/netty-handler-4.2.13.Final.pom",
@@ -2176,6 +2736,41 @@
       "path": "repository/io/netty/netty-handler/4.2.13.Final/netty-handler-4.2.13.Final.pom.sha1",
       "bytes": 40,
       "sha256": "986d17c22fa5ba20039205e03e1b1c7cb34765d6d0e6a9e2e6932223e8ea8b29"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.19.Final/_remote.repositories",
+      "bytes": 302,
+      "sha256": "6554f2418ac039b4e2311fffc47f8dc84cd473e75491bdee0940a475874da8e1"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final.jar",
+      "bytes": 590897,
+      "sha256": "8b469cf23ddf21ba84291f4dff470d2277a28deac95e7084b0ff2ce853e58276"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "c0383a03d78e02550c2ac7708ef8dea141c5d295ffd7711fb29ac0e1d64adcba"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "b45b8c6fd4d633526a1fdc1f06583d43af6d7aeb294b2e28cad345b99e25898d"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final.pom",
+      "bytes": 6985,
+      "sha256": "e8c1c832a5164b7347022a279e56e1b6939adda7e963b91613e8904dcfc14098"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "c456f090163c97ef10e992a2dd7a682f2d5a6dc617cf8eea4398894406847d43"
+    },
+    {
+      "path": "repository/io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "c5c2fa7bed15feacc99a0a728ab7481c6c426eaef454ef284ed66f9a9337754b"
     },
     {
       "path": "repository/io/netty/netty-parent/4.1.138.Final/_remote.repositories",
@@ -2238,9 +2833,44 @@
       "sha256": "aeb6fd016fa4ad2f537ee7cc139a334fe12ba73fe6c43a6c0539b1fa1a20726f"
     },
     {
+      "path": "repository/io/netty/netty-parent/4.2.19.Final/_remote.repositories",
+      "bytes": 220,
+      "sha256": "57a5660992374448250be626ffc4743c730a31cee22cf540a7003f0d8ecfc956"
+    },
+    {
+      "path": "repository/io/netty/netty-parent/4.2.19.Final/netty-parent-4.2.19.Final.pom",
+      "bytes": 93939,
+      "sha256": "13ccce3b78e71d10f1264d62a633676a1aa717c9bd19a01f1db36b0b72aa5382"
+    },
+    {
+      "path": "repository/io/netty/netty-parent/4.2.19.Final/netty-parent-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "da9b829a5345b8f57f2e0de0d7afa95896b70134f46a3f18e56791a3fa7c71a2"
+    },
+    {
+      "path": "repository/io/netty/netty-parent/4.2.19.Final/netty-parent-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "e02cf60e3a7482ac016a528eb89fe9ad9d0b00c177c2ca4656d853da45bc2bba"
+    },
+    {
       "path": "repository/io/netty/netty-resolver/4.1.138.Final/_remote.repositories",
-      "bytes": 223,
-      "sha256": "98e4daa1d9b7d979707d99d160a267a52ed405ab6285158bbbfd40798e34b096"
+      "bytes": 306,
+      "sha256": "1c477188f35b9bff05779ec09c47cbae4418f5fb0e693bd24c5eed415739bc6a"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.1.138.Final/netty-resolver-4.1.138.Final.jar",
+      "bytes": 37904,
+      "sha256": "50c338a0e5c9997513e738f0fcb47d579a9e8852d317ba367f5d141e210187c0"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.1.138.Final/netty-resolver-4.1.138.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "7d0f9fbaf5f29ddd16f4c6e9b5112c47106a829b5992cf5dc39bb58fd3c7ebf6"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.1.138.Final/netty-resolver-4.1.138.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "7b169e76c98c73c5312c2e609afaa20cb8c66d80a23a04581a592903e4e82364"
     },
     {
       "path": "repository/io/netty/netty-resolver/4.1.138.Final/netty-resolver-4.1.138.Final.pom",
@@ -2294,8 +2924,23 @@
     },
     {
       "path": "repository/io/netty/netty-resolver/4.2.13.Final/_remote.repositories",
-      "bytes": 222,
-      "sha256": "505744382c7c07bd52bc77c2f63395eb81a2a252459f35a746d3c61ff0fa189a"
+      "bytes": 304,
+      "sha256": "0c54de9a2340f116ede508c4a3a75e69364d8ae6fc5bd2105519892a15b86b0e"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.13.Final/netty-resolver-4.2.13.Final.jar",
+      "bytes": 32975,
+      "sha256": "2cd68d6a746aeb2ec92923fa168d250526d7ad3dbe1877e7bcbe6e8acdb2c193"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.13.Final/netty-resolver-4.2.13.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "b43a8c13d721cdffef61ad0434c7d470a4d425b251f3a3742a81a33b61b89793"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.13.Final/netty-resolver-4.2.13.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "d961b75fa8cb3f031a99d1f304a63792586db482c8b612935c54a671689de5a6"
     },
     {
       "path": "repository/io/netty/netty-resolver/4.2.13.Final/netty-resolver-4.2.13.Final.pom",
@@ -2311,6 +2956,41 @@
       "path": "repository/io/netty/netty-resolver/4.2.13.Final/netty-resolver-4.2.13.Final.pom.sha1",
       "bytes": 40,
       "sha256": "77308be496a93bb9a474bf2a59b425c1d4af77de6c6061950cf18913a869e8c2"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.19.Final/_remote.repositories",
+      "bytes": 304,
+      "sha256": "e3bb65bab23b79b607e1da1c46e41346c929c92331dbd3515ce4bd0af803f8aa"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final.jar",
+      "bytes": 32977,
+      "sha256": "3ded47536faeb3c4c544a84871d82f461511589afb2a892a180ca425f281363e"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "cd24d3b32008a74e09251ce8b9efa74090ffb133ada65b29e38eaca874bc7ec5"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "a83027abff9faac220592fcbc75aea510cb69e3db4164255bf93ece22a9ad54f"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final.pom",
+      "bytes": 2703,
+      "sha256": "abae54a8be47028185a73dab2b415179f7fb359d79f244bb0e8b6bc88c31bbd7"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "14bfd9f32324d44ed0768c15c97dff00697a1c1298a3a1dccde4d58db0904e5b"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "182a0e32e6167d08aa7bdaa3130fa66a68fc4299f57a7bafdf0f8f0da769b273"
     },
     {
       "path": "repository/io/netty/netty-resolver-dns/4.2.13.Final/_remote.repositories",
@@ -2348,9 +3028,59 @@
       "sha256": "fd191bbd309f5a688cceae3a2a8334ab8cc0aec870bf25e49d3805f18f3d1674"
     },
     {
+      "path": "repository/io/netty/netty-resolver-dns/4.2.19.Final/_remote.repositories",
+      "bytes": 312,
+      "sha256": "6dbc7e13d1592d15f67fe07d44952481d50c5f6955e527f7d50acca5ddf3dd47"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final.jar",
+      "bytes": 174587,
+      "sha256": "417aaf5cf25cd07865ea91d2e08916b6974995c54aa83730264fc0e06dd4ea90"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "6dbb2042da8f5e300c63b3cc512815abfb46081487ab0ac5579e5a290fec729e"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "892255c42797bb664cd6b706c19da97813b562ed0c21a218be5856a27d05f421"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final.pom",
+      "bytes": 4452,
+      "sha256": "f0ce086cb5d55436258ea1c34683b29ccd0392865bc7a8e9e25fc6725d90035c"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "82f5f656e744aaddeb9c6e00a7790c0a167038f535261994b0ca203111e1d11c"
+    },
+    {
+      "path": "repository/io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "52c1babc65b243b44670c0dfe09431e75ff14fbf9f544f96ea5aaf5a023f3060"
+    },
+    {
       "path": "repository/io/netty/netty-transport/4.1.138.Final/_remote.repositories",
-      "bytes": 224,
-      "sha256": "e5d985de470be39b4c566094969bed7185995f0a79bff38ec2d7b0627504a298"
+      "bytes": 308,
+      "sha256": "a46a3572f580d98860f9a2b3d5978c85deec6af9f265f4f99b015b1d2ef40848"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.1.138.Final/netty-transport-4.1.138.Final.jar",
+      "bytes": 522089,
+      "sha256": "6c064c1cae4d410b920abfc07959a49db1b4778a9547614373e97d31cab0cad6"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.1.138.Final/netty-transport-4.1.138.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "2064f35ddcfc16865ded10d07eed120b1875a64f656f5a68e0fb021edd99e682"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.1.138.Final/netty-transport-4.1.138.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "eca8571375d0d0608ca2909fc38b8831b59baa640345f2b42f675a453ceda227"
     },
     {
       "path": "repository/io/netty/netty-transport/4.1.138.Final/netty-transport-4.1.138.Final.pom",
@@ -2404,8 +3134,23 @@
     },
     {
       "path": "repository/io/netty/netty-transport/4.2.13.Final/_remote.repositories",
-      "bytes": 223,
-      "sha256": "ea1c16b0ac503b221f388196dbfe0879712a7a695c1a3715f7a686e12efba30d"
+      "bytes": 306,
+      "sha256": "d8536dfd2c6d567e77b3ea3cf0f4386d39cf2e577d68edcc89273f438dea973c"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.13.Final/netty-transport-4.2.13.Final.jar",
+      "bytes": 549604,
+      "sha256": "d9b2200bfe6e47c2dfa2f0952df6fbdfd42bf58bdd9007e9ac17c789274388c5"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.13.Final/netty-transport-4.2.13.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "3a94eb21e2e87e08777679c166e5fb297ea0843feb169a1378ca06287921777c"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.13.Final/netty-transport-4.2.13.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "2f926039b12d20d2cfa7908e89c5d5f6a38483bb7e5373b2733b86aad516403f"
     },
     {
       "path": "repository/io/netty/netty-transport/4.2.13.Final/netty-transport-4.2.13.Final.pom",
@@ -2421,6 +3166,41 @@
       "path": "repository/io/netty/netty-transport/4.2.13.Final/netty-transport-4.2.13.Final.pom.sha1",
       "bytes": 40,
       "sha256": "d7bf679ff8b9744608dd4df14c8800af7220fb8d83b9c2bcbb4390be57e8dd38"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.19.Final/_remote.repositories",
+      "bytes": 306,
+      "sha256": "022edc894e4207f6116392be0a521febc673d178c3dcf577fe4bd4060d56f2bc"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final.jar",
+      "bytes": 552273,
+      "sha256": "d82d4e200456b8c5d8a1647a3724603f80616e5b35b9ada6e7a20d048f175075"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "37bff6a3fb7eeabca950f3147870179118a9ed7b8acfb727b0f7bf111967d69d"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "f04177b0dce506fb36d8c8b2b93addc84bdaf18cf7c47d5daf376e1c3171d31b"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final.pom",
+      "bytes": 3427,
+      "sha256": "48bc9db71c49ed8fea1679d2d3dbea7ba4ff61cd0972e5e1ea115902ebbfa4a2"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "253631255cbd10855aca9bda5d200e958ede5b1c06390b2b214535074e6969ab"
+    },
+    {
+      "path": "repository/io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "4ed2435b942cf820a0aada86bf12c7c828136a3e82d62458b7c7cc58b3136403"
     },
     {
       "path": "repository/io/netty/netty-transport-classes-epoll/4.1.138.Final/_remote.repositories",
@@ -2458,9 +3238,59 @@
       "sha256": "0daf266356259beb12d5b0e41165c0808e6219931d84a542f6608c0b54db22f0"
     },
     {
+      "path": "repository/io/netty/netty-transport-classes-epoll/4.2.19.Final/_remote.repositories",
+      "bytes": 334,
+      "sha256": "ab03779427c545495a140ec56e3e48cb3c5d006af41d69489d9862c474f1ea0c"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final.jar",
+      "bytes": 159425,
+      "sha256": "4d96ba8dd98ace998f6ae7bfe53ae9e581bd92ad2f7ebe5bd994d1a24306db7e"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "650ab305ca3159f5b57936acc1e1c2c102ccba084b36754288c79dad6a3eb201"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "4579839cc270f534f522b0ffa25632c548302a3607b3c0526238ab2148c47882"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final.pom",
+      "bytes": 2852,
+      "sha256": "f9fc8dfbc2715f2f3a0282f5b2c9bd91b8c5dfc2bec3f3f0b0a65904c70b021e"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "5b1274d13ca3b0e7a6a69b75a4d58ef7470245d3d4e6ebdeb749b4d73b820234"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "79c79202e38f431a03c8e4aa0c48228ba597676703d18e781ce5395fd72537df"
+    },
+    {
       "path": "repository/io/netty/netty-transport-native-unix-common/4.1.138.Final/_remote.repositories",
-      "bytes": 243,
-      "sha256": "8fc2f0415d18dcd96088e0d9c7e44748710c6eb18b8f9eb81f706f6bb5f0742d"
+      "bytes": 346,
+      "sha256": "f68c9b5a4141efbf67b596812cafc012a5f8170e651ab88882c017cee70be9d3"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.1.138.Final/netty-transport-native-unix-common-4.1.138.Final.jar",
+      "bytes": 44328,
+      "sha256": "8d1ada8f185d6f6da4cd79f9daeef39f1db49908cfec8bc2a1fb602458aa2341"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.1.138.Final/netty-transport-native-unix-common-4.1.138.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "9a0919e94a2f38ba3b0582b42b7d670bbbc2ac0141b2e2e98ae57a6991a6fb6a"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.1.138.Final/netty-transport-native-unix-common-4.1.138.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "538f52161fa0617109759eb84f65a0b5a8e84ec1b1b302694ba0036a5cf51935"
     },
     {
       "path": "repository/io/netty/netty-transport-native-unix-common/4.1.138.Final/netty-transport-native-unix-common-4.1.138.Final.pom",
@@ -2511,6 +3341,76 @@
       "path": "repository/io/netty/netty-transport-native-unix-common/4.2.12.Final/netty-transport-native-unix-common-4.2.12.Final.pom.sha1",
       "bytes": 40,
       "sha256": "0cf78ecfc817a951bd597a041ea55b41e9993d5fcc3cda85d42e513ca06d65d0"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.13.Final/_remote.repositories",
+      "bytes": 344,
+      "sha256": "7e088283759788c9cdbbfc12ea8cb0e97dd8822a3d158754e1dcc642324c2940"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final.jar",
+      "bytes": 46872,
+      "sha256": "052b8429276ac96bd1f1067ce963b4e57c627ca331071f4df2e63f759234f6b1"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "6ef82f6704ce31a8e12aa0c284e47e073f4e22ea7f1893c10406b3ee822e3f17"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "b90af875780d84d022f31923785739fb52709ac65e1467a8fb6ec095801054a1"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final.pom",
+      "bytes": 33961,
+      "sha256": "f37c0b8d0a81fb6013441a7f9c23daf78e954a8c36147b64ef84040402caa456"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "72b012e7d64f1bcca2fdd506547e2f28e05bf4d17d6dd70a8a122888cefb07f2"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "fb0edff0dc5a5fafca5d21e152a0dc4c154c295015551f6bf0604d7f1ed81dfe"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.19.Final/_remote.repositories",
+      "bytes": 344,
+      "sha256": "163f16c4a65550d9366cf2254b46c219f5d63fd5433de3aa050c0c48540d9a13"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final.jar",
+      "bytes": 46874,
+      "sha256": "341e91b8e69e6b7d92c353c845ffd91f34e921b7186254c176a64c7089b3e721"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final.jar.md5",
+      "bytes": 32,
+      "sha256": "8065e8e89dd500ccfe13eb773b61f9990d4a8adc0989c53d1e8aec96ad1889dd"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final.jar.sha1",
+      "bytes": 40,
+      "sha256": "81dd399a7ee036d21e71e733e85cf89cc857af32e9c30984cd4546e57d9bfdfa"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final.pom",
+      "bytes": 33959,
+      "sha256": "3c71490eb703d82cc330a5de9cfcb7f25d69c6d2f3235e64d10bc1649c856604"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final.pom.md5",
+      "bytes": 32,
+      "sha256": "11b6d080167e94a2bf8048a06fa395fb43a16e93431ae5ce9ecbb81ac9364d96"
+    },
+    {
+      "path": "repository/io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final.pom.sha1",
+      "bytes": 40,
+      "sha256": "80230a74f63d53135979ce71e820dd1d438e092b9bfd89a710d5a68c89f7fb23"
     },
     {
       "path": "repository/io/opentelemetry/opentelemetry-bom/1.49.0/_remote.repositories",
@@ -2566,6 +3466,41 @@
       "path": "repository/io/projectreactor/reactor-core/3.6.6/reactor-core-3.6.6.pom.sha1",
       "bytes": 40,
       "sha256": "4cdf71fef0731fd77210b94d28759d2ecd01d26f36e67f73622761c020d33b21"
+    },
+    {
+      "path": "repository/io/projectreactor/reactor-core/3.8.8/_remote.repositories",
+      "bytes": 286,
+      "sha256": "d0a3edbc3124ae7746338b30118c2fc7b6ef1811ad84616c541ee407855da458"
+    },
+    {
+      "path": "repository/io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8.jar",
+      "bytes": 1938805,
+      "sha256": "0a4987b728de02b097ca4707493b12771a3b126013c7e25353be32383ede8f12"
+    },
+    {
+      "path": "repository/io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8.jar.md5",
+      "bytes": 32,
+      "sha256": "aaca09de9ddf759e5b6e7cb37a06bc5a9bebe8a8c32fb6a9dea6d92e33eb69d0"
+    },
+    {
+      "path": "repository/io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8.jar.sha1",
+      "bytes": 40,
+      "sha256": "a33fef08533c4835f5c29b5743a9a39b8a924df08d109e4dde4815458026e595"
+    },
+    {
+      "path": "repository/io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8.pom",
+      "bytes": 2319,
+      "sha256": "add17ce981583bbca63485c16c31231182cae699f27c4b3caa60b004e6ce51af"
+    },
+    {
+      "path": "repository/io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8.pom.md5",
+      "bytes": 32,
+      "sha256": "78f8345f0485f40c3ab200116d3de1c273e6cf6f47d655ca64fc58affb3507d0"
+    },
+    {
+      "path": "repository/io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8.pom.sha1",
+      "bytes": 40,
+      "sha256": "d033a17fc0a26d51211ad750a4a3a829cd605fa9a11c0c04db43880c91929b8e"
     },
     {
       "path": "repository/jakarta/activation/jakarta.activation-api/2.1.4/_remote.repositories",
@@ -7973,6 +8908,41 @@
       "sha256": "f9c66178759e93cbd35e4951421b4c01286673aa0dc8a3f8bb9c40b2bf8b09c8"
     },
     {
+      "path": "repository/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/_remote.repositories",
+      "bytes": 290,
+      "sha256": "ea2cfcb9412a546322f191f4447a3be391479401609bca2666936d7b7522348b"
+    },
+    {
+      "path": "repository/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.jar",
+      "bytes": 1804721,
+      "sha256": "6f64eac736db9434dd6925b4a518b9d1d17177652320c37916cf9ba3ce7d7d7a"
+    },
+    {
+      "path": "repository/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.jar.md5",
+      "bytes": 32,
+      "sha256": "d842bb81c353d6cf3882405173330433436135f5cdf6b74bd9be40e52487a870"
+    },
+    {
+      "path": "repository/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.jar.sha1",
+      "bytes": 40,
+      "sha256": "19b26cf7e6eb5ec8ebf041cdbca4f64b6bdc7596bbbe3733bf9314e8c70be3cc"
+    },
+    {
+      "path": "repository/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.pom",
+      "bytes": 2301,
+      "sha256": "3e0b48daa14dc73f8029d8d9e15ed32940377caf7b915510f88d33219b350186"
+    },
+    {
+      "path": "repository/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.pom.md5",
+      "bytes": 32,
+      "sha256": "194c956058da363035e24e9f10eb7b6b8f361373c5b78ffce137e65cad28e11e"
+    },
+    {
+      "path": "repository/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.pom.sha1",
+      "bytes": 40,
+      "sha256": "df91357f560d497a030e496828c393d07b6819d38940c17cbbc077086db737de"
+    },
+    {
       "path": "repository/org/json/json/20251224/_remote.repositories",
       "bytes": 276,
       "sha256": "44d1308d60301013cd263c828df352629bfe471d3e403c824c08f49336c3ca3a"
@@ -8478,6 +9448,41 @@
       "sha256": "1393d497b0d27c579e8f317d984c91e85d9c20893898d9d77578d829164b47d9"
     },
     {
+      "path": "repository/org/mongodb/bson/5.8.1/_remote.repositories",
+      "bytes": 270,
+      "sha256": "6182994bb7eb6621ce2dc4e47164af05016f52b6bad4820d05a592369f5f04fb"
+    },
+    {
+      "path": "repository/org/mongodb/bson/5.8.1/bson-5.8.1.jar",
+      "bytes": 531042,
+      "sha256": "b3709738208b31558cfb6abe38df715914884e5f615fc66a5784b2e65b06cbfc"
+    },
+    {
+      "path": "repository/org/mongodb/bson/5.8.1/bson-5.8.1.jar.md5",
+      "bytes": 32,
+      "sha256": "1cd687499ec094dfeb42d98fc51965fc8da810a2bf0b38a77befe706b746b775"
+    },
+    {
+      "path": "repository/org/mongodb/bson/5.8.1/bson-5.8.1.jar.sha1",
+      "bytes": 40,
+      "sha256": "5fe276632c845723845b234c9b0dbfb70f3093bbbea76815ea6825a34d3dfd84"
+    },
+    {
+      "path": "repository/org/mongodb/bson/5.8.1/bson-5.8.1.pom",
+      "bytes": 1292,
+      "sha256": "283c681d2e68fc7e658c379791d3de2abd04c2cb25e90b2b739ee5c7c8c4881b"
+    },
+    {
+      "path": "repository/org/mongodb/bson/5.8.1/bson-5.8.1.pom.md5",
+      "bytes": 32,
+      "sha256": "c5f8fd9b844127886c74b7306641010a77482fae7119e41e67c56dbb284bbad7"
+    },
+    {
+      "path": "repository/org/mongodb/bson/5.8.1/bson-5.8.1.pom.sha1",
+      "bytes": 40,
+      "sha256": "2d88300dc1ec876065450f8d5b180e3f53fc0bbee5e1051620611964f4487c77"
+    },
+    {
       "path": "repository/org/mongodb/bson-record-codec/5.14.0/_remote.repositories",
       "bytes": 298,
       "sha256": "4fedc9e0e03173dd252efdd5271cc2187feeaac90d68a3fb2e2512cd8c235f01"
@@ -8513,6 +9518,41 @@
       "sha256": "0faac67e4e2d77f9e45564c221367b82770c75e1e801f6dd4b0f09c85ce6258e"
     },
     {
+      "path": "repository/org/mongodb/bson-record-codec/5.8.1/_remote.repositories",
+      "bytes": 296,
+      "sha256": "ef8c91fb9f7baf71bdaec3f76f4f6cb51943cc276773390a22906708b75d23d8"
+    },
+    {
+      "path": "repository/org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1.jar",
+      "bytes": 11796,
+      "sha256": "c5243c8a0494aefff88a150b85e240e52aca17b530e9480bdb87aa39ad56b484"
+    },
+    {
+      "path": "repository/org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1.jar.md5",
+      "bytes": 32,
+      "sha256": "0563bd00c3e07480fd68cd0fb2ccdea98bcfc89849c0682f87be154f4bfb3913"
+    },
+    {
+      "path": "repository/org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1.jar.sha1",
+      "bytes": 40,
+      "sha256": "36a2ed7e09594fbebd3f3954fbeb8b5c7a5d66cdd580e5eb9695fe6bdf8e7030"
+    },
+    {
+      "path": "repository/org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1.pom",
+      "bytes": 1501,
+      "sha256": "8b47e7f505f351d152a58efd3ce630176e84d101bc240ca91023354f72083cd3"
+    },
+    {
+      "path": "repository/org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1.pom.md5",
+      "bytes": 32,
+      "sha256": "30f1458c329786e7ea7194a3feffca0ac4b7aeea1d1d0153102bb35ca0a00640"
+    },
+    {
+      "path": "repository/org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1.pom.sha1",
+      "bytes": 40,
+      "sha256": "1a1580cf4bb1f8fc8e2915251bdf157dffbaba6cebe16b8be5c4ee75fd3f8914"
+    },
+    {
       "path": "repository/org/mongodb/mongodb-driver-core/5.14.0/_remote.repositories",
       "bytes": 302,
       "sha256": "09efa98fbcd63d785f65902629b2d73001ba029ab225d76c30bc6fe00c229c24"
@@ -8546,6 +9586,41 @@
       "path": "repository/org/mongodb/mongodb-driver-core/5.14.0/mongodb-driver-core-5.14.0.pom.sha1",
       "bytes": 40,
       "sha256": "ac957845d554d8595b5e118248a7d32805116fe605cc5fc40aad7081f9f4041f"
+    },
+    {
+      "path": "repository/org/mongodb/mongodb-driver-core/5.8.1/_remote.repositories",
+      "bytes": 300,
+      "sha256": "46173970acdb35a9e5ec71b16d28dbd71be0291d381befad11706e94f2a8b6ec"
+    },
+    {
+      "path": "repository/org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1.jar",
+      "bytes": 1973687,
+      "sha256": "da71106de37fa0542ca41dc1742610d3652b4de7102d1b0c0c774257db301c95"
+    },
+    {
+      "path": "repository/org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1.jar.md5",
+      "bytes": 32,
+      "sha256": "d6bce24535ea95e7454750b3e060ff629e728385eda1dd0b96832737c06b050b"
+    },
+    {
+      "path": "repository/org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1.jar.sha1",
+      "bytes": 40,
+      "sha256": "9aeeab1843b1ca9e29f87a0c35a72cf3daf13551285472f0ee7918fa86b32c9c"
+    },
+    {
+      "path": "repository/org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1.pom",
+      "bytes": 5126,
+      "sha256": "b0e6c2a55a0aedec46e3a41f766f6196ee41d9987a15ddd4de94613c966ad705"
+    },
+    {
+      "path": "repository/org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1.pom.md5",
+      "bytes": 32,
+      "sha256": "29719ff22aa4d0fee4d1b9a6301476e5902f86cbacb97f36c965d0d89f27d854"
+    },
+    {
+      "path": "repository/org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1.pom.sha1",
+      "bytes": 40,
+      "sha256": "8411157ba14f20a3dc83a959021e04d387b2e7cb71ebc65fbb8f666fdf963a2c"
     },
     {
       "path": "repository/org/mongodb/mongodb-driver-sync/5.14.0/_remote.repositories",
@@ -10408,9 +11483,19 @@
       "sha256": "2f659e4ed64cb6f10e5871b568778b2aa5c0f9863c9321fa7a5fefb3ed122050"
     },
     {
+      "path": "sources/com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7-sources.jar",
+      "bytes": 504743,
+      "sha256": "8c463d7b86fc44851f180c38e91580d32505b5e06443514212ca93c40efdde5c"
+    },
+    {
       "path": "sources/com/fasterxml/jackson/core/jackson-databind/2.21.0/jackson-databind-2.21.0-sources.jar",
       "bytes": 1250727,
       "sha256": "d72cadee641b2a7e3c38b9f97918e3e0bd5fd3b58fba49b5ef5da824f9939371"
+    },
+    {
+      "path": "sources/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7-sources.jar",
+      "bytes": 1262746,
+      "sha256": "9d0088f4990df572c2e3aa1c14d4c03fd8200283d801836c8044d01b9ccb7e73"
     },
     {
       "path": "sources/com/github/cliftonlabs/json-simple/3.0.2/json-simple-3.0.2-sources.jar",
@@ -10563,9 +11648,29 @@
       "sha256": "75133e19ac15df07688fd61635c272624b26938a07a0a5a3dc12e4bb9608b069"
     },
     {
+      "path": "sources/io/netty/netty-buffer/4.1.138.Final/netty-buffer-4.1.138.Final-sources.jar",
+      "bytes": 228284,
+      "sha256": "57ec5e8742518e5fb9b3814316713eaf605132d4b3aff16a9d952ae208952013"
+    },
+    {
       "path": "sources/io/netty/netty-buffer/4.2.12.Final/netty-buffer-4.2.12.Final-sources.jar",
       "bytes": 236711,
       "sha256": "7cc7edd45c3d04c4237d454b1a9c9d6ef0d76c513659230c838c0345911c158b"
+    },
+    {
+      "path": "sources/io/netty/netty-buffer/4.2.13.Final/netty-buffer-4.2.13.Final-sources.jar",
+      "bytes": 237240,
+      "sha256": "b2c4c237c4ef80ed99be1913cc18ec7cf916fa6e1c2a9b59f799b1cecf77e7b1"
+    },
+    {
+      "path": "sources/io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final-sources.jar",
+      "bytes": 241949,
+      "sha256": "33e6c912740d420e3685bb490b1abe1fb21fd2378492700eb587ebc5c7a8e96c"
+    },
+    {
+      "path": "sources/io/netty/netty-codec/4.1.138.Final/netty-codec-4.1.138.Final-sources.jar",
+      "bytes": 297601,
+      "sha256": "1759fb0c141dffb9f91b42bd596aeca155ed0698427d8ccf5a270b262f7f8512"
     },
     {
       "path": "sources/io/netty/netty-codec/4.2.12.Final/netty-codec-4.2.12.Final-sources.jar",
@@ -10573,9 +11678,24 @@
       "sha256": "4e32c6fbb21206f3ef85fb5d093c79b01dfb895641d039e1fc81563166513738"
     },
     {
+      "path": "sources/io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final-sources.jar",
+      "bytes": 2391,
+      "sha256": "2afece7b9cf6605a751c0c7163b815c4834d02211b6060dce1f24ccc6cd8f877"
+    },
+    {
       "path": "sources/io/netty/netty-codec-base/4.2.12.Final/netty-codec-base-4.2.12.Final-sources.jar",
       "bytes": 129068,
       "sha256": "ae853109fe466893e9f17c4dd40ef092203141bce765589da2adada163e3f534"
+    },
+    {
+      "path": "sources/io/netty/netty-codec-base/4.2.13.Final/netty-codec-base-4.2.13.Final-sources.jar",
+      "bytes": 129170,
+      "sha256": "b71c6fc15b83149f6b84a830e9c3b3bbccfc7e5aff1017cfb37496708b67d620"
+    },
+    {
+      "path": "sources/io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final-sources.jar",
+      "bytes": 134081,
+      "sha256": "c33f078163a0c0940e68e669d728a91307977ae5725459c0ca35a78339dbeca9"
     },
     {
       "path": "sources/io/netty/netty-codec-compression/4.2.12.Final/netty-codec-compression-4.2.12.Final-sources.jar",
@@ -10583,9 +11703,19 @@
       "sha256": "f47e0c34354920db0cac3f125de0b581a25fd06c6da534a43300a8f49fa22fbd"
     },
     {
+      "path": "sources/io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final-sources.jar",
+      "bytes": 172210,
+      "sha256": "dad735a45d3f2810bbe66b301cabb73fb535da9a55a99e00624ef7b61f5fffbb"
+    },
+    {
       "path": "sources/io/netty/netty-codec-dns/4.2.13.Final/netty-codec-dns-4.2.13.Final-sources.jar",
       "bytes": 60921,
       "sha256": "869ee5a86fff30a4f908bc3752a0c205d3d542a433e23f7f4dc4832b813911a9"
+    },
+    {
+      "path": "sources/io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final-sources.jar",
+      "bytes": 63001,
+      "sha256": "ac9bf5be912b10878828bbe71d10cd3a1e142fc65f94fae5209f04052552faa8"
     },
     {
       "path": "sources/io/netty/netty-codec-http/4.1.138.Final/netty-codec-http-4.1.138.Final-sources.jar",
@@ -10593,9 +11723,19 @@
       "sha256": "c45d54984f75afb02688a2e38437fe1bae6f23558c6d9cf8394bef1af8678032"
     },
     {
+      "path": "sources/io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final-sources.jar",
+      "bytes": 534185,
+      "sha256": "4a9bec385fdc151007baad77191c007fb39645db44c516453c2c7d7f4533c4cd"
+    },
+    {
       "path": "sources/io/netty/netty-codec-http2/4.1.138.Final/netty-codec-http2-4.1.138.Final-sources.jar",
       "bytes": 329846,
       "sha256": "771af0d9800ade1aec2fa14f73975d3cec5db9fa3391b5ba7e57706d89af248b"
+    },
+    {
+      "path": "sources/io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final-sources.jar",
+      "bytes": 334619,
+      "sha256": "edd33b8d8e0335c02b7201a65dee63861696486b3bf55e0ddddf95a0f4b58322"
     },
     {
       "path": "sources/io/netty/netty-codec-marshalling/4.2.12.Final/netty-codec-marshalling-4.2.12.Final-sources.jar",
@@ -10603,9 +11743,29 @@
       "sha256": "f89285eac1f1442a505ad6b74c7dcd078126820f0a111e304d226ba55c39be25"
     },
     {
+      "path": "sources/io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final-sources.jar",
+      "bytes": 21209,
+      "sha256": "60a227061ce5d605d523e7633ec5c4887f99f72fdee5d5a6a4cb0008f1088a65"
+    },
+    {
       "path": "sources/io/netty/netty-codec-protobuf/4.2.12.Final/netty-codec-protobuf-4.2.12.Final-sources.jar",
       "bytes": 15282,
       "sha256": "3c26fb9e13e69be5cbd4d410abb58e0766af7f38cc83861e078aade3f42bbc60"
+    },
+    {
+      "path": "sources/io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final-sources.jar",
+      "bytes": 15738,
+      "sha256": "8b7fe80a4547f1d0b20391274a4c789f61fdd3480415e1363f4f0093c18466e8"
+    },
+    {
+      "path": "sources/io/netty/netty-common/4.1.138.Final/netty-common-4.1.138.Final-sources.jar",
+      "bytes": 695177,
+      "sha256": "6e7750b9a3b293ece909b9cc0fecae9e88bfd376fb1311d25c943d654764a10c"
+    },
+    {
+      "path": "sources/io/netty/netty-common/4.2.12.Final/netty-common-4.2.12.Final-sources.jar",
+      "bytes": 742874,
+      "sha256": "8bde0515975d6c50c6f23dedc733f4722831d5fdcdb90306648a438af677f388"
     },
     {
       "path": "sources/io/netty/netty-common/4.2.13.Final/netty-common-4.2.13.Final-sources.jar",
@@ -10613,9 +11773,34 @@
       "sha256": "1aa4934d4805a519617f123620c0ce48a391d5fbe7e744a5eebbdc2a536b7a9d"
     },
     {
+      "path": "sources/io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final-sources.jar",
+      "bytes": 863849,
+      "sha256": "da066970d6035b2eec0f6cdca44492bb947e0b0c6e1b0712691c80c23841e870"
+    },
+    {
+      "path": "sources/io/netty/netty-handler/4.1.138.Final/netty-handler-4.1.138.Final-sources.jar",
+      "bytes": 392491,
+      "sha256": "5406e537e4a5b6b3e6f34c1911a2333fe9d3812675ef264544115af55c79db84"
+    },
+    {
       "path": "sources/io/netty/netty-handler/4.2.12.Final/netty-handler-4.2.12.Final-sources.jar",
       "bytes": 400815,
       "sha256": "691468eaf2b2ae482c6b411bd614200a5c3f5013b75b152ad260d69dcfc1394f"
+    },
+    {
+      "path": "sources/io/netty/netty-handler/4.2.13.Final/netty-handler-4.2.13.Final-sources.jar",
+      "bytes": 401238,
+      "sha256": "ce9e76c80939522b896051ab374013a8c8f865d86c019f94fc10cf650ec4fc78"
+    },
+    {
+      "path": "sources/io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final-sources.jar",
+      "bytes": 407047,
+      "sha256": "338d483a48b557bdd8a00730e43a55449db65d2d6695482147d25a1a439a84e8"
+    },
+    {
+      "path": "sources/io/netty/netty-resolver/4.1.138.Final/netty-resolver-4.1.138.Final-sources.jar",
+      "bytes": 27080,
+      "sha256": "47eed6c059569dc3c71e4492b1b6607e5cb907570cc2e2e35073005bc9b27f4f"
     },
     {
       "path": "sources/io/netty/netty-resolver/4.2.12.Final/netty-resolver-4.2.12.Final-sources.jar",
@@ -10623,9 +11808,29 @@
       "sha256": "5e898142eda9ace880e5d245bb25dcaeea140b4898c63ea977ed2fe9796b3dc0"
     },
     {
+      "path": "sources/io/netty/netty-resolver/4.2.13.Final/netty-resolver-4.2.13.Final-sources.jar",
+      "bytes": 27505,
+      "sha256": "779a6a4e783a2a4430b28a32ff488fad48724284fd685757e23ae0e5874fa487"
+    },
+    {
+      "path": "sources/io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final-sources.jar",
+      "bytes": 27505,
+      "sha256": "06dc4f45a0bd73e082eb013ee1ed37def07b4272723ce99cde18c7c348463bff"
+    },
+    {
       "path": "sources/io/netty/netty-resolver-dns/4.2.13.Final/netty-resolver-dns-4.2.13.Final-sources.jar",
       "bytes": 120496,
       "sha256": "8cc54d07f4cd624244704e0be25d41a1aa01abe900dea5ac816d50cca54ccb8a"
+    },
+    {
+      "path": "sources/io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final-sources.jar",
+      "bytes": 121688,
+      "sha256": "2592cc6b7b26aa13832f3b20bb3c932f0e1cbd240b0d17953b67ebe68952f04a"
+    },
+    {
+      "path": "sources/io/netty/netty-transport/4.1.138.Final/netty-transport-4.1.138.Final-sources.jar",
+      "bytes": 343232,
+      "sha256": "d7d8ce9d9cf1703c42a98c81929f04c80a603c00f805a672dba9b5a7ed555ba1"
     },
     {
       "path": "sources/io/netty/netty-transport/4.2.12.Final/netty-transport-4.2.12.Final-sources.jar",
@@ -10633,9 +11838,29 @@
       "sha256": "275ad55c779317a738c15cb92fd04dc4df3ba43d46ce41495eb9b20417d49306"
     },
     {
+      "path": "sources/io/netty/netty-transport/4.2.13.Final/netty-transport-4.2.13.Final-sources.jar",
+      "bytes": 374242,
+      "sha256": "a6340e138f7a111c356b64c8e755def8cfdf9e9c20e3a0d06ad1a9f714b922cb"
+    },
+    {
+      "path": "sources/io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final-sources.jar",
+      "bytes": 377025,
+      "sha256": "2208f55fbb229fbb6161b22ba9aeda9121d7f74255f233e30298cc2e3f4978b6"
+    },
+    {
       "path": "sources/io/netty/netty-transport-classes-epoll/4.1.138.Final/netty-transport-classes-epoll-4.1.138.Final-sources.jar",
       "bytes": 88852,
       "sha256": "b4707ce7e5e387686466a31f19ac35e0af7619144ad819f08871a7f07123c481"
+    },
+    {
+      "path": "sources/io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final-sources.jar",
+      "bytes": 95383,
+      "sha256": "6225009e4d23873279c37b9bfe35b6e6ed0322d6f4d9699387521c9e11273b12"
+    },
+    {
+      "path": "sources/io/netty/netty-transport-native-unix-common/4.1.138.Final/netty-transport-native-unix-common-4.1.138.Final-sources.jar",
+      "bytes": 70671,
+      "sha256": "bffbd9732aeb3819b1db23f0bd819b17489141bd78cfcea7e5eecba83056f567"
     },
     {
       "path": "sources/io/netty/netty-transport-native-unix-common/4.2.12.Final/netty-transport-native-unix-common-4.2.12.Final-sources.jar",
@@ -10643,9 +11868,24 @@
       "sha256": "50e05ebe034082fc07df0174598431073b10057ca426738bea0f51bdd192c3a4"
     },
     {
+      "path": "sources/io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final-sources.jar",
+      "bytes": 71440,
+      "sha256": "9315ec1ac4dd5e6ad27af365064e221faa7d7ceacdb2045de54b7159c9dbb062"
+    },
+    {
+      "path": "sources/io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final-sources.jar",
+      "bytes": 72140,
+      "sha256": "aa74fd08c7872f1a29d5209c0cab48cb86c1efab68948d50daf6e5488d4939a2"
+    },
+    {
       "path": "sources/io/projectreactor/reactor-core/3.6.6/reactor-core-3.6.6-sources.jar",
       "bytes": 2085566,
       "sha256": "fee913ed4e41d79ce1cf7db4526d23e848719083b65a4041dea590f91b1ef2f6"
+    },
+    {
+      "path": "sources/io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8-sources.jar",
+      "bytes": 2112610,
+      "sha256": "448108ed25bfdd0a2a1b530561f3fb843eb72950cdf0650563c61f7f479e929e"
     },
     {
       "path": "sources/jakarta/activation/jakarta.activation-api/2.1.4/jakarta.activation-api-2.1.4-sources.jar",
@@ -11068,6 +12308,11 @@
       "sha256": "664f515359444a92267a13266101431a630f99d6b8d04407a92b1a0e558d33ee"
     },
     {
+      "path": "sources/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21-sources.jar",
+      "bytes": 746730,
+      "sha256": "8693386ae174f7e4a91eb82c5c632d169d236704da24f78b9c8c84d87af2fd64"
+    },
+    {
       "path": "sources/org/json/json/20251224/json-20251224-sources.jar",
       "bytes": 86870,
       "sha256": "a380c396038560c8c7993c9e6e128d499b0aebc218969d47113013f013508220"
@@ -11083,14 +12328,29 @@
       "sha256": "373ed62a60ead81d88be07754f95d439e120f2111f3de0c7c99ab9c0730b21c0"
     },
     {
+      "path": "sources/org/mongodb/bson/5.8.1/bson-5.8.1-sources.jar",
+      "bytes": 423251,
+      "sha256": "bde9d7d16a57549bc99f89583aeb8c5144dbb57d8681348ec01f001504d08cac"
+    },
+    {
       "path": "sources/org/mongodb/bson-record-codec/5.14.0/bson-record-codec-5.14.0-sources.jar",
       "bytes": 6110,
       "sha256": "212d0e25154ae1cd65c66e4bbc298133d720cfea208329db744e81645607f13e"
     },
     {
+      "path": "sources/org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1-sources.jar",
+      "bytes": 6109,
+      "sha256": "fff429ea885b502f4c2cd1c24c3ba84f04869323ca709600f50c65b531b33db2"
+    },
+    {
       "path": "sources/org/mongodb/mongodb-driver-core/5.14.0/mongodb-driver-core-5.14.0-sources.jar",
       "bytes": 1464027,
       "sha256": "3588f5f04ef591cd692b172331e6d8a3ab3c1aa41ab0c398a10447f76a956e0d"
+    },
+    {
+      "path": "sources/org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1-sources.jar",
+      "bytes": 1395438,
+      "sha256": "53f0b07b4e186ee503ad9a27afd1cc29ee200819c792cf4923dbd11aec6748f4"
     },
     {
       "path": "sources/org/mongodb/mongodb-driver-sync/5.14.0/mongodb-driver-sync-5.14.0-sources.jar",

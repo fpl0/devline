@@ -249,6 +249,22 @@ fn project_search_uses_lock_versions_and_keeps_intentional_incompatible_pins() {
         .any(|hit| hit["version"] == "0.162.0+devline.1"));
     let unpinned = fixture.cli(&root, &["project", "unpin", "fastapi"]);
     assert_eq!(entry(&unpinned, "docsets", "fastapi")["state"], "unmatched");
+
+    // A patch release ahead of the installed docs still reads from the same release line.
+    fixture.write(
+        "service/uv.lock",
+        "[[package]]\nname='fastapi'\nversion='0.162.2'\n",
+    );
+    let profile = fixture.profile("service/api");
+    let nearby = entry(&profile, "docsets", "fastapi");
+    assert_eq!(nearby["state"], "nearby");
+    assert_eq!(nearby["version"], "0.162.0+devline.1");
+    let search = fixture.cli(&root, &["docs", "search", "Compatibility"]);
+    assert!(search
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|hit| hit["version"] == "0.162.0+devline.1"));
 }
 
 #[test]
@@ -352,6 +368,29 @@ fn unavailable_swiftui_reference_remains_an_offline_coverage_gap() {
     let offline = fixture.call(json!({"command":"offline.status","path":fixture.0.join("app")}));
     assert_eq!(offline["ready_offline"], false);
     assert_eq!(entry(&offline, "docs", "swiftui")["ready_offline"], false);
+}
+
+#[test]
+fn a_dependency_without_any_documentation_release_does_not_block_readiness() {
+    let fixture = Fixture::new();
+    fixture.write(
+        "api/package.json",
+        r#"{"dependencies":{"fastify":"^5.0.0"}}"#,
+    );
+    fixture.write(
+        "api/package-lock.json",
+        r#"{"lockfileVersion":3,"packages":{"node_modules/fastify":{"version":"5.12.8"}}}"#,
+    );
+    let profile = fixture.profile("api");
+    let fastify = entry(&profile, "docsets", "fastify");
+    assert_eq!(fastify["state"], "undocumented");
+    assert!(fastify["version"].is_null());
+    let offline = fixture.call(json!({"command":"offline.status","path":fixture.0.join("api")}));
+    assert!(offline["docs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|doc| doc["id"] != "fastify"));
 }
 
 #[test]

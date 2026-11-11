@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-struct ReadingReference: Decodable, Identifiable, Sendable {
+struct ReadingReference: Decodable, Equatable, Identifiable, Sendable {
     let id, title, packId, stack, version, sourceUrl: String
     let visitedAt: Double?
     let savedAt: Double?
@@ -9,7 +9,7 @@ struct ReadingReference: Decodable, Identifiable, Sendable {
     let installed: Bool
 }
 
-struct ReadingLibrary: Decodable, Sendable {
+struct ReadingLibrary: Decodable, Equatable, Sendable {
     var saved: [ReadingReference] = []
     var recent: [ReadingReference] = []
 }
@@ -28,7 +28,7 @@ struct ReferenceRequest: Equatable {
 @MainActor
 final class ReadingSession: ObservableObject {
     @Published private(set) var library = ReadingLibrary()
-    @Published private(set) var history = ReferenceHistory()
+    private(set) var history = ReferenceHistory()
     @Published var request: ReferenceRequest?
     @Published var error: String?
     private var operation: Task<Void, Never>?
@@ -73,7 +73,10 @@ final class ReadingSession: ObservableObject {
     }
 
     func didOpen(_ location: ReferenceLocation, restoring: Bool, searchPreview: Bool) async {
-        if !restoring { history.record(location, searchPreview: searchPreview) }
+        if !restoring {
+            objectWillChange.send()
+            history.record(location, searchPreview: searchPreview)
+        }
         schedulePersistence()
         await enqueue { CoreRequest("reading.visit", id: location.id, anchor: location.anchor, focusText: location.focusText) }
     }
@@ -99,7 +102,10 @@ final class ReadingSession: ObservableObject {
         let id = operationID
         let task = Task { @MainActor in
             await previous?.value
-            do { self.library = try await Core.request(makeRequest()) }
+            do {
+                let updated: ReadingLibrary = try await Core.request(makeRequest())
+                if self.library != updated { self.library = updated }
+            }
             catch is CancellationError {}
             catch { self.error = error.localizedDescription }
         }

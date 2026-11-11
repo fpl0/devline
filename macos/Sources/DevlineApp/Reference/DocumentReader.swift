@@ -5,11 +5,14 @@ struct DocReader: View {
     let document: Document
     let pack: DocPack?
     let packName: String
+    var navigationToken: UUID?
     var anchor: String?
     var focus: String?
     var restoredPosition: Double?
     var restoredOffset: Double?
     var cueSearchMatch = false
+    /// Off while the Docs page is loaded but not on screen, so its shortcuts stay out of the way.
+    var shortcutsActive = true
     var isSaved = false
     var save: (String?, String?) -> Void = { _, _ in }
     let linkRevision: String
@@ -17,10 +20,11 @@ struct DocReader: View {
     let navigate: (String, DocLinkStatus?) -> Void
     var openPart: (String) -> Void = { _ in }
     var reportPosition: (Double, String?, Double?) -> Void = { _, _, _ in }
-    @AppStorage("devline.readerScale") private var scale = 1.0
-    @AppStorage("devline.contentsPinned") private var contentsPinned = false
-    @AppStorage("devline.focusReading") private var focusReading = false
+    @Preference("devline.readerScale") private var scale = 1.0
+    @Preference("devline.contentsPinned") private var contentsPinned = false
+    @Preference("devline.focusReading") private var focusReading = false
     @State private var article: ReaderArticle?
+    @State private var initializedTarget = false
     @State private var currentAnchor: String?
     @State private var currentFocus: String?
     @State private var htmlSections: [ReaderSection] = []
@@ -38,10 +42,12 @@ struct DocReader: View {
     private var html: String? { document.html.flatMap { $0.isEmpty ? nil : $0 } }
     private var sections: [ReaderSection] { html == nil ? (article?.sections ?? []) : htmlSections }
     private var filteredSections: [ReaderSection] {
-        sections.filter { outlineFilter.isEmpty || $0.title.localizedCaseInsensitiveContains(outlineFilter) }
+        guard !outlineFilter.isEmpty else { return sections }
+        return sections.filter { $0.title.localizedCaseInsensitiveContains(outlineFilter) }
     }
     private var initialTarget: ReaderTarget {
-        ReaderTarget(anchor: anchor, focus: focus ?? document.focusText, position: restoredPosition, offset: restoredOffset)
+        ReaderTarget(token: navigationToken, anchor: anchor, focus: focus,
+                     position: restoredPosition, offset: restoredOffset)
     }
     private var imported: Bool { document.packId.hasPrefix("devdocs-") }
     private var source: URL? { safeExternalURL(document.sourceUrl) }
@@ -52,9 +58,9 @@ struct DocReader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            readerBar
+            readerBar.disabled(!shortcutsActive)
             Divider()
-            if findVisible { findBar; Divider() }
+            if findVisible { findBar.disabled(!shortcutsActive); Divider() }
             HSplitView {
                 articleBody.frame(minWidth: 300, maxWidth: .infinity, maxHeight: .infinity)
                 if contentsPinned {
@@ -66,6 +72,7 @@ struct DocReader: View {
             if document.previousId != nil || document.nextId != nil { continuationBar }
         }
         .task(id: initialTarget) {
+            defer { initializedTarget = true }
             currentAnchor = initialTarget.anchor
             currentFocus = initialTarget.focus
             if html == nil, article == nil { article = ReaderMarkup.article(document, fallback: "\(packName) Overview") }
@@ -77,6 +84,8 @@ struct DocReader: View {
                 let target = html != nil || article?.contents.string.localizedCaseInsensitiveContains(focus) == true
                     ? focus : ReaderMarkup.summary(focus)
                 if !target.isEmpty { request = ReaderRequest(action: .focus(target), cue: cueSearchMatch) }
+            } else if initializedTarget {
+                request = ReaderRequest(action: .restore(0, anchor: nil, offset: nil))
             }
         }
     }
@@ -88,7 +97,10 @@ struct DocReader: View {
                                report: reportFind, reportSections: { htmlSections = $0 },
                                linkRevision: linkRevision, linkStatuses: linkStatuses, navigate: navigate,
                                reportPosition: { fraction, anchor, offset, userInitiated in
-                                   if userInitiated { currentAnchor = anchor; currentFocus = nil }
+                                   if userInitiated {
+                                       if currentAnchor != anchor { currentAnchor = anchor }
+                                       if currentFocus != nil { currentFocus = nil }
+                                   }
                                    reportPosition(fraction, anchor, offset)
                                })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -287,5 +299,9 @@ struct DocReader: View {
         if let focus = currentFocus { components.queryItems?.append(URLQueryItem(name: "focus", value: focus)) }
         if let address = components.string { copyToPasteboard(address) }
     }
-    private struct ReaderTarget: Equatable { let anchor, focus: String?; let position, offset: Double? }
+    private struct ReaderTarget: Equatable {
+        let token: UUID?
+        let anchor, focus: String?
+        let position, offset: Double?
+    }
 }

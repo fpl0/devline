@@ -1,7 +1,7 @@
 import Foundation
 
-struct JobOutcome: Decodable, Sendable {
-    struct Step: Decodable, Sendable {
+struct JobOutcome: Decodable, Equatable, Sendable {
+    struct Step: Decodable, Equatable, Sendable {
         let id, name, kind, status, state, detail: String?
         var needsAttention: Bool { ["failed", "blocked", "needs_attention", "error", "unchecked"].contains(state ?? status ?? "") }
     }
@@ -25,7 +25,7 @@ struct JobOutcome: Decodable, Sendable {
     var issues: [Step] { (steps ?? []).filter(\.needsAttention) + (sources ?? []).filter(\.needsAttention) + (blockers ?? []) }
 }
 
-struct JobRecord: Decodable, Identifiable, Sendable {
+struct JobRecord: Decodable, Equatable, Identifiable, Sendable {
     let id, kind, state, stage: String
     let createdAt, updatedAt: Double
     let error, logPath, log: String?
@@ -39,7 +39,7 @@ struct JobRecord: Decodable, Identifiable, Sendable {
         switch kind {
         case "build": "Refresh Starter Dependencies"
         case "verify": "Verify Offline Readiness"
-        case "prepare": "Prepare Starter"
+        case "prepare": "Install Starter"
         case "new_project": "Create Offline Project"
         case "project_prepare": "Prepare Project Dependencies"
         case "toolbox_prepare": "Prepare Project for Offline Work"
@@ -53,6 +53,8 @@ struct JobRecord: Decodable, Identifiable, Sendable {
         case "infra_stack_down": "Stop Project Services"
         case "infra_stack_add": "Add Project Services and Clients"
         case "service_clients_add": "Add Project Client Libraries"
+        case "packages_prepare": "Download Packages"
+        case "packages_add": "Add Packages to Project"
         case "infra_export": "Export Image Archives"
         case "infra_import": "Import Image Archives"
         case "docs_prepare": "Prepare Local Documentation"

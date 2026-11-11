@@ -38,7 +38,7 @@ curl -fsS -X POST "$ticket/notify"                  # Confirm a durable RabbitMQ
 curl -fsS -X POST "$base/notifications/next"        # Process one job and send it to Mailpit
 ```
 
-Open Mailpit from the project's Services panel to read the test email. The notification step acknowledges the RabbitMQ job after SMTP accepts it. A failure before acknowledgement can redeliver the job.
+Open Mailpit from Services → This Project in Devline to read the test email. The notification step acknowledges the RabbitMQ job after SMTP accepts it. A failure before acknowledgement can redeliver the job.
 
 ## Offline tests and storage
 

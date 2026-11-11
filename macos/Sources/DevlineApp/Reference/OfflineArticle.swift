@@ -172,18 +172,21 @@ struct OfflineArticle: NSViewRepresentable {
             guard navigation === self.navigation else { return }
             webView.callAsyncJavaScript("""
                 const article = document.getElementById('devline-reader');
-                if (!article) return {sections: [], links: []};
+                if (!article) return [];
                 const send = value => window.webkit.messageHandlers.readerAction.postMessage(value);
                 if (typeof devlineHighlightCode === 'function') devlineHighlightCode(article, packID);
                 const links = new Map();
                 const originalLabels = new WeakMap();
                 if (classify) {
-                    for (const link of article.querySelectorAll('a[href]')) {
-                        const raw = link.getAttribute('href');
-                        if (!raw || raw.length > 8192) continue;
-                        if (!links.has(raw)) links.set(raw, []);
-                        links.get(raw).push(link);
-                    }
+                    window.devlineCollectLinks = () => {
+                        for (const link of article.querySelectorAll('a[href]')) {
+                            const raw = link.getAttribute('href');
+                            if (!raw || raw.length > 8192) continue;
+                            if (!links.has(raw)) links.set(raw, []);
+                            links.get(raw).push(link);
+                        }
+                        return [...links.keys()];
+                    };
                     article.addEventListener('click', event => {
                         const link = event.target.closest('a[href]');
                         if (!link) return;
@@ -195,12 +198,13 @@ struct OfflineArticle: NSViewRepresentable {
                 window.devlineSetLinks = statuses => {
                     for (const [url, kind, suffix] of statuses) {
                         for (const link of links.get(url) || []) {
-                            link.dataset.linkStatus = kind;
+                            if (link.dataset.linkStatus === kind) continue;
                             if (!originalLabels.has(link)) originalLabels.set(link, {
                                 label: link.getAttribute('aria-label') || link.textContent.trim() || link.title,
                                 title: link.title
                             });
                             const {label, title} = originalLabels.get(link);
+                            link.dataset.linkStatus = kind;
                             if (label) link.setAttribute('aria-label', label + ', ' + suffix);
                             link.title = title || suffix;
                         }
@@ -256,6 +260,9 @@ struct OfflineArticle: NSViewRepresentable {
                     sections.push({id, title, depth: heading.tagName === 'DT' ? 4 : Number(heading.tagName.slice(1))});
                 }
                 const positions = sections.map(section => document.getElementById(section.id)).filter(Boolean);
+                // A scroll changes heading coordinates but does not change which headings are rendered.
+                let visiblePositions = null;
+                article.addEventListener('toggle', () => { visiblePositions = null; }, true);
                 window.devlineUserScroll = false;
                 for (const type of ['wheel', 'touchstart', 'pointerdown']) document.addEventListener(type, () => { window.devlineUserScroll = true; }, {passive: true});
                 document.addEventListener('keydown', event => {
@@ -263,6 +270,7 @@ struct OfflineArticle: NSViewRepresentable {
                 });
                 let pending = false, semanticPosition = null, previousWidth = window.innerWidth;
                 window.addEventListener('resize', () => {
+                    visiblePositions = null;
                     if (window.innerWidth !== previousWidth && semanticPosition) {
                         const target = document.getElementById(semanticPosition.anchor);
                         if (target) window.scrollBy(0, target.getBoundingClientRect().top - semanticPosition.offset);
@@ -275,7 +283,7 @@ struct OfflineArticle: NSViewRepresentable {
                     setTimeout(() => {
                         pending = false;
                         const max = document.documentElement.scrollHeight - window.innerHeight;
-                        const visible = positions.filter(node => node.getClientRects().length);
+                        const visible = visiblePositions ??= positions.filter(node => node.getClientRects().length);
                         let low = 0, high = visible.length - 1, active = null;
                         while (low <= high) {
                             const middle = Math.floor((low + high) / 2);
@@ -287,18 +295,21 @@ struct OfflineArticle: NSViewRepresentable {
                         send({action: 'position', fraction: max > 0 ? window.scrollY / max : 0, anchor: active, offset, userInitiated: window.devlineUserScroll});
                     }, 120);
                 }, {passive: true});
-                return {sections, links: [...links.keys()]};
+                return sections;
                 """, arguments: ["packID": packID, "classify": linkStatuses != nil], in: nil, in: Self.readerWorld) { [weak self, weak webView] result in
                     guard let self, let webView, navigation === self.navigation else { return }
-                    let payload = (try? result.get()) as? [String: Any]
-                    let entries = payload?["sections"] as? [[String: Any]] ?? []
+                    let entries = (try? result.get()) as? [[String: Any]] ?? []
                     self.reportSections?(entries.compactMap { entry in
                         guard let id = entry["id"] as? String, let title = entry["title"] as? String else { return nil }
                         return ReaderSection(title: title, target: .anchor(id), depth: entry["depth"] as? Int ?? 2)
                     })
                     self.ready = true
                     self.applyRequest(in: webView)
-                    if let urls = payload?["links"] as? [String] {
+                    guard self.linkStatuses != nil else { return }
+                    webView.callAsyncJavaScript("return window.devlineCollectLinks?.() ?? []", arguments: [:],
+                                                in: nil, in: Self.readerWorld) { [weak self, weak webView] result in
+                        guard let self, let webView, navigation === self.navigation,
+                              let urls = (try? result.get()) as? [String] else { return }
                         self.linkURLs = urls
                         self.refreshLinks(in: webView)
                     }
@@ -310,7 +321,7 @@ struct OfflineArticle: NSViewRepresentable {
             checkedLinks.removeAll()
             let urls = linkURLs
             guard let linkStatuses, !urls.isEmpty else { return }
-            linkCheck = Task { @MainActor [weak self, weak webView] in
+            linkCheck = Task(priority: .utility) { @MainActor [weak self, weak webView] in
                 for offset in stride(from: 0, to: urls.count, by: 256) {
                     guard !Task.isCancelled else { return }
                     let batch = Array(urls[offset..<min(offset + 256, urls.count)])

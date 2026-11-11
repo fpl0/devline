@@ -57,7 +57,8 @@
     ],
     "omissions": [
       "Transitive crate APIs are separate references"
-    ]
+    ],
+    "entry_id": "axum/index.html"
   },
   {
     "id": "chi",
@@ -95,7 +96,8 @@
     ],
     "omissions": [
       "Third-party middleware modules are omitted"
-    ]
+    ],
+    "entry_id": "api"
   },
   {
     "id": "csharp",
@@ -116,7 +118,8 @@
       "The full .NET API catalog is outside this snapshot",
       "One link targets a heading absent from this snapshot"
     ],
-    "shards": 2
+    "shards": 2,
+    "entry_id": "welcome.md"
   },
   {
     "id": "ecto",
@@ -135,7 +138,8 @@
     ],
     "omissions": [
       "External adapters and Ecto SQL documentation are separate"
-    ]
+    ],
+    "entry_id": "getting-started.html"
   },
   {
     "id": "elixir",
@@ -155,7 +159,8 @@
     "omissions": [
       "Erlang/OTP documentation is separate",
       "Two links target headings absent from this snapshot"
-    ]
+    ],
+    "entry_id": "introduction.html"
   },
   {
     "id": "fastapi",
@@ -174,7 +179,8 @@
     ],
     "omissions": [
       "Translated guides and upstream release history are omitted"
-    ]
+    ],
+    "entry_id": "index.md"
   },
   {
     "id": "go",
@@ -366,7 +372,8 @@
     ],
     "omissions": [
       "External Phoenix packages have separate documentation"
-    ]
+    ],
+    "entry_id": "overview.html"
   },
   {
     "id": "playwright",
@@ -385,7 +392,8 @@
     ],
     "omissions": [
       "Other language examples and unselected API classes are omitted"
-    ]
+    ],
+    "entry_id": "intro-js.md"
   },
   {
     "id": "python",
@@ -446,7 +454,8 @@
     "omissions": [
       "The full Rails API class catalog is omitted",
       "Four upstream links target headings absent from this snapshot"
-    ]
+    ],
+    "entry_id": "getting_started.md"
   },
   {
     "id": "rails",
@@ -485,7 +494,8 @@
     ],
     "omissions": [
       "Interactive sandboxes and unselected learning and API pages are omitted"
-    ]
+    ],
+    "entry_id": "learn/index"
   },
   {
     "id": "ruby",
@@ -505,7 +515,8 @@
     "omissions": [
       "Gem documentation and unselected RDoc entries are omitted",
       "One link targets a heading absent from this snapshot"
-    ]
+    ],
+    "entry_id": "doc/index.md"
   },
   {
     "id": "rust",
@@ -526,7 +537,8 @@
     "omissions": [
       "Nightly-only and unselected Rustdoc pages are omitted",
       "Six links target headings absent from this snapshot"
-    ]
+    ],
+    "entry_id": "std/index.html"
   },
   {
     "id": "spring-boot",
@@ -546,7 +558,8 @@
     "omissions": [
       "Spring Framework and external Spring projects are separate references",
       "Five links target headings absent from this snapshot"
-    ]
+    ],
+    "entry_id": "documentation.html"
   },
   {
     "id": "swift",
@@ -566,7 +579,8 @@
     ],
     "omissions": [
       "The Swift standard library API catalog and SwiftUI framework documentation are separate references."
-    ]
+    ],
+    "entry_id": "the-swift-programming-language/aboutswift.json"
   },
   {
     "id": "tauri",
@@ -587,7 +601,8 @@
     ],
     "omissions": [
       "Interactive site controls, two MDX illustrations, localized pages, migration guides, mobile-specific guides, and generated plugin API catalogs are outside this snapshot."
-    ]
+    ],
+    "entry_id": "start"
   },
   {
     "id": "typescript",
@@ -606,7 +621,8 @@
     ],
     "omissions": [
       "Interactive compiler playgrounds, localized pages, and the full compiler API are omitted"
-    ]
+    ],
+    "entry_id": "docs/handbook/intro.html"
   },
   {
     "id": "vite",
@@ -625,6 +641,7 @@
     ],
     "omissions": [
       "Framework plugin manuals and interactive media are outside this snapshot"
-    ]
+    ],
+    "entry_id": "guide/index"
   }
 ]

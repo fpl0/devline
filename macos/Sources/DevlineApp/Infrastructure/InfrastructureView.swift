@@ -7,6 +7,7 @@ struct InfrastructureView: View {
     @ObservedObject var library: InfrastructureLibrary
     let openDocs: (String) -> Void
     let openProjectServices: (() -> Void)?
+    var visible = true
     @State private var selection: String?
     @State private var query = ""
     @State private var archivedOnly = false
@@ -36,6 +37,8 @@ struct InfrastructureView: View {
     }
 
     var body: some View {
+        let services = services
+        let completedJobs = model.completedInfrastructureJobIDs
         VStack(spacing: 0) {
             HStack(spacing: 12) {
                 TextField("Find a database, queue, or service", text: $query).textFieldStyle(.roundedBorder)
@@ -92,8 +95,9 @@ struct InfrastructureView: View {
                     .help(library.status?.docker.detail ?? "")
             }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 18).padding(.vertical, 10)
         }
-        .task { await library.refresh() }
-        .task {
+        .task(id: completedJobs) { await library.loadIfNeeded(after: completedJobs) }
+        .onPageShown(visible) { await library.loadIfNeeded(after: completedJobs) }
+        .task(id: completedJobs) {
             if let saved: PublisherOffers = try? await Core.request(CoreRequest("infra.updates")) {
                 publisherOffers = saved.items
             }
@@ -101,7 +105,6 @@ struct InfrastructureView: View {
         .sheet(isPresented: Binding(get: { importPath != nil }, set: { if !$0 { importPath = nil } })) {
             if let importPath { ImageImportView(path: importPath, model: model) }
         }
-        .onChange(of: model.completedJobIDs) { _, _ in Task { await library.refresh() } }
         .sheet(item: $helpRequest) { DevlineHelpView(id: $0.id) }
         .confirmationDialog("Remove the archived image?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }), titleVisibility: .visible, presenting: removing) { service in
             Button("Remove Archive", role: .destructive) {
@@ -161,10 +164,10 @@ struct InfrastructureView: View {
                 Divider()
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Use in a project").font(.headline)
-                    Text("Add this service when creating a project or from Project Services.")
+                    Text("Add this service when creating a project, or to an open project from This Project.")
                         .font(.callout).foregroundStyle(.secondary)
                     HStack {
-                        if let openProjectServices { Button("Project Services", action: openProjectServices) }
+                        if let openProjectServices { Button("This Project’s Services", action: openProjectServices) }
                         if let help = service.helpRef {
                             Button("Read Devline Guide") { helpRequest = HelpRequest(id: help) }
                         }

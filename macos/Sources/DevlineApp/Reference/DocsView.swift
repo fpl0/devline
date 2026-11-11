@@ -14,22 +14,24 @@ struct DocsView: View {
     let focusRequest: Int
     let lookupRevision: Int
     let projectScopeRequested: Bool
+    let isActive: Bool
     let openLibrary: () -> Void
     let installDocset: (String?) -> Void
 
-    @AppStorage("devline.focusReading") private var focusReading = false
+    @Preference("devline.focusReading") private var focusReading = false
     @FocusState private var searchFocused: Bool
     @State private var scope: Scope = .installed
     @State private var group: String?
     @State private var browsedPackInProject = false
-    @State private var navigation: DocsetNavigation?
+    @State private var navigation: (key: NavigationKey, value: DocsetNavigation)?
     @State private var showReferences = false
     @State private var showProjectReferences = false
     @State private var openedLocation: ReferenceLocation?
     @State private var navigationToken = UUID()
     @State private var currentReaderAnchor: String?
     @State private var restoring = false
-    @State private var loadedDocument: (key: ReadKey, value: Document)?
+    @State private var loadedDocument: LoadedDocument?
+    @State private var recordedRead: ReadKey?
     @State private var documentFailure: (key: ReadKey, message: String)?
     @State private var linkIssue: LinkIssue?
 
@@ -53,19 +55,24 @@ struct DocsView: View {
         return selectedPack
     }
     private var scopedPack: DocPack? { scope == .docset ? currentPack : nil }
-    private var currentPackVersions: [DocPack] { packs.filter { $0.id == scopedPack?.id } }
     private var trimmedQuery: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var browsing: Bool { trimmedQuery.isEmpty && scopedPack != nil }
-    private var showingIndex: Bool { browsing && group == nil && searchKey.category == nil && navigation?.groups.isEmpty == false }
     private var hasCurrentResults: Bool { committedSearch == searchKey }
     private var searchError: String? { searchFailure?.key == searchKey ? searchFailure?.message : nil }
     private var searching: Bool { !hasCurrentResults && searchError == nil }
+    private var projectPins: String {
+        projectContext?.pins?.map { "\($0.id)@\($0.version)" }.joined(separator: ",") ?? ""
+    }
+    private var projectLinkPath: String? { openedLocation?.projectScoped == true ? projectContext?.path : nil }
     private var searchKey: SearchKey {
-        SearchKey(query: trimmedQuery, scope: scope, pack: scopedPack?.reference, group: browsing ? group : nil,
-                  stack: scope == .installed ? stack : nil,
-                  category: browsing && group == nil ? openedLocation?.category : nil,
-                  revision: model.libraryRevision, project: scope == .project ? projectContext?.path : nil,
-                  pins: projectContext?.pins?.map { "\($0.id)@\($0.version)" }.joined(separator: ",") ?? "")
+        let term = trimmedQuery
+        let pack = scopedPack?.reference
+        let isBrowsing = term.isEmpty && pack != nil
+        return SearchKey(query: term, scope: scope, pack: pack, group: isBrowsing ? group : nil,
+                         stack: scope == .installed ? stack : nil,
+                         category: isBrowsing && group == nil ? openedLocation?.category : nil,
+                         revision: model.libraryRevision, project: scope == .project ? projectContext?.path : nil,
+                         pins: scope == .project ? projectPins : "")
     }
     private var readKey: ReadKey { ReadKey(id: directDocumentID, token: navigationToken) }
     private var document: Document? { loadedDocument?.key == readKey ? loadedDocument?.value : nil }
@@ -83,34 +90,54 @@ struct DocsView: View {
     }
 
     var body: some View {
+        let key = searchKey
+        let target = readKey
         VStack(spacing: 0) {
             if focusReading && directDocumentID != nil {
                 reader
             } else {
-                toolbar
+                scopeBar
                 Divider()
                 HSplitView {
-                    sidebar.frame(minWidth: 190, idealWidth: 225, maxWidth: 275, maxHeight: .infinity)
+                    sidebar(key).frame(minWidth: 190, idealWidth: 225, maxWidth: 275, maxHeight: .infinity)
                     reader.frame(minWidth: 345, maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
+        .toolbar { windowToolbar }
         .task {
             if let request = reading.request { restore(request) }
             else { applyEntryPoint() }
-            await reading.refresh()
         }
-        .task(id: focusRequest) {
-            if focusRequest > 0 { focusReading = false; searchFocused = true }
+        .onChange(of: focusRequest, initial: true) { _, request in
+            if isActive && request > 0 { focusReading = false; searchFocused = true }
         }
-        .task(id: searchKey) { await search(searchKey) }
-        .task(id: readKey) { await loadDocument(readKey) }
-        .task(id: hits.count) { await revealBrowseHistory() }
+        .onChange(of: isActive) { _, active in
+            if !active {
+                searchFocused = false
+                showReferences = false
+                showProjectReferences = false
+            }
+        }
+        .task(id: isActive) {
+            if isActive { await reading.refresh() }
+        }
+        .task(id: isActive ? key : nil) {
+            if isActive && committedSearch != key { await search(key) }
+        }
+        .task(id: isActive ? target : nil) {
+            if isActive && recordedRead != target { await loadDocument(target) }
+        }
+        .task(id: isActive ? hits.count : nil) {
+            if isActive { await revealBrowseHistory() }
+        }
         .onChange(of: lookupRevision) { _, _ in applyEntryPoint() }
         .onChange(of: reading.request) { _, request in if let request { restore(request) } }
         .onChange(of: reading.error) { _, error in if let error { model.error = error; reading.error = nil } }
         .onChange(of: projectContext?.path) { _, path in
-            if path == nil && scope == .project { changeScope(.installed) }
+            if path == nil && (scope == .project || (scope == .docset && scopedPack == nil)) {
+                changeScope(.installed)
+            }
         }
         .onChange(of: model.libraryRevision) { _, _ in
             if scope == .docset && currentPack == nil { changeScope(.installed) }
@@ -131,89 +158,127 @@ struct DocsView: View {
         }
     }
 
-    private var toolbar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                HStack(spacing: 5) {
-                    Button { reading.move(-1) } label: { Image(systemName: "chevron.left").frame(width: 17) }
-                        .disabled(!reading.history.canGoBack).keyboardShortcut("[")
-                        .help("Back (⌘[)").accessibilityLabel("Back")
-                    Button { reading.move(1) } label: { Image(systemName: "chevron.right").frame(width: 17) }
-                        .disabled(!reading.history.canGoForward).keyboardShortcut("]")
-                        .help("Forward (⌘])").accessibilityLabel("Forward")
-                    Button { showReferences = true } label: { Image(systemName: "bookmark").frame(width: 17) }
-                        .keyboardShortcut("b", modifiers: [.command, .shift])
-                        .help("Saved and Recent References (⇧⌘B)").accessibilityLabel("Saved and Recent References")
-                }.buttonStyle(.borderless)
-                HStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Search documentation", text: $query)
-                        .textFieldStyle(.plain).focused($searchFocused)
-                        .onSubmit(commitSearchSelection)
-                        .onKeyPress(.downArrow) { moveSelection(1) }
-                        .onKeyPress(.upArrow) { moveSelection(-1) }
-                    if !query.isEmpty {
-                        Button { query = ""; searchFocused = true } label: {
-                            Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                        }.buttonStyle(.borderless).accessibilityLabel("Clear search")
-                    }
-                }
-                .padding(.horizontal, 10).padding(.vertical, 7)
-                .background(.quaternary, in: RoundedRectangle(cornerRadius: 7))
-                Button("Manage Docs", action: openLibrary).controlSize(.small)
+    /// Navigation and search live in the window toolbar, like a browser's.
+    @ToolbarContentBuilder private var windowToolbar: some ToolbarContent {
+        // Made once and hidden while another page is on screen: adding and removing toolbar items
+        // is the slowest part of changing page.
+        if #available(macOS 15.0, *) {
+            ToolbarItemGroup(placement: .navigation) { historyButtons }.hidden(!isActive)
+            ToolbarItem(placement: .principal) { searchField }.hidden(!isActive)
+            ToolbarItemGroup(placement: .primaryAction) { libraryButtons }.hidden(!isActive)
+        } else if isActive {
+            ToolbarItemGroup(placement: .navigation) { historyButtons }
+            ToolbarItem(placement: .principal) { searchField }
+            ToolbarItemGroup(placement: .primaryAction) { libraryButtons }
+        }
+    }
+
+    @ViewBuilder private var historyButtons: some View {
+        Button { reading.move(-1) } label: { Label("Back", systemImage: "chevron.left") }
+            .disabled(!isActive || !reading.history.canGoBack).keyboardShortcut("[").help("Back (⌘[)")
+        Button { reading.move(1) } label: { Label("Forward", systemImage: "chevron.right") }
+            .disabled(!isActive || !reading.history.canGoForward).keyboardShortcut("]").help("Forward (⌘])")
+    }
+
+    @ViewBuilder private var libraryButtons: some View {
+        Button { showReferences = true } label: { Label("Saved and Recent", systemImage: "bookmark") }
+            .keyboardShortcut("b", modifiers: [.command, .shift]).disabled(!isActive)
+            .help("Saved and Recent References (⇧⌘B)")
+        Button(action: openLibrary) { Label("Manage Docs", systemImage: "square.and.arrow.down") }
+            .help("Install, update, and import documentation")
+    }
+
+    @ViewBuilder private var searchField: some View {
+        let field = HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search documentation", text: $query)
+                .textFieldStyle(.plain).focused($searchFocused)
+                .onSubmit(commitSearchSelection)
+                .onKeyPress(.downArrow) { moveSelection(1) }
+                .onKeyPress(.upArrow) { moveSelection(-1) }
+            if !query.isEmpty {
+                Button { query = ""; searchFocused = true } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }.buttonStyle(.plain).accessibilityLabel("Clear search")
             }
-            HStack(spacing: 7) {
-                scopeButton(scope == .installed ? stack.map { "Installed · \(displayStack($0))" } ?? "Installed" : "Installed",
-                            scope: .installed)
-                if projectContext != nil { scopeButton("This Project", scope: .project) }
-                scopeButton("Imported", scope: .imported)
-                if let currentPack { scopeButton(displayName(currentPack), scope: .docset) }
-                Spacer(minLength: 0)
-                if scope == .project && projectContext != nil {
-                    Button("Project Versions") { showProjectReferences = true }.controlSize(.small)
-                }
+        }
+        .frame(minWidth: 240, idealWidth: 420, maxWidth: 520)
+        if #available(macOS 26.0, *) {
+            // The toolbar gives each item its own glass capsule.
+            field.padding(.horizontal, 10).padding(.vertical, 4)
+        } else {
+            field.padding(.horizontal, 9).padding(.vertical, 5)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+    }
+
+    private var scopeBar: some View {
+        HStack(spacing: 7) {
+            scopeButton(scope == .installed ? stack.map { "Installed · \(displayStack($0))" } ?? "Installed" : "Installed",
+                        scope: .installed)
+            if projectContext != nil { scopeButton("This Project", scope: .project) }
+            scopeButton("Imported", scope: .imported)
+            if let currentPack { scopeButton(displayName(currentPack), scope: .docset) }
+            Spacer(minLength: 0)
+            if scope == .project && projectContext != nil {
+                Button("Project Versions") { showProjectReferences = true }.controlSize(.small)
             }
-        }.padding(.horizontal, 16).padding(.vertical, 9)
+        }.padding(.horizontal, 16).padding(.vertical, 8)
     }
 
     private func scopeButton(_ title: String, scope item: Scope) -> some View {
         Button { changeScope(item) } label: {
             Text(title).font(.caption.weight(scope == item ? .semibold : .regular)).lineLimit(1)
                 .padding(.horizontal, 9).padding(.vertical, 4)
-                .background(scope == item ? Color.accentColor.opacity(0.18) : .clear,
-                            in: RoundedRectangle(cornerRadius: 5))
+                .background(scope == item ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.06), in: Capsule())
                 .contentShape(Rectangle())
         }.buttonStyle(.plain).accessibilityAddTraits(scope == item ? [.isSelected] : [])
     }
 
-    @ViewBuilder private var sidebar: some View {
-        if trimmedQuery.isEmpty && !browsing {
+    @ViewBuilder private func sidebar(_ key: SearchKey) -> some View {
+        if key.query.isEmpty && key.pack == nil {
             docsets
         } else {
             VStack(alignment: .leading, spacing: 0) {
-                if let pack = scopedPack, browsing { browseHeader(pack) }
-                if let error = searchError {
-                    sidebarMessage("Couldn't Load Documentation", detail: error)
-                } else if searching {
+                if let pack = scopedPack, key.query.isEmpty { browseHeader(pack) }
+                if let failure = searchFailure, failure.key == key {
+                    sidebarMessage("Couldn't Load Documentation", detail: failure.message)
+                        .frame(maxHeight: .infinity)
+                } else if committedSearch != key {
                     ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if showingIndex, let navigation {
+                } else if let navigation = cachedNavigation(for: key), !navigation.groups.isEmpty {
                     groupIndex(navigation)
                 } else if hits.isEmpty {
-                    sidebarMessage(browsing ? "No Articles" : "No Results",
-                                   detail: browsing ? nil : "Try a different term or search scope.")
+                    sidebarMessage(key.query.isEmpty ? "No Articles" : "No Results",
+                                   detail: key.query.isEmpty ? nil : "Try a different term or search scope.")
+                        .frame(maxHeight: key.query.isEmpty ? nil : .infinity)
                 } else {
-                    results
+                    results(browsing: key.query.isEmpty)
                 }
             }
         }
     }
 
     private var docsets: some View {
-        Group {
+        let visiblePacks = visiblePacks
+        return Group {
             if visiblePacks.isEmpty {
                 VStack(spacing: 8) {
-                    sidebarMessage(scope == .imported ? "No Imported Docs" : "No Installed Docs")
-                    Button(scope == .imported ? "Manage Imports" : "Install Docs", action: openLibrary)
+                    let bundled = model.catalog?.currentDocs.filter { !$0.installed } ?? []
+                    if scope == .installed, !bundled.isEmpty {
+                        sidebarMessage("No Docs Installed Yet",
+                                       detail: "\(bundled.count) docsets come with Devline. Installing works offline.")
+                        Button("Install All") {
+                            Task {
+                                await model.mutate(bundled.map { CoreRequest("docs.install", id: $0.id, version: $0.version) },
+                                                   label: "Installing documentation", completion: "Installed \(bundled.count) docsets.")
+                            }
+                        }.buttonStyle(.borderedProminent).disabled(model.operation != nil)
+                        Button("Choose Docsets…", action: openLibrary).buttonStyle(.link)
+                    } else {
+                        sidebarMessage(scope == .imported ? "No Imported Docs" : "No Installed Docs")
+                        Button(scope == .imported ? "Manage Imports" : "Install Docs", action: openLibrary)
+                    }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
@@ -241,7 +306,8 @@ struct DocsView: View {
     }
 
     private func browseHeader(_ pack: DocPack) -> some View {
-        HStack {
+        let currentPackVersions = packs.filter { $0.id == pack.id }
+        return HStack {
             if group != nil {
                 Button { group = nil; selectedID = nil } label: { Image(systemName: "chevron.left") }
                     .buttonStyle(.borderless).accessibilityLabel("All Sections")
@@ -283,12 +349,14 @@ struct DocsView: View {
         }
     }
 
-    private var results: some View {
-        ScrollViewReader { proxy in
+    private func results(browsing: Bool) -> some View {
+        let packs = packs
+        return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(hits) { hit in
-                        let name = docset(hit.packId, version: hit.version).map(displayName) ?? displayStack(hit.stack)
+                        let name = packs.first { $0.id == hit.packId && $0.version == hit.version }
+                            .map(displayName) ?? displayStack(hit.stack)
                         let title = ReaderMarkup.title(hit.title, fallback: name)
                         let label = browsing ? title : hit.symbol ?? title
                         Button { open(hit) } label: {
@@ -327,7 +395,7 @@ struct DocsView: View {
         VStack(spacing: 5) {
             Text(title).font(.callout.weight(.medium))
             if let detail { Text(detail).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center) }
-        }.frame(maxWidth: .infinity, maxHeight: detail == nil ? nil : .infinity).padding(12)
+        }.frame(maxWidth: .infinity).padding(12)
     }
 
     private func resultPreview(_ hit: SearchHit, title: String, label: String) -> String? {
@@ -341,6 +409,8 @@ struct DocsView: View {
     @ViewBuilder private var reader: some View {
         if let document {
             let pack = docset(document.packId, version: document.version)
+            let projectPath = projectLinkPath
+            let documentFocus = loadedDocument?.requestedFocus == openedLocation?.focusText ? document.focusText : nil
             VStack(spacing: 0) {
                 if let linkIssue {
                     HStack(spacing: 10) {
@@ -355,9 +425,11 @@ struct DocsView: View {
                     Divider()
                 }
                 DocReader(document: document, pack: pack, packName: pack.map(displayName) ?? displayStack(document.stack),
-                          anchor: openedLocation?.anchor, focus: openedLocation?.focusText,
+                          navigationToken: navigationToken, anchor: openedLocation?.anchor,
+                          focus: openedLocation?.focusText ?? documentFocus,
                           restoredPosition: openedLocation?.position, restoredOffset: openedLocation?.anchorOffset,
                           cueSearchMatch: openedLocation?.searchMatch == true,
+                          shortcutsActive: isActive,
                           isSaved: reading.isSaved(document.id),
                           save: { anchor, focus in
                               var location = currentLocation(document)
@@ -365,13 +437,15 @@ struct DocsView: View {
                               location.focusText = focus
                               Task { await reading.toggleSaved(location) }
                           },
-                          linkRevision: "\(model.libraryRevision):\(searchKey.pins)",
-                          linkStatuses: { urls in try await classifyLinks(urls, in: document) },
+                          linkRevision: "\(model.libraryRevision):\(projectPath ?? ""):\(projectPath == nil ? "" : projectPins)",
+                          linkStatuses: { urls in
+                              try await classifyLinks(urls, in: document, projectPath: projectPath, priority: .utility)
+                          },
                           navigate: { url, status in Task { await follow(url, status: status, from: document) } },
                           openPart: { id in open(id, documentContext: true) },
                           reportPosition: { [token = navigationToken] fraction, anchor, offset in
-                              guard token == navigationToken else { return }
-                              if let anchor { currentReaderAnchor = anchor }
+                              guard isActive, token == navigationToken else { return }
+                              if let anchor, anchor != currentReaderAnchor { currentReaderAnchor = anchor }
                               reading.updatePosition(id: document.id, fraction: fraction, anchor: anchor, anchorOffset: offset)
                           })
                     .id(document.id)
@@ -411,6 +485,7 @@ struct DocsView: View {
         openedLocation = nil
         currentReaderAnchor = nil
         linkIssue = nil
+        pendingBrowseReveal = nil
         restoring = false
         navigationToken = UUID()
         if directDocumentID == nil && trimmedQuery.isEmpty, let pack = currentPack, let entry = pack.entryId {
@@ -487,29 +562,39 @@ struct DocsView: View {
         return .handled
     }
 
+    private func cachedNavigation(for key: SearchKey) -> DocsetNavigation? {
+        guard let navigation, navigation.key == key.navigationKey else { return nil }
+        return navigation.value
+    }
+
     private func search(_ key: SearchKey) async {
         guard key == searchKey, !Task.isCancelled else { return }
+        committedSearch = nil
         pageRequest = nil
         browseError = nil
         moreArticles = false
         searchFailure = nil
-        navigation = nil
         if submittedSearch != key { submittedSearch = nil }
         let pack = scopedPack
         guard !key.query.isEmpty || pack != nil else {
             hits = []
             selectedID = nil
-            committedSearch = nil
+            committedSearch = key
             return
         }
         do {
             if !key.query.isEmpty { try await Task.sleep(for: .milliseconds(120)) }
-            if let pack, key.query.isEmpty, key.group == nil {
-                let index: DocsetNavigation = try await Core.request(CoreRequest("docs.navigation", version: pack.version, packId: pack.id))
-                try Task.checkCancellation()
-                guard key == searchKey else { return }
-                navigation = index
-                if !index.groups.isEmpty && key.category == nil {
+            if let pack, let indexKey = key.navigationKey {
+                let index: DocsetNavigation
+                if let cached = cachedNavigation(for: key) {
+                    index = cached
+                } else {
+                    index = try await Core.request(CoreRequest("docs.navigation", version: pack.version, packId: pack.id))
+                    try Task.checkCancellation()
+                    guard key == searchKey else { return }
+                    navigation = (indexKey, index)
+                }
+                if !index.groups.isEmpty {
                     hits = []
                     committedSearch = key
                     return
@@ -584,14 +669,26 @@ struct DocsView: View {
     }
 
     private func loadDocument(_ key: ReadKey) async {
-        guard key == readKey, !Task.isCancelled, let id = key.id else { return }
+        guard key == readKey, !Task.isCancelled else { return }
         documentFailure = nil
+        guard let id = key.id else {
+            loadedDocument = nil
+            recordedRead = key
+            return
+        }
         do {
-            let location = openedLocation
-            let value: Document = try await Core.request(CoreRequest("docs.show", id: id, focusText: location?.focusText))
-            try Task.checkCancellation()
-            guard key == readKey else { return }
-            loadedDocument = (key, value)
+            let value: Document
+            if let document {
+                value = document
+            } else {
+                let requestedFocus = openedLocation?.focusText
+                let revision = model.libraryRevision
+                value = try await Core.request(CoreRequest("docs.show", id: id, focusText: requestedFocus))
+                try Task.checkCancellation()
+                guard key == readKey else { return }
+                loadedDocument = LoadedDocument(key: key, revision: revision, requestedFocus: requestedFocus, value: value)
+            }
+            recordedRead = key
             await reading.didOpen(currentLocation(value), restoring: restoring, searchPreview: false)
         } catch is CancellationError {
         } catch {
@@ -611,6 +708,12 @@ struct DocsView: View {
 
     private func restore(_ request: ReferenceRequest) {
         let location = request.location
+        if let loaded = loadedDocument, loaded.key == readKey, loaded.revision == model.libraryRevision,
+           loaded.value.id == location.id,
+           location.position != nil || (location.anchor?.isEmpty == false && loaded.value.html?.isEmpty == false) {
+            // Keep the reader mounted for history positions and links to this article's own sections.
+            loadedDocument?.key = ReadKey(id: location.id, token: request.token)
+        }
         query = location.query
         stack = location.stack
         packReference = location.pack
@@ -636,10 +739,11 @@ struct DocsView: View {
                                        anchor: reference.anchor, focusText: reference.focusText))
     }
 
-    private func classifyLinks(_ urls: [String], in document: Document) async throws -> [DocLinkStatus] {
+    private func classifyLinks(_ urls: [String], in document: Document, projectPath: String?,
+                               priority: TaskPriority = .userInitiated) async throws -> [DocLinkStatus] {
         try await Core.request(
-            CoreRequest("docs.link-status", id: document.id, urls: urls,
-                        projectPath: openedLocation?.projectScoped == true ? projectContext?.path : nil)
+            CoreRequest("docs.link-status", id: document.id, urls: urls, projectPath: projectPath),
+            priority: priority
         )
     }
 
@@ -648,7 +752,7 @@ struct DocsView: View {
         do {
             let result: DocLinkStatus?
             if let status { result = status }
-            else { result = try await classifyLinks([url], in: document).first }
+            else { result = try await classifyLinks([url], in: document, projectPath: projectLinkPath).first }
             guard origin == readKey, !Task.isCancelled else { return }
             let source = URL(string: url, relativeTo: URL(string: document.sourceUrl))
                 .flatMap { safeExternalURL($0.absoluteURL.absoluteString) }
@@ -680,10 +784,25 @@ struct DocsView: View {
         let revision: Int
         let project: String?
         let pins: String
+
+        var navigationKey: NavigationKey? {
+            guard query.isEmpty, group == nil, category == nil, let pack else { return nil }
+            return NavigationKey(pack: pack, revision: revision)
+        }
+    }
+    private struct NavigationKey: Equatable {
+        let pack: String
+        let revision: Int
     }
     private struct ReadKey: Equatable {
         let id: String?
         let token: UUID
+    }
+    private struct LoadedDocument {
+        var key: ReadKey
+        let revision: Int
+        let requestedFocus: String?
+        let value: Document
     }
     private struct LinkIssue {
         let message: String

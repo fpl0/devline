@@ -38,6 +38,8 @@ struct CoreRequest: Encodable, Sendable {
     var manifestSha256: String?
     var keepLatest: Bool?
     var confirmedOnly: Bool?
+    var packages: [String]?
+    var timeoutSeconds: Int?
 
     init(
         _ command: String, id: String? = nil, version: String? = nil,
@@ -45,7 +47,8 @@ struct CoreRequest: Encodable, Sendable {
         destination: String? = nil, path: String? = nil, dryRun: Bool? = nil, url: String? = nil, urls: [String]? = nil,
         anchor: String? = nil, focusText: String? = nil, category: String? = nil, group: String? = nil, projectStack: String? = nil,
         projectPath: String? = nil, kind: String? = nil, docs: [String]? = nil, starters: [String]? = nil, trustStarters: Bool? = nil,
-        jobId: String? = nil, images: [String]? = nil, services: [String]? = nil, clients: [String]? = nil, tail: Int? = nil, ports: [String: Int]? = nil, offline: Bool? = nil, trustImages: Bool? = nil, manifestSha256: String? = nil, keepLatest: Bool? = nil, confirmedOnly: Bool? = nil
+        jobId: String? = nil, images: [String]? = nil, services: [String]? = nil, clients: [String]? = nil, tail: Int? = nil, ports: [String: Int]? = nil, offline: Bool? = nil, trustImages: Bool? = nil, manifestSha256: String? = nil, keepLatest: Bool? = nil, confirmedOnly: Bool? = nil,
+        packages: [String]? = nil, timeoutSeconds: Int? = nil
     ) {
         self.command = command
         self.catalog = Self.catalogPath
@@ -82,6 +85,8 @@ struct CoreRequest: Encodable, Sendable {
         self.manifestSha256 = manifestSha256
         self.keepLatest = keepLatest
         self.confirmedOnly = confirmedOnly
+        self.packages = packages
+        self.timeoutSeconds = timeoutSeconds
     }
 
     private static var catalogPath: String {
@@ -119,23 +124,33 @@ struct CoreError: LocalizedError, Sendable {
 }
 
 enum Core {
-    static func request<Result: Decodable & Sendable>(_ request: CoreRequest) async throws -> Result {
+    static func request<Result: Decodable & Sendable>(
+        _ request: CoreRequest, priority: TaskPriority = .userInitiated
+    ) async throws -> Result {
         try Task.checkCancellation()
-        let result = try await Task.detached(priority: .userInitiated) {
+        let work = Task.detached(priority: priority) {
+            try Task.checkCancellation()
             let encoder = JSONEncoder()
             encoder.keyEncodingStrategy = .convertToSnakeCase
             let json = String(decoding: try encoder.encode(request), as: UTF8.self)
+            try Task.checkCancellation()
             guard let pointer = json.withCString({ devline_request($0) }) else {
                 throw CoreError(message: "Devline could not read the local library.")
             }
             defer { devline_free(pointer) }
+            try Task.checkCancellation()
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             let data = Data(bytes: pointer, count: strlen(pointer))
             let response = try decoder.decode(Envelope<Result>.self, from: data)
             if response.ok, let result = response.data { return result }
             throw CoreError(message: response.error ?? "Devline could not complete the request.")
-        }.value
+        }
+        let result = try await withTaskCancellationHandler {
+            try await work.value
+        } onCancel: {
+            work.cancel()
+        }
         try Task.checkCancellation()
         return result
     }

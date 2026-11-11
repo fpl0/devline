@@ -286,6 +286,44 @@ fn app_channels_keep_cached_release_on_error_and_clear_on_reconfigure() {
 }
 
 #[test]
+fn asset_status_skips_doc_and_runtime_rows_but_preserves_saved_publisher_failures() {
+    let fixture = Fixture::new();
+    fixture
+        .call(json!({"command":"docs.install","id":"go","version":"1.27.2"}))
+        .unwrap();
+    fs::write(
+        fixture.0.join("library/updates.json"),
+        json!({
+            "app_feed":null,"checked_at":123,
+            "observations":{"go":{"error":"Publisher unavailable"}}
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let all = fixture.call(json!({"command":"updates.status"})).unwrap();
+    let assets = fixture
+        .call(json!({"command":"updates.status","category":"assets"}))
+        .unwrap();
+    assert_eq!(Fixture::item(&all, "runtime:go")["state"], "error");
+    assert!(!assets["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|item| item["kind"] == "docs" || item["kind"] == "runtime"));
+    let upstream = |snapshot: &Value| {
+        snapshot["sources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|source| source["id"] == "upstream")
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(upstream(&assets), upstream(&all));
+}
+
+#[test]
 fn bulk_offline_update_installs_bundled_docs_without_claiming_unchecked_sources_current() {
     let fixture = Fixture::new();
     // Restrict this fixture to a documentation library: no external build tools

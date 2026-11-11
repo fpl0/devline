@@ -7,7 +7,8 @@ Devline is a macOS app and CLI for trying frameworks and building prototypes off
 ## What you can do
 
 - **Read the docs for your project.** Search official references with code examples and links between installed pages. Devline matches documentation to supported project dependencies and lets you pin an exact release.
-- **Start a project or bring your own.** Create a FastAPI service, a React app, or a native SwiftUI app from a starter with dependencies included. For an existing project, **Prepare Offline** collects what’s missing and tests a copy with internet access blocked, leaving your source and lockfiles intact.
+- **Start a project or bring your own.** Create a FastAPI service, a React app, or a native SwiftUI app from a starter with dependencies included. For an existing project, **Prepare for Offline** collects what’s missing and tests a copy with internet access blocked, leaving your source and lockfiles intact.
+- **Add packages without a connection.** Keep the 100 most used packages for each runtime on your Mac. Add any of them to a project later, and Devline tests the result with the network blocked.
 - **Run local services.** Save exact images of services like PostgreSQL, Redis, and RabbitMQ while connected. Restore and start them offline with a local Docker engine and Compose.
 
 ![Python documentation in Devline showing the Path.read_text signature and a code example](press/docs-python-dark.png)
@@ -16,7 +17,9 @@ Devline is a macOS app and CLI for trying frameworks and building prototypes off
 
 Devline requires an Apple Silicon Mac running macOS 14 or later. Open the DMG, drag **Devline** into **Applications**, and follow the first-launch instructions in the DMG.
 
-Open a project folder with **⌘O**, or choose **New from Starter** in **Projects**. Install the matching toolchain if Devline reports it missing. Choose **Prepare Offline** to see what’s ready and what needs attention.
+**Home** opens with a checklist of what your Mac needs before it loses its connection: documentation and starters (bundled, installed in one click), toolchains, a Docker engine, service images, and packages. Each line says what is missing and has the button that fixes it. For a toolchain you don’t have, **How to Install** shows the command for mise or Homebrew.
+
+Pick a starter under **Start something new** to create a project, or open a folder with **⌘O**. The project page runs your app with internet access blocked, shows its output as it arrives, and lists what the project still needs under **Offline readiness**.
 
 ### From the terminal
 
@@ -27,6 +30,13 @@ devline prepare go/chi-api@1.2.0
 devline --offline docs show 'go:http.Handler'
 devline --offline new go/chi-api@1.2.0 ./status-api
 devline --offline project --path ./status-api run -- go test ./...
+```
+
+Keep packages for later and add them offline.
+
+```sh
+devline packages download python
+devline --offline packages add --path ./status-api httpx rich
 ```
 
 ### Import DevDocs

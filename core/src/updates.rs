@@ -740,7 +740,7 @@ fn append_detail(item: &mut UpdateItem, sentence: &str) {
     item.detail.push_str(sentence);
 }
 
-fn docs_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
+fn docs_updates(ctx: &Context, prefs: &Settings, probe_sdk: bool) -> Result<Vec<UpdateItem>> {
     let db = ctx.database()?;
     let mut installed = BTreeMap::<String, Vec<String>>::new();
     let mut stmt = db.prepare("SELECT id,version FROM packs ORDER BY id,version")?;
@@ -750,6 +750,10 @@ fn docs_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
     }
     let mut updates = Vec::new();
     for (id, versions) in installed {
+        // The SDK row is informational in the upstream source summary.
+        if id == "swiftui" && !probe_sdk {
+            continue;
+        }
         let head = ctx
             .catalog
             .docs
@@ -1069,23 +1073,24 @@ fn runtime_version(feed: Feed, detail: &str) -> Option<&str> {
     number_at_start(version)
 }
 
-fn runtime_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> {
-    let probes = templates::runtimes(ctx)?;
+fn runtime_feeds(stack: &str) -> &'static [Feed] {
+    match stack {
+        "go" => &[Feed::Go],
+        "python" => &[Feed::Python],
+        "rust" => &[Feed::Rust],
+        "ruby" => &[Feed::Ruby],
+        "dotnet" => &[Feed::Dotnet],
+        "java" => &[Feed::Java, Feed::Maven],
+        "elixir" => &[Feed::Elixir, Feed::Erlang],
+        "node" => &[Feed::Node],
+        _ => &[],
+    }
+}
+
+fn runtime_updates(probes: &Value, prefs: &Settings) -> Result<Vec<UpdateItem>> {
     let mut updates = Vec::new();
     for row in probes.as_array().context("Read runtime toolchains")? {
-        let id = value_text(row, "id");
-        let feeds: &[Feed] = match id {
-            "go" => &[Feed::Go],
-            "python" => &[Feed::Python],
-            "rust" => &[Feed::Rust],
-            "ruby" => &[Feed::Ruby],
-            "dotnet" => &[Feed::Dotnet],
-            "java" => &[Feed::Java, Feed::Maven],
-            "elixir" => &[Feed::Elixir, Feed::Erlang],
-            "node" => &[Feed::Node],
-            _ => &[],
-        };
-        for &feed in feeds {
+        for &feed in runtime_feeds(value_text(row, "id")) {
             let mut item = UpdateItem::new("runtime", feed.id(), feed.name());
             let detail = value_text(row, "detail");
             let current = runtime_version(feed, detail);
@@ -1211,11 +1216,16 @@ fn app_update(prefs: &Settings) -> UpdateItem {
     item
 }
 
+fn non_runtime_items(ctx: &Context, prefs: &Settings, probe_sdk: bool) -> Result<Vec<UpdateItem>> {
+    let mut items = vec![app_update(prefs)];
+    items.extend(docs_updates(ctx, prefs, probe_sdk)?);
+    items.extend(template_updates(ctx, prefs)?);
+    Ok(items)
+}
+
 fn make_status(ctx: &Context, prefs: Settings) -> Result<Value> {
-    let mut items = vec![app_update(&prefs)];
-    items.extend(docs_updates(ctx, &prefs)?);
-    items.extend(template_updates(ctx, &prefs)?);
-    items.extend(runtime_updates(ctx, &prefs)?);
+    let mut items = non_runtime_items(ctx, &prefs, true)?;
+    items.extend(runtime_updates(&templates::runtimes(ctx)?, &prefs)?);
     Ok(json!({"checked_at": prefs.checked_at, "items": items}))
 }
 
@@ -1223,9 +1233,44 @@ pub fn status(ctx: &Context) -> Result<Value> {
     make_status(ctx, settings(ctx)?)
 }
 
+pub(crate) fn asset_status(ctx: &Context) -> Result<Value> {
+    let prefs = settings(ctx)?;
+    let items = non_runtime_items(ctx, &prefs, false)?;
+    // The Assets pane doesn't show runtime rows. Saved publisher failures
+    // still count toward the upstream summary without launching any tools.
+    let additional_failures = ctx
+        .catalog
+        .templates
+        .iter()
+        .flat_map(|template| runtime_feeds(&template.stack))
+        .map(|feed| feed.id())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .filter(|id| {
+            prefs
+                .observations
+                .get(*id)
+                .is_some_and(|value| value.error.is_some())
+        })
+        .count();
+    Ok(json!({"checked_at": prefs.checked_at, "items": items,
+              "additional_publisher_failures": additional_failures}))
+}
+
 pub(crate) fn runtime_status(ctx: &Context) -> Result<Value> {
     let prefs = settings(ctx)?;
-    Ok(json!({"checked_at": prefs.checked_at, "items": runtime_updates(ctx, &prefs)?}))
+    Ok(
+        json!({"checked_at": prefs.checked_at, "items": runtime_updates(&templates::runtimes(ctx)?, &prefs)?}),
+    )
+}
+
+pub(crate) fn runtime_inventory(ctx: &Context) -> Result<Value> {
+    let runtimes = templates::runtimes(ctx)?;
+    // Toolchain discovery remains available if saved publisher data is unreadable.
+    let releases = settings(ctx)
+        .and_then(|prefs| runtime_updates(&runtimes, &prefs))
+        .unwrap_or_default();
+    Ok(json!({"runtimes": runtimes, "releases": releases}))
 }
 
 pub(crate) fn app_status(ctx: &Context) -> Result<Value> {

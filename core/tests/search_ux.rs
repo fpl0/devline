@@ -13,19 +13,7 @@ struct Fixture(PathBuf);
 
 impl Fixture {
     fn new() -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "devline-search-{}-{}-{}",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap()
-                .as_nanos(),
-            FIXTURE_ID.fetch_add(1, Ordering::Relaxed),
-        ));
-        let fixture = Self(root);
-        let catalog = fixture.0.join("catalog");
-        let mut packs = Vec::new();
-        for (id, name, stack, version, documents) in [
+        Self::with(vec![
             (
                 "go", "Go", "go", "1.27",
                 json!([
@@ -84,13 +72,31 @@ impl Fixture {
                     doc("Enum.html", "Enum", "@spec frequencies(t()) :: map()\n\nmap(enumerable, fun)\n\n@spec map(t(), (element() -> any())) :: list()\n\nTransforms every element.", &["Enum.map/2"]),
                 ]),
             ),
-        ] {
+        ])
+    }
+
+    /// Installs the given docsets, each `(id, name, stack, version, articles)`.
+    fn with(docsets: Vec<(&str, &str, &str, &str, Value)>) -> Self {
+        let root = std::env::temp_dir().join(format!(
+            "devline-search-{}-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+            FIXTURE_ID.fetch_add(1, Ordering::Relaxed),
+        ));
+        let fixture = Self(root);
+        let catalog = fixture.0.join("catalog");
+        let mut packs = Vec::new();
+        for (id, name, stack, version, documents) in &docsets {
             let path = format!("docs/{id}");
             fs::create_dir_all(catalog.join(&path)).unwrap();
             fs::write(
                 catalog.join(&path).join("documents.json"),
-                serde_json::to_vec(&documents).unwrap(),
-            ).unwrap();
+                serde_json::to_vec(documents).unwrap(),
+            )
+            .unwrap();
             packs.push(json!({"id":id,"name":name,"stack":stack,"version":version,"description":"Fixture","source_url":"https://example.org","license":"MIT","path":path}));
         }
         fs::write(
@@ -98,7 +104,7 @@ impl Fixture {
             serde_json::to_vec(&json!({"schema_version":1,"docs":packs,"templates":[]})).unwrap(),
         )
         .unwrap();
-        for pack in ["go", "chi", "python", "fastapi", "aspnet", "ruby", "elixir"] {
+        for (pack, _, _, _, _) in &docsets {
             fixture
                 .call(json!({"command":"docs.install","id":pack}))
                 .unwrap();
@@ -279,6 +285,10 @@ fn reader_preflights_link_destinations_without_changing_the_legacy_resolver() {
         "#not-present",
         "https://outside.example/tutorial",
         "file:///etc/passwd",
+        "#legacy",
+        "enforcing-ssl#http-strict-transport-security-hsts-protocol",
+        "enforcing-ssl#missing",
+        "https://outside.example/tutorial#missing",
     ];
     let status = fixture
         .call(json!({"command":"docs.link-status","id":origin,"urls":urls}))
@@ -290,6 +300,13 @@ fn reader_preflights_link_destinations_without_changing_the_legacy_resolver() {
     assert_eq!(status[1]["kind"], "missingSection");
     assert_eq!(status[2]["kind"], "online");
     assert_eq!(status[3]["kind"], "unavailable");
+    assert_eq!(status[4]["anchor"], "legacy");
+    assert_eq!(
+        status[5]["anchor"],
+        "http-strict-transport-security-hsts-protocol"
+    );
+    assert_eq!(status[6]["kind"], "missingSection");
+    assert_eq!(status[7]["kind"], "online");
     assert_eq!(
         fixture
             .call(json!({"command":"docs.resolve","id":origin,"url":urls[1]}))
@@ -360,7 +377,9 @@ fn imported_search_preserves_groups_and_exact_symbol_anchors() {
         html_at("index", "Overview", "<h1>Overview</h1>", "https://devdocs.io/go/index"),
         {"id":"http","title":"HTTP package","body":"HTTP functions.","html":"<h2 id=\"handler-section\">Handlers</h2>",
          "source_url":"https://example.org/net/http","group":"Packages","aliases":["http.Handler"],
-         "alias_anchors":{"http.Handler":"handler-section"}}
+         "alias_anchors":{"http.Handler":"handler-section"}},
+        {"id":"http::part-2","title":"HTTP continuation","body":"More HTTP functions.",
+         "source_url":"https://example.org/net/http","group":"Continuations"}
     ]);
     fs::write(
         catalog_dir.join(path).join("documents.json"),
@@ -382,6 +401,15 @@ fn imported_search_preserves_groups_and_exact_symbol_anchors() {
         .unwrap();
     assert_eq!(group.as_array().unwrap().len(), 1);
     assert_eq!(group[0]["id"], "devdocs-go@1.27/http");
+    let ungrouped = fixture
+        .call(json!({"command":"docs.search","pack_id":id,"group":""}))
+        .unwrap();
+    assert_eq!(ungrouped.as_array().unwrap().len(), 1);
+    assert_eq!(ungrouped[0]["id"], "devdocs-go@1.27/index");
+    let page = fixture
+        .call(json!({"command":"docs.search","pack_id":id,"limit":1,"offset":1}))
+        .unwrap();
+    assert_eq!(page[0]["id"], "devdocs-go@1.27/index");
     let result = fixture
         .call(json!({"command":"docs.search","kind":"imported","query":"http.Handler"}))
         .unwrap();
@@ -743,4 +771,495 @@ fn reader_and_results_hide_presentational_title_tags() {
         .call(json!({"command":"docs.show","id":"Methods example"}))
         .unwrap();
     assert_eq!(example["title"], "Methods for List<E>");
+}
+
+fn page(id: &str, title: &str, body: &str, html: &str, aliases: &[&str]) -> Value {
+    let mut article = doc(id, title, body, aliases);
+    article["html"] = json!(html);
+    article
+}
+
+fn search(fixture: &Fixture, mut request: Value) -> Vec<Value> {
+    request["command"] = json!("docs.search");
+    fixture.call(request).unwrap().as_array().unwrap().clone()
+}
+
+fn titles(hits: &[Value]) -> Vec<&str> {
+    hits.iter()
+        .map(|hit| hit["title"].as_str().unwrap())
+        .collect()
+}
+
+#[test]
+fn a_bare_name_leads_with_articles_named_for_it_and_docsets_take_turns() {
+    // One docset indexes forty members under the bare name. It must not
+    // crowd out the types named Map or the other docsets' members.
+    let mut java: Vec<Value> = (0..40)
+        .map(|n| {
+            doc(
+                &format!("api/Stream{n:02}"),
+                &format!("Stream{n:02}"),
+                "map(mapper)\n\nReturns the mapped stream.",
+                &["map"],
+            )
+        })
+        .collect();
+    java.push(doc(
+        "api/Map",
+        "Map",
+        "Interface Map<K,V>",
+        &["java.util.Map"],
+    ));
+    let fixture = Fixture::with(vec![
+        ("java", "Java SE", "java", "26", json!(java)),
+        (
+            "elixir",
+            "Elixir",
+            "elixir",
+            "1.20",
+            json!([
+                doc(
+                    "Map.html",
+                    "Map",
+                    "Maps are the key-value data structure.",
+                    &["Map"]
+                ),
+                doc(
+                    "Enum.html",
+                    "Enum",
+                    "map(enumerable, fun)\n\nMaps every element.",
+                    &["Enum.map/2"]
+                ),
+            ]),
+        ),
+        (
+            "ruby",
+            "Ruby",
+            "ruby",
+            "4",
+            json!([doc(
+                "method/Array#map",
+                "Array#map",
+                "Array#map returns a new array.",
+                &["Array#map"]
+            )]),
+        ),
+    ]);
+    let hits = search(&fixture, json!({"query":"map","limit":8}));
+    assert_eq!(titles(&hits)[..2], ["Map", "Map"]);
+    let leading: Vec<_> = hits[..6]
+        .iter()
+        .map(|hit| hit["pack_id"].as_str().unwrap())
+        .collect();
+    for pack in ["java", "elixir", "ruby"] {
+        assert!(leading.contains(&pack), "{pack} in {leading:?}");
+    }
+    assert!(titles(&hits[..6]).contains(&"Enum"));
+    assert!(
+        hits[..6]
+            .iter()
+            .filter(|hit| hit["pack_id"] == "java")
+            .count()
+            <= 3
+    );
+    // The same query gives the same order.
+    assert_eq!(hits, search(&fixture, json!({"query":"map","limit":8})));
+}
+
+#[test]
+fn names_that_complete_the_typed_word_lead_articles_that_mention_it() {
+    let fixture = Fixture::with(vec![
+        (
+            "python",
+            "Python",
+            "python",
+            "3.15",
+            json!([
+                doc(
+                    "library/pathlib.html",
+                    "pathlib — Object-oriented filesystem paths",
+                    "Path.read_text(encoding=None)\n\nReturn the decoded contents.",
+                    &["pathlib", "pathlib.Path.read_text"]
+                ),
+                doc(
+                    "whatsnew/3.10.html",
+                    "What's New In Python 3.10",
+                    "pathlib gained features. pathlib pathlib pathlib.",
+                    &[]
+                ),
+                doc(
+                    "whatsnew/3.11.html",
+                    "What's New In Python 3.11",
+                    "pathlib pathlib pathlib changes.",
+                    &[]
+                ),
+                doc(
+                    "library/io.html",
+                    "io — Core tools for working with streams",
+                    "read(size)\n\nRead and return bytes. T is a type variable.",
+                    &["io.read"]
+                ),
+            ]),
+        ),
+        (
+            "ui",
+            "UI Kit",
+            "swift",
+            "1",
+            json!([
+                doc(
+                    "symbol/c",
+                    "NavigationSplitViewColumn",
+                    "struct NavigationSplitViewColumn",
+                    &["NavigationSplitViewColumn"]
+                ),
+                doc(
+                    "symbol/s",
+                    "NavigationSplitViewStyle",
+                    "protocol NavigationSplitViewStyle",
+                    &["NavigationSplitViewStyle"]
+                ),
+                doc(
+                    "symbol/v",
+                    "NavigationSplitView",
+                    "struct NavigationSplitView",
+                    &["NavigationSplitView"]
+                ),
+            ]),
+        ),
+    ]);
+    let hits = search(&fixture, json!({"query":"pathli"}));
+    assert_eq!(hits[0]["id"], "python@3.15/library/pathlib.html");
+
+    // A name in snake case is completed as a name. The single letter after
+    // the underscore is not required of every article as a word of its own.
+    let hits = search(&fixture, json!({"query":"read_t"}));
+    assert_eq!(hits[0]["id"], "python@3.15/library/pathlib.html");
+    assert_eq!(hits[0]["symbol"], "pathlib.Path.read_text");
+    assert!(hits
+        .iter()
+        .all(|hit| hit["id"] != "python@3.15/library/io.html"));
+
+    // The shortest completion is the closest one.
+    let hits = search(&fixture, json!({"query":"NavigationSp"}));
+    assert_eq!(
+        titles(&hits),
+        [
+            "NavigationSplitView",
+            "NavigationSplitViewStyle",
+            "NavigationSplitViewColumn"
+        ]
+    );
+}
+
+#[test]
+fn misspellings_are_corrected_even_when_the_library_repeats_them() {
+    let mut notes: Vec<Value> = (0..44)
+        .map(|n| {
+            doc(
+                &format!("guide/note-{n:02}"),
+                &format!("Note {n:02}"),
+                "The length of a list.\n\nThe order of middleware matters.\n\nSet environment variables first.",
+                &[],
+            )
+        })
+        .collect();
+    notes.push(doc(
+        "api/Array",
+        "Array",
+        "length\n\nReturns the number of elements.",
+        &["Array.length"],
+    ));
+    notes.push(doc(
+        "reference/useState",
+        "useState",
+        "useState(initialState)",
+        &["useState"],
+    ));
+    let fixture = Fixture::with(vec![
+        ("notes", "Notes", "notes", "1", json!(notes)),
+        (
+            "errata",
+            "Errata",
+            "errata",
+            "1",
+            json!([doc(
+                "typos",
+                "Errata",
+                "A page that spells it lenght and enviroment.",
+                &[]
+            )]),
+        ),
+    ]);
+    // The misspelling exists in the library, but not where the search looks.
+    // The name one letter away leads, and the word in running text follows.
+    let hits = search(&fixture, json!({"query":"lenght","pack_id":"notes"}));
+    assert_eq!(hits[0]["symbol"], "Array.length");
+    assert_eq!(hits[1]["match_text"], "The length of a list.");
+    // Where it does exist, the literal match stays first and the likely
+    // spelling follows it.
+    let hits = search(&fixture, json!({"query":"lenght"}));
+    assert_eq!(hits[0]["pack_id"], "errata");
+    assert!(hits.len() > 1);
+    // One wrong word in a longer query.
+    let hits = search(
+        &fixture,
+        json!({"query":"enviroment variables","pack_id":"notes"}),
+    );
+    assert_eq!(hits[0]["match_text"], "Set environment variables first.");
+    // Two slips in one long word.
+    let hits = search(&fixture, json!({"query":"middlewear","pack_id":"notes"}));
+    assert_eq!(hits[0]["match_text"], "The order of middleware matters.");
+    // A transposition in a name resolves to the symbol, bare or qualified.
+    let hits = search(&fixture, json!({"query":"useStaet"}));
+    assert_eq!(hits[0]["symbol"], "useState");
+    let hits = search(&fixture, json!({"query":"Array.lenght"}));
+    assert_eq!(hits[0]["symbol"], "Array.length");
+}
+
+#[test]
+fn spellings_without_case_or_separators_find_the_same_symbol() {
+    let fixture = Fixture::new();
+    for query in [
+        "readtext",
+        "read text",
+        "READ_TEXT",
+        "Read_Text",
+        "path read_text",
+    ] {
+        let hits = search(&fixture, json!({"query":query}));
+        assert_eq!(hits[0]["id"], "python@3.15/library/pathlib.html", "{query}");
+        assert_eq!(hits[0]["symbol"], "pathlib.Path.read_text", "{query}");
+    }
+    let hits = search(&fixture, json!({"query":"pathlib path"}));
+    assert_eq!(hits[0]["id"], "python@3.15/library/pathlib.html");
+    assert_eq!(hits[0]["symbol"], "pathlib.Path");
+}
+
+#[test]
+fn a_question_is_answered_by_the_section_headed_with_its_words() {
+    let fixture = Fixture::with(vec![(
+        "python",
+        "Python",
+        "python",
+        "3.15",
+        json!([
+            page("tutorial/inputoutput.html", "7. Input and output", "Files can be opened.",
+                "<h2 id=\"reading-and-writing-files\">Reading and writing files</h2><p>open() returns a file object.</p>", &[]),
+            page("library/configparser.html", "configparser — Configuration file parser", "Parses configuration.",
+                "<dl><dt id=\"configparser.ConfigParser.read_file\">read_file(f, source=None)</dt></dl>", &[]),
+            page("c-api/file.html", "File objects", "C API.",
+                "<dl><dt id=\"c.PyFile_ReadLine\">PyObject *PyFile_ReadLine(PyObject *file, int n)</dt></dl>", &[]),
+            doc("library/functions.html", "Built-in Functions",
+                "abs(x)\n\nReturn the absolute value of a number.\n\nopen(file, mode='r')\n\nOpen file and return a corresponding file object.", &[]),
+        ]),
+    )]);
+    for query in ["read a file", "how do I read a file"] {
+        let hits = search(&fixture, json!({"query":query}));
+        assert_eq!(
+            hits[0]["id"], "python@3.15/tutorial/inputoutput.html",
+            "{query}"
+        );
+        assert_eq!(hits[0]["match_text"], "Reading and writing files");
+        assert_eq!(hits[0]["match_anchor"], "reading-and-writing-files");
+    }
+    // A match in running text shows the line that matched, not the top of the article.
+    let hits = search(&fixture, json!({"query":"corresponding object"}));
+    assert_eq!(hits[0]["id"], "python@3.15/library/functions.html");
+    assert_eq!(
+        hits[0]["match_text"],
+        "Open file and return a corresponding file object."
+    );
+    assert!(hits[0]["snippet"]
+        .as_str()
+        .unwrap()
+        .starts_with("Open file and return"));
+}
+
+#[test]
+fn the_article_about_a_topic_leads_articles_with_a_chapter_on_it() {
+    let fixture = Fixture::with(vec![
+        (
+            "phoenix",
+            "Phoenix",
+            "elixir",
+            "1.8",
+            json!([
+                page("heroku.html", "Deploying on Heroku", "Heroku steps.",
+                    "<h1 id=\"deploying-on-heroku\">Deploying on Heroku</h1><h2 id=\"deploy-time\">Deploy Time!</h2>", &[]),
+                page("fly.html", "Deploying on Fly.io", "Fly steps.",
+                    "<h1 id=\"deploying-on-fly-io\">Deploying on Fly.io</h1><h2 id=\"deploy-time\">Deploy Time!</h2>", &[]),
+                page("deployment.html", "Introduction to Deployment", "An overview.",
+                    "<h1 id=\"introduction-to-deployment\">Introduction to Deployment</h1>", &[]),
+            ]),
+        ),
+        (
+            "aspnet",
+            "ASP.NET Core",
+            "dotnet",
+            "10",
+            json!([
+                // The file name makes `middleware` an alias of a narrower article.
+                doc("performance/caching/middleware", "Response caching middleware in ASP.NET Core", "Caches responses.", &["middleware"]),
+                doc("test/middleware", "Test ASP.NET Core middleware", "Tests a pipeline.", &["middleware"]),
+                page("fundamentals/middleware/index", "ASP.NET Core middleware", "The request pipeline.",
+                    "<h1 id=\"aspnet-core-middleware\">ASP.NET Core middleware</h1>", &[]),
+            ]),
+        ),
+        (
+            "elixir",
+            "Elixir",
+            "elixir",
+            "1.20",
+            json!([
+                doc("typespecs.html", "Typespecs reference", "def parse(str), do: {:ok, \"some json \" <> str}", &[]),
+                doc("JSON.html", "JSON", "Encode and decode data.", &["JSON"]),
+            ]),
+        ),
+    ]);
+    // Stems join deploy and deployment, and words such as Introduction say
+    // what kind of page it is, not what it is about.
+    let hits = search(&fixture, json!({"query":"deploy","pack_id":"phoenix"}));
+    assert_eq!(hits[0]["title"], "Introduction to Deployment");
+    // The docset's own name in a title is not a second topic.
+    let hits = search(&fixture, json!({"query":"middleware","stack":"dotnet"}));
+    assert_eq!(hits[0]["title"], "ASP.NET Core middleware");
+    assert_eq!(hits.len(), 3);
+    // An article named for one of the words is the subject, even when its
+    // text says decode where the query says parse.
+    let hits = search(&fixture, json!({"query":"parse json","stack":"elixir"}));
+    assert_eq!(hits[0]["title"], "JSON");
+}
+
+#[test]
+fn flags_and_dotted_keys_match_as_written() {
+    let fixture = Fixture::with(vec![
+        (
+            "spring-boot",
+            "Spring Boot",
+            "java",
+            "4.1",
+            json!([
+                page(
+                    "reference/actuator/monitoring.html",
+                    "Spring Boot · Monitoring and Management Over HTTP",
+                    "Management endpoints.",
+                    "<h2 id=\"port\">Customizing the Management Server Port</h2>",
+                    &[]
+                ),
+                doc(
+                    "appendix/application-properties.html",
+                    "Spring Boot · Common Application Properties",
+                    "server.address\n\nserver.port=8080 sets the HTTP port.\n\nserver.shutdown",
+                    &[]
+                ),
+            ]),
+        ),
+        (
+            "playwright",
+            "Playwright",
+            "node",
+            "1.65",
+            json!([
+                page(
+                    "network.html",
+                    "Network",
+                    "HTTP traffic.",
+                    "<h2 id=\"head\">Head</h2>",
+                    &[]
+                ),
+                doc(
+                    "running-tests.html",
+                    "Running tests",
+                    "Tests run headless by default.\n\nSee the browser window: add --headed.",
+                    &[]
+                ),
+            ]),
+        ),
+    ]);
+    let hits = search(&fixture, json!({"query":"server.port"}));
+    assert_eq!(
+        hits[0]["id"],
+        "spring-boot@4.1/appendix/application-properties.html"
+    );
+    assert_eq!(
+        hits[0]["match_text"],
+        "server.port=8080 sets the HTTP port."
+    );
+    let hits = search(&fixture, json!({"query":"--headed"}));
+    assert_eq!(hits[0]["id"], "playwright@1.65/running-tests.html");
+    assert_eq!(
+        hits[0]["match_text"],
+        "See the browser window: add --headed."
+    );
+}
+
+#[test]
+fn a_member_is_found_through_its_owner() {
+    let fixture = Fixture::with(vec![
+        (
+            "ruby",
+            "Ruby",
+            "ruby",
+            "4",
+            json!([
+                doc("doc/box.md", "Ruby Box", "Hash#map calls Hash#each to retrieve entries.", &[]),
+                doc("api/Hash", "Hash", "Hash < Object\n\n• #each: Calls the block with each key-value pair.\n\n• #fetch: Returns the value.", &["Hash"]),
+            ]),
+        ),
+        (
+            "numpy",
+            "NumPy",
+            "python",
+            "2.5",
+            json!([
+                doc("reference/generated/numpy.ma.array", "numpy.ma.array", "numpy.ma.array(data)", &["numpy.ma.array"]),
+                doc("reference/generated/numpy.array", "numpy.array", "numpy.array(object, dtype=None)", &["numpy.array"]),
+            ]),
+        ),
+    ]);
+    // The reference lists the method in its owner's article, not as an alias.
+    let hits = search(&fixture, json!({"query":"Hash#each"}));
+    assert_eq!(hits[0]["id"], "ruby@4/api/Hash");
+    assert_eq!(hits[0]["symbol"], "Hash#each");
+    assert_eq!(hits[0]["match_kind"], "symbol");
+    // The usual short name of the owner.
+    let hits = search(&fixture, json!({"query":"np.array"}));
+    assert_eq!(titles(&hits)[..2], ["numpy.array", "numpy.ma.array"]);
+    assert_eq!(hits[0]["symbol"], "numpy.array");
+}
+
+#[test]
+fn browsing_orders_numbered_titles_by_number() {
+    let fixture = Fixture::with(vec![(
+        "guide",
+        "Guide",
+        "guide",
+        "1",
+        json!([
+            doc("c10", "10. Last", "x", &[]),
+            doc("new310", "What's New In 3.10", "x", &[]),
+            doc("c2", "2. Second", "x", &[]),
+            doc("appendix", "<em>Appendix</em>", "x", &[]),
+            doc("new39", "What's New In 3.9", "x", &[]),
+            doc("c1", "1. First", "x", &[]),
+        ]),
+    )]);
+    let all = search(&fixture, json!({"query":"","pack_id":"guide"}));
+    assert_eq!(
+        titles(&all),
+        [
+            "1. First",
+            "2. Second",
+            "10. Last",
+            "Appendix",
+            "What's New In 3.9",
+            "What's New In 3.10"
+        ]
+    );
+    let page = search(
+        &fixture,
+        json!({"query":"","pack_id":"guide","limit":2,"offset":2}),
+    );
+    assert_eq!(titles(&page), ["10. Last", "Appendix"]);
 }

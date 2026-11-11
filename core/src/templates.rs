@@ -540,6 +540,88 @@ pub fn list(ctx: &Context) -> Result<Value> {
     Ok(json!(result))
 }
 
+/// How to get a runtime onto a Mac that does not have it. Devline never installs runtimes
+/// itself; it shows the command for the version manager the Mac already has.
+fn install_guide(stack: &str) -> Value {
+    let (mise, brew, url, note) = match stack {
+        "dotnet" => (
+            "mise use -g dotnet@latest",
+            "brew install --cask dotnet-sdk",
+            "https://dotnet.microsoft.com/download",
+            "Microsoft's installer from the download page works too.",
+        ),
+        "elixir" => (
+            "mise use -g erlang@latest elixir@latest",
+            "brew install elixir",
+            "https://elixir-lang.org/install.html",
+            "Elixir runs on Erlang/OTP. Either command installs both.",
+        ),
+        "go" => (
+            "mise use -g go@latest",
+            "brew install go",
+            "https://go.dev/dl/",
+            "",
+        ),
+        "java" => (
+            "mise use -g java@latest maven@latest",
+            "brew install openjdk maven",
+            "https://adoptium.net/",
+            "Devline builds Java projects with Maven and a JDK together.",
+        ),
+        "node" => (
+            "mise use -g node@latest",
+            "brew install node",
+            "https://nodejs.org/en/download",
+            "npm comes with Node.js.",
+        ),
+        "python" => (
+            "mise use -g python@latest",
+            "brew install python",
+            "https://www.python.org/downloads/macos/",
+            "The python3 that ships with Apple's tools is not used for projects.",
+        ),
+        "ruby" => (
+            "mise use -g ruby@latest",
+            "brew install ruby",
+            "https://www.ruby-lang.org/en/documentation/installation/",
+            "The Ruby that ships with macOS is too old for the starters.",
+        ),
+        "rust" => (
+            "mise use -g rust@latest",
+            "brew install rustup && rustup default stable",
+            "https://rustup.rs",
+            "rustup, from the link, is the Rust project's own installer.",
+        ),
+        "swift" => (
+            "",
+            "",
+            "https://developer.apple.com/xcode/",
+            "Install Xcode from the App Store and open it once. If Swift is still not found, run: sudo xcode-select -s /Applications/Xcode.app",
+        ),
+        _ => return Value::Null,
+    };
+    let home = env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
+    let has = |paths: &[PathBuf]| paths.iter().any(|path| path.is_file());
+    let has_mise = has(&[
+        PathBuf::from("/opt/homebrew/bin/mise"),
+        PathBuf::from("/usr/local/bin/mise"),
+        home.join(".local/bin/mise"),
+    ]);
+    let has_brew = has(&[
+        PathBuf::from("/opt/homebrew/bin/brew"),
+        PathBuf::from("/usr/local/bin/brew"),
+    ]);
+    let mut commands = Vec::new();
+    for (manager, command, present) in [("mise", mise, has_mise), ("Homebrew", brew, has_brew)] {
+        if !command.is_empty() {
+            commands.push(json!({"manager": manager, "command": command, "present": present}));
+        }
+    }
+    // Lead with a manager this Mac already has.
+    commands.sort_by_key(|command| command["present"] != true);
+    json!({"commands": commands, "url": url, "note": note})
+}
+
 pub fn runtimes(ctx: &Context) -> Result<Value> {
     runtime_reports(ctx, &[])
 }
@@ -591,7 +673,7 @@ pub(crate) fn runtime_reports(ctx: &Context, selected: &[String]) -> Result<Valu
                     "id": stack, "name": name, "toolchain": sample.toolchain,
                     "minimum_version": sample.minimum_version, "available": report["available"],
                     "path": report["path"], "detail": report["detail"], "version":report["version"],
-                    "docs": docs, "templates": templates,
+                    "docs": docs, "templates": templates, "install": install_guide(stack),
                 })
             }));
         }
@@ -1054,6 +1136,29 @@ fn jdk_home() -> Option<PathBuf> {
         .status
         .success()
         .then(|| PathBuf::from(String::from_utf8_lossy(&output.stdout).trim()))
+}
+
+/// Sandbox rule for .NET's shared state under /tmp. The runtime creates `/tmp/.dotnet` by making
+/// a sibling `/tmp/.dotnet.XXXXXX` and renaming it, so the sibling must be writable too or the
+/// first .NET command after a restart fails.
+pub(crate) const DOTNET_SANDBOX: &str = "(allow file-write* (subpath \"/private/tmp/.dotnet/shm\") (subpath \"/private/tmp/.dotnet/lockfiles\") (literal \"/private/tmp/.dotnet\") (regex #\"^/private/tmp/\\.dotnet\\.[A-Za-z0-9]+(/.*)?$\"))";
+
+/// A Python 3 that can run Devline's helper scripts.
+pub(crate) fn python3() -> Option<PathBuf> {
+    candidate_paths("python3")
+        .into_iter()
+        .find_map(|path| known_executable(&path, "python3"))
+        .or_else(|| {
+            // Apple's developer tools carry a Python that is enough for helper scripts.
+            // `/usr/bin/python3` itself is skipped: without the tools it only opens an installer.
+            [
+                "/Library/Developer/CommandLineTools/usr/bin/python3",
+                "/Applications/Xcode.app/Contents/Developer/usr/bin/python3",
+            ]
+            .into_iter()
+            .map(PathBuf::from)
+            .find(|path| path.is_file())
+        })
 }
 
 pub(crate) fn tool_environment(command: &mut Command, tool: &str, path: &Path) -> Result<()> {

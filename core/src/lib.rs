@@ -22,6 +22,7 @@ mod guides;
 mod infrastructure;
 mod markdown;
 mod offline;
+mod packages;
 mod project;
 mod project_layout;
 mod project_prepare;
@@ -50,6 +51,10 @@ pub fn execute(request: &Value) -> Result<Value> {
     match text_arg(request, "command")? {
         "infra.clients" => service_clients::catalog(&ctx, request),
         "service_clients.add" => service_clients::add(&ctx, request, None),
+        "packages.catalog" => packages::catalog(&ctx, request),
+        "packages.prepare" => packages::prepare(&ctx, request, None),
+        "packages.add" => packages::add(&ctx, request, None),
+        "packages.remove" => packages::remove(&ctx, request),
         command if command.starts_with("infra.") => infrastructure::execute(&ctx, request, None),
         "toolbox.status" => toolbox::status(&ctx, request, false),
         "toolbox.check" => toolbox::status(&ctx, request, true),
@@ -149,9 +154,10 @@ pub fn execute(request: &Value) -> Result<Value> {
         "docs.remove" => doc_library::remove(&ctx, request),
         "templates.list" => templates::list(&ctx),
         "runtime.list" => templates::runtimes(&ctx),
+        "runtime.inventory" => updates::runtime_inventory(&ctx),
         "updates.app.status" => updates::app_status(&ctx),
         "updates.app.check" => updates::app_check(&ctx, request),
-        "updates.status" => content_updates::status(&ctx),
+        "updates.status" => content_updates::status(&ctx, request),
         "updates.runtime.status" => updates::runtime_status(&ctx),
         "updates.check" => content_updates::check(&ctx, request, None),
         "updates.apply" => content_updates::apply(&ctx, request, None),

@@ -1,21 +1,21 @@
 import Foundation
 import SwiftUI
 
-struct InfrastructureCatalog: Decodable, Sendable {
+struct InfrastructureCatalog: Decodable, Equatable, Sendable {
     let services: [InfrastructureService]
     let platform: String
 }
 
-struct InfrastructureService: Decodable, Identifiable, Sendable {
-    struct Image: Decodable, Sendable {
+struct InfrastructureService: Decodable, Equatable, Identifiable, Sendable {
+    struct Image: Decodable, Equatable, Sendable {
         let registry, repository, tag, digest, configDigest, platform: String
         let compressedBytes: Int64?
     }
-    struct Provenance: Decodable, Sendable {
+    struct Provenance: Decodable, Equatable, Sendable {
         let publisher, imageUrl, sourceUrl, license: String
         let docsUrl: String?
     }
-    struct Port: Decodable, Identifiable, Sendable {
+    struct Port: Decodable, Equatable, Identifiable, Sendable {
         let id, name: String
         let containerPort, hostPort: Int
     }
@@ -40,17 +40,17 @@ struct InfrastructureService: Decodable, Identifiable, Sendable {
     }
 }
 
-struct InfrastructureStatus: Decodable, Sendable {
-    struct Docker: Decodable, Sendable {
+struct InfrastructureStatus: Decodable, Equatable, Sendable {
+    struct Docker: Decodable, Equatable, Sendable {
         let available: Bool
         let endpoint, platform, detail: String?
     }
-    struct Receipt: Decodable, Sendable {
+    struct Receipt: Decodable, Equatable, Sendable {
         let source, sourceDigest, imageId, archiveSha256: String
         let sizeBytes: Int64
         let verifiedAt: Double
     }
-    struct Image: Decodable, Identifiable, Sendable {
+    struct Image: Decodable, Equatable, Identifiable, Sendable {
         let id, version, platform, status: String
         let archived, readyOffline: Bool
         let loaded: Bool?
@@ -73,10 +73,21 @@ struct InfrastructureStack: Decodable, Sendable {
     let projectName: String?
     let configured: Bool
     let services: [Service]
+    let docker: InfrastructureStatus.Docker?
     let running: Bool?
     let healthy: Bool?
     let statusError: String?
     let log: String?
+}
+
+@MainActor
+extension WorkspaceModel {
+    var completedInfrastructureJobIDs: [String] {
+        jobs.filter {
+            !$0.isActive && ($0.kind.hasPrefix("infra_") ||
+                ["bundle_import", "content_update", "toolbox_prepare", "new_project"].contains($0.kind))
+        }.map(\.id)
+    }
 }
 
 @MainActor
@@ -87,17 +98,34 @@ final class InfrastructureLibrary: ObservableObject {
     @Published private(set) var error: String?
     private var refreshTask: Task<Void, Never>?
     private var refreshPending = false
+    private var lastRefresh: ContinuousClock.Instant?
+    private var observedJobs: [String]?
 
     var archived: [InfrastructureStatus.Image] { status?.images.filter(\.archived) ?? [] }
     var sizeBytes: Int64 { archived.reduce(0) { $0 + ($1.receipt?.sizeBytes ?? 0) } }
     func image(_ reference: String) -> InfrastructureStatus.Image? { status?.images.first { $0.reference == reference } }
 
-    func refresh() async {
+    func loadIfNeeded(after completedJobs: [String]) async {
+        guard !Task.isCancelled else { return }
+        let jobsChanged = observedJobs.map { $0 != completedJobs } ?? false
+        observedJobs = completedJobs
+        if !jobsChanged {
+            if let refreshTask { return await refreshTask.value }
+            if let lastRefresh, lastRefresh.duration(to: .now) < .seconds(3) { return }
+        }
+        await refresh(quiet: catalog != nil)
+    }
+
+    /// `quiet` brings what is already on screen up to date without showing that it is loading.
+    func refresh(quiet: Bool = false) async {
         refreshPending = true
         if let refreshTask { return await refreshTask.value }
-        loading = true
+        if !quiet { loading = true }
         let task = Task {
-            defer { loading = false; refreshTask = nil }
+            defer {
+                if loading { loading = false }
+                refreshTask = nil
+            }
             repeat {
                 refreshPending = false
                 await loadSnapshot()
@@ -112,10 +140,14 @@ final class InfrastructureLibrary: ObservableObject {
             async let nextCatalog: InfrastructureCatalog = Core.request(CoreRequest("infra.catalog"))
             async let nextStatus: InfrastructureStatus = Core.request(CoreRequest("infra.status"))
             let (catalog, status) = try await (nextCatalog, nextStatus)
-            self.catalog = catalog
-            self.status = status
-            error = nil
+            if self.catalog != catalog { self.catalog = catalog }
+            if self.status != status { self.status = status }
+            if error != nil { error = nil }
+            lastRefresh = .now
         } catch is CancellationError {}
-        catch { self.error = error.localizedDescription }
+        catch {
+            lastRefresh = nil
+            if self.error != error.localizedDescription { self.error = error.localizedDescription }
+        }
     }
 }

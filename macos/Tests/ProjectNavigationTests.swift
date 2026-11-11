@@ -13,6 +13,24 @@ import Foundation
         let restored = try JSONDecoder().decode([RecentProject].self, from: JSONEncoder().encode(recent))
         precondition(restored == recent)
 
+        // Opening a project moves it to the front of the history, but never moves it in the sidebar.
+        let before = RecentProject.listed(recent).map(\.name)
+        let reopened = RecentProject.remembering("/tmp/project-7", in: recent, now: Date(timeIntervalSince1970: 30))
+        precondition(reopened.first?.name == "project-7")
+        precondition(RecentProject.listed(reopened).map(\.name) == before)
+        precondition(before == before.sorted { $0.localizedStandardCompare($1) == .orderedAscending })
+
+        // The sidebar highlights the open project however its path was spelled.
+        precondition(sameProject("/tmp/project-4/../project-4", "/tmp/project-4"))
+        precondition(sameProject("/tmp/project-4", "/tmp/project-4/"))
+        precondition(!sameProject("/tmp/project-4", "/tmp/project-5") && !sameProject("/tmp/project-4", nil))
+
+        // A new project starts with a valid folder name taken from its starter.
+        precondition(projectSlug(for: "python/fastapi-api") == "fastapi-api")
+        precondition(projectSlug(for: "dotnet/ASPNET_MVC") == "aspnet-mvc")
+        precondition(projectSlug(for: "node/--react--web--") == "react-web")
+        precondition(projectSlug(for: "go/9lives") == "project" && projectSlug(for: "") == "project")
+
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         func job(_ result: String, state: String = "succeeded") throws -> JobRecord {

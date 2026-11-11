@@ -170,6 +170,90 @@ fn ignored(stack: &str, name: &str) -> bool {
         }
 }
 
+/// What the project's own `.gitignore` says is not source: databases, logs and other files an
+/// app writes while it runs. Without this, running a prepared project would look like editing it.
+///
+/// Only the common forms are read: names, `*.ext`, `dir/`, a leading `/` for the project root,
+/// and `**`. Lines that re-include files (`!`) are skipped, so nothing is tracked less strictly
+/// than git would track it.
+#[derive(Default)]
+struct Untracked(Vec<(String, bool, bool)>);
+
+impl Untracked {
+    fn read(root: &Path) -> Self {
+        let Ok(text) = fs::read_to_string(root.join(".gitignore")) else {
+            return Self::default();
+        };
+        Self(
+            text.lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty() && !line.starts_with(['#', '!']))
+                .filter_map(|line| {
+                    let directory = line.ends_with('/');
+                    let line = line.trim_end_matches('/');
+                    let anchored = line.contains('/');
+                    let pattern = line.trim_start_matches('/');
+                    (!pattern.is_empty()).then(|| (pattern.to_owned(), anchored, directory))
+                })
+                .collect(),
+        )
+    }
+
+    fn matches(&self, relative: &Path, is_dir: bool) -> bool {
+        let (Some(path), Some(name)) = (
+            relative.to_str(),
+            relative.file_name().and_then(|name| name.to_str()),
+        ) else {
+            return false;
+        };
+        self.0.iter().any(|(pattern, anchored, directory)| {
+            (is_dir || !directory) && glob(pattern, if *anchored { path } else { name })
+        })
+    }
+}
+
+/// `*` and `?` stay within one path component; `**` crosses them.
+fn glob(pattern: &str, text: &str) -> bool {
+    fn matches(pattern: &[u8], text: &[u8]) -> bool {
+        match pattern {
+            [] => text.is_empty(),
+            [b'*', b'*', rest @ ..] => {
+                let rest = rest.strip_prefix(b"/").unwrap_or(rest);
+                (0..=text.len()).any(|skip| matches(rest, &text[skip..]))
+            }
+            [b'*', rest @ ..] => (0..=text.len())
+                .take_while(|&skip| skip == 0 || text[skip - 1] != b'/')
+                .any(|skip| matches(rest, &text[skip..])),
+            [b'?', rest @ ..] => {
+                text.first().is_some_and(|&c| c != b'/') && matches(rest, &text[1..])
+            }
+            [first, rest @ ..] => text.first() == Some(first) && matches(rest, &text[1..]),
+        }
+    }
+    matches(pattern.as_bytes(), text.as_bytes())
+}
+
+/// Copies files that are not part of the proof, so a staged run still finds them.
+fn copy_untracked(input: &Path, output: &Path, tree: &mut Tree) -> Result<()> {
+    let meta = fs::symlink_metadata(input)?;
+    if meta.is_dir() {
+        fs::create_dir(output)?;
+        for entry in fs::read_dir(input)? {
+            let entry = entry?;
+            copy_untracked(&entry.path(), &output.join(entry.file_name()), tree)?;
+        }
+    } else if meta.is_file() {
+        tree.count += 1;
+        tree.bytes = tree.bytes.saturating_add(meta.len());
+        if tree.count > 150_000 || tree.bytes > 5 * 1024 * 1024 * 1024 {
+            bail!("Project exceeds the offline verification size limit");
+        }
+        fs::copy(input, output)?;
+    }
+    // Sockets, pid files' links and the like belong to a running app and are left behind.
+    Ok(())
+}
+
 #[derive(Default)]
 struct Tree {
     count: u64,
@@ -178,6 +262,7 @@ struct Tree {
     generated: bool,
     organized: bool,
     managed: &'static str,
+    untracked: Untracked,
 }
 
 impl Tree {
@@ -284,6 +369,12 @@ impl Tree {
             if !dependency_tree && ignored(stack, name) {
                 continue;
             }
+            if !dependency_tree && self.untracked.matches(relative, meta.is_dir()) {
+                if let Some(copy) = copy {
+                    copy_untracked(&input, &copy.join(relative), self)?;
+                }
+                continue;
+            }
             self.count += 1;
             self.bytes = self.bytes.saturating_add(meta.len());
             if self.count > 150_000 || self.bytes > 5 * 1024 * 1024 * 1024 {
@@ -345,21 +436,42 @@ fn fingerprint_tree(
     source_only: bool,
     generated: bool,
 ) -> Result<String> {
+    tree_digest(
+        stack,
+        root,
+        copy,
+        source_only,
+        generated,
+        Untracked::read(root),
+    )
+}
+
+fn tree_digest(
+    stack: &str,
+    root: &Path,
+    copy: Option<&Path>,
+    source_only: bool,
+    generated: bool,
+    untracked: Untracked,
+) -> Result<String> {
     let mut digest = Sha256::new();
     Tree {
         source_only,
         generated,
         organized: project_layout::is_organized(root),
         managed: project_layout::cache_relative(root),
+        untracked,
         ..Tree::default()
     }
     .visit(stack, root, root, copy, &mut digest)?;
     Ok(format!("{:x}", digest.finalize()))
 }
 
-/// Reuse the same safe source/dependency boundary for opt-in client mutations.
+/// Reuse the same safe source/dependency boundary for opt-in client mutations. Every file
+/// counts here, ignored or not: a change is about to replace the project, and nothing an app
+/// wrote in the meantime may be lost.
 pub(crate) fn mutation_snapshot(stack: &str, root: &Path, copy: Option<&Path>) -> Result<String> {
-    fingerprint_tree(stack, root, copy, false, false)
+    tree_digest(stack, root, copy, false, false, Untracked::default())
 }
 
 /// Publish a proof only when the original now exactly matches a tested copy.
@@ -503,7 +615,7 @@ fn invoke(
     )?;
     let network = if verify { NETWORK_POLICY } else { "" };
     let dotnet_mutex = if tool_name == "dotnet" {
-        "(allow file-write* (subpath \"/private/tmp/.dotnet/shm\") (subpath \"/private/tmp/.dotnet/lockfiles\") (literal \"/private/tmp/.dotnet\"))"
+        crate::templates::DOTNET_SANDBOX
     } else {
         ""
     };
@@ -554,6 +666,18 @@ fn invoke(
                     serde_json::to_string(&tmp)?
                 ),
             );
+            // Maven's own settings file mentions ${user.home} inside an XML comment, and a home
+            // path containing "--" makes that comment unparseable. An empty global settings file
+            // keeps Maven from reading it. Maven splits MAVEN_ARGS on whitespace, so this is only
+            // possible for a path without any.
+            let settings = tmp.join("maven-global-settings.xml");
+            if !settings.to_string_lossy().contains(char::is_whitespace) {
+                fs::write(
+                    &settings,
+                    "<settings xmlns=\"http://maven.apache.org/SETTINGS/1.0.0\"/>\n",
+                )?;
+                command.env("MAVEN_ARGS", format!("-gs {}", settings.display()));
+            }
         }
         for (key, path) in [
             ("GOCACHE", "go-build"),
@@ -1061,6 +1185,62 @@ mod tests {
     use super::*;
 
     #[cfg(target_os = "macos")]
+    #[test]
+    fn files_an_app_writes_while_running_do_not_change_the_proof() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let project = root.path();
+        fs::write(
+            project.join(".gitignore"),
+            "/notes.sqlite3*\n*.log\n/storage/\n!keep.log\n# comment\ndata/*.sqlite*\n",
+        )?;
+        fs::write(project.join("main.go"), "package main\n")?;
+        fs::create_dir(project.join("data"))?;
+        fs::write(project.join("data/seed.json"), "{}")?;
+        let before = proof_fingerprint("go", project, false)?;
+
+        fs::write(project.join("notes.sqlite3"), "rows")?;
+        fs::write(project.join("notes.sqlite3-wal"), "rows")?;
+        fs::write(project.join("server.log"), "started")?;
+        fs::create_dir_all(project.join("storage/blobs"))?;
+        fs::write(project.join("storage/blobs/one"), "blob")?;
+        fs::write(project.join("data/app.sqlite3"), "rows")?;
+        assert_eq!(proof_fingerprint("go", project, false)?, before);
+
+        // A staged copy still receives them, and a change about to replace the project sees them.
+        let stage = tempfile::tempdir()?;
+        let copy = stage.path().join("copy");
+        fs::create_dir(&copy)?;
+        assert_eq!(
+            fingerprint_tree("go", project, Some(&copy), false, false)?,
+            before
+        );
+        assert_eq!(fs::read_to_string(copy.join("storage/blobs/one"))?, "blob");
+        assert_eq!(fs::read_to_string(copy.join("notes.sqlite3"))?, "rows");
+        assert_ne!(mutation_snapshot("go", project, None)?, before);
+
+        fs::write(project.join("data/seed.json"), "{\"changed\":true}")?;
+        assert_ne!(proof_fingerprint("go", project, false)?, before);
+        Ok(())
+    }
+
+    #[test]
+    fn ignore_patterns_match_like_git_for_the_common_forms() {
+        let rules = Untracked(vec![
+            ("tasks.db*".into(), false, false),
+            ("log".into(), false, true),
+            ("config/credentials/*.key".into(), true, false),
+            ("build/**/out".into(), true, false),
+        ]);
+        assert!(rules.matches(Path::new("tasks.db-wal"), false));
+        assert!(rules.matches(Path::new("nested/tasks.db"), false));
+        assert!(rules.matches(Path::new("log"), true));
+        assert!(!rules.matches(Path::new("log"), false));
+        assert!(rules.matches(Path::new("config/credentials/production.key"), false));
+        assert!(!rules.matches(Path::new("config/credentials/nested/production.key"), false));
+        assert!(rules.matches(Path::new("build/a/b/out"), true));
+        assert!(!rules.matches(Path::new("src/tasks.rs"), false));
+    }
+
     #[test]
     fn starter_test_cannot_repair_source_or_dependencies_only_in_its_copy() -> Result<()> {
         let root = templates::Stage::new(&std::env::temp_dir().canonicalize()?)?;

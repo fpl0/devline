@@ -12,7 +12,7 @@ struct UpdateSource: Decodable, Identifiable, Sendable {
     let checkedAt: TimeInterval?
 }
 
-struct UpdateItem: Decodable, Identifiable, Sendable {
+struct UpdateItem: Decodable, Equatable, Identifiable, Sendable {
     enum Kind: String, Decodable, Sendable {
         case docs, template, image, runtime, app
 
@@ -136,6 +136,7 @@ struct UpdatesView: View {
                 checkDetails
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .task(id: statusRevision) { [revision = statusRevision] in await loadStatus(revision) }
     }
 
@@ -353,7 +354,7 @@ struct UpdatesView: View {
 
     private func loadStatus(_ revision: StatusRevision) async {
         do {
-            snapshot = try await Core.request(CoreRequest("updates.status"))
+            snapshot = try await Core.request(CoreRequest("updates.status", category: "assets"))
             loadError = nil
         } catch is CancellationError {
             return

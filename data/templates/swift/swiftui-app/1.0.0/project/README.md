@@ -10,7 +10,7 @@ Select a local Xcode 16 or later with Swift 6 and the macOS SDK. The test suite 
 ./test-offline.sh         # fresh SwiftPM scratch space, model tests, and bundle verification
 ```
 
-Choose **Run Offline** in Devline to launch and manage the window. In a generated project, use `./devline.sh start`, `./devline.sh stop`, `./devline.sh build`, and `./devline.sh test`. All commands use local SwiftPM targets and Apple's SDK. The app has zero third-party packages.
+Choose **Run** in Devline to launch and manage the window. In a generated project, use `./devline.sh start`, `./devline.sh stop`, `./devline.sh build`, and `./devline.sh test`. All commands use local SwiftPM targets and Apple's SDK. The app has zero third-party packages.
 
 - `Sources/IdeaBoard` contains the SwiftUI window, sidebar, search, and editor.
 - `Sources/IdeaBoardCore` contains the idea model and JSON file storage.

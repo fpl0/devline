@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
     fs::{self, File, OpenOptions},
-    io::{Read, Seek, SeekFrom, Write},
+    io::{BufReader, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::atomic::{AtomicU64, Ordering},
@@ -122,7 +122,8 @@ fn open_regular(path: &Path) -> Result<File> {
 }
 
 fn read<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
-    Ok(serde_json::from_reader(open_regular(path)?)?)
+    let reader = BufReader::new(open_regular(path)?);
+    Ok(serde_json::from_reader(reader)?)
 }
 
 fn save(path: &Path, status: &Status) -> Result<()> {
@@ -158,7 +159,7 @@ pub fn start(ctx: &Context, request: &Value) -> Result<Value> {
             text_arg(request, "destination")?;
         }
         "build" | "verify" | "prepare" | "docs_install" | "docs_prepare" | "infra_prepare"
-        | "infra_restore" | "infra_verify" | "infra_update" => {
+        | "infra_restore" | "infra_verify" | "infra_update" | "packages_prepare" => {
             text_arg(request, "id")?;
         }
         "docs_import_devdocs" => {
@@ -177,6 +178,7 @@ pub fn start(ctx: &Context, request: &Value) -> Result<Value> {
         | "infra_stack_down"
         | "infra_stack_add"
         | "service_clients_add"
+        | "packages_add"
         | "project_prepare"
         | "toolbox_prepare" => {
             text_arg(request, "path")?;
@@ -408,7 +410,20 @@ impl Job {
     }
 
     pub(crate) fn command(&mut self, command: &mut Command, label: &str) -> Result<()> {
+        self.command_reporting(command, label, None)
+    }
+
+    /// Runs a command like `command`. While it runs, whatever it last wrote to `status`
+    /// (a short phrase such as "37 of 100") is appended to the stage shown to the user.
+    pub(crate) fn command_reporting(
+        &mut self,
+        command: &mut Command,
+        label: &str,
+        status: Option<&std::path::Path>,
+    ) -> Result<()> {
         self.stage(label)?;
+        let mut reported = String::new();
+        let mut checked = Instant::now();
         command
             .stdin(Stdio::null())
             .stdout(Stdio::from(self.log.try_clone()?))
@@ -423,6 +438,15 @@ impl Job {
             if let Err(reason) = self.checkpoint() {
                 stop_group(&mut child);
                 return Err(reason);
+            }
+            if let Some(path) = status.filter(|_| checked.elapsed() >= Duration::from_secs(1)) {
+                checked = Instant::now();
+                let current = fs::read_to_string(path).unwrap_or_default();
+                let current = current.trim();
+                if !current.is_empty() && current.len() <= 80 && current != reported {
+                    reported = current.to_owned();
+                    self.stage(&format!("{label} · {reported}"))?;
+                }
             }
             match child.try_wait() {
                 Ok(Some(status)) if status.success() => return Ok(()),
@@ -509,6 +533,8 @@ pub fn run_worker(home: PathBuf, catalog: PathBuf, id: &str) -> Result<()> {
             "project_prepare" => crate::project_prepare::prepare(&ctx, &request, Some(&mut job)),
             "toolbox_prepare" => crate::toolbox::prepare(&ctx, &request, Some(&mut job)),
             "service_clients_add" => crate::service_clients::add(&ctx, &request, Some(&mut job)),
+            "packages_prepare" => crate::packages::prepare(&ctx, &request, Some(&mut job)),
+            "packages_add" => crate::packages::add(&ctx, &request, Some(&mut job)),
             "content_check" => crate::content_updates::check(&ctx, &request, Some(&mut job)),
             "content_update" => crate::content_updates::apply(&ctx, &request, Some(&mut job)),
             kind if kind.starts_with("infra_") => {

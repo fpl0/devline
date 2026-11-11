@@ -50,7 +50,7 @@ struct ConfigureServicesView: View {
             .task {
                 selected = Set(existing?.services.map(\.reference) ?? [])
                 selected.formUnion(suggested.filter { reference in !existingIDs.contains(String(reference.split(separator: "@", maxSplits: 1)[0])) })
-                await library.refresh()
+                await library.loadIfNeeded(after: model.completedInfrastructureJobIDs)
             }
     }
     private func save() async {

@@ -39,13 +39,24 @@ fi
 # The Java launcher parses quotes here. Maven expands MAVEN_OPTS with shell
 # word splitting, which would break staged project paths containing spaces.
 export JDK_JAVA_OPTIONS="${JDK_JAVA_OPTIONS:-} -Duser.home=\"$HOME\" -Djava.io.tmpdir=\"${TMPDIR:?}\""
+# Maven's own settings file mentions ${user.home} inside an XML comment and cannot be parsed
+# when that path contains "--". An empty global settings file keeps Maven from reading it.
+global_settings="$TMPDIR/devline-maven-global-settings.xml"
+printf '%s\n' '<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"/>' > "$global_settings"
+case "$global_settings" in
+    # Maven splits MAVEN_ARGS on spaces, so only a path without them can reach the Maven that a
+    # starter's own scripts start.
+    *[[:space:]]*) maven() { "$tool" -gs "$global_settings" "$@"; } ;;
+    *) export MAVEN_ARGS="${MAVEN_ARGS:-} -gs $global_settings"
+       maven() { "$tool" "$@"; } ;;
+esac
 case "$action" in
     prepare)
         mkdir -p "$cache/repository"
         if offline_requested; then
-            "$tool" -o -B -ntp "-Dmaven.repo.local=$cache/repository" clean verify
+            maven -o -B -ntp "-Dmaven.repo.local=$cache/repository" clean verify
         else
-            "$tool" -B -ntp "-Dmaven.repo.local=$cache/repository" clean verify
+            maven -B -ntp "-Dmaven.repo.local=$cache/repository" clean verify
         fi
         ;;
     verify)
@@ -57,7 +68,7 @@ case "$action" in
             exit 1
         fi
         /bin/cp -cR "$cache/repository" "${TMPDIR:?}/maven-repository"
-        "$tool" -o -B -ntp "-Dmaven.repo.local=$TMPDIR/maven-repository" clean verify
+        maven -o -B -ntp "-Dmaven.repo.local=$TMPDIR/maven-repository" clean verify
         ;;
     *) printf '%s\n' 'Expected prepare or verify.' >&2; exit 2 ;;
 esac

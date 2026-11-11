@@ -10,19 +10,20 @@ extension Notification.Name {
     static let devlineUpdates = Self("Devline.updates")
     static let devlineAppUpdates = Self("Devline.appUpdates")
     static let devlineActivity = Self("Devline.activity")
+    static let devlineShowPage = Self("Devline.showPage")
 }
 
 @main
 struct DevlineMacApp: App {
     @NSApplicationDelegateAdaptor(DevlineAppDelegate.self) private var appDelegate
     @StateObject private var appUpdates = AppUpdates.shared
-    @StateObject private var model = WorkspaceModel()
-    @AppStorage("devline.appearance") private var appearance = "system"
+    // Workspace views observe their model. Application commands only need the
+    // recent projects, so catalog and job updates don't rebuild the scenes.
+    @State private var model = WorkspaceModel()
 
     var body: some Scene {
         Window("Devline", id: "workspace") {
-            WorkspaceView(model: model)
-                .preferredColorScheme(appearance == "system" ? nil : appearance == "light" ? .light : .dark)
+            WorkspaceView(model: model).preferredAppearance()
         }
         .defaultSize(width: 1120, height: 720)
         .windowResizability(.contentMinSize)
@@ -36,34 +37,26 @@ struct DevlineMacApp: App {
                 Button("Library Updates…") { announce(.devlineUpdates) }
             }
             CommandGroup(replacing: .newItem) {
-                Button("New from Starter…") { announce(.devlineNew) }
+                Button("New Project…") { announce(.devlineNew) }
                     .keyboardShortcut("n")
                 Button("Open Project Folder…") { announce(.devlineOpenProject) }
                     .keyboardShortcut("o")
-                Menu("Open Recent") {
-                    if model.recentProjects.isEmpty { Text("No Recent Projects") }
-                    ForEach(model.recentProjects) { project in
-                        Button(project.name) { NotificationCenter.default.post(name: .devlineOpenRecent, object: project.path) }
-                            .help(project.path)
-                    }
-                    if !model.recentProjects.isEmpty {
-                        Divider()
-                        Button("Clear Menu") { model.clearRecentProjects() }
-                    }
-                }
+                Menu("Open Recent") { OpenRecentItems(model: model) }
             }
-            CommandMenu("Workspace") {
+            CommandMenu("Go") {
+                Button("Home") { show("Home") }.keyboardShortcut("1")
+                Button("Docs") { show("Docs") }.keyboardShortcut("2")
+                Button("Services") { show("Services") }.keyboardShortcut("3")
+                Button("Library") { show("Library") }.keyboardShortcut("4")
+                Divider()
                 Button("Find in Docs") { announce(.devlineFind) }
                     .keyboardShortcut("f")
-                Button("Open Offline Library") { announce(.devlineLibrary) }
-                    .keyboardShortcut("l", modifiers: [.command, .shift])
                 Button("Show Activity") { announce(.devlineActivity) }
             }
         }
 
         Settings {
-            SettingsView(model: model)
-                .preferredColorScheme(appearance == "system" ? nil : appearance == "light" ? .light : .dark)
+            SettingsView(model: model).preferredAppearance()
         }
 
         MenuBarExtra {
@@ -89,6 +82,10 @@ struct DevlineMacApp: App {
     private func announce(_ action: Notification.Name) {
         NotificationCenter.default.post(name: action, object: nil)
     }
+
+    private func show(_ page: String) {
+        NotificationCenter.default.post(name: .devlineShowPage, object: page)
+    }
 }
 
 private struct DevlineStatusMenu: View {
@@ -102,5 +99,25 @@ private struct DevlineStatusMenu: View {
         }
         Divider()
         Button("Quit Devline") { NSApp.terminate(nil) }
+    }
+}
+
+/// The Open Recent menu. It follows the saved list on its own, so the scenes are not rebuilt
+/// when a project is opened.
+private struct OpenRecentItems: View {
+    let model: WorkspaceModel
+    @ObservedObject private var saved = PreferenceBox.box(RecentProject.storageKey)
+
+    var body: some View {
+        let recentProjects = RecentProject.restore(UserDefaults.standard.data(forKey: saved.key))
+        if recentProjects.isEmpty { Text("No Recent Projects") }
+        ForEach(recentProjects) { project in
+            Button(project.name) { NotificationCenter.default.post(name: .devlineOpenRecent, object: project.path) }
+                .help(project.path)
+        }
+        if !recentProjects.isEmpty {
+            Divider()
+            Button("Clear Menu") { model.clearRecentProjects() }
+        }
     }
 }

@@ -17,7 +17,7 @@ use std::{
     io::Read,
     path::{Path, PathBuf},
 };
-use version::{matches, Rule};
+use version::{distance, matches, Rule};
 
 #[derive(Serialize)]
 struct Pin {
@@ -162,8 +162,8 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
             metadata.insert((pack.id.as_str(), pack.version.as_str()), upstream.as_str());
         }
     }
-    let compatible = |dependency: &Dependency, release: &str| {
-        let source_version = metadata
+    let upstream = |dependency: &Dependency, release: &str| {
+        metadata
             .get(&(dependency.id, release))
             .copied()
             .or_else(|| {
@@ -172,7 +172,11 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
                     && doc_release(release).0 == "2026.11.06")
                     .then_some("10.0")
             })
-            .unwrap_or(release);
+            .unwrap_or(release)
+            .to_owned()
+    };
+    let compatible = |dependency: &Dependency, release: &str| {
+        let source_version = &upstream(dependency, release);
         if matches!(dependency.id, "csharp" | "aspnet")
             && doc_release(source_version).0.split('.').count() > 2
         {
@@ -186,6 +190,9 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
             }
         }
         matches(&dependency.rule, source_version)
+    };
+    let nearby = |dependency: &Dependency, release: &str| {
+        distance(&dependency.rule, &upstream(dependency, release))
     };
     let mut docsets = Vec::with_capacity(ids.len());
     for id in ids {
@@ -236,9 +243,10 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
                 dependency,
                 preferred.get(id).map(String::as_str),
                 &compatible,
+                &nearby,
             );
         }
-        docset.prepare_version = docset.version.clone().or_else(|| {
+        let exact = || {
             let dependency = dependency?;
             docset
                 .available_versions
@@ -248,7 +256,14 @@ fn selection(ctx: &Context, db: &Connection, detected: &Detected) -> Result<Sele
                         || compatible(dependency, release) == Some(true)
                 })
                 .cloned()
-        });
+        };
+        // A nearby release keeps the project readable; preparation can still
+        // fetch the exact release when one is published.
+        docset.prepare_version = if docset.state == "nearby" {
+            exact().or_else(|| docset.version.clone())
+        } else {
+            docset.version.clone().or_else(exact)
+        };
         docsets.push(docset);
     }
     Ok(Selection { pins, docsets })
@@ -259,6 +274,7 @@ fn choose(
     dependency: &Dependency,
     preferred: Option<&str>,
     compatible: &impl Fn(&Dependency, &str) -> Option<bool>,
+    nearby: &impl Fn(&Dependency, &str) -> Option<[u32; 4]>,
 ) {
     let label = docset
         .requirement
@@ -288,6 +304,10 @@ fn choose(
                 dependency.source
             );
         } else {
+            if docset.available_versions.is_empty() {
+                // Nothing in this library can be installed for it, so it is not a gap to close.
+                docset.state = "undocumented";
+            }
             docset.detail = format!(
                 "No documentation for {} is installed. Detected {label} in {}.",
                 docset.id, dependency.source
@@ -333,6 +353,19 @@ fn choose(
                 dependency.source
             );
         }
+    } else if let Some(closest) = docset
+        .installed_versions
+        .iter()
+        .filter_map(|release| nearby(dependency, release).map(|gap| (gap, release)))
+        .min_by_key(|(gap, _)| *gap)
+        .map(|(_, release)| release.clone())
+    {
+        docset.state = "nearby";
+        docset.detail = format!(
+            "Using {closest}, the closest installed release to {label} from {}.",
+            dependency.source
+        );
+        docset.version = Some(closest);
     } else {
         docset.state = "unmatched";
         let tested = docset

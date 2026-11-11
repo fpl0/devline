@@ -1,9 +1,9 @@
 # Release Dispatch
 
-Publish a release brief and hand it off to a local team. **Run Offline** starts the six configured services and publishes the sample. Open **App Logs** to find the release ID. Each run publishes a fresh release.
+Publish a release brief and hand it off to a local team. **Run** starts the six configured services and publishes the sample. Open **App Output** to find the release ID. Each run publishes a fresh release.
 
 - **SeaweedFS** stores the JSON brief in the S3 bucket. **Redis** keeps a ten-minute copy for reads.
-- **RabbitMQ** hands the brief to the notification step, which sends the email to **Mailpit**. Open Mailpit's web inbox from Current Project.
+- **RabbitMQ** hands the brief to the notification step, which sends the email to **Mailpit**. Open Mailpit's web inbox from Services → This Project in Devline.
 - **Meilisearch** indexes the brief for discovery, and **NATS** broadcasts its publication on `releases.published`.
 
 ```sh

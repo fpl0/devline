@@ -43,6 +43,6 @@
       "version": "11.39"
     }
   ],
-  "verification": "Added all selected clients to a fresh Maven project, resolved and built offline with empty HOME; all ten client entry-point classes loaded.",
-  "inventory_sha256": "9b200a43efb74346a712fa0e8353e4b7b22e3407e7d5e9be2af4426185b06787"
+  "verification": "Added all selected clients to a fresh Maven project, resolved and built offline with empty HOME; all ten client entry-point classes loaded. Each client was also added alone to every bundled Java starter and built offline.",
+  "inventory_sha256": "c352bcdabea489f73bebbc586e98c77cfd899451b6b06565b2a07374706ad26d"
 }

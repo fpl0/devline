@@ -7,6 +7,11 @@ merge "$artifacts/module-cache" "$cache"
 chmod -R u+w "$cache"
 export GOMODCACHE="$cache" GOCACHE="$TMPDIR/go-build" GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=mod
 if [ "$offline" = true ]; then export GOPROXY=off GOSUMDB=off; fi
+if [ -n "$shelf" ] && [ -d "$shelf/module-cache/cache/download" ]; then
+    # Read shelf modules in place through Go's file proxy; only what the project uses is copied.
+    if [ "$offline" = true ]; then export GOPROXY="file://$shelf/module-cache/cache/download"
+    else export GOPROXY="file://$shelf/module-cache/cache/download,https://proxy.golang.org,direct"; fi
+fi
 imports="$TMPDIR/client-imports"
 if [ -f devline_clients/dependencies.go ]; then
     head -1 devline_clients/dependencies.go | /usr/bin/grep -q '^// Devline selected service clients' || { echo 'devline_clients/dependencies.go already exists and is not managed by Devline.' >&2; exit 1; }

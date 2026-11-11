@@ -25,6 +25,64 @@ fn render_packages(value: &Value, empty: &str) {
         }
     }
 }
+fn render_shelves(value: &Value) {
+    // One runtime prints as a package list; several print as a summary of each shelf.
+    let single = [value.clone()];
+    let stacks = value["stacks"]
+        .as_array()
+        .map_or(&single[..], Vec::as_slice);
+    let detailed = stacks.len() == 1;
+    for stack in stacks {
+        let shelf = &stack["shelf"];
+        let size = shelf["bytes"]
+            .as_u64()
+            .map(|bytes| format!(" · {:.0} MB", bytes as f64 / 1_000_000.0))
+            .unwrap_or_default();
+        println!(
+            "{:<8} {:<14} {}",
+            s(stack, "stack"),
+            s(stack, "registry"),
+            if shelf["ready"] == true {
+                format!(
+                    "{} of {} packages on this Mac{size}",
+                    shelf["count"], shelf["total"]
+                )
+            } else {
+                format!("not downloaded · {} packages available", shelf["total"])
+            }
+        );
+        if !detailed {
+            continue;
+        }
+        for package in stack["packages"].as_array().into_iter().flatten() {
+            let state = if package["installed"] == true {
+                "in project".to_owned()
+            } else if package["available"] == true {
+                s(package, "version").to_owned()
+            } else if package["error"].is_string() {
+                "unavailable".to_owned()
+            } else {
+                "—".to_owned()
+            };
+            println!(
+                "  {:<38} {:<14} {}",
+                terminal::safe_text(s(package, "name")),
+                terminal::safe_text(&state),
+                terminal::safe_text(s(package, "summary"))
+            );
+        }
+        if shelf["ready"] != true {
+            println!(
+                "Download while connected with devline packages download {}.",
+                s(stack, "stack")
+            );
+        }
+    }
+    if stacks.is_empty() {
+        println!("No package shelves are defined in this catalog.");
+    }
+}
+
 fn render_runtimes(value: &Value) -> Result<()> {
     let items = value.as_array().context("Unexpected runtime list")?;
     if items.is_empty() {
@@ -49,6 +107,22 @@ fn render_runtimes(value: &Value) -> Result<()> {
         );
         for line in s(item, "detail").lines() {
             println!("  {line}");
+        }
+        if !available {
+            let guide = &item["install"];
+            for command in guide["commands"].as_array().into_iter().flatten() {
+                println!(
+                    "  Install with {:<9} {}",
+                    s(command, "manager"),
+                    s(command, "command")
+                );
+            }
+            if !s(guide, "url").is_empty() {
+                println!("  Or download         {}", s(guide, "url"));
+            }
+            if !s(guide, "note").is_empty() {
+                println!("  {}", s(guide, "note"));
+            }
         }
         for (field, label) in [("docs", "Docs"), ("templates", "Starters")] {
             if let Some(entries) = item[field].as_array() {
@@ -572,6 +646,19 @@ pub(super) fn render(cli: &Cli, action: &str, data: &Value) -> Result<()> {
         "template-detail" => render_starter_details(data),
         "template-removed" => println!("Removed the installed starter release."),
         "runtime-list" => render_runtimes(data)?,
+        "packages" | "packages-downloaded" => render_shelves(data),
+        "packages-added" => println!(
+            "{}",
+            match s(data, "status") {
+                "already_included" => "The project already uses these packages.",
+                "unchanged" => "Nothing to add.",
+                _ => "Packages added. The project passed its checks with the network denied.",
+            }
+        ),
+        "packages-removed" => println!(
+            "{}",
+            if data["removed"] == true { "Shelf removed." } else { "That shelf was not downloaded." }
+        ),
         "updates" => render_updates(cli, data)?,
         "content-updated" => {
             println!(

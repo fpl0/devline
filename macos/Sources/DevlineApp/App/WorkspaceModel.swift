@@ -22,25 +22,86 @@ final class WorkspaceModel: ObservableObject {
     private var catalogRefreshPending = false
     private var pendingServicePreparations: [String: String] =
         UserDefaults.standard.dictionary(forKey: "devline.pendingServicePreparations") as? [String: String] ?? [:]
-    @Published private(set) var recentProjects: [RecentProject] = {
-        guard let data = UserDefaults.standard.data(forKey: "devline.recentProjects") else { return [] }
-        return (try? JSONDecoder().decode([RecentProject].self, from: data)) ?? []
-    }()
+    /// The projects listed in the sidebar, which sorts them by name.
+    @Published private(set) var recentProjects = RecentProject.restore(
+        UserDefaults.standard.data(forKey: RecentProject.storageKey)
+    )
+    /// The same projects, most recently opened first, for the Open Recent menu.
+    private var recentOrder = RecentProject.restore(UserDefaults.standard.data(forKey: RecentProject.storageKey))
+
+    /// Things downloaded one after another so a slow connection is not split many ways.
+    enum Download: String { case images, packages }
+    /// What is still waiting in each "download all" run, the one in progress first.
+    @Published private(set) var downloads: [Download: [String]] = [:]
+    private var downloadTasks: [Download: Task<Void, Never>] = [:]
+    var imageQueue: [String] { downloads[.images] ?? [] }
+    var packageQueue: [String] { downloads[.packages] ?? [] }
 
     var completedJobIDs: [String] { jobs.filter { !$0.isActive }.map(\.id) }
 
+    /// Service images are named by release (`postgres@18.6`); package shelves by runtime (`python`).
+    func download(_ kind: Download, _ items: [String]) {
+        guard downloadTasks[kind] == nil, !items.isEmpty else { return }
+        downloads[kind] = items
+        downloadTasks[kind] = Task {
+            defer { downloadTasks[kind] = nil; downloads[kind] = nil }
+            var failures: [String] = []
+            var reason: String?
+            for item in items {
+                guard !Task.isCancelled else { return }
+                let request = kind == .images
+                    ? CoreRequest("jobs.start", id: item, kind: "infra_prepare")
+                    : CoreRequest("jobs.start", id: item, kind: "packages_prepare", timeoutSeconds: 7200)
+                let started: JobRecord
+                do { started = try await Core.request(request) }
+                catch { self.error = error.localizedDescription; return }
+                await refreshJobs(startedJobID: started.id)
+                var finished = jobs.first { $0.id == started.id }
+                while finished?.isActive != false {
+                    do { try await Task.sleep(for: .seconds(1)) } catch {
+                        let _: Acknowledgment? = try? await Core.request(CoreRequest("jobs.cancel", jobId: started.id))
+                        return
+                    }
+                    await refreshJobs()
+                    finished = jobs.first { $0.id == started.id }
+                }
+                if finished?.state != "succeeded" {
+                    failures.append(item)
+                    reason = reason ?? finished?.error
+                }
+                downloads[kind]?.removeAll { $0 == item }
+            }
+            let noun = kind == .images ? "service image" : "package shelf"
+            if failures.isEmpty {
+                notice = "Saved \(items.count) \(noun)\(items.count == 1 ? "" : kind == .images ? "s" : "es") for offline use."
+            } else {
+                self.error = "Couldn’t download \(failures.joined(separator: ", ")). \(reason ?? "Check your connection, then try again.")"
+            }
+        }
+    }
+
+    func stopDownloads(_ kind: Download) { downloadTasks[kind]?.cancel() }
+    func downloadImages(_ references: [String]) { download(.images, references) }
+    func stopImageDownloads() { stopDownloads(.images) }
+
     func rememberProject(_ path: String) {
-        recentProjects = RecentProject.remembering(path, in: recentProjects)
+        let updated = RecentProject.remembering(path, in: recentOrder)
+        guard updated.map(\.path) != recentOrder.map(\.path) else { return }
+        recentOrder = updated
+        // Reopening a listed project only reorders the Open Recent menu. The sidebar does not
+        // change, so the pages that watch this model are not rebuilt for it.
+        if Set(updated.map(\.path)) != Set(recentProjects.map(\.path)) { recentProjects = updated }
         saveRecentProjects()
     }
     func forgetProject(_ path: String) {
+        recentOrder.removeAll { $0.path == path }
         recentProjects.removeAll { $0.path == path }
         saveRecentProjects()
     }
-    func clearRecentProjects() { recentProjects = []; saveRecentProjects() }
+    func clearRecentProjects() { recentOrder = []; recentProjects = []; saveRecentProjects() }
     private func saveRecentProjects() {
-        if let data = try? JSONEncoder().encode(recentProjects) {
-            UserDefaults.standard.set(data, forKey: "devline.recentProjects")
+        if let data = try? JSONEncoder().encode(recentOrder) {
+            PreferenceBox.box(RecentProject.storageKey).set(data)
         }
     }
 
@@ -95,7 +156,7 @@ final class WorkspaceModel: ObservableObject {
                     && (loadedJobs || jobsStartedBeforeInitialRefresh.contains($0.id)) }) {
                     catalogRefreshPending = true
                 }
-                jobs = updated
+                if jobs != updated { jobs = updated }
                 loadedJobs = true
                 jobsStartedBeforeInitialRefresh.removeAll()
                 await continueServicePreparation()
@@ -148,22 +209,25 @@ final class WorkspaceModel: ObservableObject {
     private func reload() async throws {
         catalogReadID += 1
         let readID = catalogReadID
-        loadingCatalog = true
-        defer { if catalogReadID == readID { loadingCatalog = false } }
+        if catalog == nil && !loadingCatalog { loadingCatalog = true }
+        defer { if catalogReadID == readID && loadingCatalog { loadingCatalog = false } }
         do {
             let updated: Catalog = try await Core.request(CoreRequest("catalog"))
             guard readID > catalogResultID else { return }
             catalogResultID = readID
-            let previous = catalog?.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
-            let next = updated.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
-            catalog = updated
-            catalogError = nil
-            if previous != next { libraryRevision += 1 }
+            if catalogError != nil { catalogError = nil }
+            if catalog != updated {
+                let previous = catalog?.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
+                let next = updated.docs.filter(\.installed).map { "\($0.reference):\($0.active == true)" }
+                catalog = updated
+                if previous != next { libraryRevision += 1 }
+            }
         } catch is CancellationError { throw CancellationError() }
         catch {
             guard readID > catalogResultID else { return }
             catalogResultID = readID
-            catalogError = error.localizedDescription
+            let message = error.localizedDescription
+            if catalogError != message { catalogError = message }
             throw error
         }
     }

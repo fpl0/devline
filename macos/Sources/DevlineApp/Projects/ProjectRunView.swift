@@ -1,18 +1,20 @@
 import AppKit
 import SwiftUI
 
-private struct ProjectCommands: Decodable, Sendable {
+private struct ProjectCommands: Decodable, Equatable, Sendable {
     let path: String
     let launchable: Bool
     let runCommand, testCommand, guidePath, detail: String?
 }
 
-private struct ProjectAppStatus: Decodable, Sendable {
+private struct ProjectAppStatus: Decodable, Equatable, Sendable {
     let path, state: String
     let running: Bool
     let pid: Int?
     let url, detail: String?
 
+    var starting: Bool { state == "starting" }
+    var failed: Bool { state == "failed" }
     var localURL: URL? {
         guard let url, let value = safeExternalURL(url),
               ["localhost", "127.0.0.1", "::1", "[::1]"].contains(value.host?.lowercased() ?? "") else { return nil }
@@ -20,82 +22,82 @@ private struct ProjectAppStatus: Decodable, Sendable {
     }
 }
 
+/// The last run state read for each project, so its page is complete the moment it appears.
+@MainActor private var knownRuns: [String: (commands: ProjectCommands?, status: ProjectAppStatus?, log: String)] = [:]
+
+/// Runs the project's app with the network blocked and shows its output as it arrives.
 struct ProjectRunView: View {
     let path: String
     let preparationRevision: [String]
+    var visible = true
     let refreshServices: () -> Void
     @Environment(\.scenePhase) private var scenePhase
-    @State private var commands: ProjectCommands?
-    @State private var status: ProjectAppStatus?
+    @State private var freshCommands: ProjectCommands?
+    @State private var freshStatus: ProjectAppStatus?
+    @State private var freshLog: String?
+    private var commands: ProjectCommands? { freshCommands ?? knownRuns[path]?.commands }
+    private var status: ProjectAppStatus? { freshStatus ?? knownRuns[path]?.status }
+    private var log: String { freshLog ?? knownRuns[path]?.log ?? "" }
+    @State private var guideURL: URL?
     @State private var changing = false
     @State private var error: String?
-    @State private var log: String?
+    @State private var expanded = false
     @State private var copied: String?
-    @State private var showDetails = false
+    @State private var showCommands = false
 
-    private var editors: [URL] {
-        ["com.microsoft.VSCode", "com.todesktop.230313mzl4w4u92", "dev.zed.Zed", "com.jetbrains.rider", "com.apple.dt.Xcode"]
-            .compactMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+    private struct CommandRefresh: Equatable {
+        let preparation: [String]
+        let phase: ScenePhase
     }
-    private var guideURL: URL? {
-        guard let guide = commands?.guidePath else { return nil }
-        let root = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
-        let url = URL(fileURLWithPath: guide).resolvingSymlinksInPath().standardizedFileURL
-        guard url.path.hasPrefix(root + "/"), FileManager.default.fileExists(atPath: url.path) else { return nil }
-        return url
+
+    private struct Watching: Equatable {
+        let phase: ScenePhase
+        let visible: Bool
     }
+
+    private var active: Bool { status?.running == true || status?.starting == true }
+    private var starting: Bool { (changing && status?.running != true) || status?.starting == true }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Label("Develop & Run", systemImage: "play.circle").font(.title3.weight(.semibold))
-                    Text("Edit your project, then run it with its local dependencies and services.")
-                        .font(.callout).foregroundStyle(.secondary)
-                }
-                Spacer()
-                if editors.isEmpty {
-                    Button("Open Project Folder") { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
-                } else {
-                    Menu("Open in Editor") {
-                        ForEach(editors, id: \.path) { editor in
-                            Button(editor.deletingPathExtension().lastPathComponent) { openEditor(editor) }
-                        }
-                        Divider()
-                        Button("Open Project Folder") { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
-                    }.fixedSize()
-                }
-                if let guideURL { Button("Read Project Guide") { NSWorkspace.shared.open(guideURL) } }
-                Button { Task { await loadCommands(); await refreshStatus() } } label: { Image(systemName: "arrow.clockwise") }
-                    .help("Refresh run commands and app status").accessibilityLabel("Refresh app status").disabled(changing)
-            }
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
-                Button { Task { await change(start: true) } } label: {
-                    Label((changing && status?.running != true) || status?.state == "starting" ? "Starting…" : "Run Offline", systemImage: "play.fill")
-                }.buttonStyle(.borderedProminent).disabled(changing || commands?.launchable != true || status?.running == true)
                 if status?.running == true {
-                    Button("Stop App") { Task { await change(start: false) } }.disabled(changing)
-                    if let url = status?.localURL { Button("Open App") { NSWorkspace.shared.open(url) }.disabled(status?.state != "running") }
+                    Button { Task { await change(start: false) } } label: {
+                        Label("Stop", systemImage: "stop.fill").frame(minWidth: 52)
+                    }.controlSize(.large).disabled(changing)
+                } else {
+                    Button { Task { await change(start: true) } } label: {
+                        Label(starting ? "Starting…" : "Run", systemImage: "play.fill").frame(minWidth: 52)
+                    }
+                    .buttonStyle(.borderedProminent).controlSize(.large)
+                    .disabled(changing || commands?.launchable != true)
+                    .help("Run with internet access blocked")
                 }
-                Button("App Logs") { Task { await loadLog() } }.disabled(status == nil)
-                if changing || status?.state == "starting" { ProgressView().controlSize(.small) }
-                Spacer()
-                if let status {
-                    Label(status.state == "starting" ? "Starting locally" : status.running ? "Running locally" : status.state == "failed" ? "App needs attention" : "Stopped",
-                          systemImage: status.state == "running" ? "circle.fill" : status.state == "failed" ? "exclamationmark.circle" : "circle")
-                        .font(.caption).foregroundStyle(status.state == "running" ? Color.green : status.state == "failed" ? .orange : .secondary)
+                if let url = status?.localURL, status?.running == true {
+                    Button { NSWorkspace.shared.open(url) } label: {
+                        Label("Open App", systemImage: "arrow.up.forward.square")
+                    }.controlSize(.large).disabled(status?.state != "running")
+                }
+                statusLabel
+                Spacer(minLength: 8)
+                if guideURL != nil, let guide = commands?.guidePath {
+                    Button("Project Guide") { openGuide(guide) }.help("Open the project's README")
                 }
             }
             if commands?.launchable == false {
-                Text(commands?.detail ?? "This project does not have a run command yet. Read its guide or use the CLI to run an explicit command.")
+                Text(commands?.detail ?? "This project has no run command yet. Its guide explains how to start it, or run a command from the terminal.")
                     .font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
-            } else if let detail = status?.detail, !detail.isEmpty {
-                Text(detail).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
+            } else if let detail = status?.detail, !detail.isEmpty, status?.failed == true {
+                Label(detail, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange).textSelection(.enabled)
             }
-            Text("Run Offline starts configured services from their saved archives. Stopping the app keeps services and their data.")
-                .font(.caption).foregroundStyle(.secondary)
+            if !log.isEmpty || active || changing {
+                console(height: 190)
+            } else if commands?.launchable == true {
+                Text("Runs with internet access blocked, so what works here works offline. Its configured services start from their saved images.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if commands?.runCommand != nil || commands?.testCommand != nil {
-                DisclosureGroup("Terminal commands", isExpanded: $showDetails) {
+                DisclosureGroup("Terminal commands", isExpanded: $showCommands) {
                     VStack(alignment: .leading, spacing: 10) {
                         if let command = commands?.runCommand { commandRow("Run", command: command) }
                         if let command = commands?.testCommand { commandRow("Test", command: command) }
@@ -105,32 +107,92 @@ struct ProjectRunView: View {
             if let error {
                 Label(error, systemImage: "exclamationmark.circle").font(.callout).foregroundStyle(.orange).textSelection(.enabled)
             }
-        }.padding(18).background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 12))
-        .onChange(of: status?.running) { _, _ in refreshServices() }
-        .task(id: preparationRevision) { await loadCommands() }
-        .task(id: scenePhase) {
+        }
+        .onChange(of: status?.running) { previous, _ in
+            if previous != nil { refreshServices() }
+        }
+        .task(id: CommandRefresh(preparation: preparationRevision, phase: scenePhase)) {
+            if scenePhase == .active { await loadCommands() }
+        }
+        .task(id: Watching(phase: scenePhase, visible: visible)) {
+            // A project page that is loaded but not on screen checks once, then waits to be shown.
             guard scenePhase == .active else { return }
-            await loadCommands()
+            guard visible else {
+                if status == nil { await refreshStatus() }
+                return
+            }
+            var wasActive = true
             while !Task.isCancelled {
                 if !changing { await refreshStatus() }
-                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                // Follow output while the app runs, and once more after it stops.
+                if active || wasActive { await loadLog() }
+                wasActive = active
+                do { try await Task.sleep(for: active ? .seconds(1) : .seconds(2)) } catch { return }
             }
         }
-        .sheet(isPresented: Binding(get: { log != nil }, set: { if !$0 { log = nil } })) {
-            VStack(alignment: .leading, spacing: 14) {
+        .sheet(isPresented: $expanded) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("App Logs").font(.title2.weight(.semibold))
+                    Text("App Output").font(.title2.weight(.semibold))
+                    statusLabel
                     Spacer()
-                    Button("Refresh") { Task { await loadLog() } }
-                    Button("Done") { log = nil }.keyboardShortcut(.cancelAction)
+                    Button("Done") { expanded = false }.keyboardShortcut(.cancelAction)
                 }
-                Text((path as NSString).abbreviatingWithTildeInPath).font(.caption).foregroundStyle(.secondary)
-                ScrollView([.vertical, .horizontal]) {
-                    Text(log.flatMap { $0.isEmpty ? nil : $0 } ?? "No app output yet. Run the app to see its output here.")
-                        .font(.system(.caption, design: .monospaced)).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                console(height: nil, expandable: false)
+            }.padding(20).frame(minWidth: 820, idealWidth: 900, minHeight: 520, idealHeight: 620)
+        }
+    }
+
+    @ViewBuilder private var statusLabel: some View {
+        if let status {
+            HStack(spacing: 6) {
+                if starting { ProgressView().controlSize(.small) }
+                else {
+                    Circle().fill(status.running ? Color.green : status.failed ? .orange : Color.secondary.opacity(0.5))
+                        .frame(width: 8, height: 8)
                 }
-            }.padding(22).frame(width: 760, height: 480)
+                Text(starting ? "Starting" : status.running ? runningSummary(status) : status.failed ? "Stopped with an error" : "Not running")
+                    .font(.callout).foregroundStyle(.secondary).lineLimit(1)
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func runningSummary(_ status: ProjectAppStatus) -> String {
+        guard let url = status.localURL, let host = url.host else { return "Running" }
+        return "Running at \(host)\(url.port.map { ":\($0)" } ?? "")"
+    }
+
+    private func console(height: CGFloat?, expandable: Bool = true) -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                Text(log.isEmpty ? "Waiting for output…" : log)
+                    .font(.system(size: 11.5, design: .monospaced))
+                    .foregroundStyle(log.isEmpty ? .secondary : .primary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                    .padding(12)
+                Color.clear.frame(height: 1).id("end")
+            }
+            .defaultScrollAnchor(.bottom)
+            .onChange(of: log) { _, _ in proxy.scrollTo("end", anchor: .bottom) }
+        }
+        .frame(height: height)
+        .frame(maxHeight: height == nil ? .infinity : nil)
+        .background(Color(nsColor: .textBackgroundColor).opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
+        .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.08)) }
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 2) {
+                Button { if copyToPasteboard(log) { copied = "log" } } label: {
+                    Image(systemName: copied == "log" ? "checkmark" : "doc.on.doc")
+                }.help("Copy output").accessibilityLabel("Copy output")
+                if expandable {
+                    Button { expanded = true } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }
+                        .help("Open output in a larger view").accessibilityLabel("Expand output")
+                }
+            }
+            .buttonStyle(.borderless).padding(6)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6)).padding(6)
         }
     }
 
@@ -147,41 +209,70 @@ struct ProjectRunView: View {
             }.controlSize(.small).accessibilityLabel("Copy \(title.lowercased()) command")
         }
     }
+
     private func loadCommands() async {
         do {
             let next: ProjectCommands = try await Core.request(CoreRequest("project.commands", path: path))
+            let guide: URL?
+            if let guidePath = next.guidePath {
+                guide = await Task.detached { [path] in Self.resolveGuide(guidePath, in: path) }.value
+            } else {
+                guide = nil
+            }
             guard !Task.isCancelled else { return }
-            commands = next
+            if guideURL != guide { guideURL = guide }
+            if commands != next { freshCommands = next }
+            knownRuns[path, default: (nil, nil, "")].commands = next
         } catch is CancellationError {} catch { self.error = error.localizedDescription }
     }
+
     private func refreshStatus() async {
         do {
             let next: ProjectAppStatus = try await Core.request(CoreRequest("project.status", path: path))
             guard !Task.isCancelled else { return }
-            status = next
+            if status != next { freshStatus = next }
+            knownRuns[path, default: (nil, nil, "")].status = next
         } catch is CancellationError {} catch { self.error = error.localizedDescription }
     }
+
     private func change(start: Bool) async {
         guard !changing else { return }
         changing = true; error = nil
+        if start { freshLog = ""; knownRuns[path, default: (nil, nil, "")].log = "" }
         let wasRunning = status?.running
         defer { changing = false }
         do {
             let next: ProjectAppStatus = try await Core.request(CoreRequest(start ? "project.start" : "project.stop", path: path, offline: true))
-            status = next
+            freshStatus = next
+            knownRuns[path, default: (nil, nil, "")].status = next
         } catch { self.error = error.localizedDescription; await refreshStatus() }
-        if status?.running == wasRunning { refreshServices() }
+        await loadLog()
+        if wasRunning == nil || status?.running == wasRunning { refreshServices() }
     }
+
     private func loadLog() async {
         struct Output: Decodable { let log: String? }
-        do {
-            let output: Output = try await Core.request(CoreRequest("project.logs", path: path, tail: 200))
-            log = output.log ?? ""
-        } catch { self.error = error.localizedDescription }
-    }
-    private func openEditor(_ editor: URL) {
-        NSWorkspace.shared.open([URL(fileURLWithPath: path)], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration()) { _, failure in
-            if let failure { Task { @MainActor in error = failure.localizedDescription } }
+        guard let output: Output = try? await Core.request(CoreRequest("project.logs", path: path, tail: 400)),
+              !Task.isCancelled else { return }
+        let next = output.log ?? ""
+        if log != next {
+            freshLog = next
+            knownRuns[path, default: (nil, nil, "")].log = next
+            if copied == "log" { copied = nil }
         }
+    }
+
+    private nonisolated static func resolveGuide(_ guide: String, in path: String) -> URL? {
+        let root = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
+        let url = URL(fileURLWithPath: guide).resolvingSymlinksInPath().standardizedFileURL
+        return url.path.hasPrefix(root + "/") && FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    private func openGuide(_ guide: String) {
+        guard let url = Self.resolveGuide(guide, in: path) else {
+            error = "The project guide is no longer available."
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 }

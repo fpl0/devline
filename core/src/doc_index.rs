@@ -27,6 +27,12 @@ pub(super) fn section_focus(
     sections::focus(db, id, alias)
 }
 
+/// Spells out the words of identifiers: `JSONEncoder.read_text` becomes
+/// `JSON Encoder.read text`.
+pub(super) fn expand_identifiers(value: &str) -> String {
+    sections::expand_identifiers(value)
+}
+
 pub(super) fn without_call(reference: &str) -> &str {
     let reference = reference.trim().trim_matches('`');
     if let Some((name, _)) = reference.split_once('(').filter(|(name, _)| {

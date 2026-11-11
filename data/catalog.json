@@ -59,7 +59,8 @@
       ],
       "omissions": [
         "Transitive crate APIs are separate references"
-      ]
+      ],
+      "entry_id": "axum/index.html"
     },
     {
       "id": "chi",
@@ -97,7 +98,8 @@
       ],
       "omissions": [
         "Third-party middleware modules are omitted"
-      ]
+      ],
+      "entry_id": "api"
     },
     {
       "id": "csharp",
@@ -118,7 +120,8 @@
         "The full .NET API catalog is outside this snapshot",
         "One link targets a heading absent from this snapshot"
       ],
-      "shards": 2
+      "shards": 2,
+      "entry_id": "welcome.md"
     },
     {
       "id": "ecto",
@@ -137,7 +140,8 @@
       ],
       "omissions": [
         "External adapters and Ecto SQL documentation are separate"
-      ]
+      ],
+      "entry_id": "getting-started.html"
     },
     {
       "id": "elixir",
@@ -157,7 +161,8 @@
       "omissions": [
         "Erlang/OTP documentation is separate",
         "Two links target headings absent from this snapshot"
-      ]
+      ],
+      "entry_id": "introduction.html"
     },
     {
       "id": "fastapi",
@@ -176,7 +181,8 @@
       ],
       "omissions": [
         "Translated guides and upstream release history are omitted"
-      ]
+      ],
+      "entry_id": "index.md"
     },
     {
       "id": "go",
@@ -368,7 +374,8 @@
       ],
       "omissions": [
         "External Phoenix packages have separate documentation"
-      ]
+      ],
+      "entry_id": "overview.html"
     },
     {
       "id": "playwright",
@@ -387,7 +394,8 @@
       ],
       "omissions": [
         "Other language examples and unselected API classes are omitted"
-      ]
+      ],
+      "entry_id": "intro-js.md"
     },
     {
       "id": "python",
@@ -448,7 +456,8 @@
       "omissions": [
         "The full Rails API class catalog is omitted",
         "Four upstream links target headings absent from this snapshot"
-      ]
+      ],
+      "entry_id": "getting_started.md"
     },
     {
       "id": "rails",
@@ -487,7 +496,8 @@
       ],
       "omissions": [
         "Interactive sandboxes and unselected learning and API pages are omitted"
-      ]
+      ],
+      "entry_id": "learn/index"
     },
     {
       "id": "ruby",
@@ -507,7 +517,8 @@
       "omissions": [
         "Gem documentation and unselected RDoc entries are omitted",
         "One link targets a heading absent from this snapshot"
-      ]
+      ],
+      "entry_id": "doc/index.md"
     },
     {
       "id": "rust",
@@ -528,7 +539,8 @@
       "omissions": [
         "Nightly-only and unselected Rustdoc pages are omitted",
         "Six links target headings absent from this snapshot"
-      ]
+      ],
+      "entry_id": "std/index.html"
     },
     {
       "id": "spring-boot",
@@ -548,7 +560,8 @@
       "omissions": [
         "Spring Framework and external Spring projects are separate references",
         "Five links target headings absent from this snapshot"
-      ]
+      ],
+      "entry_id": "documentation.html"
     },
     {
       "id": "swift",
@@ -568,7 +581,8 @@
       ],
       "omissions": [
         "The Swift standard library API catalog and SwiftUI framework documentation are separate references."
-      ]
+      ],
+      "entry_id": "the-swift-programming-language/aboutswift.json"
     },
     {
       "id": "tauri",
@@ -589,7 +603,8 @@
       ],
       "omissions": [
         "Interactive site controls, two MDX illustrations, localized pages, migration guides, mobile-specific guides, and generated plugin API catalogs are outside this snapshot."
-      ]
+      ],
+      "entry_id": "start"
     },
     {
       "id": "typescript",
@@ -608,7 +623,8 @@
       ],
       "omissions": [
         "Interactive compiler playgrounds, localized pages, and the full compiler API are omitted"
-      ]
+      ],
+      "entry_id": "docs/handbook/intro.html"
     },
     {
       "id": "vite",
@@ -627,7 +643,8 @@
       ],
       "omissions": [
         "Framework plugin manuals and interactive media are outside this snapshot"
-      ]
+      ],
+      "entry_id": "guide/index"
     }
   ],
   "templates": [
@@ -705,7 +722,7 @@
       ],
       "verified": true,
       "target": "darwin-arm64",
-      "bundled_revision": 1
+      "bundled_revision": 2
     },
     {
       "id": "dotnet/json-cli",
@@ -782,7 +799,8 @@
         "java"
       ],
       "verified": true,
-      "target": "darwin-arm64"
+      "target": "darwin-arm64",
+      "bundled_revision": 1
     },
     {
       "id": "java/spring-api",
@@ -800,7 +818,8 @@
         "spring-boot"
       ],
       "verified": true,
-      "target": "darwin-arm64"
+      "target": "darwin-arm64",
+      "bundled_revision": 1
     },
     {
       "id": "java/spring-mvc",
@@ -825,7 +844,8 @@
         "redis@8.10.1",
         "rabbitmq@4.3.7",
         "keycloak@26.8.2"
-      ]
+      ],
+      "bundled_revision": 1
     },
     {
       "id": "ruby/json-cli",
@@ -966,7 +986,7 @@
       ],
       "verified": true,
       "target": "darwin-arm64",
-      "bundled_revision": 1
+      "bundled_revision": 2
     },
     {
       "id": "python/service-kit",
@@ -987,7 +1007,7 @@
       ],
       "verified": true,
       "target": "darwin-arm64",
-      "bundled_revision": 1,
+      "bundled_revision": 2,
       "services": [
         "postgres@18.6",
         "redis@8.10.1",
@@ -1053,7 +1073,7 @@
       ],
       "verified": true,
       "target": "darwin-arm64",
-      "bundled_revision": 1,
+      "bundled_revision": 2,
       "services": [
         "postgres@18.6",
         "redis@8.10.1",
@@ -1293,7 +1313,7 @@
       ],
       "verified": true,
       "target": "darwin-arm64",
-      "bundled_revision": 1
+      "bundled_revision": 2
     },
     {
       "id": "swift/expense-summary",
@@ -1311,7 +1331,8 @@
         "swift@6.4.0+devline.1"
       ],
       "verified": true,
-      "target": "darwin-arm64"
+      "target": "darwin-arm64",
+      "bundled_revision": 1
     },
     {
       "id": "swift/release-dispatch",
@@ -1338,7 +1359,8 @@
         "mailpit@1.33.0",
         "meilisearch@1.56.1",
         "seaweedfs@4.52"
-      ]
+      ],
+      "bundled_revision": 1
     },
     {
       "id": "node/file-summary",

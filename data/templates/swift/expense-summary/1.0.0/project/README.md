@@ -2,7 +2,7 @@
 
 Group a JSON expense file by category and total its amounts. Store amounts as integer cents so the sum stays exact.
 
-Choose **Run Offline** in Devline and open **App Logs** to see the bundled example. In a generated project, run:
+Choose **Run** in Devline and open **App Output** to see the bundled example. In a generated project, run:
 
 ```sh
 ./devline.sh run

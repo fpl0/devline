@@ -21,10 +21,22 @@
       "sha256": "2f659e4ed64cb6f10e5871b568778b2aa5c0f9863c9321fa7a5fefb3ed122050"
     },
     {
+      "artifact": "com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7.jar",
+      "source": "sources/com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.21.7/jackson-core-2.21.7-sources.jar",
+      "sha256": "8c463d7b86fc44851f180c38e91580d32505b5e06443514212ca93c40efdde5c"
+    },
+    {
       "artifact": "com/fasterxml/jackson/core/jackson-databind/2.21.0/jackson-databind-2.21.0.jar",
       "source": "sources/com/fasterxml/jackson/core/jackson-databind/2.21.0/jackson-databind-2.21.0-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.21.0/jackson-databind-2.21.0-sources.jar",
       "sha256": "d72cadee641b2a7e3c38b9f97918e3e0bd5fd3b58fba49b5ef5da824f9939371"
+    },
+    {
+      "artifact": "com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7.jar",
+      "source": "sources/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.21.7/jackson-databind-2.21.7-sources.jar",
+      "sha256": "9d0088f4990df572c2e3aa1c14d4c03fd8200283d801836c8044d01b9ccb7e73"
     },
     {
       "artifact": "com/github/cliftonlabs/json-simple/3.0.2/json-simple-3.0.2.jar",
@@ -207,10 +219,28 @@
       "sha256": "75133e19ac15df07688fd61635c272624b26938a07a0a5a3dc12e4bb9608b069"
     },
     {
+      "artifact": "io/netty/netty-buffer/4.1.138.Final/netty-buffer-4.1.138.Final.jar",
+      "source": "sources/io/netty/netty-buffer/4.1.138.Final/netty-buffer-4.1.138.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.1.138.Final/netty-buffer-4.1.138.Final-sources.jar",
+      "sha256": "57ec5e8742518e5fb9b3814316713eaf605132d4b3aff16a9d952ae208952013"
+    },
+    {
       "artifact": "io/netty/netty-buffer/4.2.12.Final/netty-buffer-4.2.12.Final.jar",
       "source": "sources/io/netty/netty-buffer/4.2.12.Final/netty-buffer-4.2.12.Final-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.2.12.Final/netty-buffer-4.2.12.Final-sources.jar",
       "sha256": "7cc7edd45c3d04c4237d454b1a9c9d6ef0d76c513659230c838c0345911c158b"
+    },
+    {
+      "artifact": "io/netty/netty-buffer/4.2.13.Final/netty-buffer-4.2.13.Final.jar",
+      "source": "sources/io/netty/netty-buffer/4.2.13.Final/netty-buffer-4.2.13.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.2.13.Final/netty-buffer-4.2.13.Final-sources.jar",
+      "sha256": "b2c4c237c4ef80ed99be1913cc18ec7cf916fa6e1c2a9b59f799b1cecf77e7b1"
+    },
+    {
+      "artifact": "io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-buffer/4.2.19.Final/netty-buffer-4.2.19.Final-sources.jar",
+      "sha256": "33e6c912740d420e3685bb490b1abe1fb21fd2378492700eb587ebc5c7a8e96c"
     },
     {
       "artifact": "io/netty/netty-codec-base/4.2.12.Final/netty-codec-base-4.2.12.Final.jar",
@@ -219,10 +249,28 @@
       "sha256": "ae853109fe466893e9f17c4dd40ef092203141bce765589da2adada163e3f534"
     },
     {
+      "artifact": "io/netty/netty-codec-base/4.2.13.Final/netty-codec-base-4.2.13.Final.jar",
+      "source": "sources/io/netty/netty-codec-base/4.2.13.Final/netty-codec-base-4.2.13.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-base/4.2.13.Final/netty-codec-base-4.2.13.Final-sources.jar",
+      "sha256": "b71c6fc15b83149f6b84a830e9c3b3bbccfc7e5aff1017cfb37496708b67d620"
+    },
+    {
+      "artifact": "io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-base/4.2.19.Final/netty-codec-base-4.2.19.Final-sources.jar",
+      "sha256": "c33f078163a0c0940e68e669d728a91307977ae5725459c0ca35a78339dbeca9"
+    },
+    {
       "artifact": "io/netty/netty-codec-compression/4.2.12.Final/netty-codec-compression-4.2.12.Final.jar",
       "source": "sources/io/netty/netty-codec-compression/4.2.12.Final/netty-codec-compression-4.2.12.Final-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-compression/4.2.12.Final/netty-codec-compression-4.2.12.Final-sources.jar",
       "sha256": "f47e0c34354920db0cac3f125de0b581a25fd06c6da534a43300a8f49fa22fbd"
+    },
+    {
+      "artifact": "io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-compression/4.2.19.Final/netty-codec-compression-4.2.19.Final-sources.jar",
+      "sha256": "dad735a45d3f2810bbe66b301cabb73fb535da9a55a99e00624ef7b61f5fffbb"
     },
     {
       "artifact": "io/netty/netty-codec-dns/4.2.13.Final/netty-codec-dns-4.2.13.Final.jar",
@@ -231,10 +279,22 @@
       "sha256": "869ee5a86fff30a4f908bc3752a0c205d3d542a433e23f7f4dc4832b813911a9"
     },
     {
+      "artifact": "io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-dns/4.2.19.Final/netty-codec-dns-4.2.19.Final-sources.jar",
+      "sha256": "ac9bf5be912b10878828bbe71d10cd3a1e142fc65f94fae5209f04052552faa8"
+    },
+    {
       "artifact": "io/netty/netty-codec-http/4.1.138.Final/netty-codec-http-4.1.138.Final.jar",
       "source": "sources/io/netty/netty-codec-http/4.1.138.Final/netty-codec-http-4.1.138.Final-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.1.138.Final/netty-codec-http-4.1.138.Final-sources.jar",
       "sha256": "c45d54984f75afb02688a2e38437fe1bae6f23558c6d9cf8394bef1af8678032"
+    },
+    {
+      "artifact": "io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-http/4.2.19.Final/netty-codec-http-4.2.19.Final-sources.jar",
+      "sha256": "4a9bec385fdc151007baad77191c007fb39645db44c516453c2c7d7f4533c4cd"
     },
     {
       "artifact": "io/netty/netty-codec-http2/4.1.138.Final/netty-codec-http2-4.1.138.Final.jar",
@@ -243,10 +303,22 @@
       "sha256": "771af0d9800ade1aec2fa14f73975d3cec5db9fa3391b5ba7e57706d89af248b"
     },
     {
+      "artifact": "io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-http2/4.2.19.Final/netty-codec-http2-4.2.19.Final-sources.jar",
+      "sha256": "edd33b8d8e0335c02b7201a65dee63861696486b3bf55e0ddddf95a0f4b58322"
+    },
+    {
       "artifact": "io/netty/netty-codec-marshalling/4.2.12.Final/netty-codec-marshalling-4.2.12.Final.jar",
       "source": "sources/io/netty/netty-codec-marshalling/4.2.12.Final/netty-codec-marshalling-4.2.12.Final-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-marshalling/4.2.12.Final/netty-codec-marshalling-4.2.12.Final-sources.jar",
       "sha256": "f89285eac1f1442a505ad6b74c7dcd078126820f0a111e304d226ba55c39be25"
+    },
+    {
+      "artifact": "io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-marshalling/4.2.19.Final/netty-codec-marshalling-4.2.19.Final-sources.jar",
+      "sha256": "60a227061ce5d605d523e7633ec5c4887f99f72fdee5d5a6a4cb0008f1088a65"
     },
     {
       "artifact": "io/netty/netty-codec-protobuf/4.2.12.Final/netty-codec-protobuf-4.2.12.Final.jar",
@@ -255,10 +327,40 @@
       "sha256": "3c26fb9e13e69be5cbd4d410abb58e0766af7f38cc83861e078aade3f42bbc60"
     },
     {
+      "artifact": "io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec-protobuf/4.2.19.Final/netty-codec-protobuf-4.2.19.Final-sources.jar",
+      "sha256": "8b7fe80a4547f1d0b20391274a4c789f61fdd3480415e1363f4f0093c18466e8"
+    },
+    {
+      "artifact": "io/netty/netty-codec/4.1.138.Final/netty-codec-4.1.138.Final.jar",
+      "source": "sources/io/netty/netty-codec/4.1.138.Final/netty-codec-4.1.138.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.1.138.Final/netty-codec-4.1.138.Final-sources.jar",
+      "sha256": "1759fb0c141dffb9f91b42bd596aeca155ed0698427d8ccf5a270b262f7f8512"
+    },
+    {
       "artifact": "io/netty/netty-codec/4.2.12.Final/netty-codec-4.2.12.Final.jar",
       "source": "sources/io/netty/netty-codec/4.2.12.Final/netty-codec-4.2.12.Final-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.2.12.Final/netty-codec-4.2.12.Final-sources.jar",
       "sha256": "4e32c6fbb21206f3ef85fb5d093c79b01dfb895641d039e1fc81563166513738"
+    },
+    {
+      "artifact": "io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-codec/4.2.19.Final/netty-codec-4.2.19.Final-sources.jar",
+      "sha256": "2afece7b9cf6605a751c0c7163b815c4834d02211b6060dce1f24ccc6cd8f877"
+    },
+    {
+      "artifact": "io/netty/netty-common/4.1.138.Final/netty-common-4.1.138.Final.jar",
+      "source": "sources/io/netty/netty-common/4.1.138.Final/netty-common-4.1.138.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-common/4.1.138.Final/netty-common-4.1.138.Final-sources.jar",
+      "sha256": "6e7750b9a3b293ece909b9cc0fecae9e88bfd376fb1311d25c943d654764a10c"
+    },
+    {
+      "artifact": "io/netty/netty-common/4.2.12.Final/netty-common-4.2.12.Final.jar",
+      "source": "sources/io/netty/netty-common/4.2.12.Final/netty-common-4.2.12.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-common/4.2.12.Final/netty-common-4.2.12.Final-sources.jar",
+      "sha256": "8bde0515975d6c50c6f23dedc733f4722831d5fdcdb90306648a438af677f388"
     },
     {
       "artifact": "io/netty/netty-common/4.2.13.Final/netty-common-4.2.13.Final.jar",
@@ -267,10 +369,34 @@
       "sha256": "1aa4934d4805a519617f123620c0ce48a391d5fbe7e744a5eebbdc2a536b7a9d"
     },
     {
+      "artifact": "io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-common/4.2.19.Final/netty-common-4.2.19.Final-sources.jar",
+      "sha256": "da066970d6035b2eec0f6cdca44492bb947e0b0c6e1b0712691c80c23841e870"
+    },
+    {
+      "artifact": "io/netty/netty-handler/4.1.138.Final/netty-handler-4.1.138.Final.jar",
+      "source": "sources/io/netty/netty-handler/4.1.138.Final/netty-handler-4.1.138.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.1.138.Final/netty-handler-4.1.138.Final-sources.jar",
+      "sha256": "5406e537e4a5b6b3e6f34c1911a2333fe9d3812675ef264544115af55c79db84"
+    },
+    {
       "artifact": "io/netty/netty-handler/4.2.12.Final/netty-handler-4.2.12.Final.jar",
       "source": "sources/io/netty/netty-handler/4.2.12.Final/netty-handler-4.2.12.Final-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.2.12.Final/netty-handler-4.2.12.Final-sources.jar",
       "sha256": "691468eaf2b2ae482c6b411bd614200a5c3f5013b75b152ad260d69dcfc1394f"
+    },
+    {
+      "artifact": "io/netty/netty-handler/4.2.13.Final/netty-handler-4.2.13.Final.jar",
+      "source": "sources/io/netty/netty-handler/4.2.13.Final/netty-handler-4.2.13.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.2.13.Final/netty-handler-4.2.13.Final-sources.jar",
+      "sha256": "ce9e76c80939522b896051ab374013a8c8f865d86c019f94fc10cf650ec4fc78"
+    },
+    {
+      "artifact": "io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-handler/4.2.19.Final/netty-handler-4.2.19.Final-sources.jar",
+      "sha256": "338d483a48b557bdd8a00730e43a55449db65d2d6695482147d25a1a439a84e8"
     },
     {
       "artifact": "io/netty/netty-resolver-dns/4.2.13.Final/netty-resolver-dns-4.2.13.Final.jar",
@@ -279,10 +405,34 @@
       "sha256": "8cc54d07f4cd624244704e0be25d41a1aa01abe900dea5ac816d50cca54ccb8a"
     },
     {
+      "artifact": "io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-resolver-dns/4.2.19.Final/netty-resolver-dns-4.2.19.Final-sources.jar",
+      "sha256": "2592cc6b7b26aa13832f3b20bb3c932f0e1cbd240b0d17953b67ebe68952f04a"
+    },
+    {
+      "artifact": "io/netty/netty-resolver/4.1.138.Final/netty-resolver-4.1.138.Final.jar",
+      "source": "sources/io/netty/netty-resolver/4.1.138.Final/netty-resolver-4.1.138.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.1.138.Final/netty-resolver-4.1.138.Final-sources.jar",
+      "sha256": "47eed6c059569dc3c71e4492b1b6607e5cb907570cc2e2e35073005bc9b27f4f"
+    },
+    {
       "artifact": "io/netty/netty-resolver/4.2.12.Final/netty-resolver-4.2.12.Final.jar",
       "source": "sources/io/netty/netty-resolver/4.2.12.Final/netty-resolver-4.2.12.Final-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.2.12.Final/netty-resolver-4.2.12.Final-sources.jar",
       "sha256": "5e898142eda9ace880e5d245bb25dcaeea140b4898c63ea977ed2fe9796b3dc0"
+    },
+    {
+      "artifact": "io/netty/netty-resolver/4.2.13.Final/netty-resolver-4.2.13.Final.jar",
+      "source": "sources/io/netty/netty-resolver/4.2.13.Final/netty-resolver-4.2.13.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.2.13.Final/netty-resolver-4.2.13.Final-sources.jar",
+      "sha256": "779a6a4e783a2a4430b28a32ff488fad48724284fd685757e23ae0e5874fa487"
+    },
+    {
+      "artifact": "io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-resolver/4.2.19.Final/netty-resolver-4.2.19.Final-sources.jar",
+      "sha256": "06dc4f45a0bd73e082eb013ee1ed37def07b4272723ce99cde18c7c348463bff"
     },
     {
       "artifact": "io/netty/netty-transport-classes-epoll/4.1.138.Final/netty-transport-classes-epoll-4.1.138.Final.jar",
@@ -291,10 +441,40 @@
       "sha256": "b4707ce7e5e387686466a31f19ac35e0af7619144ad819f08871a7f07123c481"
     },
     {
+      "artifact": "io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-epoll/4.2.19.Final/netty-transport-classes-epoll-4.2.19.Final-sources.jar",
+      "sha256": "6225009e4d23873279c37b9bfe35b6e6ed0322d6f4d9699387521c9e11273b12"
+    },
+    {
+      "artifact": "io/netty/netty-transport-native-unix-common/4.1.138.Final/netty-transport-native-unix-common-4.1.138.Final.jar",
+      "source": "sources/io/netty/netty-transport-native-unix-common/4.1.138.Final/netty-transport-native-unix-common-4.1.138.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.138.Final/netty-transport-native-unix-common-4.1.138.Final-sources.jar",
+      "sha256": "bffbd9732aeb3819b1db23f0bd819b17489141bd78cfcea7e5eecba83056f567"
+    },
+    {
       "artifact": "io/netty/netty-transport-native-unix-common/4.2.12.Final/netty-transport-native-unix-common-4.2.12.Final.jar",
       "source": "sources/io/netty/netty-transport-native-unix-common/4.2.12.Final/netty-transport-native-unix-common-4.2.12.Final-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.2.12.Final/netty-transport-native-unix-common-4.2.12.Final-sources.jar",
       "sha256": "50e05ebe034082fc07df0174598431073b10057ca426738bea0f51bdd192c3a4"
+    },
+    {
+      "artifact": "io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final.jar",
+      "source": "sources/io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.2.13.Final/netty-transport-native-unix-common-4.2.13.Final-sources.jar",
+      "sha256": "9315ec1ac4dd5e6ad27af365064e221faa7d7ceacdb2045de54b7159c9dbb062"
+    },
+    {
+      "artifact": "io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.2.19.Final/netty-transport-native-unix-common-4.2.19.Final-sources.jar",
+      "sha256": "aa74fd08c7872f1a29d5209c0cab48cb86c1efab68948d50daf6e5488d4939a2"
+    },
+    {
+      "artifact": "io/netty/netty-transport/4.1.138.Final/netty-transport-4.1.138.Final.jar",
+      "source": "sources/io/netty/netty-transport/4.1.138.Final/netty-transport-4.1.138.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.1.138.Final/netty-transport-4.1.138.Final-sources.jar",
+      "sha256": "d7d8ce9d9cf1703c42a98c81929f04c80a603c00f805a672dba9b5a7ed555ba1"
     },
     {
       "artifact": "io/netty/netty-transport/4.2.12.Final/netty-transport-4.2.12.Final.jar",
@@ -303,10 +483,28 @@
       "sha256": "275ad55c779317a738c15cb92fd04dc4df3ba43d46ce41495eb9b20417d49306"
     },
     {
+      "artifact": "io/netty/netty-transport/4.2.13.Final/netty-transport-4.2.13.Final.jar",
+      "source": "sources/io/netty/netty-transport/4.2.13.Final/netty-transport-4.2.13.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.2.13.Final/netty-transport-4.2.13.Final-sources.jar",
+      "sha256": "a6340e138f7a111c356b64c8e755def8cfdf9e9c20e3a0d06ad1a9f714b922cb"
+    },
+    {
+      "artifact": "io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final.jar",
+      "source": "sources/io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/netty/netty-transport/4.2.19.Final/netty-transport-4.2.19.Final-sources.jar",
+      "sha256": "2208f55fbb229fbb6161b22ba9aeda9121d7f74255f233e30298cc2e3f4978b6"
+    },
+    {
       "artifact": "io/projectreactor/reactor-core/3.6.6/reactor-core-3.6.6.jar",
       "source": "sources/io/projectreactor/reactor-core/3.6.6/reactor-core-3.6.6-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/io/projectreactor/reactor-core/3.6.6/reactor-core-3.6.6-sources.jar",
       "sha256": "fee913ed4e41d79ce1cf7db4526d23e848719083b65a4041dea590f91b1ef2f6"
+    },
+    {
+      "artifact": "io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8.jar",
+      "source": "sources/io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/io/projectreactor/reactor-core/3.8.8/reactor-core-3.8.8-sources.jar",
+      "sha256": "448108ed25bfdd0a2a1b530561f3fb843eb72950cdf0650563c61f7f479e929e"
     },
     {
       "artifact": "jakarta/activation/jakarta.activation-api/2.1.4/jakarta.activation-api-2.1.4.jar",
@@ -807,6 +1005,12 @@
       "sha256": "664f515359444a92267a13266101431a630f99d6b8d04407a92b1a0e558d33ee"
     },
     {
+      "artifact": "org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21.jar",
+      "source": "sources/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/2.3.21/kotlin-stdlib-2.3.21-sources.jar",
+      "sha256": "8693386ae174f7e4a91eb82c5c632d169d236704da24f78b9c8c84d87af2fd64"
+    },
+    {
       "artifact": "org/json/json/20251224/json-20251224.jar",
       "source": "sources/org/json/json/20251224/json-20251224-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/org/json/json/20251224/json-20251224-sources.jar",
@@ -825,16 +1029,34 @@
       "sha256": "212d0e25154ae1cd65c66e4bbc298133d720cfea208329db744e81645607f13e"
     },
     {
+      "artifact": "org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1.jar",
+      "source": "sources/org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/mongodb/bson-record-codec/5.8.1/bson-record-codec-5.8.1-sources.jar",
+      "sha256": "fff429ea885b502f4c2cd1c24c3ba84f04869323ca709600f50c65b531b33db2"
+    },
+    {
       "artifact": "org/mongodb/bson/5.14.0/bson-5.14.0.jar",
       "source": "sources/org/mongodb/bson/5.14.0/bson-5.14.0-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/org/mongodb/bson/5.14.0/bson-5.14.0-sources.jar",
       "sha256": "373ed62a60ead81d88be07754f95d439e120f2111f3de0c7c99ab9c0730b21c0"
     },
     {
+      "artifact": "org/mongodb/bson/5.8.1/bson-5.8.1.jar",
+      "source": "sources/org/mongodb/bson/5.8.1/bson-5.8.1-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/mongodb/bson/5.8.1/bson-5.8.1-sources.jar",
+      "sha256": "bde9d7d16a57549bc99f89583aeb8c5144dbb57d8681348ec01f001504d08cac"
+    },
+    {
       "artifact": "org/mongodb/mongodb-driver-core/5.14.0/mongodb-driver-core-5.14.0.jar",
       "source": "sources/org/mongodb/mongodb-driver-core/5.14.0/mongodb-driver-core-5.14.0-sources.jar",
       "url": "https://repo.maven.apache.org/maven2/org/mongodb/mongodb-driver-core/5.14.0/mongodb-driver-core-5.14.0-sources.jar",
       "sha256": "3588f5f04ef591cd692b172331e6d8a3ab3c1aa41ab0c398a10447f76a956e0d"
+    },
+    {
+      "artifact": "org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1.jar",
+      "source": "sources/org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1-sources.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/mongodb/mongodb-driver-core/5.8.1/mongodb-driver-core-5.8.1-sources.jar",
+      "sha256": "53f0b07b4e186ee503ad9a27afd1cc29ee200819c792cf4923dbd11aec6748f4"
     },
     {
       "artifact": "org/mongodb/mongodb-driver-sync/5.14.0/mongodb-driver-sync-5.14.0.jar",

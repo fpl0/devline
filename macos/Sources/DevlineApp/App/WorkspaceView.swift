@@ -1,16 +1,21 @@
 import AppKit
 import SwiftUI
 
-private enum Workspace: String, CaseIterable, Identifiable {
-    case projects = "Projects"
+private enum Workspace: String, Identifiable {
+    case home = "Home"
+    case project = "Project"
     case docs = "Docs"
     case services = "Services"
-    case library = "Offline Library"
+    case library = "Library"
+
+    /// The pages that are always in the sidebar. An open project is listed with the other projects.
+    static let pages: [Self] = [.home, .docs, .services, .library]
 
     var id: String { rawValue }
     var icon: String {
         switch self {
-        case .projects: "folder"
+        case .home: "house"
+        case .project: "folder"
         case .services: "server.rack"
         case .docs: "book.closed"
         case .library: "tray.full"
@@ -20,17 +25,27 @@ private enum Workspace: String, CaseIterable, Identifiable {
     static func restore(_ saved: String) -> Self {
         if let current = Self(rawValue: saved) { return current }
         switch saved {
+        case "Projects": return .project
         case "Infrastructure": return .services
-        case "Library", "Ready Offline", "Runtimes", "Updates", "Activity": return .library
-        default: return .projects
+        case "Offline Library", "Templates", "Ready Offline", "Runtimes", "Updates", "Activity": return .library
+        default: return .home
         }
     }
 }
 
+private enum SidebarItem: Hashable {
+    case page(Workspace)
+    case project(String)
+}
+
 private enum LibrarySection: String, CaseIterable {
     case assets = "Assets"
+    case starters = "Starters"
+    case packages = "Packages"
     case toolchains = "Toolchains"
     case updates = "Updates"
+
+    var title: String { self == .assets ? "Contents" : rawValue }
 }
 
 struct WorkspaceView: View {
@@ -39,10 +54,19 @@ struct WorkspaceView: View {
     @ObservedObject var model: WorkspaceModel
     @StateObject private var reading = ReadingSession()
     @StateObject private var infrastructure = InfrastructureLibrary()
+    @StateObject private var runtimeInventory = RuntimeInventory()
+    @StateObject private var shelves = PackageShelves()
+    @StateObject private var connectivity = Connectivity()
+    @State private var toolchainSelection: String?
     @State private var workspace: Workspace? = Workspace.restore(UserDefaults.standard.string(forKey: "devline.workspace") ?? "")
-    @State private var showingStarters = UserDefaults.standard.string(forKey: "devline.workspace") == "Templates"
-    @AppStorage("devline.librarySection") private var librarySection: LibrarySection = {
+    /// Pages that have been built. They stay loaded, so going back to one costs nothing.
+    @State private var mounted: Set<String> = []
+    /// Project pages that stay loaded, most recently opened last.
+    @State private var projectPages: [String] = []
+    @State private var librarySection: LibrarySection = {
+        if let saved = UserDefaults.standard.string(forKey: "devline.librarySection").flatMap(LibrarySection.init) { return saved }
         switch UserDefaults.standard.string(forKey: "devline.workspace") {
+        case "Templates": return .starters
         case "Runtimes": return .toolchains
         case "Updates": return .updates
         default: return .assets
@@ -53,7 +77,7 @@ struct WorkspaceView: View {
     @State private var manageDocsForInstall = false
     @State private var manageDocsPackID: String?
     @State private var showingProjectServices = true
-    @AppStorage("devline.focusReading") private var focusReading = false
+    @Preference("devline.focusReading") private var focusReading = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var restoredSession = false
     @State private var query = ""
@@ -70,48 +94,81 @@ struct WorkspaceView: View {
     @State private var starterReference: String?
     @State private var newStarter: Starter?
     @State private var showingAppUpdates = false
+    @State private var startersRequest = 0
+    @State private var pendingProject: String?
+    /// What was last read about each project, so returning to one shows it at once.
+    @State private var knownProjects: [String: ProjectContext] = [:]
+
+    private var showingAssets: Bool { workspace == .library && librarySection == .assets }
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
-            List(selection: $workspace) {
-                ForEach(Workspace.allCases) { page in
-                    Label(page.rawValue, systemImage: page.icon).tag(page)
+            List(selection: sidebarSelection) {
+                ForEach(Workspace.pages) { page in
+                    Label(page.rawValue, systemImage: page.icon).tag(SidebarItem.page(page))
+                }
+                Section {
+                    ForEach(RecentProject.listed(model.recentProjects)) { recent in
+                        Label(recent.name, systemImage: "folder").tag(SidebarItem.project(recent.path))
+                            .help((recent.path as NSString).abbreviatingWithTildeInPath)
+                            .contextMenu {
+                                Button("Show in Finder") {
+                                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: recent.path)])
+                                }
+                                Button("Remove from List") { forgetProject(recent.path) }
+                            }
+                    }
+                    if model.recentProjects.isEmpty {
+                        Text("No projects yet").font(.callout).foregroundStyle(.tertiary)
+                    }
+                } header: {
+                    HStack {
+                        Text("Projects")
+                        Spacer()
+                        Menu {
+                            Button("New Project…", action: beginNewProject)
+                            Button("Open Folder…", action: chooseProjectFolder)
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                        .help("New project or open a folder").accessibilityLabel("Add Project")
+                    }
                 }
             }
             .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 165, ideal: 190, max: 245)
+            .safeAreaInset(edge: .bottom, spacing: 0) { sidebarStatus }
+            .navigationSplitViewColumnWidth(min: 180, ideal: 210, max: 280)
         } detail: {
             Group {
                 if model.catalog == nil {
                     CatalogLoadingView(model: model)
                 } else {
-                    workspaceContent
+                    pages
                 }
             }
-            .navigationTitle((workspace ?? .projects).rawValue)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if let operation = model.operation {
-                    StatusBar(text: operation, working: true)
-                } else if let notice = model.notice {
-                    StatusBar(text: notice, working: false, dismiss: { model.notice = nil })
-                }
-            }
-            .toolbar {
-                if model.jobs.contains(where: \.isActive) {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button { showingActivity = true } label: {
-                            Label("Activity", systemImage: "clock.arrow.circlepath")
-                        }.help("View progress and logs")
+            .navigationTitle(pageTitle)
+            .navigationSubtitle(pageSubtitle)
+            .overlay(alignment: .bottom) {
+                Group {
+                    if let operation = model.operation {
+                        StatusToast(text: operation, working: true)
+                    } else if let notice = model.notice {
+                        StatusToast(text: notice, working: false, dismiss: { model.notice = nil })
                     }
                 }
-                if workspace == .projects && projectContext != nil && !showingStarters {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: beginNewProject) {
-                            Label("New from Starter", systemImage: "plus")
-                        }.help("New from Starter (⌘N)")
-                    }
-                }
+                .padding(.bottom, 18)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            .animation(.snappy(duration: 0.28), value: model.operation)
+            .animation(.snappy(duration: 0.28), value: model.notice)
+            .task(id: model.notice) {
+                // A result stays long enough to read, then gets out of the way.
+                guard let shown = model.notice else { return }
+                try? await Task.sleep(for: .seconds(7))
+                if !Task.isCancelled, model.notice == shown { model.notice = nil }
+            }
+            .toolbar { windowToolbar }
         }
         .frame(minWidth: 840, minHeight: 530)
         .task {
@@ -126,6 +183,7 @@ struct WorkspaceView: View {
             restoredSession = true
             if navigationRequest == nil { reading.restoreSession() }
             columnVisibility = focusReading && workspace == .docs ? .detailOnly : .all
+            await warmNavigation()
         }
         .task(id: scenePhase) {
             if scenePhase == .active {
@@ -173,15 +231,27 @@ struct WorkspaceView: View {
         .onReceive(NotificationCenter.default.publisher(for: .devlineNew)) { _ in beginNewProject() }
         .onReceive(NotificationCenter.default.publisher(for: .devlineOpenProject)) { _ in chooseProjectFolder() }
         .onReceive(NotificationCenter.default.publisher(for: .devlineOpenRecent)) { notification in
-            if let path = notification.object as? String { openProject(path) }
+            if let path = notification.object as? String { openProject(path, prepare: false) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .devlineLibrary)) { _ in openLibrary(.assets) }
+        .onReceive(NotificationCenter.default.publisher(for: .devlineShowPage)) { notification in
+            if let name = notification.object as? String, let page = Workspace(rawValue: name) { workspace = page }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .devlineUpdates)) { _ in openLibrary(.updates) }
         .onReceive(NotificationCenter.default.publisher(for: .devlineActivity)) { _ in showingActivity = true }
         .onReceive(NotificationCenter.default.publisher(for: .devlineAppUpdates)) { _ in showingAppUpdates = true }
-        .onChange(of: workspace) { _, page in
-            UserDefaults.standard.set(page?.rawValue ?? Workspace.projects.rawValue, forKey: "devline.workspace")
+        .onChange(of: currentPage, initial: true) { _, page in
+            mounted.insert(page)
+            if let path = projectContext?.path, page == Self.projectPage(path) { keepProjectPage(path) }
+            // Nothing typed should land in a field on a page that is no longer on screen.
+            if let window = NSApp.keyWindow, window.firstResponder is NSText { window.makeFirstResponder(nil) }
+        }
+        .onChange(of: workspace, initial: true) { _, page in
+            UserDefaults.standard.set(page?.rawValue ?? Workspace.home.rawValue, forKey: "devline.workspace")
             columnVisibility = focusReading && page == .docs ? .detailOnly : .all
+        }
+        .onChange(of: librarySection) { _, section in
+            UserDefaults.standard.set(section.rawValue, forKey: "devline.librarySection")
         }
         .onChange(of: focusReading) { _, focused in columnVisibility = focused && workspace == .docs ? .detailOnly : .all }
         .onChange(of: model.libraryRevision) { _, _ in
@@ -191,92 +261,249 @@ struct WorkspaceView: View {
         .onOpenURL(perform: handleURL)
     }
 
-    @ViewBuilder
-    private var workspaceContent: some View {
-        switch workspace ?? .projects {
-        case .projects:
-            if showingStarters {
-                VStack(spacing: 0) {
-                    HStack {
-                        Button { showingStarters = false } label: {
-                            Label("Back to Projects", systemImage: "chevron.left")
-                        }.buttonStyle(.borderless)
-                        Spacer()
-                    }.padding(.horizontal, 20).padding(.vertical, 12)
-                    Divider()
-                    TemplatesView(model: model, selection: $starterReference, newStarter: $newStarter, openDocs: browseDocset)
+    /// Each page's toolbar controls are made once and then only hidden or shown. Adding and
+    /// removing toolbar items is the slowest part of changing page, so it is avoided where the
+    /// system allows.
+    @ToolbarContentBuilder private var windowToolbar: some ToolbarContent {
+        let library = workspace == .library
+        let services = workspace == .services && projectContext != nil
+        if #available(macOS 15.0, *) {
+            ToolbarItem(placement: .principal) { librarySectionPicker }.hidden(!library)
+            ToolbarItem(placement: .principal) { servicesScopePicker }.hidden(!services)
+            ToolbarItem(placement: .primaryAction) { newProjectButton }.hidden(!showingProject)
+        } else {
+            if library { ToolbarItem(placement: .principal) { librarySectionPicker } }
+            if services { ToolbarItem(placement: .principal) { servicesScopePicker } }
+            if showingProject { ToolbarItem(placement: .primaryAction) { newProjectButton } }
+        }
+    }
+
+    private var librarySectionPicker: some View {
+        Picker("Library Section", selection: $librarySection) {
+            ForEach(LibrarySection.allCases, id: \.self) { Text($0.title).tag($0) }
+        }.pickerStyle(.segmented).labelsHidden().fixedSize()
+    }
+
+    private var servicesScopePicker: some View {
+        Picker("Services Section", selection: $showingProjectServices) {
+            Text("This Project").tag(true)
+            Text("All Services").tag(false)
+        }.pickerStyle(.segmented).labelsHidden().fixedSize()
+    }
+
+    private var newProjectButton: some View {
+        Button(action: beginNewProject) {
+            Label("New Project", systemImage: "plus")
+        }.help("New Project (⌘N)")
+    }
+
+    /// A project page needs a project; without one the window falls back to Home.
+    private var showingProject: Bool { workspace == .project && projectContext != nil }
+
+    private var pageTitle: String {
+        switch workspace ?? .home {
+        case .project: projectContext.map { URL(fileURLWithPath: $0.path).lastPathComponent } ?? Workspace.home.rawValue
+        case let page: page.rawValue
+        }
+    }
+
+    private var sidebarSelection: Binding<SidebarItem?> {
+        Binding(
+            get: {
+                if let pendingProject { return .project(pendingProject) }
+                if showingProject, let path = projectContext?.path {
+                    return .project(model.recentProjects.first { sameProject($0.path, path) }?.path ?? path)
                 }
-            } else {
-                ProjectWorkspaceView(model: model, project: projectContext,
-                    openProject: chooseProjectFolder, newProject: beginNewProject, showDocs: browseProjectDocs,
-                    showInfrastructure: { openServices(project: false) }, openRecent: openProject, showStarter: showStarter,
-                    showToolchains: { openLibrary(.toolchains) }, showProjectServices: { openServices(project: true) },
-                    closeProject: clearProject)
-                    .id(projectContext?.path)
+                let page = workspace ?? .home
+                return .page(page == .project ? .home : page)
+            },
+            set: { item in
+                switch item {
+                case .page(let page): workspace = page
+                case .project(let path):
+                    if sameProject(path, projectContext?.path) { workspace = .project } else { openProject(path, prepare: false) }
+                case nil: break
+                }
             }
-        case .services:
-            VStack(spacing: 0) {
-                if projectContext != nil {
-                    Picker("Services Section", selection: $showingProjectServices) {
-                        Text("Project Services").tag(true)
-                        Text("Image Library").tag(false)
-                    }.pickerStyle(.segmented).labelsHidden().fixedSize()
-                        .frame(maxWidth: .infinity).padding(12)
-                    Divider()
+        )
+    }
+
+    private static func projectPage(_ path: String) -> String { "project:" + path }
+
+    /// The page on screen. Each one is built on its first visit and then kept.
+    private var currentPage: String {
+        switch workspace ?? .home {
+        case .project:
+            if let path = projectContext?.path { return Self.projectPage(path) }
+            return "home"
+        case .home: return "home"
+        case .docs: return "docs"
+        case .services: return projectContext != nil && showingProjectServices ? "services.project" : "services.all"
+        case .library: return "library." + librarySection.rawValue
+        }
+    }
+
+    private func shows(_ page: String) -> Bool { currentPage == page }
+    private func keeps(_ page: String) -> Bool { currentPage == page || mounted.contains(page) }
+
+    private var pages: some View {
+        ZStack {
+            if keeps("home") { kept("home") { homePage } }
+            projectPageStack
+            servicesPages
+            if keeps("docs") { kept("docs") { docsContent } }
+            libraryPages
+        }
+    }
+
+    private func kept<Content: View>(_ page: String, @ViewBuilder _ content: @escaping () -> Content) -> some View {
+        KeptPage(shown: shows(page), content: content).equatable()
+    }
+
+    private var homePage: some View {
+        HomeView(model: model, inventory: runtimeInventory, infrastructure: infrastructure, shelves: shelves,
+                 chooseFolder: chooseProjectFolder,
+                 create: { newStarter = $0 }, showStarter: showStarter,
+                 showDocs: { workspace = .docs }, showServices: { openServices(project: false) },
+                 showPackages: { openLibrary(.packages) }, showToolchain: showToolchain,
+                 startersRequest: startersRequest, online: connectivity.online, visible: shows("home"))
+    }
+
+    private var projectPageStack: some View {
+        ForEach(shownProjectPages, id: \.self) { path in
+            kept(Self.projectPage(path)) {
+                if let context = projectContext?.path == path ? projectContext : knownProjects[path] {
+                    ProjectWorkspaceView(model: model, infrastructure: infrastructure, project: context,
+                        showDocs: browseProjectDocs, showDocset: browseProjectDocset,
+                        showInfrastructure: { openServices(project: false) }, showStarter: showStarter,
+                        showToolchains: { showToolchain(context.stack) }, showProjectServices: { openServices(project: true) },
+                        closeProject: clearProject, online: connectivity.online, visible: shows(Self.projectPage(path)))
                 }
-                if let projectContext, showingProjectServices {
-                    ProjectServicesView(model: model, infrastructure: infrastructure, project: projectContext)
-                        .id(projectContext.path)
-                } else {
-                    InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureReference,
-                                       openProjectServices: projectContext == nil ? nil : { openServices(project: true) })
-                }
-            }
-        case .docs:
-            DocsView(
-                model: model,
-                reading: reading,
-                query: $query,
-                stack: $docStack,
-                packReference: $docPack,
-                directDocumentID: $directDocumentID,
-                projectContext: projectContext,
-                updateProject: { context in
-                    guard !openingProject, projectContext?.path == context.path else { return }
-                    projectRequest = nil
-                    projectContext = context
-                },
-                clearProject: clearProject,
-                focusRequest: focusRequest,
-                lookupRevision: lookupRevision,
-                projectScopeRequested: projectScopeRequested,
-                openLibrary: { openDocsManager() },
-                installDocset: { openDocsManager(install: true, packID: $0) }
-            )
-        case .library:
-            VStack(spacing: 0) {
-                Picker("Offline Library Section", selection: $librarySection) {
-                    ForEach(LibrarySection.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented).labelsHidden().fixedSize()
-                .frame(maxWidth: .infinity).padding(12)
-                Divider()
-                libraryContent
             }
         }
     }
 
-    @ViewBuilder private var libraryContent: some View {
-        switch librarySection {
+    @ViewBuilder private var servicesPages: some View {
+        if let projectContext, keeps("services.project") {
+            kept("services.project") {
+                ProjectServicesView(model: model, infrastructure: infrastructure, project: projectContext,
+                                    visible: shows("services.project"))
+                    .id(projectContext.path)
+            }
+        }
+        if keeps("services.all") {
+            kept("services.all") {
+                InfrastructureView(model: model, library: infrastructure, openDocs: openInfrastructureReference,
+                                   openProjectServices: projectContext == nil ? nil : { openServices(project: true) },
+                                   visible: shows("services.all"))
+            }
+        }
+    }
+
+    @ViewBuilder private var libraryPages: some View {
+        ForEach(LibrarySection.allCases, id: \.self) { section in
+            let page = "library." + section.rawValue
+            if keeps(page) { kept(page) { libraryContent(section) } }
+        }
+    }
+
+    private var shownProjectPages: [String] {
+        guard workspace == .project, let path = projectContext?.path, !projectPages.contains(path) else { return projectPages }
+        return projectPages + [path]
+    }
+
+    /// Keeps the pages of the projects opened most recently, so returning to one is immediate.
+    private func keepProjectPage(_ path: String) {
+        guard projectPages.last != path else { return }
+        projectPages.removeAll { $0 == path }
+        projectPages.append(path)
+        if projectPages.count > 6 { projectPages.removeFirst(projectPages.count - 6) }
+    }
+
+    private var pageSubtitle: String {
+        switch workspace ?? .home {
+        case .project where showingProject: projectContext.map { $0.stacks.map(displayStack).joined(separator: " · ") } ?? ""
+        case .library: librarySection.title
+        default: ""
+        }
+    }
+
+    /// What Devline is doing in the background, and whether this Mac is offline.
+    @ViewBuilder private var sidebarStatus: some View {
+        let active = model.jobs.filter(\.isActive)
+        if !active.isEmpty || !connectivity.online {
+            VStack(alignment: .leading, spacing: 8) {
+                if let job = active.first {
+                    Button { showingActivity = true } label: {
+                        HStack(spacing: 9) {
+                            ProgressView().controlSize(.small)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(active.count > 1 ? "\(job.title) + \(active.count - 1) more" : job.title)
+                                    .font(.caption.weight(.medium)).lineLimit(1)
+                                Text(job.stage).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                            }
+                            Spacer(minLength: 0)
+                        }.contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain).help("Show progress and logs")
+                }
+                if !connectivity.online {
+                    Label("Offline. Working from this Mac.", systemImage: "wifi.slash")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .help("Docs, starters, saved packages, and saved service images keep working. Downloads wait for a connection.")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14).padding(.vertical, 10)
+            .transition(.opacity)
+        }
+    }
+
+    private var docsContent: some View {
+        DocsView(
+            model: model,
+            reading: reading,
+            query: $query,
+            stack: $docStack,
+            packReference: $docPack,
+            directDocumentID: $directDocumentID,
+            projectContext: projectContext,
+            updateProject: { context in
+                guard !openingProject, projectContext?.path == context.path else { return }
+                projectRequest = nil
+                projectContext = context
+            },
+            clearProject: clearProject,
+            focusRequest: focusRequest,
+            lookupRevision: lookupRevision,
+            projectScopeRequested: projectScopeRequested,
+            isActive: workspace == .docs,
+            openLibrary: { openDocsManager() },
+            installDocset: { openDocsManager(install: true, packID: $0) }
+        )
+    }
+
+    @ViewBuilder private func libraryContent(_ section: LibrarySection) -> some View {
+        switch section {
         case .assets:
             if let catalog = model.catalog {
-                LibraryView(model: model, infrastructure: infrastructure, catalog: catalog, projectPath: projectContext?.path,
+                LibraryView(model: model, infrastructure: infrastructure, catalog: catalog,
+                            projectPath: projectContext?.path, isActive: showingAssets,
                             manageDocs: { openDocsManager() })
             }
+        case .starters:
+            TemplatesView(model: model, selection: $starterReference, newStarter: $newStarter, openDocs: browseDocset)
+        case .packages:
+            PackagesView(model: model, shelves: shelves, inventory: runtimeInventory, showToolchain: showToolchain,
+                         visible: shows("library.Packages"))
         case .toolchains:
             RuntimesView(
                 model: model,
+                inventory: runtimeInventory,
+                infrastructure: infrastructure,
+                selection: $toolchainSelection,
                 projectStack: projectContext?.stack,
+                visible: shows("library.Toolchains"),
                 showStarter: showStarter,
                 showDocs: { stack in
                     projectScopeRequested = false
@@ -284,6 +511,7 @@ struct WorkspaceView: View {
                     docStack = stack
                     docPack = nil
                     query = ""
+                    lookupRevision += 1
                     workspace = .docs
                     focusRequest += 1
                 },
@@ -297,6 +525,11 @@ struct WorkspaceView: View {
     private func openLibrary(_ section: LibrarySection) {
         librarySection = section
         workspace = .library
+    }
+
+    private func showToolchain(_ id: String?) {
+        if let id { toolchainSelection = id }
+        openLibrary(.toolchains)
     }
 
     private func openServices(project: Bool) {
@@ -351,13 +584,56 @@ struct WorkspaceView: View {
     }
 
     private func beginNewProject() {
-        if workspace == .projects && showingStarters,
-           let starter = model.catalog?.templates.first(where: { $0.reference == starterReference && $0.isInstalled }) {
+        if workspace == .library && librarySection == .starters,
+           let starter = model.catalog?.templates.first(where: { $0.reference == starterReference && $0.verified }) {
             newStarter = starter
         } else {
-            workspace = .projects
-            showingStarters = true
+            workspace = .home
+            startersRequest += 1
         }
+    }
+
+    /// Loads what the other pages show before they are visited, so every first click is instant.
+    private func warmNavigation() async {
+        async let toolchains: Void = runtimeInventory.load(force: false)
+        async let services: Void = infrastructure.loadIfNeeded(after: model.completedInfrastructureJobIDs)
+        async let packages: Void = shelves.loadIfNeeded(after: model.completedPackageJobIDs)
+        _ = await (toolchains, services, packages)
+        for recent in model.recentProjects where !Task.isCancelled {
+            guard FileManager.default.fileExists(atPath: recent.path) else { continue }
+            if knownProjects[recent.path] == nil,
+               let context: ProjectContext = try? await Core.request(CoreRequest("project.context", path: recent.path), priority: .utility) {
+                knownProjects[context.path] = context
+                knownProjects[recent.path] = context
+            }
+            await prefetchProjectReadiness(knownProjects[recent.path]?.path ?? recent.path)
+        }
+        await buildPagesAhead()
+    }
+
+    /// Builds the other pages one at a time while the window is idle, so the first visit to
+    /// each is as quick as every later one.
+    private func buildPagesAhead() async {
+        var ahead = ["docs", "library.\(librarySection.rawValue)", "services.all"]
+        ahead += LibrarySection.allCases.map { "library." + $0.rawValue }
+        if projectContext != nil { ahead.append("services.project") }
+        for page in ahead where !mounted.contains(page) {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            mounted.insert(page)
+        }
+        for recent in model.recentProjects.prefix(5) {
+            guard let path = knownProjects[recent.path]?.path, !projectPages.contains(path) else { continue }
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            if !projectPages.contains(path) { projectPages.insert(path, at: 0) }
+        }
+    }
+
+    private func forgetProject(_ path: String) {
+        if sameProject(path, projectContext?.path) { clearProject() }
+        projectPages.removeAll { sameProject($0, path) }
+        model.forgetProject(path)
     }
 
     private func chooseProjectFolder() {
@@ -381,7 +657,7 @@ struct WorkspaceView: View {
         let token = UUID()
         navigationRequest = token
         openingProject = false
-        reading.request = nil
+        if reading.request != nil { reading.request = nil }
         return token
     }
 
@@ -399,6 +675,7 @@ struct WorkspaceView: View {
             let context: ProjectContext = try await Core.request(CoreRequest("project.context", path: path))
             guard projectRequest == request, navigation == nil || navigationRequest == navigation else { return false }
             projectContext = context
+            knownProjects[context.path] = context
             UserDefaults.standard.set(context.path, forKey: "devline.projectPath")
             return true
         } catch is CancellationError {
@@ -409,27 +686,52 @@ struct WorkspaceView: View {
         }
     }
 
-    private func openProject(_ path: String) {
+    /// Shows a project immediately, then reads it again in the background. `prepare` also gets
+    /// what it is missing onto this Mac, which is for a project that was just opened or created,
+    /// not for switching between projects in the sidebar.
+    private func openProject(_ path: String, prepare: Bool = true) {
         let navigation = beginNavigation()
         openingProject = true
+        pendingProject = path
+        if FileManager.default.fileExists(atPath: path) {
+            // Navigation never waits: use what is known, or the bare folder, until the read lands.
+            projectContext = knownProjects.first { sameProject($0.key, path) }?.value
+                ?? ProjectContext(path: path, stacks: [], stack: nil, dependencies: nil, pins: nil, docsets: nil, origin: nil)
+            workspace = .project
+        }
         Task {
-            defer { if navigationRequest == navigation { openingProject = false } }
-            guard await loadProjectContext(path, navigation: navigation), navigationRequest == navigation else { return }
+            defer {
+                if navigationRequest == navigation { openingProject = false }
+                if pendingProject == path { pendingProject = nil }
+            }
+            guard await loadProjectContext(path, navigation: navigation), navigationRequest == navigation else {
+                // The folder could not be read as a project; do not leave a hollow page behind.
+                if navigationRequest == navigation, projectContext?.stacks.isEmpty == true, projectContext?.dependencies == nil {
+                    projectContext = nil
+                    workspace = .home
+                }
+                return
+            }
             docStack = projectContext?.stack.flatMap { stack in
                 model.catalog?.docs.contains { $0.installed && $0.stack == stack } == true ? stack : nil
             }
             directDocumentID = nil
             docPack = nil
             query = ""
-            showingStarters = false
-            workspace = .projects
+            projectScopeRequested = false
+            lookupRevision += 1
+            workspace = .project
+            pendingProject = nil
             guard let resolvedPath = projectContext?.path else { return }
             model.rememberProject(resolvedPath)
+            guard prepare else { return }
             do {
                 let readiness: ToolboxStatus = try await Core.request(CoreRequest("toolbox.status", path: resolvedPath))
                 guard navigationRequest == navigation, projectContext?.path == resolvedPath else { return }
                 if !readiness.readyOffline {
                     guard !model.jobs.contains(where: { $0.isActive && $0.targetPath == resolvedPath && ["toolbox_prepare", "project_prepare"].contains($0.kind) }) else { return }
+                    // Without a connection there is nothing to fetch; the project page says what is missing.
+                    guard connectivity.online else { return }
                     await model.startJob(CoreRequest("jobs.start", path: resolvedPath, kind: "toolbox_prepare"), inspect: false)
                 }
             } catch is CancellationError {}
@@ -445,6 +747,24 @@ struct WorkspaceView: View {
         UserDefaults.standard.removeObject(forKey: "devline.projectPath")
         docStack = nil
         docPack = nil
+        if workspace == .project { workspace = .home }
+    }
+
+    /// Opens one of the project's matched docsets, keeping project links and versions in scope.
+    private func browseProjectDocset(_ reference: String) {
+        guard let pack = model.catalog?.docs.first(where: { $0.reference == reference && $0.installed }) else {
+            browseProjectDocs()
+            return
+        }
+        beginNavigation()
+        projectScopeRequested = true
+        query = ""
+        directDocumentID = nil
+        docStack = pack.stack
+        docPack = pack.reference
+        lookupRevision += 1
+        focusReading = false
+        workspace = .docs
     }
 
     private func browseProjectDocs() {
@@ -482,8 +802,7 @@ struct WorkspaceView: View {
             return
         }
         starterReference = reference
-        showingStarters = true
-        workspace = .projects
+        openLibrary(.starters)
     }
 
     private func lookUp(_ request: LookupRequest) {
@@ -536,31 +855,5 @@ private struct CatalogLoadingView: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-private struct StatusBar: View {
-    let text: String
-    let working: Bool
-    var dismiss: (() -> Void)?
-
-    var body: some View {
-        HStack(spacing: 9) {
-            if working { ProgressView().controlSize(.small) }
-            else { Image(systemName: "checkmark.circle").foregroundStyle(.green) }
-            Text(text).font(.callout)
-            Spacer()
-            if let dismiss {
-                Button(action: dismiss) { Image(systemName: "xmark") }
-                    .buttonStyle(.borderless)
-                    .help("Dismiss status")
-                    .accessibilityLabel("Dismiss status")
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
     }
 }

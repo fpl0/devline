@@ -109,7 +109,8 @@ fn source(id: &str, name: &str, value: &Value, error: Option<&str>) -> Value {
     let failures = rows(value, "items")
         .iter()
         .filter(|item| item["state"] == "error" || item["state"] == "republished")
-        .count();
+        .count() as u64
+        + value["additional_publisher_failures"].as_u64().unwrap_or(0);
     let error = error.or_else(|| value["error"].as_str());
     let state = if error.is_some() || failures > 0 {
         "error"
@@ -326,8 +327,30 @@ fn stage(job: &mut Option<&mut Job>, label: &str) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn status(ctx: &Context) -> Result<Value> {
-    gather(ctx, false, false, None)
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Scope {
+    All,
+    Assets,
+    AssetsStatus,
+}
+
+impl Scope {
+    fn updates(request: &Value) -> Self {
+        if request["category"] == "assets" {
+            Self::Assets
+        } else {
+            Self::All
+        }
+    }
+}
+
+pub(crate) fn status(ctx: &Context, request: &Value) -> Result<Value> {
+    let scope = if request["category"] == "assets" {
+        Scope::AssetsStatus
+    } else {
+        Scope::All
+    };
+    gather(ctx, false, scope, None)
 }
 
 pub(crate) fn check(ctx: &Context, request: &Value, job: Option<&mut Job>) -> Result<Value> {
@@ -336,15 +359,11 @@ pub(crate) fn check(ctx: &Context, request: &Value, job: Option<&mut Job>) -> Re
             "Checking update publishers requires a connection. Saved update status works offline."
         );
     }
-    gather(ctx, true, request["category"] == "assets", job)
+    gather(ctx, true, Scope::updates(request), job)
 }
 
-fn gather(
-    ctx: &Context,
-    online: bool,
-    assets_only: bool,
-    mut job: Option<&mut Job>,
-) -> Result<Value> {
+fn gather(ctx: &Context, online: bool, scope: Scope, mut job: Option<&mut Job>) -> Result<Value> {
+    let assets_only = scope != Scope::All;
     let mut errors = Vec::new();
     stage(
         &mut job,
@@ -357,6 +376,8 @@ fn gather(
     let upstream = collect(
         if online {
             updates::check(ctx)
+        } else if scope == Scope::AssetsStatus {
+            updates::asset_status(ctx)
         } else {
             updates::status(ctx)
         },
@@ -442,8 +463,8 @@ pub(crate) fn apply(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -
             Err(error) => return Err(error.into()),
         }
     }
-    let assets_only = request["category"] == "assets";
-    let before = gather(ctx, false, assets_only, None)?;
+    let scope = Scope::updates(request);
+    let before = gather(ctx, false, scope, None)?;
     let selected = request["id"].as_str();
     let plan: Vec<_> = rows(&before, "items")
         .iter()
@@ -527,7 +548,7 @@ pub(crate) fn apply(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -
         .filter(|step| step["state"] == "succeeded")
         .count();
     let failed = steps.len() - updated;
-    let snapshot = gather(ctx, false, assets_only, None)?;
+    let snapshot = gather(ctx, false, scope, None)?;
     Ok(
         json!({"status":if failed == 0 {"complete"} else {"needs_attention"},"complete":failed == 0,"ready":failed == 0,
         "updated":updated,"failed":failed,"steps":steps,"snapshot":snapshot}),

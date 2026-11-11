@@ -1,18 +1,62 @@
 import SwiftUI
 
+@MainActor
+final class RuntimeInventory: ObservableObject {
+    struct Snapshot: Decodable, Equatable, Sendable {
+        let runtimes: [RuntimeToolchain]
+        let releases: [UpdateItem]
+    }
+
+    @Published private(set) var snapshot: Snapshot?
+    @Published private(set) var scanning = true
+    @Published private(set) var error: String?
+    private var loadTask: Task<Void, Never>?
+    private var lastLoaded: ContinuousClock.Instant?
+
+    func load(force: Bool) async {
+        if let loadTask { return await loadTask.value }
+        if !force, let lastLoaded, lastLoaded.duration(to: .now) < .seconds(3) { return }
+        // A refresh behind what is already on screen stays quiet.
+        // Only what changed is announced, so the pages that are loaded are not rebuilt for nothing.
+        if scanning != (force || snapshot == nil) { scanning.toggle() }
+        if error != nil { error = nil }
+        let task = Task {
+            defer {
+                if scanning { scanning = false }
+                loadTask = nil
+            }
+            do {
+                let next: Snapshot = try await Core.request(CoreRequest("runtime.inventory"))
+                if snapshot != next { snapshot = next }
+                lastLoaded = .now
+            } catch is CancellationError {
+            } catch {
+                self.error = error.localizedDescription
+            }
+        }
+        loadTask = task
+        await task.value
+    }
+}
+
 struct RuntimesView: View {
     @ObservedObject var model: WorkspaceModel
+    @ObservedObject var inventory: RuntimeInventory
+    @ObservedObject var infrastructure: InfrastructureLibrary
+    /// A runtime id, or `docker` for the container engine.
+    @Binding var selection: String?
     let projectStack: String?
+    var visible = true
     let showStarter: (String) -> Void
     let showDocs: (String) -> Void
     let showLibrary: () -> Void
 
-    @State private var runtimes: [RuntimeToolchain] = []
-    @State private var selection: String?
     @State private var scanRevision = 0
-    @State private var scanning = true
-    @State private var scanError: String?
-    @State private var releases: [UpdateItem] = []
+    @State private var copied: String?
+    private var runtimes: [RuntimeToolchain] { inventory.snapshot?.runtimes ?? [] }
+    private var releases: [UpdateItem] { inventory.snapshot?.releases ?? [] }
+    private var scanning: Bool { inventory.scanning }
+    private var scanError: String? { inventory.error }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -47,25 +91,22 @@ struct RuntimesView: View {
                 ContentUnavailableView("No Runtimes", systemImage: "terminal", description: Text("No runtime toolchains are listed in the catalog."))
             } else {
                 HSplitView {
-                    List(runtimes, selection: $selection) { runtime in
-                        HStack(spacing: 9) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(runtime.name).font(.body.weight(.medium))
-                                Text(runtime.available ? "Detected" : "Setup Required")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer(minLength: 0)
-                            Image(systemName: runtime.available ? "checkmark.circle" : "exclamationmark.circle")
-                                .foregroundStyle(.secondary)
-                                .accessibilityHidden(true)
+                    List(selection: $selection) {
+                        ForEach(runtimes) { runtime in
+                            row(runtime.name, found: runtime.available).tag(runtime.id)
                         }
-                        .padding(.vertical, 5)
-                        .tag(runtime.id)
+                        Section("Services") {
+                            row("Docker", found: infrastructure.status?.docker.available == true,
+                                state: infrastructure.status == nil ? "Checking…"
+                                    : infrastructure.status?.docker.available == true ? "Running" : "Not running").tag("docker")
+                        }
                     }
                     .listStyle(.inset)
                     .frame(minWidth: 208, idealWidth: 238, maxWidth: 305)
                     Group {
-                        if let runtime = runtimes.first(where: { $0.id == selection }) {
+                        if selection == "docker" {
+                            dockerDetails
+                        } else if let runtime = runtimes.first(where: { $0.id == selection }) {
                             runtimeDetails(runtime).id(runtime.id)
                         } else {
                             ContentUnavailableView("Select a Runtime", systemImage: "terminal")
@@ -75,11 +116,130 @@ struct RuntimesView: View {
                 }
             }
         }
-        .task(id: scanRevision) { await scan() }
-        .task {
-            if let snapshot: UpdateSnapshot = try? await Core.request(CoreRequest("updates.runtime.status")) {
-                releases = snapshot.items
+        .task(id: scanRevision) { [revision = scanRevision] in
+            selectRuntimeIfNeeded()
+            async let docker: Void = revision > 0 ? infrastructure.refresh() : infrastructure.loadIfNeeded(after: model.completedInfrastructureJobIDs)
+            await inventory.load(force: revision > 0)
+            await docker
+            if !Task.isCancelled { selectRuntimeIfNeeded() }
+        }
+        .onPageShown(visible) {
+            async let docker: Void = infrastructure.loadIfNeeded(after: model.completedInfrastructureJobIDs)
+            await inventory.load(force: false)
+            await docker
+        }
+    }
+
+    private func row(_ name: String, found: Bool, state: String? = nil) -> some View {
+        HStack(spacing: 9) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(name).font(.body.weight(.medium))
+                Text(state ?? (found ? "Found" : "Not installed")).font(.caption).foregroundStyle(.secondary)
             }
+            Spacer(minLength: 0)
+            Image(systemName: found ? "checkmark.circle" : "arrow.down.circle")
+                .foregroundStyle(found ? Color.secondary : .orange).accessibilityHidden(true)
+        }
+        .padding(.vertical, 5)
+    }
+
+    /// A command with a copy button, for pasting into a terminal.
+    private func command(_ label: String, _ text: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Text(text).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Button(copied == text ? "Copied" : "Copy") {
+                    if copyToPasteboard(text) { copied = text }
+                }.controlSize(.small).accessibilityLabel("Copy command")
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 7))
+        }
+    }
+
+    private func installGuide(_ runtime: RuntimeToolchain) -> some View {
+        let guide = runtime.install
+        let commands = guide?.commands ?? []
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Install \(runtime.name)").font(.headline)
+            Text("Devline builds and runs projects with the toolchains on this Mac. Install this one while you’re connected, then choose Rescan."
+                 + (runtime.minimumVersion.isEmpty ? "" : " The starters need \(runtime.toolchain) \(runtime.minimumVersion) or later."))
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            ForEach(commands) { item in
+                command(item.present ? "With \(item.manager), which this Mac has" : "With \(item.manager)", item.command)
+            }
+            if !commands.isEmpty, !commands.contains(where: \.present) {
+                HStack(spacing: 4) {
+                    Text("Neither is installed yet. Get").foregroundStyle(.secondary)
+                    Link("Homebrew", destination: URL(string: "https://brew.sh")!)
+                    Text("or").foregroundStyle(.secondary)
+                    Link("mise", destination: URL(string: "https://mise.jdx.dev")!)
+                    Text("first, or use the installer below.").foregroundStyle(.secondary)
+                }.font(.callout)
+            }
+            if let note = guide?.note, !note.isEmpty {
+                Text(note).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            HStack(spacing: 12) {
+                Button("Rescan") { scanRevision += 1 }.disabled(scanning)
+                if let url = guide?.url.flatMap(safeExternalURL) {
+                    Link("Official installer and instructions", destination: url).font(.callout)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .surface(radius: 10)
+    }
+
+    private var dockerDetails: some View {
+        let docker = infrastructure.status?.docker
+        let running = docker?.available == true
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Docker").font(.title2.weight(.semibold))
+                    HStack(spacing: 7) {
+                        Image(systemName: running ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                            .foregroundStyle(running ? Color.green : .orange).accessibilityHidden(true)
+                        Text(docker == nil ? "Checking…" : running ? "Engine Running" : "No Engine Running")
+                            .font(.callout.weight(.medium))
+                    }
+                    if let detail = docker?.detail, !detail.isEmpty {
+                        Text(detail).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+                    }
+                }
+                Text("Devline uses a Docker-compatible engine for two things: saving service images such as PostgreSQL and Redis while you’re connected, and running them from those saved images later. Projects without services don’t need it.")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                if !running {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Install an engine").font(.headline)
+                        Text("Any one of these works. Install it while you’re connected, start it, then choose Rescan.")
+                            .font(.callout).foregroundStyle(.secondary)
+                        command("OrbStack, a light engine for the Mac", "brew install --cask orbstack")
+                        command("Docker Desktop", "brew install --cask docker-desktop")
+                        command("Colima, command line only", "brew install colima docker docker-compose && colima start")
+                        HStack(spacing: 12) {
+                            Button("Rescan") { scanRevision += 1 }.disabled(scanning || infrastructure.loading)
+                            Link("OrbStack", destination: URL(string: "https://orbstack.dev")!)
+                            Link("Docker Desktop", destination: URL(string: "https://www.docker.com/products/docker-desktop/")!)
+                            Link("Colima", destination: URL(string: "https://github.com/abiosoft/colima")!)
+                        }.font(.callout)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .surface(radius: 10)
+                    Text("Already installed? Open the engine’s app, or run colima start, so Devline can reach it.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: 580, alignment: .leading)
+            .padding(26)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 
@@ -98,18 +258,16 @@ struct RuntimesView: View {
                         Image(systemName: runtime.available ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                             .foregroundStyle(runtime.available ? Color.green : .orange)
                             .accessibilityHidden(true)
-                        Text(runtime.available ? "Compatible Toolchain Detected" : "Setup Required")
+                        Text(runtime.available ? "Found on This Mac" : "Not Installed")
                             .font(.callout.weight(.medium))
                     }
                     if runtime.available {
                         Text(detectedVersion(runtime))
                             .font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                             .lineLimit(2)
-                    } else if !runtime.minimumVersion.isEmpty {
-                        Text("Requires \(runtime.toolchain) \(runtime.minimumVersion) to create projects.")
-                            .font(.callout).foregroundStyle(.secondary)
                     }
                 }
+                if !runtime.available { installGuide(runtime) }
                 Divider()
                 if !packs.isEmpty { docsRow(packs, for: runtime) }
                 if !starters.isEmpty {
@@ -164,7 +322,7 @@ struct RuntimesView: View {
                     }
                     .font(.callout)
                 }
-                Text("Devline detects your installed tools. It does not install, upgrade, or remove runtimes. Use your preferred runtime manager to change them.")
+                Text("Devline uses the toolchains already on this Mac and never changes them. Install and upgrade them with your runtime manager.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             .frame(maxWidth: 580, alignment: .leading)
@@ -222,7 +380,7 @@ struct RuntimesView: View {
             if starter.isInstalled {
                 Button("View Starter") { showStarter(starter.reference) }
             } else {
-                Button("Prepare Starter") { prepare(starter) }
+                Button("Install Starter") { prepare(starter) }
                     .buttonStyle(.borderedProminent)
                     .disabled(model.operation != nil)
                     .help("Install the starter and related docs from the bundled catalog")
@@ -287,18 +445,9 @@ struct RuntimesView: View {
         return output
     }
 
-    private func scan() async {
-        scanning = true
-        scanError = nil
-        defer { scanning = false }
-        do {
-            runtimes = try await Core.request(CoreRequest("runtime.list"))
-            if !runtimes.contains(where: { $0.id == selection }) {
-                selection = runtimes.first(where: { $0.id == projectStack })?.id ?? runtimes.first?.id
-            }
-        } catch is CancellationError {
-        } catch {
-            scanError = error.localizedDescription
+    private func selectRuntimeIfNeeded() {
+        if selection != "docker", !runtimes.contains(where: { $0.id == selection }) {
+            selection = runtimes.first(where: { $0.id == projectStack })?.id ?? runtimes.first?.id
         }
     }
 

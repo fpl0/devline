@@ -3,6 +3,9 @@ set -eu
 . "$(dirname "$0")/common.sh"
 cd "$project"
 merge "$artifacts/cargo-home" "$HOME/cargo"
+# The package shelf is one more registry cache. It is cloned beside the bundled one in the
+# stage's disposable home; the project keeps only the crates `cargo vendor` copies for its lock.
+if [ -n "$shelf" ]; then merge "$shelf/cargo-home" "$HOME/cargo"; fi
 export CARGO_HOME="$HOME/cargo" CARGO_TARGET_DIR="$TMPDIR/cargo-target"
 if [ "$offline" = true ]; then export CARGO_NET_OFFLINE=true; fi
 mkdir -p .cargo

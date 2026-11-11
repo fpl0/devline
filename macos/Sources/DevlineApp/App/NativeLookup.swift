@@ -138,7 +138,7 @@ final class DevlineAppDelegate: NSObject, NSApplicationDelegate {
 }
 
 struct LookupSettings: View {
-    @AppStorage("devline.globalShortcut") private var shortcut = "control-option-d"
+    @Preference("devline.globalShortcut") private var shortcut = "control-option-d"
     @ObservedObject private var lookup = NativeLookup.shared
     var body: some View {
         Section("Lookup from Any App") {

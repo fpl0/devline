@@ -75,9 +75,8 @@ insert = [
   "  # Devline: explicitly selected service clients; existing project configuration is preserved.",
   "  defoverridable project: 0",
   "  def project do",
-  "    Keyword.update!(super(), :deps, fn dependencies ->",
-  "      dependencies ++ " <> inspect(additions, limit: :infinity),
-  "    end)",
+  "    additions = " <> inspect(additions, limit: :infinity),
+  "    Keyword.update(super(), :deps, additions, &(&1 ++ additions))",
   "  end",
   ""
 ] |> Enum.map_join(newline, &(indent <> &1))

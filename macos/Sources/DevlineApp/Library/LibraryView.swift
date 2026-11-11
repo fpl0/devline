@@ -14,6 +14,7 @@ struct LibraryView: View {
     @ObservedObject var infrastructure: InfrastructureLibrary
     let catalog: Catalog
     let projectPath: String?
+    let isActive: Bool
     let manageDocs: () -> Void
     @State private var docs: Set<String> = []
     @State private var starters: Set<String> = []
@@ -31,7 +32,10 @@ struct LibraryView: View {
         ReadinessSelection(path: projectPath, docs: docs, starters: starters, images: images,
                            libraryRevision: model.libraryRevision, completedJobs: model.completedJobIDs)
     }
-    private var result: ToolboxStatus? { checkedSelection == readinessSelection ? checkedStatus : nil }
+    private var result: ToolboxStatus? {
+        guard let checkedSelection, checkedSelection == readinessSelection else { return nil }
+        return checkedStatus
+    }
     private var selectionIsEmpty: Bool { docs.isEmpty && starters.isEmpty && images.isEmpty }
     private var defaultDocs: [DocPack] {
         Dictionary(grouping: catalog.docs.filter { !$0.localOnly }, by: \.id).values.compactMap { releases in
@@ -75,6 +79,7 @@ struct LibraryView: View {
     }
 
     var body: some View {
+        let jobs = model.completedInfrastructureJobIDs
         VStack(spacing: 0) {
             header
             Divider()
@@ -83,7 +88,16 @@ struct LibraryView: View {
             Divider()
             footer
         }
-        .task(id: model.completedJobIDs) { await infrastructure.refresh() }
+        .task(id: isActive ? jobs : nil) {
+            if isActive { await infrastructure.loadIfNeeded(after: jobs) }
+        }
+        .onChange(of: isActive) { _, active in
+            if !active {
+                infoPack = nil
+                importPath = nil
+                if checking || checkedSelection != nil || error != nil { invalidateReadiness() }
+            }
+        }
         .onChange(of: readinessSelection) { _, _ in invalidateReadiness() }
         .onChange(of: catalog.docs.map(\.reference)) { _, references in docs.formIntersection(references) }
         .onChange(of: catalog.templates.map(\.reference)) { _, references in starters.formIntersection(references) }

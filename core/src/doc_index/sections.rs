@@ -164,11 +164,10 @@ pub(in crate::doc_index) fn focus(
     let leaf = key.rsplit_once('.').map(|(_, leaf)| leaf);
     let mut fallback = None;
     for (heading, anchor) in html_headings(html) {
-        let Some(anchor_key) = anchor.as_deref() else {
-            continue;
-        };
+        // A heading without an anchor still names the section to show.
         let candidate = symbol_key(&heading);
-        if candidate.as_deref() == Some(&key) || symbol_key(anchor_key).as_deref() == Some(&key) {
+        let anchored = anchor.as_deref().and_then(symbol_key);
+        if candidate.as_deref() == Some(&key) || anchored.as_deref() == Some(&key) {
             return Ok(Some((heading, anchor)));
         }
         if fallback.is_none() && leaf.is_some() && candidate.as_deref() == leaf {
@@ -189,7 +188,7 @@ fn searchable_html<'a>(pack: &str, html: &'a str) -> &'a str {
         .map_or(html, |(authored, _)| authored)
 }
 
-fn expand_identifiers(value: &str) -> String {
+pub(in crate::doc_index) fn expand_identifiers(value: &str) -> String {
     let mut expanded = String::with_capacity(value.len());
     let mut chars = value.chars().peekable();
     let mut previous = ' ';

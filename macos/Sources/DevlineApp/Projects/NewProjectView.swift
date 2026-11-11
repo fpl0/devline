@@ -6,9 +6,9 @@ struct NewProjectView: View {
     @ObservedObject var model: WorkspaceModel
     let starter: Starter
     @ObservedObject var infrastructure: InfrastructureLibrary
-    let openDocs: (String) -> Void
+    let open: (String) -> Void
     @State private var name = ""
-    @State private var parentFolder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Documents")
+    @State private var parentFolder = NewProjectView.rememberedFolder()
     @State private var readiness: Readiness?
     @State private var readinessError: String?
     @State private var checkRevision = 0
@@ -16,7 +16,6 @@ struct NewProjectView: View {
     @State private var creationJob: ProjectCreationJob?
     @State private var cancelling = false
     @State private var createError: String?
-    @State private var project: Project?
     @State private var copied = false
     @State private var services: Set<String> = []
     @State private var clients: Set<String> = []
@@ -30,6 +29,14 @@ struct NewProjectView: View {
             projectName.range(of: "^[a-z](?:[a-z0-9-]*[a-z0-9])?$", options: .regularExpression) != nil
     }
     private var destination: URL { parentFolder.appendingPathComponent(projectName, isDirectory: true) }
+    private var nameTaken: Bool {
+        validName && FileManager.default.fileExists(atPath: destination.path(percentEncoded: false))
+    }
+    /// Creating a project installs its starter first, so a missing install is not a blocker.
+    private var blockingChecks: [Readiness.Check] {
+        readiness?.checks.filter { !$0.ok && $0.name != "Installed release" } ?? []
+    }
+    private var canCreate: Bool { readiness != nil && blockingChecks.isEmpty }
     private var portError: String? {
         let selected = (infrastructure.catalog?.services ?? []).filter { services.contains($0.reference) }
         return servicePortError(ports, for: selected)
@@ -38,28 +45,34 @@ struct NewProjectView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: project == nil ? "folder.badge.plus" : "checkmark.circle.fill")
-                    .font(.system(size: 27)).foregroundStyle(project == nil ? Color.accentColor : .green)
+                Image(systemName: appTypeSymbol(starter.appType))
+                    .font(.system(size: 17, weight: .medium)).foregroundStyle(stackTint(starter.stack))
+                    .frame(width: 38, height: 38)
+                    .background(stackTint(starter.stack).opacity(0.15), in: RoundedRectangle(cornerRadius: 9))
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(project == nil ? "New Project" : "Project Created").font(.title2.weight(.semibold))
-                    Text("\(starter.name) · Release \(starter.version)")
-                        .font(.callout).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("New \(starter.name)").font(.title2.weight(.semibold))
+                    Text("\(displayStack(starter.stack)) · \(displayAppType(starter.appType)) · \(model.catalog?.summary(of: starter) ?? starter.description)")
+                        .font(.callout).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer()
             }
             .padding(21)
             Divider()
-            if let project { completion(project) }
-            else { configuration }
+            configuration
             Divider()
             footer
         }
         .frame(width: 640)
         .interactiveDismissDisabled(creating)
         .task(id: checkRevision) { await runDoctor() }
-        .onAppear { nameFocused = true; services = Set(starter.services ?? []); showServices = !services.isEmpty }
-        .task { await infrastructure.refresh() }
+        .onAppear {
+            if name.isEmpty { name = suggestedName() }
+            nameFocused = true
+            services = Set(starter.services ?? [])
+            showServices = !services.isEmpty
+        }
+        .task { await infrastructure.loadIfNeeded(after: model.completedInfrastructureJobIDs) }
         .task(id: creationJob?.id) { await followCreation() }
     }
 
@@ -87,6 +100,9 @@ struct NewProjectView: View {
             if !name.isEmpty && !validName {
                 Text("Use up to 64 lowercase letters, digits, and hyphens. Start with a letter and end with a letter or digit.")
                     .font(.caption).foregroundStyle(.secondary)
+            } else if nameTaken {
+                Text("A folder with this name already exists here. Choose another name or folder.")
+                    .font(.caption).foregroundStyle(.orange)
             }
             readinessPanel
             DisclosureGroup(isExpanded: $showServices) {
@@ -115,13 +131,21 @@ struct NewProjectView: View {
             VStack(alignment: .leading, spacing: 9) {
                 if let readiness {
                     HStack(spacing: 8) {
-                        Image(systemName: readiness.ready ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                            .foregroundStyle(readiness.ready ? Color.green : .orange)
+                        Image(systemName: canCreate ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                            .foregroundStyle(canCreate ? Color.green : .orange)
                             .accessibilityHidden(true)
-                        Text(readiness.readyOffline == true ? "Starter Verified Offline" : readiness.ready ? "Ready to Create · Verification Pending" : "Setup Required")
-                            .font(.callout.weight(.semibold))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(canCreate ? "This Mac is ready for it" : "This Mac needs something first")
+                                .font(.callout.weight(.semibold))
+                            if canCreate {
+                                Text(readiness.readyOffline == true
+                                     ? "This starter already passed its tests here with the network blocked."
+                                     : "Devline tests the new project with the network blocked before opening it.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
                     }
-                    let failures = readiness.checks.filter { !$0.ok }
+                    let failures = blockingChecks
                     ForEach(failures.indices, id: \.self) { index in
                         let check = failures[index]
                         VStack(alignment: .leading, spacing: 3) {
@@ -132,7 +156,7 @@ struct NewProjectView: View {
                     }
                     let passed = readiness.checks.filter(\.ok)
                     if !passed.isEmpty {
-                        DisclosureGroup("Readiness Details") {
+                        DisclosureGroup("What Devline checked") {
                             VStack(alignment: .leading, spacing: 7) {
                                 ForEach(passed.indices, id: \.self) { index in
                                     let check = passed[index]
@@ -153,10 +177,10 @@ struct NewProjectView: View {
                 } else {
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("Checking toolchain and template…").font(.callout)
+                        Text("Checking this Mac…").font(.callout)
                     }
                 }
-                if readiness?.ready == false || readinessError != nil {
+                if (readiness != nil && !canCreate) || readinessError != nil {
                     Button("Check Again") { checkRevision += 1 }.controlSize(.small)
                 }
             }
@@ -165,67 +189,31 @@ struct NewProjectView: View {
         }
     }
 
-    private func completion(_ project: Project) -> some View {
-        VStack(alignment: .leading, spacing: 13) {
-            Text(project.path).textSelection(.enabled)
-                .font(.callout.monospaced())
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Open your project to edit the code, run the app offline, and manage its local services.")
-                .font(.callout).foregroundStyle(.secondary)
-            if !project.testCommand.isEmpty {
-                Divider()
-                Text("Offline tests passed").font(.headline)
-                Text(project.testCommand)
-                    .font(.system(.callout, design: .monospaced))
-                    .textSelection(.enabled)
-                Button(copied ? "Copied" : "Copy Test Command") {
-                    copy("cd \(shellQuote(project.path)) && \(project.testCommand)")
-                }
-            }
-            if !services.isEmpty {
-                Label("Service images are archived and pinned. Start them from the project workspace.", systemImage: "server.rack")
-                    .font(.callout).foregroundStyle(.secondary)
-            }
-            if let createError { Text(createError).font(.caption).foregroundStyle(.orange).textSelection(.enabled) }
-        }
-        .padding(21)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private var footer: some View {
         HStack(spacing: 10) {
-            if let project {
-                Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: project.path)])
+            if creating {
+                ProgressView().controlSize(.small)
+                Text(cancelling ? "Cancelling…" : creationJob?.stage ?? "Starting…")
+                    .font(.callout).foregroundStyle(.secondary).lineLimit(2)
+            } else if validName {
+                Button(copied ? "Copied" : "Copy CLI Command") {
+                    let serviceFlags = services.sorted().map { " --service \(shellQuote($0))" }.joined()
+                    let clientFlags = clients.sorted().map { " --client \(shellQuote($0))" }.joined()
+                    let portFlags = ports.sorted { $0.key < $1.key }.map { " --port \(shellQuote("\($0.key)=\($0.value)"))" }.joined()
+                    copy("devline new \(shellQuote(starter.reference)) \(shellQuote(destination.path(percentEncoded: false)))\(serviceFlags)\(clientFlags)\(portFlags)")
                 }
-                Spacer()
-                Button("Open Project") { openDocs(project.path) }.keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
-            } else {
-                if validName {
-                    Button(copied ? "Copied" : "Copy CLI Command") {
-                        let serviceFlags = services.sorted().map { " --service \(shellQuote($0))" }.joined()
-                        let clientFlags = clients.sorted().map { " --client \(shellQuote($0))" }.joined()
-                        let portFlags = ports.sorted { $0.key < $1.key }.map { " --port \(shellQuote("\($0.key)=\($0.value)"))" }.joined()
-                        copy("devline new \(shellQuote(starter.reference)) \(shellQuote(destination.path(percentEncoded: false)))\(serviceFlags)\(clientFlags)\(portFlags)")
-                    }
-                    .disabled(creating)
-                }
-                Spacer()
-                if creating {
-                    ProgressView().controlSize(.small)
-                    Text(cancelling ? "Cancelling…" : creationJob?.stage ?? "Starting creation…")
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                }
-                Button(creating ? "Cancel Creation" : "Cancel") {
-                    if creating { Task { await cancelCreation() } } else { dismiss() }
-                }
-                    .keyboardShortcut(.cancelAction)
-                    .disabled(creating && (creationJob == nil || cancelling))
-                Button("Create Project") { Task { await create() } }
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!validName || readiness?.ready != true || creating || portError != nil)
+                .buttonStyle(.link).font(.callout)
             }
+            Spacer()
+            Button(creating ? "Stop" : "Cancel") {
+                if creating { Task { await cancelCreation() } } else { dismiss() }
+            }
+                .keyboardShortcut(.cancelAction)
+                .disabled(creating && (creationJob == nil || cancelling))
+            Button("Create and Open") { Task { await create() } }
+                .keyboardShortcut(.defaultAction)
+                .buttonStyle(.borderedProminent)
+                .disabled(!validName || nameTaken || !canCreate || creating || portError != nil)
         }
         .padding(16)
     }
@@ -239,7 +227,37 @@ struct NewProjectView: View {
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
         panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let folder = panel.url { parentFolder = folder }
+        if panel.runModal() == .OK, let folder = panel.url {
+            parentFolder = folder
+            UserDefaults.standard.set(folder.path(percentEncoded: false), forKey: Self.folderKey)
+            if nameTaken { name = suggestedName() }
+        }
+    }
+
+    private static let folderKey = "devline.projectsFolder"
+
+    /// The folder used last time, or the first conventional one that exists.
+    private static func rememberedFolder() -> URL {
+        let files = FileManager.default
+        let home = files.homeDirectoryForCurrentUser
+        var candidates = ["Developer", "Projects", "Code", "Documents"].map { home.appendingPathComponent($0, isDirectory: true) }
+        if let saved = UserDefaults.standard.string(forKey: folderKey) {
+            candidates.insert(URL(fileURLWithPath: saved, isDirectory: true), at: 0)
+        }
+        var isDirectory: ObjCBool = false
+        return candidates.first {
+            files.fileExists(atPath: $0.path(percentEncoded: false), isDirectory: &isDirectory) && isDirectory.boolValue
+        } ?? home
+    }
+
+    /// The starter's own name, numbered when that folder already exists.
+    private func suggestedName() -> String {
+        let base = projectSlug(for: starter.id)
+        let taken = { (candidate: String) in
+            FileManager.default.fileExists(atPath: parentFolder.appendingPathComponent(candidate).path(percentEncoded: false))
+        }
+        guard taken(base) else { return base }
+        return (2...99).lazy.map { "\(base)-\($0)" }.first { !taken($0) } ?? base
     }
 
     private func copy(_ value: String) {
@@ -258,7 +276,7 @@ struct NewProjectView: View {
     }
 
     private func create() async {
-        guard validName, readiness?.ready == true, !creating, portError == nil else { return }
+        guard validName, !nameTaken, canCreate, !creating, portError == nil else { return }
         creating = true
         cancelling = false
         createError = nil
@@ -288,7 +306,7 @@ struct NewProjectView: View {
                     creating = false
                     cancelling = false
                     if job.state == "succeeded", let result = job.result {
-                        project = result
+                        open(result.path)
                     } else {
                         createError = job.error ?? (job.state == "cancelled" ? "Creation cancelled. Prepared library items are kept." : "Creation did not finish. Review its log in Activity.")
                     }

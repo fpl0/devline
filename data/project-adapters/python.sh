@@ -7,7 +7,9 @@ tool=${4:?Python executable}
 shift 4
 adapters=$(CDPATH='' cd "$(dirname "$0")" && pwd)
 cd "$project"
-scratch=$(mktemp -d "${TMPDIR:-/tmp}/devline-python.XXXXXX")
+# macOS ends TMPDIR with a slash; a doubled one makes Python warn about its prefix on every run.
+temporary=${TMPDIR:-/tmp}
+scratch=$(mktemp -d "${temporary%/}/devline-python.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT HUP INT TERM
 "$tool" -I -m venv "$scratch/venv"
 python="$scratch/venv/bin/python"
@@ -120,7 +122,11 @@ PYTHON
     export PATH="$scratch/venv/bin:$PATH" PYTHONDONTWRITEBYTECODE=1
     if [ "$mode" = run ]; then
       [ "$#" -gt 0 ] || { echo 'Choose a command to run.' >&2; exit 2; }
-      install_wheels >&2
+      # Only the app's own output belongs in its log; the install log matters if it fails.
+      if ! install_wheels > "$scratch/install.log" 2>&1; then
+        cat "$scratch/install.log" >&2
+        exit 1
+      fi
       "$@"
       exit
     fi

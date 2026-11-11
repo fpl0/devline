@@ -2,6 +2,8 @@
 import json, os, pathlib, re, shutil, subprocess, sys, tempfile
 project=pathlib.Path(sys.argv[1]); selection=json.loads(pathlib.Path(sys.argv[2]).read_text()); offline=sys.argv[3]=='true'; tool=sys.argv[4]
 base=pathlib.Path(selection['catalog_dir']); artifacts=base/'service-clients/artifacts/python/wheelhouse'
+# The package shelf in the library is one more local source of wheels.
+shelf=pathlib.Path(selection['shelf_dir'])/'wheelhouse' if selection.get('shelf_dir') else None
 managed_relative=os.environ.get('DEVLINE_PROJECT_CACHE','.devline-offline')
 cache=project/managed_relative;cache.mkdir(exist_ok=True,parents=True)
 bundled=project/'.devline/packages' if managed_relative=='.devline/cache' else project
@@ -11,8 +13,8 @@ run([tool,'-I','-m','venv',str(scratch/'venv')]);python=str(scratch/'venv/bin/py
 pip=[python,'-I','-m','pip','--isolated','--disable-pip-version-check','--no-cache-dir']
 selected=[p['name']+'=='+p['version'] for row in selection['integrations'] for p in row['packages']]
 find=[]
-for path in [artifacts,bundled/'wheelhouse',cache/'wheelhouse']:
- if path.is_dir():find+=['--find-links',str(path)]
+for path in [artifacts,shelf,bundled/'wheelhouse',cache/'wheelhouse']:
+ if path and path.is_dir():find+=['--find-links',str(path)]
 # Reuse bundled starter wheels for unchanged application dependencies.
 for path in (base/'templates/python').glob('*/*/project/wheelhouse'):find+=['--find-links',str(path)]
 requirements=[]

@@ -79,6 +79,37 @@ pub(super) fn matches(rule: &Rule, version: &str) -> Option<bool> {
     }
 }
 
+/// How far an installed release is from the project's version when both sit on
+/// the same release line (the same major version, or the same minor for 0.x).
+/// Documentation that close is still the right thing to read, so a project is
+/// not left without references over a patch release.
+pub(super) fn distance(rule: &Rule, version: &str) -> Option<[u32; 4]> {
+    let (release, _) = doc_release(version);
+    let candidate = Number::parse(release)?;
+    let expected = match rule {
+        Rule::Exact(value) => Number::parse(value)?,
+        Rule::Series(values, _) if values.len() == 1 => Number::parse(&values[0])?,
+        Rule::Constraint(expression, _) => {
+            // Only expressions the matcher understands have a meaningful baseline.
+            matches(rule, version)?;
+            let start = expression.find(|c: char| c.is_ascii_digit())?;
+            let token = expression[start..]
+                .split(|c: char| !(c.is_ascii_digit() || c == '.'))
+                .next()?;
+            Number::parse(token.trim_end_matches('.'))?
+        }
+        _ => return None,
+    };
+    let line = if expected.parts[0] == 0 { 2 } else { 1 };
+    (expected.parts[..line] == candidate.parts[..line]).then(|| {
+        let mut gap = [0; 4];
+        for (index, slot) in gap.iter_mut().enumerate() {
+            *slot = expected.parts[index].abs_diff(candidate.parts[index]);
+        }
+        gap
+    })
+}
+
 fn constraint(expression: &str, grammar: Grammar, candidate: Number) -> Option<bool> {
     let expression = expression.trim();
     if expression == "*" {
@@ -220,5 +251,29 @@ mod tests {
             ),
             None
         );
+    }
+
+    #[test]
+    fn nearby_releases_share_a_release_line() {
+        let patch = Rule::Exact("0.162.2".into());
+        assert_eq!(distance(&patch, "0.162.0+devline.1"), Some([0, 0, 2, 0]));
+        assert_eq!(distance(&patch, "0.120.0"), None);
+        assert_eq!(
+            distance(&Rule::Exact("5.2.4".into()), "5.5.0+devline.1"),
+            Some([0, 3, 4, 0])
+        );
+        assert_eq!(distance(&Rule::Exact("7.2.1".into()), "8.1.4"), None);
+        assert_eq!(
+            distance(
+                &Rule::Constraint(">=3.12,<3.14".into(), Grammar::Constraint),
+                "3.15.2"
+            ),
+            Some([0, 3, 2, 0])
+        );
+        assert_eq!(
+            distance(&Rule::Series(vec!["8.0".into(), "10.0".into()], 2), "10.0"),
+            None
+        );
+        assert_eq!(distance(&Rule::Any, "1.0.0"), None);
     }
 }

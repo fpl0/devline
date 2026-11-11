@@ -15,7 +15,7 @@ use std::{
 #[path = "service_client_artifacts.rs"]
 mod artifacts;
 
-const STACKS: &[&str] = &[
+pub(crate) const STACKS: &[&str] = &[
     "dotnet", "elixir", "go", "java", "node", "python", "ruby", "rust", "swift",
 ];
 const SERVICES: &[&str] = &[
@@ -46,7 +46,7 @@ fn normal(name: &str) -> String {
         .to_ascii_lowercase()
         .replace(['_', '.'], "-")
 }
-fn declarations(ctx: &Context, stack: &str, root: &Path) -> Result<BTreeSet<String>> {
+pub(crate) fn declarations(ctx: &Context, stack: &str, root: &Path) -> Result<BTreeSet<String>> {
     let mut names = BTreeSet::new();
     let mut add = |name: &str| {
         names.insert(normal(name));
@@ -305,7 +305,7 @@ fn swift_declarations(ctx: &Context, root: &Path) -> Result<BTreeSet<String>> {
     )?))
 }
 
-fn package_present(
+pub(crate) fn package_present(
     stack: &str,
     root: Option<&Path>,
     names: &BTreeSet<String>,
@@ -391,7 +391,7 @@ fn definitions(ctx: &Context, stack: &str) -> Result<Vec<Value>> {
 fn rows_of_packages(item: &Value) -> &[Value] {
     rows(item, "packages")
 }
-fn target(ctx: &Context, request: &Value) -> Result<(String, Option<PathBuf>)> {
+pub(crate) fn target(ctx: &Context, request: &Value) -> Result<(String, Option<PathBuf>)> {
     if let Some(path) = request["path"].as_str() {
         let profile = project::context(ctx, Path::new(path))?;
         let stack = profile["stack"]
@@ -953,7 +953,43 @@ pub(crate) fn add(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> 
     )?;
     let ready: Value = serde_json::from_slice(&fs::read(marker)?)?;
     artifacts::check(ctx, &stack, &ready, true).context("Prepared client pack is incomplete or changed; restore the bundled pack before adding clients")?;
-    stage(&mut job, "Staging selected client dependency changes")?;
+    // A project that already took packages from the shelf may pin versions only the shelf has,
+    // so a client added later resolves against the shelf as well.
+    let shelf = ctx.home.join("packages").join(&stack);
+    publish(
+        ctx,
+        &path,
+        &stack,
+        selected,
+        shelf
+            .join("ready.json")
+            .is_file()
+            .then_some(shelf.as_path()),
+        "client libraries",
+        request["offline"] == true,
+        json!(selections),
+        job,
+    )
+}
+
+/// Applies selected packages in a private copy of the project, proves the result works with the
+/// network denied, and only then publishes the changed files. `shelf` names an extra package
+/// store in the library; without it only the bundled client packs are used.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn publish(
+    ctx: &Context,
+    path: &Path,
+    stack: &str,
+    selected: Vec<Value>,
+    shelf: Option<&Path>,
+    noun: &str,
+    offline: bool,
+    selections: Value,
+    mut job: Option<&mut Job>,
+) -> Result<Value> {
+    let path = path.to_path_buf();
+    let stack = stack.to_owned();
+    stage(&mut job, &format!("Staging the selected {noun}"))?;
     let work = templates::Stage::new(path.parent().context("Project has no parent")?)?;
     {
         use std::os::unix::fs::PermissionsExt;
@@ -978,12 +1014,15 @@ pub(crate) fn add(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> 
     let tool = Path::new(text_arg(report, "path")?);
     let adapter = safe_catalog_path(ctx, &format!("service-clients/{stack}.sh"))?;
     let selection = work.0.join("selection.json");
-    let offline = request["offline"] == true;
     fs::write(
         &selection,
-        serde_json::to_vec(
-            &json!({"stack":stack,"integrations":selected,"catalog_dir":ctx.catalog_dir.canonicalize()?,"offline":offline}),
-        )?,
+        serde_json::to_vec(&json!({
+            "stack": stack,
+            "integrations": selected,
+            "catalog_dir": ctx.catalog_dir.canonicalize()?,
+            "shelf_dir": shelf.map(Path::canonicalize).transpose()?,
+            "offline": offline,
+        }))?,
     )?;
     let home = work.0.join("home");
     let tmp = work.0.join("tmp");
@@ -997,7 +1036,7 @@ pub(crate) fn add(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> 
         ""
     };
     let platform = if stack == "dotnet" {
-        "(allow file-write* (subpath \"/private/tmp/.dotnet/shm\") (subpath \"/private/tmp/.dotnet/lockfiles\") (literal \"/private/tmp/.dotnet\"))"
+        crate::templates::DOTNET_SANDBOX
     } else {
         ""
     };
@@ -1008,7 +1047,7 @@ pub(crate) fn add(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> 
     templates::project_tool_environment(&mut command, text_arg(report, "toolchain")?, tool)?;
     templates::run_command(
         &mut command,
-        "Adding and locking selected client libraries",
+        &format!("Adding and locking the selected {noun}"),
         job.as_deref_mut(),
     )?;
     preserve_locked_versions(&stack, &path, &copy)?;
@@ -1021,11 +1060,9 @@ pub(crate) fn add(ctx: &Context, request: &Value, mut job: Option<&mut Job>) -> 
         &json!({"path":copy,"offline":true,"force_adapter":true}),
         job.as_deref_mut(),
     )?;
-    stage(&mut job, "Publishing verified client dependencies")?;
+    stage(&mut job, &format!("Publishing the verified {noun}"))?;
     if project_prepare::mutation_snapshot(&stack, &path, None)? != before {
-        bail!(
-            "Project changed while preparing client libraries; original files were left untouched"
-        );
+        bail!("Project changed while preparing {noun}; original files were left untouched");
     }
     let changes = changed_paths(&stack, &copy, &path)?
         .into_iter()

@@ -1,6 +1,6 @@
 import Foundation
 
-struct Catalog: Decodable, Sendable {
+struct Catalog: Decodable, Equatable, Sendable {
     let docs: [DocPack]
     let templates: [Starter]
     let home: String
@@ -120,11 +120,49 @@ struct ProjectDocset: Decodable, Identifiable, Sendable {
         || (state == "pinned" && (version == nil || !installedVersions.contains(version!))) }
 }
 
-struct RuntimeToolchain: Decodable, Identifiable, Sendable {
+struct RuntimeToolchain: Decodable, Equatable, Identifiable, Sendable {
+    /// How to install a runtime this Mac does not have.
+    struct InstallGuide: Decodable, Equatable, Sendable {
+        struct Command: Decodable, Equatable, Sendable, Identifiable {
+            let manager, command: String
+            let present: Bool
+            var id: String { manager }
+        }
+        let commands: [Command]
+        let url, note: String?
+    }
     let id, name, toolchain, minimumVersion, detail: String
     let available: Bool
     let path: String?
     let docs, templates: [String]
+    let install: InstallGuide?
+}
+
+/// One runtime's shelf of packages that can be added to projects without a connection.
+struct ShelfStack: Decodable, Equatable, Identifiable, Sendable {
+    struct Shelf: Decodable, Equatable, Sendable {
+        struct Failure: Decodable, Equatable, Sendable { let name: String; let error: String? }
+        let ready: Bool
+        let count, total: Int
+        let bytes: Int64?
+        let preparedAt: Double?
+        let failed: [Failure]?
+    }
+    struct Package: Decodable, Equatable, Identifiable, Sendable {
+        let name: String
+        let summary, category, version, error: String?
+        let available: Bool
+        let installed: Bool?
+        var id: String { name }
+    }
+    let stack, registry: String
+    let shelf: Shelf
+    let packages: [Package]
+    var id: String { stack }
+}
+
+struct ShelfCatalog: Decodable, Sendable {
+    let stacks: [ShelfStack]
 }
 
 struct Acknowledgment: Decodable, Sendable {

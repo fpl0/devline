@@ -1,1 +1,101 @@
-*{box-sizing:border-box}body{margin:0;background:#f5f4f0;color:#252723;font-family:system-ui,sans-serif}main{max-width:720px;margin:12vh auto;padding:36px}.eyebrow{font-size:12px;letter-spacing:.12em;color:#597260}h1{font-size:clamp(32px,6vw,48px);letter-spacing:-.04em;line-height:1.1}p{color:#687064;line-height:1.6}form{margin-top:42px}label{display:block;font-size:14px;margin-bottom:10px}.entry{display:flex;gap:10px}input{min-width:0;flex:1;background:#fff;border:1px solid #cbd0c5;border-radius:8px;padding:12px;font:inherit}button{border:0;border-radius:8px;background:#355f49;color:white;padding:12px 18px;font:inherit;cursor:pointer}li{padding:12px 0;border-bottom:1px solid #d6dbd0}footer{margin-top:60px;font-size:12px;color:#72796d}@media(prefers-color-scheme:dark){body{background:#1b211d;color:#e5ebe4}p,footer{color:#a4b2a6}input{background:#27312a;color:inherit;border-color:#435247}li{border-color:#39463c}}
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f5f4f0;
+  color: #252723;
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  max-width: 720px;
+  margin: 12vh auto;
+  padding: 36px;
+}
+
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: .12em;
+  color: #597260;
+}
+
+h1 {
+  font-size: clamp(32px, 6vw, 48px);
+  letter-spacing: -.04em;
+  line-height: 1.1;
+}
+
+p {
+  color: #687064;
+  line-height: 1.6;
+}
+
+form {
+  margin-top: 42px;
+}
+
+label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.entry {
+  display: flex;
+  gap: 10px;
+}
+
+input {
+  min-width: 0;
+  flex: 1;
+  background: #fff;
+  border: 1px solid #cbd0c5;
+  border-radius: 8px;
+  padding: 12px;
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  background: #355f49;
+  color: white;
+  padding: 12px 18px;
+  font: inherit;
+  cursor: pointer;
+}
+
+li {
+  padding: 12px 0;
+  border-bottom: 1px solid #d6dbd0;
+}
+
+footer {
+  margin-top: 60px;
+  font-size: 12px;
+  color: #72796d;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #1b211d;
+    color: #e5ebe4;
+  }
+
+  p,
+  footer {
+    color: #a4b2a6;
+  }
+
+  input {
+    background: #27312a;
+    color: inherit;
+    border-color: #435247;
+  }
+
+  li {
+    border-color: #39463c;
+  }
+}

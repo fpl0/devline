@@ -997,10 +997,12 @@ pub fn status(ctx: &Context, request: &Value) -> Result<Value> {
                 };
                 if let Some(version) = docset["version"].as_str() {
                     profile_docs.insert(id.to_owned(), format!("{id}@{version}"));
-                } else {
+                } else if docset["state"] != "undocumented" {
                     unresolved_docs
                         .push(json!({"id":id,"ready_offline":false,"detail":docset["detail"]}));
                 }
+                // A dependency this library has no documentation for at all is not something
+                // the project is waiting on: there is nothing to install.
             }
         }
         // A generated project's dependencies live in the project. Its original

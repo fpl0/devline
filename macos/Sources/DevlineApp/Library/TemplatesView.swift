@@ -38,7 +38,7 @@ struct TemplatesView: View {
             HStack(spacing: 10) {
                 Picker("App Type", selection: $appType) {
                     Text("All Types").tag(nil as String?)
-                    ForEach(types, id: \.self) { Text(typeLabel($0)).tag(Optional($0)) }
+                    ForEach(types, id: \.self) { Text(displayAppType($0)).tag(Optional($0)) }
                 }
                 .labelsHidden()
                 .fixedSize()
@@ -57,9 +57,9 @@ struct TemplatesView: View {
             Divider()
             if families.isEmpty {
                 ContentUnavailableView(
-                    "No Templates",
+                    "No Starters",
                     systemImage: "square.on.square",
-                    description: Text(starters.isEmpty ? "The catalog has no starter templates yet." : "Choose another app type or stack.")
+                    description: Text(starters.isEmpty ? "The catalog has no starters yet." : "Choose another app type or stack.")
                 )
             } else {
                 HSplitView {
@@ -72,7 +72,7 @@ struct TemplatesView: View {
                         if let starter = selectedStarter, let family = families.first(where: { $0.id == starter.id }) {
                             templateDetails(starter, in: family)
                         } else {
-                            ContentUnavailableView("Select a Template", systemImage: "square.on.square")
+                            ContentUnavailableView("Select a Starter", systemImage: "square.on.square")
                         }
                     }
                     .frame(minWidth: 350, maxWidth: .infinity, maxHeight: .infinity)
@@ -96,13 +96,13 @@ struct TemplatesView: View {
 
     private func familyRow(_ family: StarterFamily) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: family.latest.appType == "desktop" ? "macwindow" : family.latest.appType == "cli" ? "terminal" : "curlybraces")
+            Image(systemName: appTypeSymbol(family.latest.appType))
                 .foregroundStyle(.secondary)
                 .frame(width: 20)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
                 Text(family.latest.name).font(.body.weight(.medium))
-                Text("\(displayStack(family.latest.stack)) · \(typeLabel(family.latest.appType))")
+                Text("\(displayStack(family.latest.stack)) · \(displayAppType(family.latest.appType))")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -120,7 +120,7 @@ struct TemplatesView: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 19) {
                 VStack(alignment: .leading, spacing: 7) {
-                    Text("\(displayStack(starter.stack)) · \(typeLabel(starter.appType))")
+                    Text("\(displayStack(starter.stack)) · \(displayAppType(starter.appType))")
                         .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     Text(starter.name).font(.title2.weight(.semibold))
                     Text(starter.description).foregroundStyle(.secondary)
@@ -204,13 +204,13 @@ struct TemplatesView: View {
 
     private func actions(for starter: Starter, docs: [DocPack]) -> some View {
         HStack(spacing: 9) {
-            if starter.verified, starter.isInstalled {
+            if starter.verified {
                 Button("New Project…") { newStarter = starter }
                     .buttonStyle(.borderedProminent)
-            } else if starter.verified {
-                Button("Prepare Starter") { install(starter, withDocs: !starter.docs.isEmpty) }
-                    .buttonStyle(.borderedProminent)
-                    .help("Install the starter and its related documentation from the local catalog")
+                if !starter.isInstalled {
+                    Button("Install") { install(starter, withDocs: !starter.docs.isEmpty) }
+                        .help("Install the starter and its documentation now. Creating a project also does this.")
+                }
             } else {
                 Text("Project creation requires an offline-verified release.")
                     .font(.callout).foregroundStyle(.secondary)
@@ -283,13 +283,5 @@ struct TemplatesView: View {
             self.latest = latest
             self.releases = ordered
         }
-    }
-}
-
-private func typeLabel(_ type: String) -> String {
-    switch type.lowercased() {
-    case "api", "http-api": "HTTP API"
-    case "cli": "CLI"
-    default: type.replacingOccurrences(of: "-", with: " ").capitalized
     }
 }

@@ -103,6 +103,14 @@ enum Commands {
         command: Option<Jobs>,
     },
     #[command(
+        about = "Keep popular packages on this Mac and add them to projects offline",
+        after_long_help = "Examples:\n  devline packages\n  devline packages list python\n  devline packages download python --background\n  devline packages download go --also github.com/samber/lo\n  devline --offline packages add --path ./service httpx rich"
+    )]
+    Packages {
+        #[command(subcommand)]
+        command: Option<Packages>,
+    },
+    #[command(
         about = "Inspect local runtimes and toolchains",
         long_about = "Report the executables and versions discovered on this Mac, from PATH and known locations such as Homebrew, mise and rustup. Starter minimums are listed separately. Use the runtime's own tools to install or upgrade it."
     )]
@@ -480,6 +488,45 @@ enum Jobs {
     },
     #[command(about = "Request cancellation of a background job")]
     Cancel { id: String },
+}
+#[derive(Subcommand)]
+enum Packages {
+    #[command(about = "Show each runtime's shelf, or the packages of one runtime")]
+    List {
+        /// Runtime, such as python, node, go, rust, ruby, java, dotnet, elixir or swift.
+        stack: Option<String>,
+        #[arg(long, value_hint = clap::ValueHint::AnyPath, conflicts_with = "stack")]
+        /// Show the shelf for this project's runtime and mark what it already uses.
+        path: Option<PathBuf>,
+    },
+    #[command(about = "Download or refresh a runtime's packages while connected")]
+    Download {
+        /// Runtime to download packages for.
+        stack: String,
+        #[arg(long = "also", value_name = "PACKAGE")]
+        /// Keep this extra package on the shelf too. Repeat for more.
+        also: Vec<String>,
+        #[arg(long)]
+        /// Download as a cancellable background job.
+        background: bool,
+    },
+    #[command(about = "Add shelf packages to a project and verify it with the network denied")]
+    Add {
+        #[arg(long, value_hint = clap::ValueHint::AnyPath)]
+        /// Project folder. Defaults to the current directory.
+        path: Option<PathBuf>,
+        /// Package names as listed by devline packages list.
+        #[arg(required = true)]
+        packages: Vec<String>,
+        #[arg(long)]
+        /// Add as a cancellable background job.
+        background: bool,
+    },
+    #[command(about = "Remove a runtime's shelf to free disk space")]
+    Remove {
+        /// Runtime whose shelf to remove.
+        stack: String,
+    },
 }
 #[derive(Subcommand)]
 enum Runtimes {
@@ -1160,6 +1207,56 @@ fn run(cli: &Cli) -> Result<i32> {
             Some(Library::Purge) => (
                 "library-purged",
                 request(cli, json!({"command":"library.purge"}))?,
+            ),
+        },
+        Some(Commands::Packages { command }) => match command {
+            None => (
+                "packages",
+                request(cli, json!({"command":"packages.catalog"}))?,
+            ),
+            Some(Packages::List { stack, path }) => (
+                "packages",
+                request(
+                    cli,
+                    json!({"command":"packages.catalog","stack":stack,"path":path}),
+                )?,
+            ),
+            Some(Packages::Download {
+                stack,
+                also,
+                background,
+            }) => {
+                if cli.offline {
+                    bail!("Downloading packages requires a connection.");
+                }
+                progress(cli, format_args!("Downloading {stack} packages…"));
+                run_operation(
+                    cli,
+                    "packages-downloaded",
+                    "packages_prepare",
+                    *background,
+                    json!({"command":"packages.prepare","id":stack,"packages":also,"timeout_seconds":7200}),
+                )?
+            }
+            Some(Packages::Add {
+                path,
+                packages,
+                background,
+            }) => run_operation(
+                cli,
+                "packages-added",
+                "packages_add",
+                *background,
+                json!({
+                    "command":"packages.add",
+                    "path": path.clone().unwrap_or_else(|| PathBuf::from(".")),
+                    "packages": packages,
+                    "offline": cli.offline,
+                }),
+            )?,
+            Some(Packages::Remove { stack }) => (
+                "packages-removed",
+                request(cli, json!({"command":"packages.remove","id":stack}))?,
             ),
         },
         Some(Commands::Runtimes {

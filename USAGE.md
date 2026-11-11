@@ -8,6 +8,39 @@ Download the Apple Silicon DMG from [GitHub Releases](https://github.com/fpl0/de
 
 Devline’s **d** icon stays in the macOS menu bar while the app runs, even when you hide the app or close its window. Click it and choose **Open Devline** to bring the workspace back, or **Quit Devline** to exit.
 
+## Get ready before you go offline
+
+**Home** shows one checklist for the whole Mac. Work through it while you’re connected.
+
+- **Documentation and starters** come inside the app. **Install** adds all of them to your library in under a minute and needs no connection.
+- **Toolchains** are the compilers and interpreters already on your Mac. Devline finds them and never changes them. For one that is missing, **How to Install** opens its page in **Library → Toolchains** with the command for mise or Homebrew, whichever your Mac has, and a link to the official installer. Choose **Rescan** afterward.
+- **Docker** is needed only for projects that use a database, queue, or another service. **Setup Guide** lists the engines Devline works with.
+- **Service images** are saved from their registries. **Download All** saves the images the starters use, one after another.
+- **Packages** are the 100 most used packages for each runtime you have. **Download All** fetches them, with their dependencies, for every toolchain on your Mac.
+
+When every line is checked, the heading reads **Ready to work offline**. While your Mac has no connection, the sidebar says so and the download buttons wait.
+
+```sh
+devline runtimes                      # what was found, and how to install what wasn’t
+devline packages                      # each runtime’s package shelf
+devline packages download go          # download or refresh one shelf
+```
+
+## Add packages to a project offline
+
+On a project’s page, choose **Add Packages…** beside **Dependencies**. Search the shelf, check what you need, and choose **Add Package**. Devline edits the manifest and lock file in a private copy of the project, tests that copy with the network blocked, and only then changes your files. If the shelf lacks a version your project’s other dependencies require, the project is left as it was and **Try With the Network** fetches the rest.
+
+**Library → Packages** lists every shelf with its versions and size. **Check for Newer Versions** refreshes one, and the field at the bottom keeps an extra package of your choice on the shelf.
+
+```sh
+devline packages list python
+devline packages download python --also polars
+devline --offline packages add --path ./service httpx rich
+devline packages remove python
+```
+
+A shelf belongs to the toolchain that downloaded it: Python wheels match that interpreter, for example. Download again after a major toolchain upgrade. Swift packages are listed in the catalog with their repository and products, so extra Swift packages are added there.
+
 ## Read and look up references
 
 In **Docs → Manage Docs → Available**, choose a docset and select **Install**. Use **⌘F** to search installed publisher and SDK references, or try `py:Path.read_text()` to search Python directly. Choose **Imported** to search your DevDocs snapshots. Links to installed pages open in Devline, and links marked **Online** open in your browser.
@@ -18,9 +51,9 @@ In **Settings → Lookup from Any App**, choose a global shortcut. The default *
 
 ## Match documentation to a project
 
-Open a project folder with **⌘O**. **Projects** brings together its references, readiness, local services, and app controls. Use **Project References** in **Documentation** to see detected dependencies, chosen docset versions, and any mismatch. Devline reads supported manifests and lockfiles for Python, C# and .NET, Java, Ruby, Go, Rust, Elixir, Node.js, and Swift. Resolved framework versions take priority over manifest constraints. Pin choices stay in the local library and are shared with the CLI.
+Open a project folder with **⌘O**. Its page brings together its references, readiness, local services, and app controls. Open projects stay listed under **Projects** in the sidebar. Use **Project References** in **Documentation** to see detected dependencies, chosen docset versions, and any mismatch. Devline reads supported manifests and lockfiles for Python, C# and .NET, Java, Ruby, Go, Rust, Elixir, Node.js, and Swift. Resolved framework versions take priority over manifest constraints. When no installed docset matches exactly, Devline uses the closest release on the same release line and says so, rather than leaving the project without documentation. Pin choices stay in the local library and are shared with the CLI.
 
-Return through **Projects → Recent Projects** or **File → Open Recent**. **Browse Project Docs** clears unrelated searches and opens the project's reference scope. A generated project's origin links back to its exact starter release; the starter's reference links use its included versions.
+Return through the sidebar, **Home → Your projects**, or **File → Open Recent**. **Browse Project Docs** clears unrelated searches and opens the project's reference scope. A generated project's origin links back to its exact starter release; the starter's reference links use its included versions.
 
 ```sh
 devline project --path ./service
@@ -33,7 +66,7 @@ An unscoped lookup inside a project uses compatible installed references. Use a 
 
 ### Prepare an existing project
 
-Choose **Prepare Offline** while connected. Devline prepares the project's matching or pinned documentation, dependency closure, and configured image archives together. Opening a project starts preparation when needed; progress stays in the project screen, with logs in **Activity**. The final result covers every component and identifies anything Devline cannot prepare, such as a missing compiler. Preparing archives does not start services.
+Choose **Prepare for Offline** on the project’s page while connected. Devline prepares the project's matching or pinned documentation, dependency closure, and configured image archives together. Opening a project starts preparation when needed; progress stays in the project screen, with logs in **Activity**. The final result covers every component and identifies anything Devline cannot prepare, such as a missing compiler. Preparing archives does not start services.
 
 Dependency preparation uses a staged copy and tests it with external networking denied. Existing local dependencies are tried first. When needed, Devline prepares a cache under `.devline/cache/` for new starters or `.devline-offline/` for projects using the older layout. It records verification after the checks pass. Your original source files, manifests, and lockfiles stay intact. Changes to the source, lockfiles, toolchain, or cache can require another check. An explicit `project run` command can still use the prepared dependencies during development.
 
@@ -49,9 +82,11 @@ Preparation supports conventional single-runtime projects using Go modules, Carg
 
 ### Edit and run a project
 
-In **Projects → Develop & Run**, choose **Open in Editor** or **Read Project Guide**, make your changes, then choose **Run Offline**. Devline starts configured services from their saved image archives and runs the app with prepared dependencies. It supplies the project's local service connection settings automatically. Internet access is blocked for the app; connections to local services remain available.
+On the project’s page, choose **Open in** your editor or **Project Guide**, make your changes, then choose **Run**. Devline starts configured services from their saved image archives and runs the app with prepared dependencies. It supplies the project's local service connection settings automatically. Internet access is blocked for the app; connections to local services remain available.
 
-The panel shows **Starting** while the app builds or waits for its configured readiness check. **Open App** becomes available when the local web app is ready. Use **App Logs** to inspect output. **Stop App** stops the app process; services and their data stay available until you stop them separately in **Local Services**.
+The panel shows **Starting** while the app builds or waits for its configured readiness check, and the app’s output appears underneath as it is written. **Open App** becomes available when the local web app is ready. **Stop** stops the app process; services and their data stay available until you stop them separately in **Local Services**. Running an app does not change its offline readiness: what it writes while it runs (a database, logs, uploads) is left out when the files are listed in the project's `.gitignore`.
+
+In **Services → This Project**, each service shows its local ports; click one to copy its address. Services with a page of their own, such as Mailpit's inbox, RabbitMQ's management console, and Keycloak's admin console, also have a button that opens it in your browser while the services are running.
 
 New projects include `devline.sh` at the root. Run `./devline.sh --help` to see the commands. The script uses the project folder even when called from another directory.
 
@@ -120,7 +155,7 @@ The desktop documentation includes an official Tauri snapshot and **The Swift Pr
 
 ### Prepare the SwiftUI SDK reference
 
-In **Docs → Manage Docs → Installed**, find **SwiftUI · Apple API Reference** and choose **Prepare from Xcode**. **Prepare Offline** in **Projects** includes this import when the project needs it. The import reads the selected macOS SDK locally and works offline.
+In **Docs → Manage Docs → Installed**, find **SwiftUI · Apple API Reference** and choose **Prepare from Xcode**. **Prepare for Offline** on a project’s page includes this import when the project needs it. The import reads the selected macOS SDK locally and works offline.
 
 ```sh
 devline docs local
@@ -172,9 +207,9 @@ In the app, open **Imported** in Docs to browse or search these snapshots. The C
 
 ## Prepare a starter for offline use
 
-**Projects → New from Starter** shows a starter’s available releases, contents, dependency versions, and verification. **Offline Library → Toolchains** detects the compilers, interpreters, and SDKs on this Mac. Install and upgrade those tools separately. In **Offline Library → Assets**, select docsets, starters, and images, then choose **Check Readiness**. Use **Selection → Select Installed** to pick everything installed or archived. With a project open, the check also covers its references, toolchains, dependencies, and configured service images.
+**Home → Start something new** lists every starter by runtime; choose one, name the project, and choose **Create and Open**. Creating installs the starter and its documentation if needed. **Library → Starters** shows a starter’s available releases, contents, dependency versions, and verification. **Library → Toolchains** detects the compilers, interpreters, and SDKs on this Mac, and shows how to install the ones it does not find. In **Library → Contents**, select docsets, starters, and images, then choose **Check Readiness**. Use **Selection → Select Installed** to pick everything installed or archived. With a project open, the check also covers its references, toolchains, dependencies, and configured service images.
 
-**Prepare Starter** installs its related docs and runs verification. **Verify Offline Now** reruns the installed starter’s test with external networking denied. Background work appears in **Activity** with progress, logs, and cancellation.
+**Install** adds a starter and its related docs without creating a project. **Verify Offline Now** reruns the installed starter’s test with external networking denied. Background work appears in **Activity** with progress, logs, and cancellation.
 
 ```sh
 devline templates inspect go/chi-api@1.2.0
@@ -217,13 +252,13 @@ Each starter includes its local dependencies and an offline test. Use `devline t
 - **Node.js and TypeScript** start with a file summary CLI and a React and Vite web app. The Fastify Release Desk (`node/service-kit`) exercises eight services. The Playwright automation starter includes WebKit for Apple Silicon on macOS 26.5 or later.
 - **Swift** starts with an expense summary CLI and a native SwiftUI idea board. Release Dispatch (`swift/release-dispatch`) publishes a release brief through six services.
 
-Choose **Run Offline** in **Projects** or use `./devline.sh start` in the generated project. Finite demos run the bundled example and put the result in **App Logs**. For local web apps, choose **Open App** once the health check passes. For desktop starters, Devline launches the app window.
+Choose **Run** on the project’s page or use `./devline.sh start` in the generated project. Finite demos run the bundled example and show the result in the output panel. For local web apps, choose **Open App** once the health check passes. For desktop starters, Devline launches the app window.
 
 The infrastructure starters pin their required services. Devline prepares the images when creating a project while connected and starts them from the local vault when you run it offline. The generated README lists any service-specific steps for trying the workflow.
 
 ### Transfer a library
 
-In **Offline Library → Assets**, use **Show All Versions** to find older releases. Select the exact docset and starter releases, then choose **Export Selected… → Documentation and Starters…**. On the other Mac, use **Import Bundle…** to inspect and import the compressed bundle. The destination needs its own toolchain and local verification for imported starters.
+In **Library → Contents**, use **Show All Versions** to find older releases. Select the exact docset and starter releases, then choose **Export Selected… → Documentation and Starters…**. On the other Mac, use **Import Bundle…** to inspect and import the compressed bundle. The destination needs its own toolchain and local verification for imported starters.
 
 ```sh
 devline bundle export ./travel.devlinebundle \
@@ -238,9 +273,9 @@ Inspect unfamiliar bundles before trusting their executable starter files. The i
 
 Open **Infrastructure** to browse PostgreSQL, MySQL, RabbitMQ, Redis, MongoDB, NATS, Mailpit, Meilisearch, SeaweedFS S3, and Keycloak. Each release shows its image publisher, license, exact tag, platform digest, and offline runbook. **Download for Offline Use** saves a verified arm64 archive in Devline's image vault independently of Docker's cache. Install and start a compatible local Docker engine with Compose before using the vault to run services.
 
-Choose services when creating a project, or use **Services → Project Services → Add Services** later. Devline gives the stack exact release pins, loopback ports, local credentials, and dedicated data volumes. Adding a service preserves existing selections, credentials, ports, and data. The app then prepares the project's dependencies, documentation, and image archives together. Start, stop, and view service logs from the same workspace. Stopping keeps the project's data. Use **Offline Library → Assets** to check the offline readiness of selected image archives alongside docsets and starters.
+Choose services when creating a project, or use **Add Services** on the project’s page later. Devline gives the stack exact release pins, loopback ports, local credentials, and dedicated data volumes. Adding a service preserves existing selections, credentials, ports, and data. The app then prepares the project's dependencies, documentation, and image archives together. Start, stop, and view service logs from the same workspace. Stopping keeps the project's data. Use **Library → Contents** to check the offline readiness of selected image archives alongside docsets and starters.
 
-Service networks disable outbound NAT and use local DNS settings by default while keeping their published ports reachable from your Mac. **Run Offline** separately denies the app process external networking. Custom Docker routing or engine configuration can change container connectivity; the app's network boundary does not rely on those Docker defaults.
+Service networks disable outbound NAT and use local DNS settings by default while keeping their published ports reachable from your Mac. **Run** separately denies the app process external networking. Custom Docker routing or engine configuration can change container connectivity; the app's network boundary does not rely on those Docker defaults.
 
 A service image runs the server. A client library lets your code talk to that server. The service picker shows client suggestions for the project's runtime, including package versions, offline availability, and anything already included. Optional libraries start unchecked: select **Add … to project** only when you want Devline to add that dependency. Selecting an image alone does not change your code dependencies. Built-in capabilities and unsupported combinations are identified without offering an unsuitable package.
 
@@ -297,7 +332,7 @@ The destination needs Docker, the project toolchains, and dependencies. Importin
 
 ## Updates
 
-Open **Offline Library → Updates** and choose **Check for Updates**. The list shows newer releases for the starters and service images saved in your offline library. Choose **Update** for one item or **Update All** for the whole list. Devline keeps project pins and, by default, previous releases. Unfinished updates stay in the list with a **Retry** button. If a publisher check fails, open **Check Details**; updates already confirmed can still be applied.
+Open **Library → Updates** and choose **Check for Updates**. The list shows newer releases for the starters and service images saved in your offline library. Choose **Update** for one item or **Update All** for the whole list. Devline keeps project pins and, by default, previous releases. Unfinished updates stay in the list with a **Retry** button. If a publisher check fails, open **Check Details**; updates already confirmed can still be applied.
 
 To browse downloadable docsets, read release notes, or switch the active version, use **Docs → Manage Docs**. Toolchain publisher results are in **Toolchains → Publisher Releases**. To check for a newer Devline app, use **App Updates and Downloads…** in the Devline menu or **App Updates** in Settings.
 
@@ -352,7 +387,7 @@ Use **Read Devline Guide** or `devline guide` for setup instructions specific to
 - [`core/`](core/) builds the `devline` CLI and the shared `devline_core` Rust library. The core owns library storage, reference search, starter verification, project preparation, and local infrastructure. `toolbox` coordinates full project preparation and `tasks` tracks background operations. Integration tests live in `core/tests/`.
 - [`macos/`](macos/) contains the SwiftUI app, grouped by feature under `Sources/DevlineApp/`. `Sources/DevlineBridge/` exposes the shared core through a C header. Native tests live in `Tests/` and the production app icon lives in `Assets/`. [Core protocol](CONTRACT.md)
 - [`integrations/`](integrations/) contains the VS Code and Neovim adapters and their tests. The adapters pass the selected symbol and its context to Devline in a `devline://search` URL.
-- [`data/`](data/) contains the offline library shipped with the app. `docs/` holds publisher reference packs, `help/` holds Devline guides, and `templates/` holds versioned starter payloads and build recipes. `project-adapters/` and `service-clients/` support offline project preparation. After editing `docs-catalog.json` or `templates-catalog.json`, run `python3 scripts/sync-catalog.py` to refresh the combined runtime catalog.
+- [`data/`](data/) contains the offline library shipped with the app. `docs/` holds publisher reference packs, `help/` holds Devline guides, and `templates/` holds versioned starter payloads and build recipes. `project-adapters/` and `service-clients/` support offline project preparation. `packages/` lists each runtime’s package shelf and holds the scripts that download it. After editing `docs-catalog.json` or `templates-catalog.json`, run `python3 scripts/sync-catalog.py` to refresh the combined runtime catalog.
 - [`scripts/`](scripts/) contains the tools and tests for content ingestion, packaging, and releases. `infrastructure-docs/upstream/` holds the publisher inputs used to rebuild the infrastructure reference. [CI workflow](.github/workflows/validate.yml)
 - [`press/`](press/) holds the README screenshots. [`third-party/`](third-party/) holds redistribution notices and package inputs used by the release build.
 
@@ -372,6 +407,7 @@ python3 scripts/sync-catalog.py --check
 python3 scripts/check-doc-packs.py
 python3 scripts/check-infrastructure.py
 python3 scripts/seal-service-client-packs.py --check
+python3 scripts/check-packages.py
 ```
 
 Use the ignored `.build/` directory for local verification outputs. For example, `python3 scripts/test-service-client-journeys.py --output .build/service-client-journeys` keeps the fixtures, logs, and results outside the tracked source tree.
