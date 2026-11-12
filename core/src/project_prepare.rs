@@ -174,8 +174,8 @@ fn ignored(stack: &str, name: &str) -> bool {
 /// app writes while it runs. Without this, running a prepared project would look like editing it.
 ///
 /// Only the common forms are read: names, `*.ext`, `dir/`, a leading `/` for the project root,
-/// and `**`. Lines that re-include files (`!`) are skipped, so nothing is tracked less strictly
-/// than git would track it.
+/// and `**`. If the ignore file contains re-inclusion rules (`!`), do not apply its exclusions:
+/// omitting only the re-inclusion rules could hide source that Git still tracks.
 #[derive(Default)]
 struct Untracked(Vec<(String, bool, bool)>);
 
@@ -184,10 +184,13 @@ impl Untracked {
         let Ok(text) = fs::read_to_string(root.join(".gitignore")) else {
             return Self::default();
         };
+        if text.lines().any(|line| line.trim().starts_with('!')) {
+            return Self::default();
+        }
         Self(
             text.lines()
                 .map(str::trim)
-                .filter(|line| !line.is_empty() && !line.starts_with(['#', '!']))
+                .filter(|line| !line.is_empty() && !line.starts_with('#'))
                 .filter_map(|line| {
                     let directory = line.ends_with('/');
                     let line = line.trim_end_matches('/');
@@ -557,7 +560,7 @@ fn readiness_for_project(ctx: &Context, project: Project) -> Result<Value> {
             &project,
             Some(&receipt),
             "changed",
-            "Project files or vendored dependencies changed. Verify again.",
+            "Project files or Devline's verification rules changed. Prepare for Offline again to refresh this check.",
         ));
     }
     Ok(report(
@@ -1191,7 +1194,7 @@ mod tests {
         let project = root.path();
         fs::write(
             project.join(".gitignore"),
-            "/notes.sqlite3*\n*.log\n/storage/\n!keep.log\n# comment\ndata/*.sqlite*\n",
+            "/notes.sqlite3*\n*.log\n/storage/\n# comment\ndata/*.sqlite*\n",
         )?;
         fs::write(project.join("main.go"), "package main\n")?;
         fs::create_dir(project.join("data"))?;
@@ -1220,6 +1223,26 @@ mod tests {
 
         fs::write(project.join("data/seed.json"), "{\"changed\":true}")?;
         assert_ne!(proof_fingerprint("go", project, false)?, before);
+        Ok(())
+    }
+
+    #[test]
+    fn gitignore_reincluded_files_remain_part_of_the_proof() -> Result<()> {
+        for (rules, file) in [
+            ("*.log\n!keep.log\n", "keep.log"),
+            ("/data/*\n!/data/seed/\n", "data/seed/input.json"),
+        ] {
+            let root = tempfile::tempdir()?;
+            let project = root.path();
+            fs::write(project.join(".gitignore"), rules)?;
+            let source = project.join(file);
+            fs::create_dir_all(source.parent().unwrap())?;
+            fs::write(&source, "original source")?;
+            let before = proof_fingerprint("go", project, false)?;
+
+            fs::write(&source, "changed source")?;
+            assert_ne!(proof_fingerprint("go", project, false)?, before, "{file}");
+        }
         Ok(())
     }
 

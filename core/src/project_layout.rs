@@ -119,3 +119,64 @@ fn write_config(root: &Path, stack: &str) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::process::Command;
+
+    #[test]
+    fn elixir_launcher_tests_use_the_managed_environment_after_clients_are_added() -> Result<()> {
+        let scratch = tempfile::tempdir()?;
+        let root = scratch.path().join("project with spaces");
+        fs::create_dir(&root)?;
+        fs::write(root.join("mix.exs"), "# fixture\n")?;
+        fs::write(
+            root.join(LEGACY_TEST),
+            "#!/bin/sh\nprintf 'starter:%s\\n' \"$@\"\n",
+        )?;
+        organize(
+            &root,
+            "elixir",
+            &json!({"template":"elixir/fixture"}),
+            "export ERL_FLAGS='+S 3:3'\n",
+            false,
+        )?;
+        let cli = scratch.path().join("devline fixture");
+        fs::write(
+            &cli,
+            "#!/bin/sh\nprintf 'environment:%s:%s\\n' \"$MIX_ENV\" \"$ERL_FLAGS\"\nprintf '%s\\n' \"$@\"\nexit 37\n",
+        )?;
+        fs::set_permissions(&cli, fs::Permissions::from_mode(0o755))?;
+        let run = || {
+            Command::new(root.join("devline.sh"))
+                .args(["test", "--only", "a tag with spaces"])
+                .current_dir(scratch.path())
+                .env("DEVLINE_BIN", &cli)
+                .env("MIX_ENV", "dev")
+                .output()
+        };
+
+        let original = run()?;
+        assert!(original.status.success());
+        assert_eq!(
+            String::from_utf8(original.stdout)?,
+            "starter:--only\nstarter:a tag with spaces\n"
+        );
+
+        fs::create_dir_all(root.join(CACHE).join("elixir/tools"))?;
+        let managed = run()?;
+        assert_eq!(managed.status.code(), Some(37));
+        assert_eq!(
+            String::from_utf8(managed.stdout)?,
+            format!(
+                "environment:test:+S 3:3\n--offline\nproject\n--path\n{}\nrun\n--\nmix\ntest\n--only\na tag with spaces\n",
+                root.canonicalize()?.display()
+            )
+        );
+
+        fs::remove_file(root.join("mix.exs"))?;
+        assert!(run()?.status.success());
+        Ok(())
+    }
+}

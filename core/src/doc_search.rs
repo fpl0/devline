@@ -1839,8 +1839,12 @@ pub(super) fn search(ctx: &Context, request: &Value) -> Result<Value> {
             // No article has every word. Offer those with the rarest of them,
             // dropping common words until something matches.
             let rarest = ranking::rarest_first(&db, &alternatives)?;
-            let mut kept = rarest.len() - 1;
-            while gathered.rows.is_empty() {
+            let mut kept = if rarest.len() < alternatives.len() {
+                rarest.len()
+            } else {
+                rarest.len().saturating_sub(1)
+            };
+            while gathered.rows.is_empty() && kept >= 2 {
                 let most = ranking::expression(&rarest[..kept], true, ranking::Completion::None);
                 gathered.rows = ranking::documents(&db, &scope, &most, false, window)?;
                 if kept == 2 {

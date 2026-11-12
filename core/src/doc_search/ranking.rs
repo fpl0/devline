@@ -402,19 +402,31 @@ pub(super) fn literal_expression(terms: &[Vec<String>], completion: Completion) 
     }
 }
 
-/// The words ordered from the rarest in the library to the most common.
-/// When no article has every word, the rare ones say the most about it.
+/// Known words ordered from the rarest in the library to the most common.
+/// When no article has every word, absent terms must not prevent a partial match.
 pub(super) fn rarest_first(db: &Connection, terms: &[Vec<String>]) -> Result<Vec<Vec<String>>> {
     db.execute_batch("CREATE VIRTUAL TABLE IF NOT EXISTS temp.doc_search_vocab USING fts5vocab(main, docs_fts, row)")?;
-    let mut frequency = db.prepare_cached("SELECT doc FROM temp.doc_search_vocab WHERE term=?1")?;
+    let mut frequency = db.prepare_cached(
+        "SELECT coalesce(sum(doc),0) FROM temp.doc_search_vocab
+         WHERE term IN (SELECT value FROM json_each(?1))",
+    )?;
     let mut counted = Vec::with_capacity(terms.len());
     for choices in terms {
-        let mut rows = frequency.query([&choices[0]])?;
-        let count: u64 = match rows.next()? {
-            Some(row) => row.get(0)?,
-            None => 0,
+        let spellings: BTreeSet<_> = choices.iter().flat_map(|word| forms(word)).collect();
+        let count: u64 = if spellings.iter().all(|word| word.is_ascii()) {
+            frequency.query_row([serde_json::to_string(&spellings)?], |row| row.get(0))?
+        } else {
+            // Vocabulary keys use unicode61 normalization, so `café` is stored
+            // as `cafe`. Let the same tokenizer used by search count these terms.
+            let expression = expression(std::slice::from_ref(choices), true, Completion::None);
+            db.prepare_cached("SELECT count(*) FROM docs_fts WHERE docs_fts MATCH ?1")?
+                .query_row([format!("{{title body}} : ({expression})")], |row| {
+                    row.get(0)
+                })?
         };
-        counted.push((count, choices.clone()));
+        if count > 0 {
+            counted.push((count, choices.clone()));
+        }
     }
     counted.sort_by_key(|(count, _)| *count);
     Ok(counted.into_iter().map(|(_, choices)| choices).collect())

@@ -1037,6 +1037,82 @@ fn spellings_without_case_or_separators_find_the_same_symbol() {
 }
 
 #[test]
+fn long_questions_recover_from_unknown_words_without_matching_a_single_common_word() {
+    let fixture = Fixture::with(vec![(
+        "notes",
+        "Notes",
+        "python",
+        "1",
+        json!([
+            doc(
+                "authentication",
+                "Token authentication",
+                "Configure reliable service using secure token authentication.",
+                &[]
+            ),
+            doc(
+                "parsing",
+                "JSON input",
+                "Parse a file safely before processing its contents.",
+                &[]
+            ),
+        ]),
+    )]);
+    let hits = search(
+        &fixture,
+        json!({
+            "query":"how can I configure reliable quuxconfig services using secure token authentication"
+        }),
+    );
+    assert_eq!(hits[0]["id"], "notes@1/authentication");
+
+    // Neither inflected spelling occurs verbatim, but both have indexed forms.
+    let hits = search(
+        &fixture,
+        json!({
+            "query":"parsing files quuxalpha quuxbravo quuxcharlie quuxdelta quuxecho"
+        }),
+    );
+    assert_eq!(hits[0]["id"], "notes@1/parsing");
+
+    for query in [
+        "quuxalpha quuxbravo quuxcharlie quuxdelta quuxecho quuxfoxtrot quuxgolf",
+        "token quuxalpha quuxbravo quuxcharlie quuxdelta quuxecho quuxfoxtrot",
+    ] {
+        assert!(
+            search(&fixture, json!({"query":query})).is_empty(),
+            "{query}"
+        );
+    }
+}
+
+#[test]
+fn partial_questions_keep_accented_words_known_to_the_full_text_index() {
+    let fixture = Fixture::with(vec![(
+        "notes",
+        "Notes",
+        "python",
+        "1",
+        json!([
+            doc("topic", "First topic", "café token", &[]),
+            doc("other", "Other topic", "omega gamma delta", &[]),
+        ]),
+    )]);
+    for query in [
+        "cafe token omega gamma delta",
+        "café token omega gamma delta",
+        "CAFÉ token omega gamma delta",
+    ] {
+        let hits = search(&fixture, json!({"query":query}));
+        assert_eq!(
+            hits.first().map(|hit| &hit["id"]),
+            Some(&json!("notes@1/topic")),
+            "{query}"
+        );
+    }
+}
+
+#[test]
 fn a_question_is_answered_by_the_section_headed_with_its_words() {
     let fixture = Fixture::with(vec![(
         "python",

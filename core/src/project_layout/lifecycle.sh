@@ -50,7 +50,15 @@ action=${1:-help}
 if [ "$#" -gt 0 ]; then shift; fi
 case "$action" in
     help | -h | --help) usage ;;
-    test) starter test-offline.sh "$@" ;;
+    test)
+        if [ -f mix.exs ] && [ -d .devline/cache/elixir/tools ]; then
+            # Added clients live in the managed Mix cache. Published starter
+            # scripts can reset Mix paths to their original bundled packages.
+            . ./.devline/scripts/toolchain.sh
+            export MIX_ENV=test ERL_FLAGS="${ERL_FLAGS:-+S 2:2}"
+            with_devline --offline project --path "$project" run -- mix test "$@"
+        fi
+        starter test-offline.sh "$@" ;;
     build) starter build-app.sh "$@" ;;
     setup) starter setup-offline.sh "$@" ;;
     bundle) starter bundle-offline.sh "$@" ;;
