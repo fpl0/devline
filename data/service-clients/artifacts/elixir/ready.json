@@ -56,5 +56,17 @@
     }
   ],
   "verification": "Added all ten client choices to a fresh Mix project, resolved Hex entirely from the local cache, compiled all dependencies, and passed a test loading every client including the ExAws HTTP adapter and XML/JSON codecs, with empty HOME and outbound network denied.",
-  "inventory_sha256": "aef7dd1e24395ecb4a99dcdf85872d96d1f1eb23c708d382b40dd88d01b12994"
+  "inventory_sha256": "af1cc465ff1fcbad65436eb46fbbef4bcf2f3f600766e4504f219252c61d234a",
+  "additional_archives": [
+    {
+      "package": "ranch",
+      "version": "2.3.0",
+      "source_url": "https://repo.hex.pm/tarballs/ranch-2.3.0.tar",
+      "release_url": "https://hex.pm/api/packages/ranch/releases/2.3.0",
+      "sha256": "6168ec49409d982f7cfbd83dd083144f6cbe67caa4036551d2f0a3ad67c9d023",
+      "bytes": 79872,
+      "verified_against": "Hex release checksum",
+      "verification": "Independently adding Mailpit and running ./devline.sh test passed on elixir/phoenix-api@1.1.0 with external networking denied and no package shelf."
+    }
+  ]
 }
