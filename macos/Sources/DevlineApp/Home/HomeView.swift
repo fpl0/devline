@@ -64,7 +64,7 @@ private struct OfflineKit {
 }
 
 struct HomeView: View {
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @ObservedObject var inventory: RuntimeInventory
     @ObservedObject var infrastructure: InfrastructureLibrary
     @ObservedObject var shelves: PackageShelves

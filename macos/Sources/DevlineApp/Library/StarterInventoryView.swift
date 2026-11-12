@@ -14,7 +14,7 @@ private struct StarterInventory: Decodable, Sendable {
 
 struct StarterInventoryView: View {
     let starter: Starter
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @State private var inventory: StarterInventory?
     @State private var error: String?
     @State private var remove = false

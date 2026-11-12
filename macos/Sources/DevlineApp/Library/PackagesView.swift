@@ -47,7 +47,7 @@ final class PackageShelves: ObservableObject {
 }
 
 struct PackagesView: View {
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @ObservedObject var shelves: PackageShelves
     @ObservedObject var inventory: RuntimeInventory
     let showToolchain: (String) -> Void

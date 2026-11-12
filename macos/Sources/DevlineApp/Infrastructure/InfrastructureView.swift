@@ -3,7 +3,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct InfrastructureView: View {
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @ObservedObject var library: InfrastructureLibrary
     let openDocs: (String) -> Void
     let openProjectServices: (() -> Void)?

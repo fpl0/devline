@@ -99,7 +99,7 @@ struct UpdatesView: View {
         let retry: Int
     }
 
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @State private var snapshot: UpdateSnapshot?
     @State private var loadedRevision: StatusRevision?
     @State private var retry = 0

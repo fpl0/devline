@@ -40,7 +40,7 @@ final class RuntimeInventory: ObservableObject {
 }
 
 struct RuntimesView: View {
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @ObservedObject var inventory: RuntimeInventory
     @ObservedObject var infrastructure: InfrastructureLibrary
     /// A runtime id, or `docker` for the container engine.

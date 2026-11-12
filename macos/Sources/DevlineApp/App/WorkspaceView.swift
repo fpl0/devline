@@ -182,7 +182,7 @@ struct WorkspaceView: View {
             guard !Task.isCancelled else { return }
             restoredSession = true
             if navigationRequest == nil { reading.restoreSession() }
-            columnVisibility = focusReading && workspace == .docs ? .detailOnly : .all
+            updateColumnVisibility()
             await warmNavigation()
         }
         .task(id: scenePhase) {
@@ -241,24 +241,29 @@ struct WorkspaceView: View {
         .onReceive(NotificationCenter.default.publisher(for: .devlineActivity)) { _ in showingActivity = true }
         .onReceive(NotificationCenter.default.publisher(for: .devlineAppUpdates)) { _ in showingAppUpdates = true }
         .onChange(of: currentPage, initial: true) { _, page in
-            mounted.insert(page)
+            if !mounted.contains(page) { mounted.insert(page) }
             if let path = projectContext?.path, page == Self.projectPage(path) { keepProjectPage(path) }
             // Nothing typed should land in a field on a page that is no longer on screen.
             if let window = NSApp.keyWindow, window.firstResponder is NSText { window.makeFirstResponder(nil) }
         }
         .onChange(of: workspace, initial: true) { _, page in
             UserDefaults.standard.set(page?.rawValue ?? Workspace.home.rawValue, forKey: "devline.workspace")
-            columnVisibility = focusReading && page == .docs ? .detailOnly : .all
+            updateColumnVisibility()
         }
         .onChange(of: librarySection) { _, section in
             UserDefaults.standard.set(section.rawValue, forKey: "devline.librarySection")
         }
-        .onChange(of: focusReading) { _, focused in columnVisibility = focused && workspace == .docs ? .detailOnly : .all }
+        .onChange(of: focusReading) { _, _ in updateColumnVisibility() }
         .onChange(of: model.libraryRevision) { _, _ in
             if let path = projectContext?.path { Task { await loadProjectContext(path) } }
             Task { await infrastructure.refresh() }
         }
         .onOpenURL(perform: handleURL)
+    }
+
+    private func updateColumnVisibility() {
+        let desired: NavigationSplitViewVisibility = focusReading && workspace == .docs ? .detailOnly : .all
+        if columnVisibility != desired { columnVisibility = desired }
     }
 
     /// Each page's toolbar controls are made once and then only hidden or shown. Adding and

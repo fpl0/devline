@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct DocsView: View {
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @ObservedObject var reading: ReadingSession
     @Binding var query: String
     @Binding var stack: String?
@@ -309,17 +309,15 @@ struct DocsView: View {
         let currentPackVersions = packs.filter { $0.id == pack.id }
         return HStack {
             if group != nil {
-                Button { group = nil; selectedID = nil } label: { Image(systemName: "chevron.left") }
+                Button { chooseGroup(nil) } label: { Image(systemName: "chevron.left") }
                     .buttonStyle(.borderless).accessibilityLabel("All Sections")
             }
             Text(group.map { $0.isEmpty ? "Other Articles" : $0 } ?? "Contents")
                 .font(.callout.weight(.semibold)).lineLimit(1)
                 .accessibilityAddTraits(.isHeader)
             Spacer()
-            if let entry = pack.entryId {
-                Button { open(packEntryID(pack, entry)) } label: { Image(systemName: "list.bullet.rectangle") }
-                    .buttonStyle(.borderless).help("Open Contents Page").accessibilityLabel("Open Contents Page")
-            }
+            Button { openContents(pack) } label: { Image(systemName: "list.bullet.rectangle") }
+                .buttonStyle(.borderless).help("Open Contents Page").accessibilityLabel("Open Contents Page")
             if currentPackVersions.count > 1 {
                 Menu(release(pack)) {
                     ForEach(currentPackVersions, id: \.reference) { version in
@@ -334,10 +332,7 @@ struct DocsView: View {
         ScrollView {
             LazyVStack(spacing: 2) {
                 ForEach(navigation.groups + (navigation.hasUngrouped ? [""] : []), id: \.self) { name in
-                    Button {
-                        group = name
-                        selectedID = nil
-                    } label: {
+                    Button { chooseGroup(name) } label: {
                         HStack {
                             Text(name.isEmpty ? "Other Articles" : name)
                             Spacer()
@@ -454,10 +449,80 @@ struct DocsView: View {
             ContentUnavailableView("Document Unavailable", systemImage: "doc.text", description: Text(failure.message))
         } else if directDocumentID != nil {
             ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if browsing, let pack = scopedPack, pack.entryId == nil {
+            docsetContents(pack)
         } else {
             ContentUnavailableView("Documentation", systemImage: "book",
                                    description: Text("Choose a docset or search for a symbol or topic."))
         }
+    }
+
+    /// Native navigation for references without an upstream landing article.
+    /// Labels and links come from the installed catalog and documentation index.
+    private func docsetContents(_ pack: DocPack) -> some View {
+        let key = searchKey
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Contents").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(displayName(pack)).font(.largeTitle.weight(.semibold)).accessibilityAddTraits(.isHeader)
+                    Text(release(pack)).font(.callout).foregroundStyle(.secondary)
+                    Text(pack.description).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                if let failure = searchFailure, failure.key == key {
+                    VStack(spacing: 12) {
+                        ContentUnavailableView("Couldn't Load Contents", systemImage: "book.closed", description: Text(failure.message))
+                        Button("Retry") { Task { await search(key) } }
+                    }
+                } else if committedSearch != key {
+                    ProgressView("Loading contents…").controlSize(.small)
+                } else if let navigation = cachedNavigation(for: key), !navigation.groups.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(navigation.groups + (navigation.hasUngrouped ? [""] : []), id: \.self) { name in
+                            contentsLink(name.isEmpty ? "Other Articles" : name) { chooseGroup(name) }
+                        }
+                    }
+                } else if hits.isEmpty {
+                    Text("No articles in this section.").foregroundStyle(.secondary)
+                } else {
+                    VStack(alignment: .leading, spacing: 0) {
+                        if let group {
+                            Text(group.isEmpty ? "Other Articles" : group)
+                                .font(.title3.weight(.semibold)).padding(.bottom, 10).accessibilityAddTraits(.isHeader)
+                        }
+                        ForEach(hits) { hit in
+                            contentsLink(ReaderMarkup.title(hit.title, fallback: displayName(pack))) { open(hit) }
+                        }
+                        if moreArticles {
+                            if pageRequest != nil {
+                                ProgressView().controlSize(.small).padding(.top, 12)
+                            } else {
+                                Button(browseError == nil ? "Load More" : "Retry") { Task { await loadMoreArticles() } }
+                                    .buttonStyle(.link).padding(.top, 12)
+                            }
+                        }
+                        if let browseError { Text(browseError).font(.caption).foregroundStyle(.secondary).padding(.top, 8) }
+                    }
+                }
+            }
+            .frame(maxWidth: 740, alignment: .leading)
+            .padding(32)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .id(pack.reference + ":" + (group ?? "Contents"))
+    }
+
+    private func contentsLink(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Text(title).font(.callout).foregroundStyle(.tint).multilineTextAlignment(.leading)
+                Spacer(minLength: 12)
+                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func packPrecedes(_ a: DocPack, _ b: DocPack) -> Bool {
@@ -481,6 +546,7 @@ struct DocsView: View {
     private func applyEntryPoint() {
         scope = selectedPack != nil ? .docset : projectScopeRequested && projectContext != nil ? .project : .installed
         group = nil
+        selectedID = nil
         browsedPackInProject = projectScopeRequested && scope == .docset
         openedLocation = nil
         currentReaderAnchor = nil
@@ -515,12 +581,25 @@ struct DocsView: View {
         browsedPackInProject = inProject
         selectedID = nil
         pendingBrowseReveal = nil
+        openContents(pack, projectScoped: inProject)
+    }
+
+    private func chooseGroup(_ name: String?) {
+        group = name
+        selectedID = nil
+        pendingBrowseReveal = nil
+    }
+
+    private func openContents(_ pack: DocPack, projectScoped: Bool? = nil) {
         if let entry = pack.entryId {
-            open(packEntryID(pack, entry), projectScoped: inProject)
+            open(packEntryID(pack, entry), projectScoped: projectScoped)
         } else {
+            chooseGroup(nil)
             directDocumentID = nil
             openedLocation = nil
+            currentReaderAnchor = nil
             linkIssue = nil
+            navigationToken = UUID()
         }
     }
 

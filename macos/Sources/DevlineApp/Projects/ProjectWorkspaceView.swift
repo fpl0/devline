@@ -13,7 +13,7 @@ import SwiftUI
 }
 
 struct ProjectWorkspaceView: View {
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @ObservedObject var infrastructure: InfrastructureLibrary
     let project: ProjectContext
     let showDocs: () -> Void

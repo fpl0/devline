@@ -5,9 +5,17 @@ import SwiftUI
 /// While it is off screen it is left completely alone: it is not rebuilt when the window's state
 /// changes, and nothing in its environment is touched, because either would make every switch
 /// pay for every page. It catches up the moment it is shown again.
+@MainActor
 struct KeptPage<Content: View>: View, Equatable {
     let shown: Bool
     @ViewBuilder let content: () -> Content
+    @State private var gate: PageVisibilityGate
+
+    init(shown: Bool, @ViewBuilder content: @escaping () -> Content) {
+        self.shown = shown
+        self.content = content
+        _gate = State(initialValue: PageVisibilityGate(isVisible: shown))
+    }
 
     nonisolated static func == (old: Self, new: Self) -> Bool { !old.shown && !new.shown }
 
@@ -16,9 +24,11 @@ struct KeptPage<Content: View>: View, Equatable {
         // clicked or tabbed to. Turning the page off with `disabled` would do the same, but it
         // changes the environment of every view on the page, which costs far more.
         content()
+            .environment(\.pageVisibilityGate, gate)
             .opacity(shown ? 1 : 0)
             .allowsHitTesting(shown)
             .accessibilityHidden(!shown)
+            .onChange(of: shown) { _, visible in gate.setVisible(visible) }
     }
 }
 

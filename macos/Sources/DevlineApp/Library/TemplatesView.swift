@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct TemplatesView: View {
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @Binding var selection: String?
     @Binding var newStarter: Starter?
     let openDocs: (DocPack) -> Void

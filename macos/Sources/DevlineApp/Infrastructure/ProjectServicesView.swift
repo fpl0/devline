@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor private var knownStacks: [String: InfrastructureStack] = [:]
 
 struct ProjectServicesView: View {
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @ObservedObject var infrastructure: InfrastructureLibrary
     let project: ProjectContext
     var visible = true

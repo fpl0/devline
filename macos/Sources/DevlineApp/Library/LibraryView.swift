@@ -10,7 +10,7 @@ struct LibraryView: View {
         let completedJobs: [String]
     }
 
-    @ObservedObject var model: WorkspaceModel
+    @PageObservedObject var model: WorkspaceModel
     @ObservedObject var infrastructure: InfrastructureLibrary
     let catalog: Catalog
     let projectPath: String?

@@ -57,6 +57,8 @@ jobs:
           /tmp/devline-navigation-tests
           swiftc macos/Sources/DevlineApp/Projects/ProjectNavigation.swift macos/Sources/DevlineApp/Activity/JobRecord.swift macos/Tests/ProjectNavigationTests.swift -o /tmp/devline-project-navigation-tests
           /tmp/devline-project-navigation-tests
+          swiftc -parse-as-library macos/Sources/DevlineApp/Shared/PageObservation.swift macos/Tests/PageObservationTests.swift -o /tmp/devline-page-observation-tests
+          /tmp/devline-page-observation-tests
 
       - name: Test code highlighting in WebKit
         run: |
