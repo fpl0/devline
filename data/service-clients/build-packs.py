@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Refresh shared client caches using publisher package managers. Development tool."""
-import json, os, pathlib, shutil, subprocess, sys, tempfile
+import hashlib, json, os, pathlib, shutil, subprocess, sys, tempfile
 base=pathlib.Path(__file__).resolve().parent
 stack=sys.argv[1]
 config=json.loads((base/(stack+'.json')).read_text())
@@ -18,6 +18,21 @@ env=dict(os.environ,CI='true',GOTOOLCHAIN='local',GOWORK='off',DOTNET_CLI_TELEME
 def run(args,cwd=work,**more): subprocess.run(args,cwd=cwd,env=dict(env,**more),check=True)
 def deny(args,cwd=work,**more):
  run(['/usr/bin/sandbox-exec','-p','(version 1)(allow default)(deny network-outbound)(allow network-outbound (remote ip "localhost:*"))',*args],cwd,**more)
+def resolve_go_graph(folder,module,selected):
+ run(['go','mod','init',module],folder)
+ run(['go','get',*[p['name']+'@'+p['version'] for p in selected]],folder)
+ imports=[]
+ for p in selected:imports.extend(p.get('imports',[p['name']]))
+ (folder/'clients.go').write_text('package clientpack\nimport (\n'+''.join('_ '+json.dumps(name)+'\n' for name in imports)+')\n')
+ run(['go','mod','tidy'],folder);run(['go','mod','download','all'],folder)
+ return set((folder/'go.sum').read_text().splitlines())
+def go_archive_sources(root):
+ artifacts=[]
+ download=root/'module-cache/cache/download'
+ for archive in sorted(download.rglob('*.zip')):
+  module,version=archive.relative_to(download).as_posix().rsplit('/@v/',1);version=version[:-4]
+  artifacts.append({'module':module,'version':version,'artifact':archive.relative_to(root).as_posix(),'url':'https://proxy.golang.org/'+module+'/@v/'+version+'.zip','sha256':hashlib.sha256(archive.read_bytes()).hexdigest(),'go_sum':archive.with_suffix('.ziphash').read_text().strip()})
+ return {'schema_version':1,'publisher_distribution':'Go module proxy and Go checksum database','note':"The source archives include each module's publisher license. Pinned clients were resolved independently so dependency and test-module versions remain available when added alone; the cache also retains the original union graph.",'artifacts':artifacts}
 try:
  if stack=='node':
   cache=out/'npm-cache'
@@ -52,19 +67,21 @@ try:
   shutil.copy(work/'packages.lock.json',out/'packages.lock.json')
  elif stack=='go':
   cache=out/'module-cache';env['GOMODCACHE']=str(cache);env['GOCACHE']=str(work/'go-build')
-  run(['go','mod','init','devline.local/clientpack'])
-  run(['go','get',*[p['name']+'@'+p['version'] for p in packages.values()]])
-  imports=[]
-  for p in packages.values():imports.extend(p.get('imports',[p['name']]))
-  (work/'clients.go').write_text('package clientpack\nimport (\n'+''.join('_ '+json.dumps(name)+'\n' for name in imports)+')\n')
-  run(['go','mod','tidy']);run(['go','mod','download','all'])
+  sums=resolve_go_graph(work,'devline.local/clientpack',list(packages.values()))
+  # A union graph can upgrade transitive modules and omit versions selected
+  # when one client is added alone (including that dependency's test modules).
+  for entry in config['integrations']:
+   if not entry['packages']:continue
+   selected=work/('client-'+entry['service']);selected.mkdir()
+   sums.update(resolve_go_graph(selected,'devline.local/clientpack/'+entry['service'],entry['packages']))
   for manifest in (base.parent/'templates/go').glob('*/*/project/go.mod'):
    seed=work/('seed-'+manifest.parent.parent.parent.name+'-'+manifest.parent.parent.name);seed.mkdir()
    shutil.copy(manifest,seed/'go.mod')
    if manifest.with_name('go.sum').exists():shutil.copy(manifest.with_name('go.sum'),seed/'go.sum')
    run(['go','mod','download','all'],seed)
   deny(['go','test','./...'],GOPROXY='off',GOSUMDB='off')
-  shutil.copy(work/'go.mod',out/'go.mod');shutil.copy(work/'go.sum',out/'go.sum')
+  shutil.copy(work/'go.mod',out/'go.mod');(out/'go.sum').write_text('\n'.join(sorted(sums))+'\n')
+  (out/'SOURCES.json').write_text(json.dumps(go_archive_sources(out),indent=2)+'\n')
  elif stack=='rust':
   cache=out/'cargo-home';env['CARGO_HOME']=str(cache);env['CARGO_TARGET_DIR']=str(work/'target')
   text='[package]\nname="devline-client-pack"\nversion="0.1.0"\nedition="2024"\n[dependencies]\n'
