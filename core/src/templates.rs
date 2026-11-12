@@ -1269,7 +1269,9 @@ fn probe_version(tool: &str, path: &Path, starter: bool, sdk: &MacosSdk) -> Resu
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()?;
-    let deadline = Instant::now() + Duration::from_secs(3);
+    // VM startup can take several seconds while other projects are compiling.
+    // Keep discovery bounded without reporting an installed runtime as missing.
+    let deadline = Instant::now() + Duration::from_secs(20);
     while child.try_wait()?.is_none() {
         if Instant::now() >= deadline {
             let _ = child.kill();

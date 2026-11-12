@@ -50,5 +50,5 @@
     }
   ],
   "verification": "native client graph resolved and checked with outbound networking denied",
-  "inventory_sha256": "4169b08da7ff35dc0481db1d71ce5e4792d82fc1173a853682b961ab5d8ea348"
+  "inventory_sha256": "74850bbbc729848846953c3170afad3dcd9e0d323c6001bccee7d155a32b0570"
 }

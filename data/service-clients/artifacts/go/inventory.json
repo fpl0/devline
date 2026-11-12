@@ -3,14 +3,19 @@
   "stack": "go",
   "files": [
     {
+      "path": "SOURCES.json",
+      "bytes": 41582,
+      "sha256": "b5cfb3f940fec21ec9ede51e2058f73b637b3f2c13fa0a3cad7b073f7d00cff0"
+    },
+    {
       "path": "go.mod",
       "bytes": 2095,
       "sha256": "4b73a6ff514ca456edb127bd25f6e3fe3872ca6e657b0a2f5e429c6aa675735c"
     },
     {
       "path": "go.sum",
-      "bytes": 15039,
-      "sha256": "2e471775820b329c9335efa6f8c99a6360ef1ace71f843ad44ae2b4aaf9f1862"
+      "bytes": 16713,
+      "sha256": "564b0e05c01ad7a6e13a22b568b0839ae2295f36fe39dced18f258df52274f99"
     },
     {
       "path": "module-cache/cache/download/cloud.google.com/go/compute/metadata/@v/list",
@@ -1764,8 +1769,28 @@
     },
     {
       "path": "module-cache/cache/download/github.com/stretchr/testify/@v/list",
-      "bytes": 22,
-      "sha256": "c6066f21b17087cbe49809ad89a6d3a9728da3b686131c899260bb7c17c20e07"
+      "bytes": 30,
+      "sha256": "87934ec476e8202e35e8ede21241d718f85d1d3907456b0a64dcd18551098b74"
+    },
+    {
+      "path": "module-cache/cache/download/github.com/stretchr/testify/@v/v1.11.1.info",
+      "bytes": 194,
+      "sha256": "7441e645d8c2dfa05c19b8804129ff51c7df268b09de4c44bbcb2bdcfd959888"
+    },
+    {
+      "path": "module-cache/cache/download/github.com/stretchr/testify/@v/v1.11.1.mod",
+      "bytes": 498,
+      "sha256": "5846af204043f29df285026109bf32db6519c3d7e1d5c3a65fefb174f9d81d33"
+    },
+    {
+      "path": "module-cache/cache/download/github.com/stretchr/testify/@v/v1.11.1.zip",
+      "bytes": 134860,
+      "sha256": "b7325b561ead5304b72b9f32aebc871ff49b3823667d530a49fd6c8f3adfc96e"
+    },
+    {
+      "path": "module-cache/cache/download/github.com/stretchr/testify/@v/v1.11.1.ziphash",
+      "bytes": 47,
+      "sha256": "397c437aca3840fc08137568f712d1876154ee52c48056faa593ac6af2ed3a21"
     },
     {
       "path": "module-cache/cache/download/github.com/stretchr/testify/@v/v1.12.1.info",
@@ -2134,8 +2159,8 @@
     },
     {
       "path": "module-cache/cache/download/golang.org/x/crypto/@v/list",
-      "bytes": 86,
-      "sha256": "eda1d93255673dcb3013ddfedeb22bd36002b0c5159f67b77f5b0e2036936af3"
+      "bytes": 94,
+      "sha256": "259f58d360f98a5bd71bd585d269af200eb058df30e5877b61dca368553dd46d"
     },
     {
       "path": "module-cache/cache/download/golang.org/x/crypto/@v/v0.0.0-20190308221718-c2843e01d9a2.mod",
@@ -2146,6 +2171,26 @@
       "path": "module-cache/cache/download/golang.org/x/crypto/@v/v0.0.0-20210921155107-089bfa567519.mod",
       "bytes": 247,
       "sha256": "cd6311612a2aa4d0d7e03c41b3aa1fbc2d5f895ab3f61089fab80bfe9f8f5485"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/crypto/@v/v0.54.0.info",
+      "bytes": 193,
+      "sha256": "a2a08976bc05ffe33a35c0bf13d9557bdc954dda54f7404fdaa8bdcc8b125e84"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/crypto/@v/v0.54.0.mod",
+      "bytes": 192,
+      "sha256": "d852b93b93f9cd911708ffd45409439956d4e9c8497c5b87f348fc83d0adc577"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/crypto/@v/v0.54.0.zip",
+      "bytes": 2245311,
+      "sha256": "ecf4030c1c6b55b897826b95f01d7416cf2785b4675b0f9ac218ddf754a03abb"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/crypto/@v/v0.54.0.ziphash",
+      "bytes": 47,
+      "sha256": "4ad3d1b566c243e44bd7890bf45b69ba97d7c8c4f151055aaf76616aa387a729"
     },
     {
       "path": "module-cache/cache/download/golang.org/x/crypto/@v/v0.57.0.info",
@@ -2259,8 +2304,8 @@
     },
     {
       "path": "module-cache/cache/download/golang.org/x/net/@v/list",
-      "bytes": 121,
-      "sha256": "45bd3af8b5ea16e85b3fa0a0524440781bb0e2e9e5a52ffd2b1bc253b2e4011c"
+      "bytes": 129,
+      "sha256": "6ed273c88d9824f959f97fbed6c009535aa29f3d8255f24ef554e6b23ab2d12d"
     },
     {
       "path": "module-cache/cache/download/golang.org/x/net/@v/v0.0.0-20190620200207-3b0461eec859.mod",
@@ -2276,6 +2321,26 @@
       "path": "module-cache/cache/download/golang.org/x/net/@v/v0.0.0-20220722155237-a158d28d115b.mod",
       "bytes": 179,
       "sha256": "b315c52647d2da2f76e5cdb9d367e1d6727784236a9bffb612192b19b10a128d"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/net/@v/v0.56.0.info",
+      "bytes": 190,
+      "sha256": "22e00a93e3744cf8259747dd1779ea5a6e39753ba8606d8a662f69c713f08e73"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/net/@v/v0.56.0.mod",
+      "bytes": 157,
+      "sha256": "1072915233a6617a603a36996892ca8aafcc7d8b8dc0f43e7146d83c7ea49c43"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/net/@v/v0.56.0.zip",
+      "bytes": 1868474,
+      "sha256": "bbc975b3ec9cd86892cfc515badc125657e135c00162d0da5de33f6d07930464"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/net/@v/v0.56.0.ziphash",
+      "bytes": 47,
+      "sha256": "f657b54ef1711c73967e57f7d81b020dba6e70e818e7e60b0afb353e81824798"
     },
     {
       "path": "module-cache/cache/download/golang.org/x/net/@v/v0.58.0.info",
@@ -2449,8 +2514,8 @@
     },
     {
       "path": "module-cache/cache/download/golang.org/x/sys/@v/list",
-      "bytes": 191,
-      "sha256": "f90a224302ff2a5b6d40572412214b37ac7c4009457a2e9345214ed9d5e239e1"
+      "bytes": 199,
+      "sha256": "9e68a8e85a9d9d8740f3dba60cc8fa1b7f4f88eace1ea3e7bc0d3d064b895d27"
     },
     {
       "path": "module-cache/cache/download/golang.org/x/sys/@v/v0.0.0-20190215142949-d0b11bdaac8a.mod",
@@ -2476,6 +2541,26 @@
       "path": "module-cache/cache/download/golang.org/x/sys/@v/v0.0.0-20220722155257-8c9f86f7a55f.mod",
       "bytes": 33,
       "sha256": "f033333096fe198f3151deed93f2deba74e50bbfe7739134045bc3b7ce4a5024"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/sys/@v/v0.47.0.info",
+      "bytes": 190,
+      "sha256": "2f567627966f180616deee8874e9547fe34b2271f17ce14901979890510fc959"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/sys/@v/v0.47.0.mod",
+      "bytes": 35,
+      "sha256": "57f4393ea18d5446a12363b35c23a616d843fa1669c7121a70a2bc3a9677d665"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/sys/@v/v0.47.0.zip",
+      "bytes": 2022425,
+      "sha256": "cdac013ddced0262926ec29ffcda645da39670e61c7e5b761e572b6b1809bb1b"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/sys/@v/v0.47.0.ziphash",
+      "bytes": 47,
+      "sha256": "21f0a176f392517df6da5642c890da6b8887d0e0eee6c6ef93cb5466c26dcee3"
     },
     {
       "path": "module-cache/cache/download/golang.org/x/sys/@v/v0.48.0.info",
@@ -2529,8 +2614,8 @@
     },
     {
       "path": "module-cache/cache/download/golang.org/x/term/@v/list",
-      "bytes": 86,
-      "sha256": "8cf29e3d3f751cb9070209fdbeeb3e62afced568f634bbcc2afbcf22e69ec90b"
+      "bytes": 94,
+      "sha256": "fb34a981177b5daf517caf1b7010778f35b53062ea37d3ed531d7dc7521a0430"
     },
     {
       "path": "module-cache/cache/download/golang.org/x/term/@v/v0.0.0-20201126162022-7de9c90e9dd1.mod",
@@ -2541,6 +2626,26 @@
       "path": "module-cache/cache/download/golang.org/x/term/@v/v0.0.0-20210927222741-03fcf44c2211.mod",
       "bytes": 95,
       "sha256": "740794e2914f5cc87e25656c5843222b2c65665821205f45632a0477c8d3f79b"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/term/@v/v0.45.0.info",
+      "bytes": 191,
+      "sha256": "ae4c0e1046e4e4df7d773ae0cdcbebc308ac88659ea765ddcbe3af226cee13d3"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/term/@v/v0.45.0.mod",
+      "bytes": 70,
+      "sha256": "62c3f9d1a5ae12264ab48e2c8acc08c9f201bda9619de171544eb5714b74aec5"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/term/@v/v0.45.0.zip",
+      "bytes": 21694,
+      "sha256": "b3a3af689728b43012ae1b21482571a35c033c545e98e021606bd4fcf1f79108"
+    },
+    {
+      "path": "module-cache/cache/download/golang.org/x/term/@v/v0.45.0.ziphash",
+      "bytes": 47,
+      "sha256": "1e94f0ed29458ebd056ea8e4999d4c7179d9fae73023439af5c603c3c55afa47"
     },
     {
       "path": "module-cache/cache/download/golang.org/x/term/@v/v0.46.0.info",
