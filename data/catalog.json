@@ -1145,7 +1145,7 @@
       ],
       "verified": true,
       "target": "darwin-arm64",
-      "bundled_revision": 2
+      "bundled_revision": 3
     },
     {
       "id": "ruby/service-kit",
