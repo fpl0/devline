@@ -1,25 +1,17 @@
-# ASP.NET Core MVC Task Board
+# Purchase Desk
 
-Sign in with Keycloak to add, complete, and delete tasks on a personal board. Razor renders the pages. EF Core stores tasks in PostgreSQL, Redis caches each user's task list, and a RabbitMQ worker delivers a message when a task is added.
-
-Create the project with Devline's PostgreSQL, Redis, RabbitMQ, and Keycloak services selected. Docker and the four local image archives are needed to run the app. The .NET restore and Razor build work offline from the bundled NuGet feed.
+A complete local purchase approval workflow: submit a request with an exact EUR amount and business reason, review the queue, approve or reject with a note, and inspect the permanent history. Requests and decisions survive app restarts.
 
 ```sh
-./devline.sh test
-./devline.sh start
+./run.sh
+./build-app.sh
+./test-offline.sh
 ```
 
-1. Open [the task board](http://127.0.0.1:5081) and choose **Open my tasks**.
-2. Sign in as `demo` with password `demo-password`. Add a task. Refresh the board to see its delivery status change to **Delivered**.
-3. Complete a task and sign out. Sign in as `reader` with password `reader-password` to see a separate board.
-4. Sign in as `demo` again to see the saved task. A reload on a settled board can return `X-Task-Source: redis`. Writes invalidate the user's cached list.
+Open the address printed by the server (Java: http://127.0.0.1:8081; .NET: http://127.0.0.1:5081). Sign in as **alice** with password **devline-local**. Submit “Workshop materials”, EUR 240.50, with a business reason. Sign out and sign in as **bob**, using the same password. Open the request and approve it with a note. Filter the queue to Approved and inspect the history.
 
-The [readiness endpoint](http://127.0.0.1:5081/health/ready) reports the state of all four services. To stop the app and its services, use `./devline.sh stop` and `./devline.sh services down`. The service volumes retain the realm and tasks.
+Alice is a requester; Bob is an approver and can also submit requests. Nobody may decide their own request. Decisions are final, submitted amounts cannot be edited, and stale forms return a conflict instead of overwriting a decision. Both the state change and audit event are committed in one transaction. Form submissions use CSRF protection; user text is HTML-escaped.
 
-Devline passes the service endpoints and credentials to the app. On first launch it seeds a dedicated `devline-dotnet` Keycloak realm and two demo accounts. The confidential `task-board-dotnet` client uses authorization code flow with PKCE and exact login and logout callbacks. MVC forms use antiforgery tokens. Queries and writes scope tasks to the authenticated subject. The automatic demo setup is for loopback development.
+These are fixed local demonstration identities, not a user-management system. The app binds to loopback and requires no external services. Replace the demo identity provider before exposing it to a network. Data is stored in `storage/`; stop the app before backing it up. EUR values are stored as integer cents, with limits of 0.01–1,000,000.00.
 
-A task remains pending until the worker receives a broker confirmation. The worker records delivery in PostgreSQL before acknowledging the message. Retries can redeliver a message, so the delivery update is idempotent. The demo creates its schema on an empty project database at startup.
-
-For an existing realm and services, set `ConnectionStrings__Postgres`, `ConnectionStrings__RabbitMQ`, `Redis__Url`, and `Keycloak__Issuer`, `Keycloak__ClientId`, and `Keycloak__ClientSecret`. Register the app's exact `/signin-oidc` and `/signout-callback-oidc` URLs with that client. Devline uses the launch URL in its project configuration. When running directly with `dotnet run`, set `ASPNETCORE_URLS` to change the address.
-
-[ASP.NET Core OpenID Connect](https://learn.microsoft.com/aspnet/core/security/authentication/configure-oidc-web-authentication?view=aspnetcore-10.0) · [Keycloak Admin REST API](https://www.keycloak.org/docs-api/latest/rest-api/index.html) · [RabbitMQ publisher confirms](https://www.rabbitmq.com/tutorials/tutorial-seven-dotnet)
+The test launches the real server against a temporary database, submits rendered forms, verifies permissions and self-approval rules, checks invalid money and CSRF, confirms that decisions cannot change, and restarts the process to verify persistence. Java additionally tests the transactional domain service directly. Dependencies are bundled for offline builds.

@@ -1,63 +1,30 @@
-# __PROJECT_NAME__
+# Issue Desk · Node.js
 
-A Fastify Release Desk backed by eight local services, plus a standalone
-SQLite task API. The npm packages and licenses are bundled for Node.js 26+
-on macOS arm64.
-
-## Release Desk
-
-Use a running Docker engine and the pinned images for PostgreSQL, MySQL,
-RabbitMQ, Redis, SeaweedFS S3, Meilisearch, Mailpit, and NATS. Devline prepares
-missing archives when you create the starter while connected. If you create
-it offline, prepare or import the archives first. Run `./devline.sh run`
-from the generated project, or use **Run** in Devline. The app starts with the
-selected local service ports and credentials.
-
-Submit release notes.
+A local issue tracker with a Fastify API, SQLite persistence, browser dashboard, and durable event stream. Capture issues, search/filter them, progress through **open → doing → done**, reopen work, and add comments to its history.
 
 ```sh
-base=http://127.0.0.1:7481
-curl -fsS "$base/releases" -H 'Content-Type: application/json' \
-  -d '{"title":"Release Atlas","notes":"The offline build is ready."}'
+./devline.sh test
+./devline.sh run
+# Open http://127.0.0.1:7481
 ```
 
-Copy the returned ID into `id` and follow the result.
+Create an issue in the right-hand form, select its title, edit it, move to doing/done, and add a comment. Open a second browser tab to see the list update through Server-Sent Events. An editor keeps the version it opened: a stale save returns a conflict instead of overwriting another tab. **Reload issue** fetches the latest version. Restart the application to confirm the database persists.
+
+## HTTP workflow
 
 ```sh
-id=PASTE_THE_RELEASE_ID
-curl -fsS "$base/releases/$id"
+curl -s http://127.0.0.1:7481/issues -H 'Content-Type: application/json' -d '{"title":"Fix offline sync","priority":"high"}'
+curl -s 'http://127.0.0.1:7481/issues?status=open&q=sync&limit=20&offset=0'
+curl -s http://127.0.0.1:7481/issues/1/comments -H 'Content-Type: application/json' -d '{"version":1,"body":"Reproduction confirmed"}'
+curl -N 'http://127.0.0.1:7481/events/stream?after=0'
 ```
 
-Repeat the request until the status is `completed`. PostgreSQL stores the
-submission and pending dispatch. RabbitMQ delivers it to a worker. The worker
-stores the notes in SeaweedFS, indexes them in Meilisearch, writes a MySQL audit
-row, posts a notification to Mailpit, and publishes a NATS completion event.
-Refresh the status to see a Redis cache hit.
+`PUT /issues/:id` replaces title, description, priority and status using the current `version`. `GET /events?after=ID` reads persisted events in batches of 100. The SSE endpoint polls those same events once per second; a disconnected client can reconnect with its last cursor in `after`. Comments and issue changes increment the version in one SQLite transaction. Completed issues remain searchable; there is no hard-delete endpoint.
 
-```sh
-curl -fsS "$base/releases/$id/artifact"
-curl -fsS "$base/releases/$id/audit"
-curl -fsS "$base/search?q=Atlas"
-curl -fsS "$base/events"
-```
+## Persistence and structure
 
-In the project's **Services** view, open the Mailpit web inbox to read
-**Release ready: Release Atlas**. Use `./devline.sh test` to verify the app
-offline before starting the services. Use `./devline.sh services down` after
-stopping the app to stop the containers and keep their data.
+`ISSUE_DATA` defaults to `.data/issues.sqlite`. SQLite uses WAL, foreign keys, a schema version, prepared statements and immediate write transactions. For a backup, stop the app and copy the database and any `-wal`/`-shm` companions together. The built-in Node SQLite API needs Node 26+. No database service or network is needed.
 
-The worker acknowledges the job after processing. Artifact and index updates
-and audit inserts can be repeated. If processing is interrupted just after
-sending a notification or publishing an event, the retry can deliver it again.
+`repository.mjs` owns SQL and workflow rules; `app.mjs` validates HTTP input with Zod and maps errors; `server.mjs` owns startup and signal shutdown. `web/index.html` is a dependency-free operator UI. HTTP bodies are bounded at 32 KiB; SSE clients are capped at 100 and slow clients disconnected. The database operations are synchronous and intentionally small: move to an asynchronous database or worker pool for heavy queries. This is a loopback-only single-user app without authentication.
 
-## SQLite task API
-
-`./devline.sh exec node src/server.mjs` starts the standalone API at
-http://127.0.0.1:3000. POST `{"title":"Build offline"}` to `/tasks`,
-GET `/tasks`, and DELETE `/tasks/1` to try the local workflow.
-The tasks persist in `data/tasks.sqlite`. `.env.example` lists its settings.
-The default launcher also uses SQLite if the full Release Desk stack is absent.
-
-Build a new template release in Devline while connected to refresh the
-dependency set. The release recipe verifies its offline tests before
-publishing the new version.
+Tests cover API and database workflows, stale edits, invalid transitions, validation, pagination/search escaping, restart persistence, rollback and event replay. The Go and Rust examples share the core Issue Desk workflow using their own ecosystem conventions.

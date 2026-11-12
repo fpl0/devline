@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")"
-python="${DEVKIT_TOOLCHAIN:-python3}"
-"$python" -c 'import platform, sys; sys.exit(0 if sys.implementation.name == "cpython" and sys.version_info[:2] == (3, 15) and platform.system() == "Darwin" and platform.machine() == "arm64" else "Requires Apple Silicon macOS and CPython 3.15")'
-"$python" -m venv .venv
-.venv/bin/python -E -s -m pip --isolated --disable-pip-version-check --no-cache-dir install --no-index --find-links=wheelhouse --require-hashes -r requirements.txt
-exec .venv/bin/python -E -s smoke.py
+scratch=$(mktemp -d "${TMPDIR:-/tmp}/order-ledger-test.XXXXXX")
+trap 'rm -rf "$scratch"' EXIT HUP INT TERM
+./setup-offline.sh "$scratch/venv"
+export LEDGER_DATABASE="$scratch/import.sqlite3"
+"$scratch/venv/bin/python" -E -s -B smoke.py

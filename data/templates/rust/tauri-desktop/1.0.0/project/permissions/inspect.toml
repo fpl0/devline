@@ -1,4 +1,4 @@
 [[permission]]
-identifier = "allow-inspect-text"
-description = "Allow the local text inspector to return counts for supplied text."
-commands.allow = ["inspect_text"]
+identifier = "allow-notebook"
+description = "Manage notes only in Fieldnotes local application-data directory."
+commands.allow = ["list_notes", "save_note", "delete_note", "export_notebook", "import_notebook"]

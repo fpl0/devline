@@ -1,4 +1,7 @@
-category,amount_cents
-books,1200
-coffee,450
-books,800
+order_id,date,category,quantity,unit_price_cents
+S-100,2026-09-05,Books,2,1299
+S-101,2026-09-12,Stationery,5,350
+S-102,2026-10-04,Books,1,1899
+S-103,2026-10-18,Stationery,3,450
+S-104,2026-11-02,Prints,2,2400
+S-105,2026-11-06,Books,4,1299

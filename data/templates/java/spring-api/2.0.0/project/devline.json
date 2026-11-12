@@ -1,8 +1,16 @@
 {
   "schema_version": 1,
   "run": {
-    "command": ["/bin/sh", "./run.sh"],
+    "command": [
+      "/bin/sh",
+      "./run.sh"
+    ],
     "url": "http://127.0.0.1:8080",
     "health_path": "/health"
+  },
+  "test": {
+    "command": [
+      "./test-offline.sh"
+    ]
   }
 }

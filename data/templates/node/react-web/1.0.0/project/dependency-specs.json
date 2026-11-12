@@ -1,17 +1,14 @@
 [
-  "react@latest",
-  "react-dom@latest",
-  "react-router-dom@latest",
-  "@tanstack/react-query@latest",
-  "zustand@latest",
-  "zod@latest",
-  "vite@latest",
-  "typescript@latest",
-  "vitest@latest",
-  "@testing-library/react@latest",
   "@testing-library/dom@latest",
-  "happy-dom@latest",
+  "@testing-library/react@latest",
+  "@types/node@latest",
   "@types/react@latest",
   "@types/react-dom@latest",
-  "@types/node@latest"
+  "happy-dom@latest",
+  "react@latest",
+  "react-dom@latest",
+  "typescript@latest",
+  "vite@latest",
+  "vitest@latest",
+  "zod@latest"
 ]

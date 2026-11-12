@@ -1,0 +1,930 @@
+{
+  "upstream_version": "1.65.0",
+  "included_pages": [
+    {
+      "source_path": "docs/src/accessibility-testing-js.md",
+      "document_id": "accessibility-testing-js.md",
+      "source_url": "https://playwright.dev/docs/accessibility-testing",
+      "sha256": "3b56f3227dde7679b333de98547421dd077bd3351375e7811d613bcf0f43cf04"
+    },
+    {
+      "source_path": "docs/src/actionability.md",
+      "document_id": "actionability.md",
+      "source_url": "https://playwright.dev/docs/actionability",
+      "sha256": "e7c4114d0b580f193e7eb025e8f0412b3b1a22fb3149ed86952627488bbf1611"
+    },
+    {
+      "source_path": "docs/src/api-testing-js.md",
+      "document_id": "api-testing-js.md",
+      "source_url": "https://playwright.dev/docs/api-testing",
+      "sha256": "e49c7aeb7d4db7e2e782916e68b819b4ff86b6f378463e84da7a38466c06e86c"
+    },
+    {
+      "source_path": "docs/src/api/class-apirequest.md",
+      "document_id": "api/class-apirequest.md",
+      "source_url": "https://playwright.dev/docs/api/class-apirequest",
+      "sha256": "731c5c43cf0c3b6b5bd1cdce359e1165f4bfae19cdcb5697dd188f012bb34991"
+    },
+    {
+      "source_path": "docs/src/api/class-apirequestcontext.md",
+      "document_id": "api/class-apirequestcontext.md",
+      "source_url": "https://playwright.dev/docs/api/class-apirequestcontext",
+      "sha256": "1815297229d42e4d5b5bdd53eb80562a5ee6f5b1343816385689d63adfc47af4"
+    },
+    {
+      "source_path": "docs/src/api/class-apiresponse.md",
+      "document_id": "api/class-apiresponse.md",
+      "source_url": "https://playwright.dev/docs/api/class-apiresponse",
+      "sha256": "f6d9887fcf2b99a37d857a36f6c8c75db2c7f3ede351ce532a192d59b10ea3ce"
+    },
+    {
+      "source_path": "docs/src/api/class-apiresponseassertions.md",
+      "document_id": "api/class-apiresponseassertions.md",
+      "source_url": "https://playwright.dev/docs/api/class-apiresponseassertions",
+      "sha256": "a5916af995c7a7f2ddc7096000ccdd373147eed27f47ac735b399bd6a38d623f"
+    },
+    {
+      "source_path": "docs/src/api/class-browser.md",
+      "document_id": "api/class-browser.md",
+      "source_url": "https://playwright.dev/docs/api/class-browser",
+      "sha256": "fe3c45f8ec76ca2a3dad8c91583dcf0a4ecad05f0f77e8fc9c0f9ff5e391ad09"
+    },
+    {
+      "source_path": "docs/src/api/class-browsercontext.md",
+      "document_id": "api/class-browsercontext.md",
+      "source_url": "https://playwright.dev/docs/api/class-browsercontext",
+      "sha256": "b891cfabb9174d5977f2c9137b937b992e225f8d3fc85be100984fabcf9ae0da"
+    },
+    {
+      "source_path": "docs/src/api/class-browserserver.md",
+      "document_id": "api/class-browserserver.md",
+      "source_url": "https://playwright.dev/docs/api/class-browserserver",
+      "sha256": "c2e626731417cdce63b679eb3bb4b6ce777b01ab44a9ba6080878722cd5d457d"
+    },
+    {
+      "source_path": "docs/src/api/class-browsertype.md",
+      "document_id": "api/class-browsertype.md",
+      "source_url": "https://playwright.dev/docs/api/class-browsertype",
+      "sha256": "b429e69c9537cd79f4cc5362a6540cecacefcdb486e51a3e0d8785b6d94dd4fd"
+    },
+    {
+      "source_path": "docs/src/api/class-cdpsession.md",
+      "document_id": "api/class-cdpsession.md",
+      "source_url": "https://playwright.dev/docs/api/class-cdpsession",
+      "sha256": "e90fb26632916f28eb7f930e5749eefae1d976543133a4fd5be0629ae588aa94"
+    },
+    {
+      "source_path": "docs/src/api/class-clock.md",
+      "document_id": "api/class-clock.md",
+      "source_url": "https://playwright.dev/docs/api/class-clock",
+      "sha256": "b91f493839a07b50e0400d7ac1e34a6adfc9167556b641e64e814c579eb4cf9b"
+    },
+    {
+      "source_path": "docs/src/api/class-consolemessage.md",
+      "document_id": "api/class-consolemessage.md",
+      "source_url": "https://playwright.dev/docs/api/class-consolemessage",
+      "sha256": "7fd3536420c8bb961425865de4742df92c1f59e95c5fa5abce6a84a7ce16ab2e"
+    },
+    {
+      "source_path": "docs/src/api/class-coverage.md",
+      "document_id": "api/class-coverage.md",
+      "source_url": "https://playwright.dev/docs/api/class-coverage",
+      "sha256": "5bfcfe0ed10bbe2f4820d7d28e07c74054c697ddda1e4da2d49d3aeed975177c"
+    },
+    {
+      "source_path": "docs/src/api/class-credentials.md",
+      "document_id": "api/class-credentials.md",
+      "source_url": "https://playwright.dev/docs/api/class-credentials",
+      "sha256": "dbf47c8888b273ead3d3f37f808f8ee19d3d50a18c29d871274a66211e9b86de"
+    },
+    {
+      "source_path": "docs/src/api/class-debugger.md",
+      "document_id": "api/class-debugger.md",
+      "source_url": "https://playwright.dev/docs/api/class-debugger",
+      "sha256": "f0738c5c76d242d57826ad8bbbadf87d28311fc04a8a9f22b841db89cd5d7438"
+    },
+    {
+      "source_path": "docs/src/api/class-dialog.md",
+      "document_id": "api/class-dialog.md",
+      "source_url": "https://playwright.dev/docs/api/class-dialog",
+      "sha256": "6b93a4ae7ad6e7d3b0da04b46e2301c360dccd54607163c70679a70795ee1e46"
+    },
+    {
+      "source_path": "docs/src/api/class-disposable.md",
+      "document_id": "api/class-disposable.md",
+      "source_url": "https://playwright.dev/docs/api/class-disposable",
+      "sha256": "f5b7e028d3d77b7de1ec932cdf28a3934a67134c92a61c941e9ec26edaa52666"
+    },
+    {
+      "source_path": "docs/src/api/class-download.md",
+      "document_id": "api/class-download.md",
+      "source_url": "https://playwright.dev/docs/api/class-download",
+      "sha256": "fb1803f9f472c47fd7006db085d2f22ae5bf6795c27819750c56e4791de500e2"
+    },
+    {
+      "source_path": "docs/src/api/class-elementhandle.md",
+      "document_id": "api/class-elementhandle.md",
+      "source_url": "https://playwright.dev/docs/api/class-elementhandle",
+      "sha256": "cf32e66bdb51f073867785262faac3a57e9359b528a6fb727a0df5272cd0708f"
+    },
+    {
+      "source_path": "docs/src/api/class-filechooser.md",
+      "document_id": "api/class-filechooser.md",
+      "source_url": "https://playwright.dev/docs/api/class-filechooser",
+      "sha256": "05361f86afd79ba9a0e12037c008bfb7f2f06599eebc7468fe5fc4733027e9cc"
+    },
+    {
+      "source_path": "docs/src/api/class-frame.md",
+      "document_id": "api/class-frame.md",
+      "source_url": "https://playwright.dev/docs/api/class-frame",
+      "sha256": "9e3a5230f92ba9c99534b3952c54247a871c7e9f01db5a1ae6e7d613b83d55d0"
+    },
+    {
+      "source_path": "docs/src/api/class-framelocator.md",
+      "document_id": "api/class-framelocator.md",
+      "source_url": "https://playwright.dev/docs/api/class-framelocator",
+      "sha256": "adf8a9291411892b5c4fd3a517869a109483c449b92ac783ba5a35bbc8c964fd"
+    },
+    {
+      "source_path": "docs/src/api/class-genericassertions.md",
+      "document_id": "api/class-genericassertions.md",
+      "source_url": "https://playwright.dev/docs/api/class-genericassertions",
+      "sha256": "bc050717bbfd640ce8af220009157cd8958c7c882d382721b9d9d0bd1ccdcbb2"
+    },
+    {
+      "source_path": "docs/src/api/class-jshandle.md",
+      "document_id": "api/class-jshandle.md",
+      "source_url": "https://playwright.dev/docs/api/class-jshandle",
+      "sha256": "5a8fcd6531f99fe49507645641f375463a4a4a1558d0762ab3b95437c5375059"
+    },
+    {
+      "source_path": "docs/src/api/class-keyboard.md",
+      "document_id": "api/class-keyboard.md",
+      "source_url": "https://playwright.dev/docs/api/class-keyboard",
+      "sha256": "3849211e1b0fff9eddccb80287cfb5e04d92cbd43f91b42b2f5e4db1b9876837"
+    },
+    {
+      "source_path": "docs/src/api/class-locator.md",
+      "document_id": "api/class-locator.md",
+      "source_url": "https://playwright.dev/docs/api/class-locator",
+      "sha256": "86d2976688f0d3001b86c909865e266fda8a1ff456eb78eeaac5ce66ffd1efb2"
+    },
+    {
+      "source_path": "docs/src/api/class-locatorassertions.md",
+      "document_id": "api/class-locatorassertions.md",
+      "source_url": "https://playwright.dev/docs/api/class-locatorassertions",
+      "sha256": "64c64673328112b60a063d4eff3606f36cc95b03f1397ba99261426d2bdf21c0"
+    },
+    {
+      "source_path": "docs/src/api/class-logger.md",
+      "document_id": "api/class-logger.md",
+      "source_url": "https://playwright.dev/docs/api/class-logger",
+      "sha256": "b063a2b9cb76afe4526e3f824b7fd4592d0df2df7e4556e1f6d5e20066633e8a"
+    },
+    {
+      "source_path": "docs/src/api/class-mouse.md",
+      "document_id": "api/class-mouse.md",
+      "source_url": "https://playwright.dev/docs/api/class-mouse",
+      "sha256": "0d949aeab650fd0d09934bace9ada0d27f1e23412f63010389a7a604c182da66"
+    },
+    {
+      "source_path": "docs/src/api/class-page.md",
+      "document_id": "api/class-page.md",
+      "source_url": "https://playwright.dev/docs/api/class-page",
+      "sha256": "3bc2110274bff53e2ef7f76c3ed5721dca08aa3182e9b74b609fcffc36ab62e9"
+    },
+    {
+      "source_path": "docs/src/api/class-pageassertions.md",
+      "document_id": "api/class-pageassertions.md",
+      "source_url": "https://playwright.dev/docs/api/class-pageassertions",
+      "sha256": "836c43c380194bdbfe662b7c3881353489b4848cb8f3d39fa94d3c5bba5bf2ea"
+    },
+    {
+      "source_path": "docs/src/api/class-playwright.md",
+      "document_id": "api/class-playwright.md",
+      "source_url": "https://playwright.dev/docs/api/class-playwright",
+      "sha256": "efb83d07fb2a7542c87ac7cad229f1935c54c2003dad691ab3e1925a365312df"
+    },
+    {
+      "source_path": "docs/src/api/class-playwrightassertions.md",
+      "document_id": "api/class-playwrightassertions.md",
+      "source_url": "https://playwright.dev/docs/api/class-playwrightassertions",
+      "sha256": "12318efbff9b95cd768396554c6a6600afcd1732178d924c8ef11790f0b88b95"
+    },
+    {
+      "source_path": "docs/src/api/class-request.md",
+      "document_id": "api/class-request.md",
+      "source_url": "https://playwright.dev/docs/api/class-request",
+      "sha256": "f3a24b83986df7f7743960b6fc70a8df058ca9565ec04f4e3e129b2246b8bf59"
+    },
+    {
+      "source_path": "docs/src/api/class-response.md",
+      "document_id": "api/class-response.md",
+      "source_url": "https://playwright.dev/docs/api/class-response",
+      "sha256": "6ad13fec864e4847ae960753de3ed65d459986423935fa3f0c34cd5f0a0494fb"
+    },
+    {
+      "source_path": "docs/src/api/class-route.md",
+      "document_id": "api/class-route.md",
+      "source_url": "https://playwright.dev/docs/api/class-route",
+      "sha256": "c5fe466df10e3a7e6a8e2dbfce542d24d23cfe44f9bd805afab86612c1ef6f4a"
+    },
+    {
+      "source_path": "docs/src/api/class-screencast.md",
+      "document_id": "api/class-screencast.md",
+      "source_url": "https://playwright.dev/docs/api/class-screencast",
+      "sha256": "6846a0637fcd8ee63d55ed702e83030b4f3bfc61fc08a3aee8e6897914660d85"
+    },
+    {
+      "source_path": "docs/src/api/class-selectors.md",
+      "document_id": "api/class-selectors.md",
+      "source_url": "https://playwright.dev/docs/api/class-selectors",
+      "sha256": "8d8728fae39f6960c7fbb13d79f8b3c8f1e5d8aff0c50555393d493ec245f46f"
+    },
+    {
+      "source_path": "docs/src/api/class-snapshotassertions.md",
+      "document_id": "api/class-snapshotassertions.md",
+      "source_url": "https://playwright.dev/docs/api/class-snapshotassertions",
+      "sha256": "dad4cb1aefc73705e9ee8efbd8e0add166c8b87e462d126b6046e44d52935b8f"
+    },
+    {
+      "source_path": "docs/src/api/class-timeouterror.md",
+      "document_id": "api/class-timeouterror.md",
+      "source_url": "https://playwright.dev/docs/api/class-timeouterror",
+      "sha256": "989321cd7f895c3976286d9c0194835d7ab94110e3e1d0f34ddc577c5067a90f"
+    },
+    {
+      "source_path": "docs/src/api/class-touchscreen.md",
+      "document_id": "api/class-touchscreen.md",
+      "source_url": "https://playwright.dev/docs/api/class-touchscreen",
+      "sha256": "dce06e4dfe607872a3a7a63de51d36e6b5afac1a6a1ac275d13fb1e675073519"
+    },
+    {
+      "source_path": "docs/src/api/class-tracing.md",
+      "document_id": "api/class-tracing.md",
+      "source_url": "https://playwright.dev/docs/api/class-tracing",
+      "sha256": "0338736ca94874e6ddf20056d94716f16410035690f44f4b4155fc3b8cf2a80e"
+    },
+    {
+      "source_path": "docs/src/api/class-video.md",
+      "document_id": "api/class-video.md",
+      "source_url": "https://playwright.dev/docs/api/class-video",
+      "sha256": "abebefe8572fd88aaf9bd320506589f2596a7e4a71cb647b0e7077657d45fde8"
+    },
+    {
+      "source_path": "docs/src/api/class-weberror.md",
+      "document_id": "api/class-weberror.md",
+      "source_url": "https://playwright.dev/docs/api/class-weberror",
+      "sha256": "9fb88f9485093ce8fdb318f0580913850303075a82eb0573780060d1acb8b021"
+    },
+    {
+      "source_path": "docs/src/api/class-webmcp.md",
+      "document_id": "api/class-webmcp.md",
+      "source_url": "https://playwright.dev/docs/api/class-webmcp",
+      "sha256": "9e151a1c3ac840a6d4caba77afe9727fdd003c7a0ab094576ee5b58486408358"
+    },
+    {
+      "source_path": "docs/src/api/class-websocket.md",
+      "document_id": "api/class-websocket.md",
+      "source_url": "https://playwright.dev/docs/api/class-websocket",
+      "sha256": "c51b74de4b6f8d3328618fc371bcbc0c80be684e6d012fe604175ccdf3271713"
+    },
+    {
+      "source_path": "docs/src/api/class-websocketroute.md",
+      "document_id": "api/class-websocketroute.md",
+      "source_url": "https://playwright.dev/docs/api/class-websocketroute",
+      "sha256": "056f6f5d0c49700e970b7001bbd320b49d5acae23c6f19497364d09b85e2c867"
+    },
+    {
+      "source_path": "docs/src/api/class-webstorage.md",
+      "document_id": "api/class-webstorage.md",
+      "source_url": "https://playwright.dev/docs/api/class-webstorage",
+      "sha256": "8a4c7148d5b2666a8b981110ed061872fda8f34b000070412cc3ff564a4b5003"
+    },
+    {
+      "source_path": "docs/src/api/class-worker.md",
+      "document_id": "api/class-worker.md",
+      "source_url": "https://playwright.dev/docs/api/class-worker",
+      "sha256": "8ee9700e222075f7f9089c0016f9ab8378dd80bf763a2fd3e41688dfadb17a18"
+    },
+    {
+      "source_path": "docs/src/aria-snapshots.md",
+      "document_id": "aria-snapshots.md",
+      "source_url": "https://playwright.dev/docs/aria-snapshots",
+      "sha256": "7127ae6367effc6f0c54aefa5e8869bc2247c2e8f77efbed158d4b40fcf09669"
+    },
+    {
+      "source_path": "docs/src/auth.md",
+      "document_id": "auth.md",
+      "source_url": "https://playwright.dev/docs/auth",
+      "sha256": "664a3b2cbe5d029b1e73cb37244d91036caa9389d4516365490320f0a6988d00"
+    },
+    {
+      "source_path": "docs/src/best-practices-js.md",
+      "document_id": "best-practices-js.md",
+      "source_url": "https://playwright.dev/docs/best-practices",
+      "sha256": "785e6244815ed457ceb0a9109e0ead34a114fd89b09c0689174a5b421eed8512"
+    },
+    {
+      "source_path": "docs/src/browser-contexts.md",
+      "document_id": "browser-contexts.md",
+      "source_url": "https://playwright.dev/docs/browser-contexts",
+      "sha256": "f9e36e74a5173fcd48a2ca22d4ee957f050b2e09c3e9b57887070efc43198b15"
+    },
+    {
+      "source_path": "docs/src/browsers.md",
+      "document_id": "browsers.md",
+      "source_url": "https://playwright.dev/docs/browsers",
+      "sha256": "5ced381f22f3c8017688150d0a09849192f2ae65dea6d98d77c57726d6f55e8b"
+    },
+    {
+      "source_path": "docs/src/canary-releases-js.md",
+      "document_id": "canary-releases-js.md",
+      "source_url": "https://playwright.dev/docs/canary-releases",
+      "sha256": "3fa1d7a334a1a9a0fea37fcbb4d4b0ba66be8b85707476c3ed69c29752110dc6"
+    },
+    {
+      "source_path": "docs/src/chrome-extensions-js-python.md",
+      "document_id": "chrome-extensions-js-python.md",
+      "source_url": "https://playwright.dev/docs/chrome-extensions",
+      "sha256": "e3ca84135587aa3c82c06385cbfb9b5aad107b899e695db59790d3f9ac3cc4b4"
+    },
+    {
+      "source_path": "docs/src/ci-intro.md",
+      "document_id": "ci-intro.md",
+      "source_url": "https://playwright.dev/docs/ci-intro",
+      "sha256": "8e6a8a4201418287881e3974d2a4ef931b7c6b0f62bda7ac5585e819041a1e86"
+    },
+    {
+      "source_path": "docs/src/ci.md",
+      "document_id": "ci.md",
+      "source_url": "https://playwright.dev/docs/ci",
+      "sha256": "eb7eb62df3e460de3461864722a840d6c2747dee9e6ab3d9016e15c9e2540e11"
+    },
+    {
+      "source_path": "docs/src/clock.md",
+      "document_id": "clock.md",
+      "source_url": "https://playwright.dev/docs/clock",
+      "sha256": "ce11a50884473a03501daec7927b14d2fdaf59b48e32f7a0a6a4bf6e492bfb1f"
+    },
+    {
+      "source_path": "docs/src/codegen-intro.md",
+      "document_id": "codegen-intro.md",
+      "source_url": "https://playwright.dev/docs/codegen-intro",
+      "sha256": "71cf44406b33909e4b0c2f67fff78de7ce2f671a75c9461105505bb0b3fd3d4b"
+    },
+    {
+      "source_path": "docs/src/codegen.md",
+      "document_id": "codegen.md",
+      "source_url": "https://playwright.dev/docs/codegen",
+      "sha256": "8c414f05a5aa5ce3ac02cc5a07404e9915f82ab62b71eb09bc45e29a336b15d5"
+    },
+    {
+      "source_path": "docs/src/debug.md",
+      "document_id": "debug.md",
+      "source_url": "https://playwright.dev/docs/debug",
+      "sha256": "25f2eb0d0f88361ec84a5d6d9cc6f7c056f3c7d228a5bfe1931aee4f97a83885"
+    },
+    {
+      "source_path": "docs/src/dialogs.md",
+      "document_id": "dialogs.md",
+      "source_url": "https://playwright.dev/docs/dialogs",
+      "sha256": "8170d3f37c517373d0ef60e2625989cf03bb14a63a979babd75531a9bc6d9921"
+    },
+    {
+      "source_path": "docs/src/docker.md",
+      "document_id": "docker.md",
+      "source_url": "https://playwright.dev/docs/docker",
+      "sha256": "2e14e6d6f6bbe9708bea90a1b7ff59223d8f405affebd71da88ff024b99aeed5"
+    },
+    {
+      "source_path": "docs/src/downloads.md",
+      "document_id": "downloads.md",
+      "source_url": "https://playwright.dev/docs/downloads",
+      "sha256": "b6142bc2eedd26a35f13a7c32ca6922d134e4cdf6405a9fef6bef7d2edec8cb1"
+    },
+    {
+      "source_path": "docs/src/electron-api/class-electron.md",
+      "document_id": "electron-api/class-electron.md",
+      "source_url": "https://playwright.dev/docs/api/class-electron",
+      "sha256": "cb2df6b68d90c28a18d34163f53af4558c2aacf1fd9ec932f1e157b7ea702b00"
+    },
+    {
+      "source_path": "docs/src/electron-api/class-electronapplication.md",
+      "document_id": "electron-api/class-electronapplication.md",
+      "source_url": "https://playwright.dev/docs/api/class-electronapplication",
+      "sha256": "6799ac5bc5db807ec5dbcf2c0670713991ba3a9b9a31c46d6c279539781f1854"
+    },
+    {
+      "source_path": "docs/src/emulation.md",
+      "document_id": "emulation.md",
+      "source_url": "https://playwright.dev/docs/emulation",
+      "sha256": "05229eed1f716e5e9033bb485b09ef835217b62e6741cd3c34cc8e877acd1f10"
+    },
+    {
+      "source_path": "docs/src/evaluating.md",
+      "document_id": "evaluating.md",
+      "source_url": "https://playwright.dev/docs/evaluating",
+      "sha256": "e34560d43e4f43e9b0923023ca967fd8734063aa51140c4c76f7ed34505363ba"
+    },
+    {
+      "source_path": "docs/src/events.md",
+      "document_id": "events.md",
+      "source_url": "https://playwright.dev/docs/events",
+      "sha256": "226e76d09aeab3866246df8dc5c72e5051ee85cbd8355c3be7ae5c81cdeded1d"
+    },
+    {
+      "source_path": "docs/src/extensibility.md",
+      "document_id": "extensibility.md",
+      "source_url": "https://playwright.dev/docs/extensibility",
+      "sha256": "5eb868ca47097a8cc075c3bdf88a66fb3f6f051310581b9cfc1fba90243bc54f"
+    },
+    {
+      "source_path": "docs/src/frames.md",
+      "document_id": "frames.md",
+      "source_url": "https://playwright.dev/docs/frames",
+      "sha256": "7bc7f9753e70d82ef93a228dced0042d67a3115504a3d0babb61e2d11a29f5e9"
+    },
+    {
+      "source_path": "docs/src/getting-started-cli.md",
+      "document_id": "getting-started-cli.md",
+      "source_url": "https://playwright.dev/docs/getting-started-cli",
+      "sha256": "9f95642833854e88b453ff10f4b98a4873f1cd4854876b5a61b06e6da65f3b3b"
+    },
+    {
+      "source_path": "docs/src/getting-started-mcp.md",
+      "document_id": "getting-started-mcp.md",
+      "source_url": "https://playwright.dev/docs/getting-started-mcp",
+      "sha256": "c880e6ef829e509809af43ded25b9175c2d77da39250b9a620c4d201d8b934a6"
+    },
+    {
+      "source_path": "docs/src/getting-started-vscode-js.md",
+      "document_id": "getting-started-vscode-js.md",
+      "source_url": "https://playwright.dev/docs/getting-started-vscode",
+      "sha256": "6770f1308aaab8d41dcb86a07fe7aee39a07344b836808a2fdf98cfc86ed28b6"
+    },
+    {
+      "source_path": "docs/src/handles.md",
+      "document_id": "handles.md",
+      "source_url": "https://playwright.dev/docs/handles",
+      "sha256": "272af05226bf52076d5c40031b268900cc47cab16d46bdc45f47020862f4b3f8"
+    },
+    {
+      "source_path": "docs/src/input.md",
+      "document_id": "input.md",
+      "source_url": "https://playwright.dev/docs/input",
+      "sha256": "29910a29f6e96e957cca5e8c45a81bd5cebfa47fc99040752a41b4f73fd853df"
+    },
+    {
+      "source_path": "docs/src/intro-js.md",
+      "document_id": "intro-js.md",
+      "source_url": "https://playwright.dev/docs/intro",
+      "sha256": "4c932f4316b8791191e5a17404dae5c4b7dc1d38c0479883157264ddd91ff9ae"
+    },
+    {
+      "source_path": "docs/src/languages.md",
+      "document_id": "languages.md",
+      "source_url": "https://playwright.dev/docs/languages",
+      "sha256": "a80397103c7e1406cee2e4ad5ce6e14988c1b8e24d85bb6275f13586a03287da"
+    },
+    {
+      "source_path": "docs/src/library-js.md",
+      "document_id": "library-js.md",
+      "source_url": "https://playwright.dev/docs/library",
+      "sha256": "65f82c2664c337b788b6863fb087c56e4fdc0b6b0f1bdcb513cced0975b49a7e"
+    },
+    {
+      "source_path": "docs/src/locators.md",
+      "document_id": "locators.md",
+      "source_url": "https://playwright.dev/docs/locators",
+      "sha256": "ca8a0035dc87cf97385ff372b920da11c93abaffc3558f341a36ddb4f27dbae7"
+    },
+    {
+      "source_path": "docs/src/mobile-api/class-android.md",
+      "document_id": "mobile-api/class-android.md",
+      "source_url": "https://playwright.dev/docs/api/class-android",
+      "sha256": "cbdda49e6c26cf3a14809d4e3cd54e44821fcf06c8652242a3c9a505e899fbdc"
+    },
+    {
+      "source_path": "docs/src/mobile-api/class-androiddevice.md",
+      "document_id": "mobile-api/class-androiddevice.md",
+      "source_url": "https://playwright.dev/docs/api/class-androiddevice",
+      "sha256": "b7bcaba2ff5fb9fb19eb791f9bba1cb2f17aedc60e0492d35d7c7be6487725cc"
+    },
+    {
+      "source_path": "docs/src/mobile-api/class-androidinput.md",
+      "document_id": "mobile-api/class-androidinput.md",
+      "source_url": "https://playwright.dev/docs/api/class-androidinput",
+      "sha256": "fa71408a2ec474ee191f0754f12a3558f71fec78dbbe1b8656b2b5accac9b1bc"
+    },
+    {
+      "source_path": "docs/src/mobile-api/class-androidsocket.md",
+      "document_id": "mobile-api/class-androidsocket.md",
+      "source_url": "https://playwright.dev/docs/api/class-androidsocket",
+      "sha256": "786ecc87e9c75b472a2c5f71af49e5f24e8f62798aeaa464170a1ead83a05a36"
+    },
+    {
+      "source_path": "docs/src/mobile-api/class-androidwebview.md",
+      "document_id": "mobile-api/class-androidwebview.md",
+      "source_url": "https://playwright.dev/docs/api/class-androidwebview",
+      "sha256": "31e509ad8eda03a42cf377e9b0e0a947f83d91fdfbf30451a843fa77a2fda9c2"
+    },
+    {
+      "source_path": "docs/src/mock-browser-js.md",
+      "document_id": "mock-browser-js.md",
+      "source_url": "https://playwright.dev/docs/mock-browser-apis",
+      "sha256": "ee1087bd99f3378c6d88978090ac7af53f68e15a30a9d46ff4c87b7eb1639781"
+    },
+    {
+      "source_path": "docs/src/mock.md",
+      "document_id": "mock.md",
+      "source_url": "https://playwright.dev/docs/mock",
+      "sha256": "08639202db2d79abb6e4b3fcdadb0af9e65dc5610fd37689549e57b7df7b9987"
+    },
+    {
+      "source_path": "docs/src/navigations.md",
+      "document_id": "navigations.md",
+      "source_url": "https://playwright.dev/docs/navigations",
+      "sha256": "873cb12b3ea50d103235792cf4a302b50d4e9baddad092b7ac2dd036ce09d16e"
+    },
+    {
+      "source_path": "docs/src/network.md",
+      "document_id": "network.md",
+      "source_url": "https://playwright.dev/docs/network",
+      "sha256": "7cfb81c165a66d3e9c6b60e45e0bf998387a6b2242a59a8d9b7d5b08c21918aa"
+    },
+    {
+      "source_path": "docs/src/other-locators.md",
+      "document_id": "other-locators.md",
+      "source_url": "https://playwright.dev/docs/other-locators",
+      "sha256": "274c91bd56bfb7f74460398392670d3b7dd2213b6a0e22774c831d54bd4acc8d"
+    },
+    {
+      "source_path": "docs/src/pages.md",
+      "document_id": "pages.md",
+      "source_url": "https://playwright.dev/docs/pages",
+      "sha256": "dc9bf164e8b8f33ee6317088939a076c6fa7f57ea08af7ced923d1891d98073a"
+    },
+    {
+      "source_path": "docs/src/pom.md",
+      "document_id": "pom.md",
+      "source_url": "https://playwright.dev/docs/pom",
+      "sha256": "7bb31051e10731a139ed27e931066da44f8df51c33f358010f706b49d29578e6"
+    },
+    {
+      "source_path": "docs/src/protractor-js.md",
+      "document_id": "protractor-js.md",
+      "source_url": "https://playwright.dev/docs/protractor",
+      "sha256": "374cf6fcfd1f3847c5758b7156218c501a4b75bd5378c7affc01cf545c9f0175"
+    },
+    {
+      "source_path": "docs/src/puppeteer-js.md",
+      "document_id": "puppeteer-js.md",
+      "source_url": "https://playwright.dev/docs/puppeteer",
+      "sha256": "305d39582a6981853542c148795aa06cdcfaf000bc154bca19db0c02e576e46a"
+    },
+    {
+      "source_path": "docs/src/release-notes-js.md",
+      "document_id": "release-notes-js.md",
+      "source_url": "https://playwright.dev/docs/release-notes",
+      "sha256": "746ba1194888b2ad7ba40252c0ec9a3ec4108755750104b4994b9369ccdb821a"
+    },
+    {
+      "source_path": "docs/src/running-tests-js.md",
+      "document_id": "running-tests-js.md",
+      "source_url": "https://playwright.dev/docs/running-tests",
+      "sha256": "b69da034ccb90e30209aadf66a5aec7d81e527d924969006c38068e24b523fc1"
+    },
+    {
+      "source_path": "docs/src/screenshots.md",
+      "document_id": "screenshots.md",
+      "source_url": "https://playwright.dev/docs/screenshots",
+      "sha256": "02ff36d89081eaf600b5988ff3b23e2f2723fb6c5e58cc14ea09d9f29b307188"
+    },
+    {
+      "source_path": "docs/src/selenium-grid.md",
+      "document_id": "selenium-grid.md",
+      "source_url": "https://playwright.dev/docs/selenium-grid",
+      "sha256": "d93b67b50c4e6356ccc0cca6e4271d29e2e5bd54eef3f960234a1e20d3b59b3e"
+    },
+    {
+      "source_path": "docs/src/service-workers-js-python.md",
+      "document_id": "service-workers-js-python.md",
+      "source_url": "https://playwright.dev/docs/service-workers",
+      "sha256": "942585eed1ed14bd4a9c1f53213e20c808263f73a16eec3b34196cb81fe83a1d"
+    },
+    {
+      "source_path": "docs/src/test-agents-js.md",
+      "document_id": "test-agents-js.md",
+      "source_url": "https://playwright.dev/docs/test-agents",
+      "sha256": "2b5402f3da8d406d9b64af73515bede11386a2b93912f899fed6360130011094"
+    },
+    {
+      "source_path": "docs/src/test-annotations-js.md",
+      "document_id": "test-annotations-js.md",
+      "source_url": "https://playwright.dev/docs/test-annotations",
+      "sha256": "07f8524c4d7c7a29f8dc631f2220eef8375475f10857097a210105ba2e8b3404"
+    },
+    {
+      "source_path": "docs/src/test-api/class-fixtures.md",
+      "document_id": "test-api/class-fixtures.md",
+      "source_url": "https://playwright.dev/docs/api/class-fixtures",
+      "sha256": "05a08fda72375e6cee4eae30a01afa154f9841c49328b94022ffb4e644adcbb3"
+    },
+    {
+      "source_path": "docs/src/test-api/class-fullconfig.md",
+      "document_id": "test-api/class-fullconfig.md",
+      "source_url": "https://playwright.dev/docs/api/class-fullconfig",
+      "sha256": "f62f44d70234641e82bc095077c3361f70386db17fd5f40bb023301d79e1bfb0"
+    },
+    {
+      "source_path": "docs/src/test-api/class-fullproject.md",
+      "document_id": "test-api/class-fullproject.md",
+      "source_url": "https://playwright.dev/docs/api/class-fullproject",
+      "sha256": "aca42c263458998258805de05aa86a9592405dce8306fdfe19c141c87b55b0d4"
+    },
+    {
+      "source_path": "docs/src/test-api/class-location.md",
+      "document_id": "test-api/class-location.md",
+      "source_url": "https://playwright.dev/docs/api/class-location",
+      "sha256": "06a07d9be32cdd36540b7d02c91a2ffb8f61ad2f5cf441a841db468dac6b3edd"
+    },
+    {
+      "source_path": "docs/src/test-api/class-test.md",
+      "document_id": "test-api/class-test.md",
+      "source_url": "https://playwright.dev/docs/api/class-test",
+      "sha256": "baed3368b07839ecaa9e86809ed94eb96b58041787b9938295651968b59164b1"
+    },
+    {
+      "source_path": "docs/src/test-api/class-testconfig.md",
+      "document_id": "test-api/class-testconfig.md",
+      "source_url": "https://playwright.dev/docs/api/class-testconfig",
+      "sha256": "9f19129aed6f5914bbc7497d8c06bc71cadbc8b933bc679548728c3a6206951f"
+    },
+    {
+      "source_path": "docs/src/test-api/class-testinfo.md",
+      "document_id": "test-api/class-testinfo.md",
+      "source_url": "https://playwright.dev/docs/api/class-testinfo",
+      "sha256": "03b3e49b8f4985f9d80d1fe65d6178728b3ed9587c2787237306bd2836bf85f2"
+    },
+    {
+      "source_path": "docs/src/test-api/class-testinfoerror.md",
+      "document_id": "test-api/class-testinfoerror.md",
+      "source_url": "https://playwright.dev/docs/api/class-testinfoerror",
+      "sha256": "a72e085eb9e61855847b25f669b31f8117f31986d6518c13f2384d3761e3b0e1"
+    },
+    {
+      "source_path": "docs/src/test-api/class-testoptions.md",
+      "document_id": "test-api/class-testoptions.md",
+      "source_url": "https://playwright.dev/docs/api/class-testoptions",
+      "sha256": "c6e426053afc9ac47d2c26868875e267793d4ad847939423d9a491a611815edb"
+    },
+    {
+      "source_path": "docs/src/test-api/class-testproject.md",
+      "document_id": "test-api/class-testproject.md",
+      "source_url": "https://playwright.dev/docs/api/class-testproject",
+      "sha256": "4e2e97435621b12ae758f9deee37b5f50dbc03dd0393cc5b1745c91082376fa1"
+    },
+    {
+      "source_path": "docs/src/test-api/class-teststepinfo.md",
+      "document_id": "test-api/class-teststepinfo.md",
+      "source_url": "https://playwright.dev/docs/api/class-teststepinfo",
+      "sha256": "2357bc2a97ef18d514118b18148c40c1048689a08c783007fa3ef0a908167c38"
+    },
+    {
+      "source_path": "docs/src/test-api/class-workerinfo.md",
+      "document_id": "test-api/class-workerinfo.md",
+      "source_url": "https://playwright.dev/docs/api/class-workerinfo",
+      "sha256": "49dbb9e4f6bbf91639c9c5724d1157b4f82811abff2b3fd7288afe59f521e25a"
+    },
+    {
+      "source_path": "docs/src/test-assertions-js.md",
+      "document_id": "test-assertions-js.md",
+      "source_url": "https://playwright.dev/docs/test-assertions",
+      "sha256": "8382d203062b407ffc157abdb5e0fe4e140b1caf8f36fb7d97c619c7e8ebdc2f"
+    },
+    {
+      "source_path": "docs/src/test-cli-js.md",
+      "document_id": "test-cli-js.md",
+      "source_url": "https://playwright.dev/docs/test-cli",
+      "sha256": "9c57f83de96192f4342fe1be2e4632e32cb9d8b72ed9d6b2c0abf5978525a5c5"
+    },
+    {
+      "source_path": "docs/src/test-components-js.md",
+      "document_id": "test-components-js.md",
+      "source_url": "https://playwright.dev/docs/test-components",
+      "sha256": "666a1811607bfcdafcaea48c4b6b6fac6e3e94502841e386af719b53031bec61"
+    },
+    {
+      "source_path": "docs/src/test-configuration-js.md",
+      "document_id": "test-configuration-js.md",
+      "source_url": "https://playwright.dev/docs/test-configuration",
+      "sha256": "d0784aaf5925958911b42eb1dd8a2c4f6148292d8260de97ec4ee1ba30720f41"
+    },
+    {
+      "source_path": "docs/src/test-fixtures-js.md",
+      "document_id": "test-fixtures-js.md",
+      "source_url": "https://playwright.dev/docs/test-fixtures",
+      "sha256": "15d144de3bab5c34b884daa7a0917277689f9b3e1df1f5f181c0b6b11361d0ba"
+    },
+    {
+      "source_path": "docs/src/test-global-setup-teardown-js.md",
+      "document_id": "test-global-setup-teardown-js.md",
+      "source_url": "https://playwright.dev/docs/test-global-setup-teardown",
+      "sha256": "98739f6c759fd845538b094ebb2d9ab368e59aed367a0653399cfad6ba7d064f"
+    },
+    {
+      "source_path": "docs/src/test-parallel-js.md",
+      "document_id": "test-parallel-js.md",
+      "source_url": "https://playwright.dev/docs/test-parallel",
+      "sha256": "90666158829a55fffa450a1b7c087b1539087ca55bc0378514f5f074898acac3"
+    },
+    {
+      "source_path": "docs/src/test-parameterize-js.md",
+      "document_id": "test-parameterize-js.md",
+      "source_url": "https://playwright.dev/docs/test-parameterize",
+      "sha256": "0828903917390bb67b2b6dd31620736cd78515b87343ceb4f24dbc7d0cbb38d8"
+    },
+    {
+      "source_path": "docs/src/test-projects-js.md",
+      "document_id": "test-projects-js.md",
+      "source_url": "https://playwright.dev/docs/test-projects",
+      "sha256": "e8baf0a92db8a7d37668a51d52caecb1be9e2d03ce253a90744dcce4779419d4"
+    },
+    {
+      "source_path": "docs/src/test-reporter-api/class-reporter.md",
+      "document_id": "test-reporter-api/class-reporter.md",
+      "source_url": "https://playwright.dev/docs/api/class-reporter",
+      "sha256": "d299b2ec6ab5e57a8f9ceb119803728dd8bcd7f1914cf73b9c0d4cebc7c283d9"
+    },
+    {
+      "source_path": "docs/src/test-reporter-api/class-suite.md",
+      "document_id": "test-reporter-api/class-suite.md",
+      "source_url": "https://playwright.dev/docs/api/class-suite",
+      "sha256": "27de39e4c28ff8134d39e31ec7251bebaef74372e04b4689970c671481c94ee5"
+    },
+    {
+      "source_path": "docs/src/test-reporter-api/class-testcase.md",
+      "document_id": "test-reporter-api/class-testcase.md",
+      "source_url": "https://playwright.dev/docs/api/class-testcase",
+      "sha256": "dfb635223776824626bd354c72a9bbb85b4a70040f4c511b558f76f6cbced1c4"
+    },
+    {
+      "source_path": "docs/src/test-reporter-api/class-testerror.md",
+      "document_id": "test-reporter-api/class-testerror.md",
+      "source_url": "https://playwright.dev/docs/api/class-testerror",
+      "sha256": "8b4fb3f06115684568d69da2eb0be6c1c181bcf6e6635aa85d41dbc7c42e51ec"
+    },
+    {
+      "source_path": "docs/src/test-reporter-api/class-testresult.md",
+      "document_id": "test-reporter-api/class-testresult.md",
+      "source_url": "https://playwright.dev/docs/api/class-testresult",
+      "sha256": "10e3e4b2f5c3d0ae5839e647664e25994873c99686091ce0e0fbbe865e9736e8"
+    },
+    {
+      "source_path": "docs/src/test-reporter-api/class-testrun.md",
+      "document_id": "test-reporter-api/class-testrun.md",
+      "source_url": "https://playwright.dev/docs/api/class-testrun",
+      "sha256": "86e357cfe9f580988f116b8e1f8fe78c1d9bc29e83e68f0ab1509531005162c9"
+    },
+    {
+      "source_path": "docs/src/test-reporter-api/class-teststep.md",
+      "document_id": "test-reporter-api/class-teststep.md",
+      "source_url": "https://playwright.dev/docs/api/class-teststep",
+      "sha256": "d95dc5e7d73ecce807d4f74db07dac90dc0869533b4558562feec5f60cc1c19b"
+    },
+    {
+      "source_path": "docs/src/test-reporters-js.md",
+      "document_id": "test-reporters-js.md",
+      "source_url": "https://playwright.dev/docs/test-reporters",
+      "sha256": "1fa5ea724bd3b08b2fbcd1b772f3f34fbf1ffa65ae68c51e1b659bde474bd3a1"
+    },
+    {
+      "source_path": "docs/src/test-retries-js.md",
+      "document_id": "test-retries-js.md",
+      "source_url": "https://playwright.dev/docs/test-retries",
+      "sha256": "073b8a570b80e54a11f73a4277fc8b5d8b966aafbde3bba66cf8e48afe0e30d0"
+    },
+    {
+      "source_path": "docs/src/test-sharding-js.md",
+      "document_id": "test-sharding-js.md",
+      "source_url": "https://playwright.dev/docs/test-sharding",
+      "sha256": "f9b1c3e3e4235f02a2109df9afc43128e1b07ce18e81aefe167b3350df30d4f8"
+    },
+    {
+      "source_path": "docs/src/test-snapshots-js.md",
+      "document_id": "test-snapshots-js.md",
+      "source_url": "https://playwright.dev/docs/test-snapshots",
+      "sha256": "5fb8e631fcffe377ad12dec119a60ba0a66e63d89540dcd98f3fe85863362fb4"
+    },
+    {
+      "source_path": "docs/src/test-timeouts-js.md",
+      "document_id": "test-timeouts-js.md",
+      "source_url": "https://playwright.dev/docs/test-timeouts",
+      "sha256": "fcf2676e9e5c5608be4e2923e98ae473c416b016472453997a78edee4a8f11c3"
+    },
+    {
+      "source_path": "docs/src/test-typescript-js.md",
+      "document_id": "test-typescript-js.md",
+      "source_url": "https://playwright.dev/docs/test-typescript",
+      "sha256": "bcaaf3b1cdcc7aa05f7f9943de77ef7aab988154982722eba2d761aff8ec0ff8"
+    },
+    {
+      "source_path": "docs/src/test-ui-mode-js.md",
+      "document_id": "test-ui-mode-js.md",
+      "source_url": "https://playwright.dev/docs/test-ui-mode",
+      "sha256": "a755bb1bd69c632160efea4d6622efe88684716d10715aee598bca5a935ca5ee"
+    },
+    {
+      "source_path": "docs/src/test-use-options-js.md",
+      "document_id": "test-use-options-js.md",
+      "source_url": "https://playwright.dev/docs/test-use-options",
+      "sha256": "c6cd9543217ed008c0edb9ef9726d098d74b4bf8d38a8e5decec641e874224b3"
+    },
+    {
+      "source_path": "docs/src/test-webserver-js.md",
+      "document_id": "test-webserver-js.md",
+      "source_url": "https://playwright.dev/docs/test-webserver",
+      "sha256": "ef4ebf44402ce355f618bdf885fa067da801f6efe28d2ec6a4635a6d6a8efbe5"
+    },
+    {
+      "source_path": "docs/src/testing-library-js.md",
+      "document_id": "testing-library-js.md",
+      "source_url": "https://playwright.dev/docs/testing-library",
+      "sha256": "8abe04f97e36f86772154a94202e2d91a5e73ea05fa2e4787008bf96b4f9aca4"
+    },
+    {
+      "source_path": "docs/src/touch-events.md",
+      "document_id": "touch-events.md",
+      "source_url": "https://playwright.dev/docs/touch-events",
+      "sha256": "446c652b0d0285a75eb1b3fb2fb72f9d7b2e0911c9a97d7e8052c3ff1d197cad"
+    },
+    {
+      "source_path": "docs/src/trace-viewer-intro-js.md",
+      "document_id": "trace-viewer-intro-js.md",
+      "source_url": "https://playwright.dev/docs/trace-viewer-intro",
+      "sha256": "3558137fba5f44755041f0e6fb4be60a8598803cf32356d3a9bf903fd8256a12"
+    },
+    {
+      "source_path": "docs/src/trace-viewer.md",
+      "document_id": "trace-viewer.md",
+      "source_url": "https://playwright.dev/docs/trace-viewer",
+      "sha256": "97ad70245f1e52e37c31dcad53667a7022bd8bfbf3d3cec8dbf24acabba69d3c"
+    },
+    {
+      "source_path": "docs/src/videos.md",
+      "document_id": "videos.md",
+      "source_url": "https://playwright.dev/docs/videos",
+      "sha256": "4635267588ff6ab31807cec94cb9fc71874595d04ca9640b3648d2f5fe804555"
+    },
+    {
+      "source_path": "docs/src/webview2.md",
+      "document_id": "webview2.md",
+      "source_url": "https://playwright.dev/docs/webview2",
+      "sha256": "26e1486887059c1c20ef1400a8e05fb7deff26141e2546248c638f787bfbb5db"
+    },
+    {
+      "source_path": "docs/src/writing-tests-js.md",
+      "document_id": "writing-tests-js.md",
+      "source_url": "https://playwright.dev/docs/writing-tests",
+      "sha256": "31f6cb883de4d031b5717572e05c3bee6542625acc6aa5e9398fd51e259ad92c"
+    }
+  ],
+  "omitted_non_javascript_api_pages": [
+    "docs/src/api/class-cdpsessionevent.md",
+    "docs/src/api/class-error.md",
+    "docs/src/api/class-formdata.md",
+    "docs/src/api/class-playwrightexception.md",
+    "docs/src/api/class-requestoptions.md",
+    "docs/src/api/class-websocketframe.md"
+  ],
+  "omitted_other_language_guide_pages": [
+    "docs/src/accessibility-testing-java.md",
+    "docs/src/api-testing-csharp.md",
+    "docs/src/api-testing-java.md",
+    "docs/src/api-testing-python.md",
+    "docs/src/intro-csharp.md",
+    "docs/src/intro-java.md",
+    "docs/src/intro-python.md",
+    "docs/src/junit-java.md",
+    "docs/src/library-csharp.md",
+    "docs/src/library-python.md",
+    "docs/src/release-notes-csharp.md",
+    "docs/src/release-notes-java.md",
+    "docs/src/release-notes-python.md",
+    "docs/src/running-tests-csharp.md",
+    "docs/src/running-tests-java.md",
+    "docs/src/running-tests-python.md",
+    "docs/src/test-assertions-csharp-java-python.md",
+    "docs/src/test-runners-csharp.md",
+    "docs/src/test-runners-java.md",
+    "docs/src/test-runners-python.md",
+    "docs/src/threading-java.md",
+    "docs/src/trace-viewer-intro-csharp.md",
+    "docs/src/trace-viewer-intro-java-python.md",
+    "docs/src/writing-tests-csharp.md",
+    "docs/src/writing-tests-java.md",
+    "docs/src/writing-tests-python.md"
+  ],
+  "selection": "All docs/src root guides applicable to JavaScript and all JavaScript API class pages across the five publisher API directories."
+}

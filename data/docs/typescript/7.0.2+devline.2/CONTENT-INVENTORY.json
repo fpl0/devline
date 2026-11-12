@@ -1,0 +1,1088 @@
+{
+  "source": "Microsoft and TypeScript Website contributors, documentation snapshot at a3ed0be5249fd75fae9c2f527de23f0fc16c5d0d. https://github.com/microsoft/TypeScript-Website/tree/a3ed0be5249fd75fae9c2f527de23f0fc16c5d0d/packages",
+  "source_count": 268,
+  "document_count": 132,
+  "documents": [
+    {
+      "source_path": "packages/documentation/copy/en/Nightly Builds.md",
+      "document_id": "docs/handbook/nightly-builds.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/By Example.md",
+      "document_id": "docs/handbook/declaration-files/by-example.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/Consumption.md",
+      "document_id": "docs/handbook/declaration-files/consumption.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/Deep Dive.md",
+      "document_id": "docs/handbook/declaration-files/deep-dive.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/Do's and Don'ts.md",
+      "document_id": "docs/handbook/declaration-files/do-s-and-don-ts.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/Introduction.md",
+      "document_id": "docs/handbook/declaration-files/introduction.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/Library Structures.md",
+      "document_id": "docs/handbook/declaration-files/library-structures.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/Publishing.md",
+      "document_id": "docs/handbook/declaration-files/publishing.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/Templates.md",
+      "document_id": "docs/handbook/declaration-files/templates.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/templates/global-modifying-module.d.ts.md",
+      "document_id": "docs/handbook/declaration-files/templates/global-modifying-module-d-ts.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/templates/global-plugin.d.ts.md",
+      "document_id": "docs/handbook/declaration-files/templates/global-plugin-d-ts.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/templates/global.d.ts.md",
+      "document_id": "docs/handbook/declaration-files/templates/global-d-ts.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/templates/module-class.d.ts.md",
+      "document_id": "docs/handbook/declaration-files/templates/module-class-d-ts.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/templates/module-function.d.ts.md",
+      "document_id": "docs/handbook/declaration-files/templates/module-function-d-ts.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/templates/module-plugin.d.ts.md",
+      "document_id": "docs/handbook/declaration-files/templates/module-plugin-d-ts.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/declaration-files/templates/module.d.ts.md",
+      "document_id": "docs/handbook/declaration-files/templates/module-d-ts.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/get-started/TS for Functional Programmers.md",
+      "document_id": "docs/handbook/typescript-in-5-minutes-func.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/get-started/TS for JS Programmers.md",
+      "document_id": "docs/handbook/typescript-in-5-minutes.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/get-started/TS for OOPers.md",
+      "document_id": "docs/handbook/typescript-in-5-minutes-oop.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/get-started/TS for the New Programmer.md",
+      "document_id": "docs/handbook/typescript-from-scratch.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v1/Basic Types.md",
+      "document_id": "docs/handbook/basic-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v1/Classes.md",
+      "document_id": "docs/handbook/classes.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v1/Functions.md",
+      "document_id": "docs/handbook/functions.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v1/Generics.md",
+      "document_id": "docs/handbook/generics.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v1/Interfaces.md",
+      "document_id": "docs/handbook/interfaces.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v1/Literal Types.md",
+      "document_id": "docs/handbook/literal-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v1/Unions and Intersections.md",
+      "document_id": "docs/handbook/unions-and-intersections.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Basics.md",
+      "document_id": "docs/handbook/2/basic-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Classes.md",
+      "document_id": "docs/handbook/2/classes.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Everyday Types.md",
+      "document_id": "docs/handbook/2/everyday-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Modules.md",
+      "document_id": "docs/handbook/2/modules.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/More on Functions.md",
+      "document_id": "docs/handbook/2/functions.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Narrowing.md",
+      "document_id": "docs/handbook/2/narrowing.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Object Types.md",
+      "document_id": "docs/handbook/2/objects.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/The Handbook.md",
+      "document_id": "docs/handbook/intro.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Type Declarations.md",
+      "document_id": "docs/handbook/2/type-declarations.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Type Manipulation/Conditional Types.md",
+      "document_id": "docs/handbook/2/conditional-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Type Manipulation/Generics.md",
+      "document_id": "docs/handbook/2/generics.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Type Manipulation/Indexed Access Types.md",
+      "document_id": "docs/handbook/2/indexed-access-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Type Manipulation/Keyof Type Operator.md",
+      "document_id": "docs/handbook/2/keyof-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Type Manipulation/Mapped Types.md",
+      "document_id": "docs/handbook/2/mapped-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Type Manipulation/Template Literal Types.md",
+      "document_id": "docs/handbook/2/template-literal-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Type Manipulation/Typeof Type Operator.md",
+      "document_id": "docs/handbook/2/typeof-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Type Manipulation/_Creating Types from Types.md",
+      "document_id": "docs/handbook/2/types-from-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/handbook-v2/Understanding Errors.md",
+      "document_id": "docs/handbook/2/understanding-errors.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/javascript/Creating DTS files From JS.md",
+      "document_id": "docs/handbook/declaration-files/dts-from-js.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/javascript/Intro to JS with TS.md",
+      "document_id": "docs/handbook/intro-to-js-ts.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/javascript/JSDoc Reference.md",
+      "document_id": "docs/handbook/jsdoc-supported-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/javascript/Type Checking JavaScript Files.md",
+      "document_id": "docs/handbook/type-checking-javascript-files.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/modules-reference/Introduction.md",
+      "document_id": "docs/handbook/modules/introduction.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/modules-reference/Reference.md",
+      "document_id": "docs/handbook/modules/reference.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/modules-reference/Theory.md",
+      "document_id": "docs/handbook/modules/theory.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/modules-reference/appendices/ESM-CJS-Interop.md",
+      "document_id": "docs/handbook/modules/appendices/esm-cjs-interop.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/modules-reference/guides/Choosing Compiler Options.md",
+      "document_id": "docs/handbook/modules/guides/choosing-compiler-options.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/project-config/Compiler Options in MSBuild.md",
+      "document_id": "docs/handbook/compiler-options-in-msbuild.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/project-config/Compiler Options.md",
+      "document_id": "docs/handbook/compiler-options.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/project-config/Configuring Watch.md",
+      "document_id": "docs/handbook/configuring-watch.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/project-config/Integrating with Build Tools.md",
+      "document_id": "docs/handbook/integrating-with-build-tools.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/project-config/Project References.md",
+      "document_id": "docs/handbook/project-references.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/project-config/tsconfig.json.md",
+      "document_id": "docs/handbook/tsconfig-json.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Advanced Types.md",
+      "document_id": "docs/handbook/advanced-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Declaration Merging.md",
+      "document_id": "docs/handbook/declaration-merging.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Decorators.md",
+      "document_id": "docs/handbook/decorators.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Enums.md",
+      "document_id": "docs/handbook/enums.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Iterators and Generators.md",
+      "document_id": "docs/handbook/iterators-and-generators.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/JSX.md",
+      "document_id": "docs/handbook/jsx.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Mixins.md",
+      "document_id": "docs/handbook/mixins.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Namespaces and Modules.md",
+      "document_id": "docs/handbook/namespaces-and-modules.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Namespaces.md",
+      "document_id": "docs/handbook/namespaces.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Symbols.md",
+      "document_id": "docs/handbook/symbols.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Triple-Slash Directives.md",
+      "document_id": "docs/handbook/triple-slash-directives.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Type Compatibility.md",
+      "document_id": "docs/handbook/type-compatibility.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Type Inference.md",
+      "document_id": "docs/handbook/type-inference.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Utility Types.md",
+      "document_id": "docs/handbook/utility-types.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/reference/Variable Declarations.md",
+      "document_id": "docs/handbook/variable-declarations.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 1.1.md",
+      "document_id": "docs/handbook/release-notes/typescript-1-1.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 1.3.md",
+      "document_id": "docs/handbook/release-notes/typescript-1-3.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 1.4.md",
+      "document_id": "docs/handbook/release-notes/typescript-1-4.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 1.5.md",
+      "document_id": "docs/handbook/release-notes/typescript-1-5.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 1.6.md",
+      "document_id": "docs/handbook/release-notes/typescript-1-6.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 1.7.md",
+      "document_id": "docs/handbook/release-notes/typescript-1-7.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 1.8.md",
+      "document_id": "docs/handbook/release-notes/typescript-1-8.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.0.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-0.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.1.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-1.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.2.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-2.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.3.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-3.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.4.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-4.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.5.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-5.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.6.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-6.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.7.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-7.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.8.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-8.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 2.9.md",
+      "document_id": "docs/handbook/release-notes/typescript-2-9.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.0.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-0.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.1.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-1.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.2.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-2.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.3.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-3.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.4.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-4.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.5.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-5.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.6.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-6.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.7.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-7.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.8.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-8.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 3.9.md",
+      "document_id": "docs/handbook/release-notes/typescript-3-9.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.0.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-0.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.1.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-1.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.2.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-2.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.3.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-3.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.4.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-4.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.5.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-5.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.6.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-6.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.7.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-7.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.8.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-8.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 4.9.md",
+      "document_id": "docs/handbook/release-notes/typescript-4-9.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.0.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-0.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.1.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-1.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.2.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-2.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.3.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-3.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.4.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-4.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.5.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-5.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.6.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-6.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.7.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-7.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.8.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-8.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 5.9.md",
+      "document_id": "docs/handbook/release-notes/typescript-5-9.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/release-notes/TypeScript 6.0.md",
+      "document_id": "docs/handbook/release-notes/typescript-6-0.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/tutorials/ASP.NET Core.md",
+      "document_id": "docs/handbook/asp-net-core.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/tutorials/Angular.md",
+      "document_id": "docs/handbook/angular.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/tutorials/Babel with TypeScript.md",
+      "document_id": "docs/handbook/babel-with-typescript.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/tutorials/DOM Manipulation.md",
+      "document_id": "docs/handbook/dom-manipulation.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/tutorials/Gulp.md",
+      "document_id": "docs/handbook/gulp.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/tutorials/Migrating from JavaScript.md",
+      "document_id": "docs/handbook/migrating-from-javascript.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/tutorials/React.md",
+      "document_id": "docs/handbook/react.html"
+    },
+    {
+      "source_path": "packages/documentation/copy/en/tutorials/TypeScript Tooling in 5 minutes.md",
+      "document_id": "docs/handbook/typescript-tooling-in-5-minutes.html"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/allowArbitraryExtensions.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/allowImportingTsExtensions.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/allowJs.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/allowSyntheticDefaultImports.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/allowUmdGlobalAccess.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/allowUnreachableCode.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/allowUnusedLabels.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/alwaysStrict.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/assumeChangesOnlyAffectDirectDependencies.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/baseUrl.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/charset.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/checkJs.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/clean.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/composite.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/customConditions.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/declaration.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/declarationDir.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/declarationMap.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/diagnostics.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/disableFilenameBasedTypeAcquisition.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/disableReferencedProjectLoad.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/disableSizeLimit.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/disableSolutionSearching.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/disableSourceOfProjectReferenceRedirect.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/downlevelIteration.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/emitBOM.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/emitDeclarationOnly.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/emitDecoratorMetadata.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/enable.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/erasableSyntaxOnly.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/esModuleInterop.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/exactOptionalPropertyTypes.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/exclude.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/excludeDirectories.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/excludeFiles.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/experimentalDecorators.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/explainFiles.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/extendedDiagnostics.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/extends.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/fallbackPolling.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/files.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/force.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/forceConsistentCasingInFileNames.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/generateCpuProfile.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/generateTrace.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/importHelpers.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/importsNotUsedAsValues.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/include.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/incremental.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/inlineSourceMap.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/inlineSources.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/isolatedDeclarations.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/isolatedModules.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/jsx.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/jsxFactory.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/jsxFragmentFactory.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/jsxImportSource.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/keyofStringsOnly.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/lib.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/libReplacement.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/listEmittedFiles.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/listFiles.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/locale.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/mapRoot.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/maxNodeModuleJsDepth.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/module.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/moduleDetection.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/moduleResolution.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/moduleSuffixes.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/newLine.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noCheck.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noEmit.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noEmitHelpers.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noEmitOnError.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noErrorTruncation.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noFallthroughCasesInSwitch.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noImplicitAny.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noImplicitOverride.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noImplicitReturns.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noImplicitThis.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noImplicitUseStrict.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noLib.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noPropertyAccessFromIndexSignature.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noResolve.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noStrictGenericChecks.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noUncheckedIndexedAccess.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noUncheckedSideEffectImports.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noUnusedLocals.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/noUnusedParameters.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/out.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/outDir.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/outFile.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/paths.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/plugins.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/preserveConstEnums.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/preserveSymlinks.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/preserveValueImports.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/preserveWatchOutput.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/pretty.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/reactNamespace.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/references.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/removeComments.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/resolveJsonModule.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/resolvePackageJsonExports.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/resolvePackageJsonImports.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/rewriteRelativeImportExtensions.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/rootDir.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/rootDirs.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/skipDefaultLibCheck.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/skipLibCheck.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/sourceMap.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/sourceRoot.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/stopBuildOnErrors.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/strict.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/strictBindCallApply.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/strictBuiltinIteratorReturn.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/strictFunctionTypes.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/strictNullChecks.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/strictPropertyInitialization.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/stripInternal.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/suppressExcessPropertyErrors.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/suppressImplicitAnyIndexErrors.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/synchronousWatchDirectory.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/target.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/traceResolution.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/tsBuildInfoFile.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/typeAcquisition.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/typeAcquisition/exclude.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/typeAcquisition/include.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/typeRoots.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/types.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/useDefineForClassFields.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/useUnknownInCatchVariables.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/verbatimModuleSyntax.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/verbose.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/watchDirectory.md",
+      "document_id": "tsconfig/options"
+    },
+    {
+      "source_path": "packages/tsconfig-reference/copy/en/options/watchFile.md",
+      "document_id": "tsconfig/options"
+    }
+  ],
+  "excluded_sources": [
+    "packages/documentation/copy/en/modules-reference/diagrams/esm-cjs-interop.md",
+    "packages/documentation/copy/en/modules-reference/diagrams/theory.md"
+  ],
+  "exclusions": [
+    "Only English documentation is imported; diagram authoring Markdown without a published permalink is excluded.",
+    "Every TSConfig option source is retained in the compiler-options article with its canonical option anchor.",
+    "Interactive playground execution and the separately published compiler API are outside the snapshot."
+  ]
+}

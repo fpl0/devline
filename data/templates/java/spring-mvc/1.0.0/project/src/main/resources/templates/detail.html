@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Request · Purchase Desk</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <a href="/">← All requests</a>
+      <header>
+        <div>
+          <p class="eyebrow" th:text="'REQUEST #' + ${request.id}"></p>
+          <h1 th:text="${request.title}"></h1>
+          <p th:text="'Submitted by ' + ${request.requestedBy}"></p>
+        </div>
+        <div>
+          <strong class="amount" th:text="'€' + ${request.amount()}"></strong
+          ><span class="badge" th:text="${request.status}"></span>
+        </div>
+      </header>
+      <div class="columns">
+        <section>
+          <h2>Business reason</h2>
+          <p class="prose" th:text="${request.reason}"></p>
+          <h2>History</h2>
+          <article class="event" th:each="e:${events}">
+            <strong th:text="${e.action} + ' · ' + ${e.actor}"></strong>
+            <p th:text="${e.note}"></p>
+            <small th:text="${e.happenedAt}"></small>
+          </article>
+        </section>
+        <section class="panel">
+          <h2>Decision</h2>
+          <form
+            th:if="${request.status=='pending' and approver and request.requestedBy!=user}"
+            method="post"
+            th:action="@{/requests/{id}/decision(id=${request.id})}"
+          >
+            <input
+              type="hidden"
+              name="version"
+              th:value="${request.version}"
+            /><label
+              >Decision note<textarea
+                name="note"
+                maxlength="500"
+                rows="5"
+                required
+                placeholder="Explain your decision."
+              ></textarea>
+            </label>
+            <div class="actions">
+              <button name="decision" value="approved">Approve</button
+              ><button class="danger" name="decision" value="rejected">
+                Reject
+              </button>
+            </div>
+          </form>
+          <p
+            th:if="${request.status=='pending' and (!approver or request.requestedBy==user)}"
+          >
+            Waiting for an independent approver. You cannot decide your own
+            request.
+          </p>
+          <div th:if="${request.status!='pending'}">
+            <p th:text="${request.decisionNote}"></p>
+            <p
+              class="muted"
+              th:text="'Decision recorded by ' + ${request.decidedBy} + '. This request is closed.'"
+            ></p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- Intentionally defective so the audit's findings can be reproduced offline. -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title></title>
+  </head>
+  <body>
+    <div style="width: 900px">An intentionally broken page</div>
+    <input />
+    <img
+      src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+    /><button></button>
+    <script>
+      throw new Error("Deliberate example error");
+    </script>
+  </body>
+</html>

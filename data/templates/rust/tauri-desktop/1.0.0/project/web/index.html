@@ -1,38 +1,65 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="light dark">
-    <title>Local Text Inspector</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fieldnotes</title>
+    <link rel="stylesheet" href="styles.css" />
     <script src="inspector.js" defer></script>
   </head>
   <body>
-    <main>
+    <aside>
       <header>
-        <p class="eyebrow">TEXT UTILITY</p>
-        <h1>Local Text Inspector</h1>
-        <p class="intro">Count words, lines, and Unicode without sending your text anywhere.</p>
+        <span class="eyebrow">YOUR LOCAL NOTEBOOK</span>
+        <h1>Fieldnotes</h1>
+        <button id="new" class="primary">＋ New note</button>
       </header>
-      <section class="editor" aria-labelledby="editor-label">
-        <div class="editor-heading">
-          <label id="editor-label" for="text">Text to inspect</label>
-          <div class="actions">
-            <button type="button" id="sample">Try a sample</button>
-            <button type="button" id="clear">Clear</button>
-          </div>
+      <label class="search-label" for="search">Search notes and tags</label
+      ><input id="search" type="search" placeholder="Search your notebook" />
+      <nav id="notes" aria-label="Notes"></nav>
+      <footer>
+        <button id="export">Export</button><button id="import">Import</button
+        ><span id="count"></span>
+      </footer>
+    </aside>
+    <main>
+      <div id="empty">
+        <span class="eyebrow">ROOM TO THINK</span>
+        <h2>Keep a thought.<br />Find it later.</h2>
+        <p>Select a note or create one. Your writing stays on this Mac.</p>
+      </div>
+      <form id="editor" hidden>
+        <div class="toolbar">
+          <span id="modified"></span
+          ><button type="button" id="delete" class="quiet">Delete note</button>
         </div>
-        <textarea id="text" rows="8" spellcheck="false" placeholder="Paste or type text…"></textarea>
-        <p id="status" role="status"></p>
-      </section>
-      <dl class="stats" aria-label="Text counts">
-        <div><dt>Words</dt><dd id="words">0</dd></div>
-        <div><dt>Lines</dt><dd id="lines">0</dd></div>
-        <div><dt>Unicode scalars</dt><dd id="scalars">0</dd></div>
-        <div><dt>UTF-8 bytes</dt><dd id="bytes">0</dd></div>
-      </dl>
-      <p class="detail">Words are split on whitespace. An ending newline does not add an extra line.</p>
+        <label for="title">Title</label
+        ><input
+          id="title"
+          maxlength="160"
+          required
+          placeholder="An idea worth keeping"
+        /><label for="tags">Tags <small>comma separated</small></label
+        ><input id="tags" placeholder="work, reading, ideas" /><label for="body"
+          >Note</label
+        ><textarea id="body" placeholder="Start writing…"></textarea>
+        <div class="editor-footer">
+          <span id="statistics"></span
+          ><button id="save" class="primary">Save note ⌘S</button>
+        </div>
+      </form>
+      <p id="status" role="status" aria-live="polite"></p>
     </main>
+    <dialog id="transfer">
+      <form method="dialog">
+        <button class="close" aria-label="Close">×</button>
+      </form>
+      <h2 id="transfer-title"></h2>
+      <p id="transfer-help"></p>
+      <label for="json">Notebook JSON</label
+      ><textarea id="json" spellcheck="false"></textarea
+      ><button id="confirm-import" class="primary">Import notes</button>
+      <p id="transfer-error" role="alert"></p>
+    </dialog>
   </body>
 </html>

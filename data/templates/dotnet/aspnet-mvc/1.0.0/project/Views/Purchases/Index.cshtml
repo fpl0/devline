@@ -1,0 +1,81 @@
+@model BoardModel
+
+<header>
+    <div>
+        <p class="eyebrow">PURCHASE DESK</p>
+        <h1>Spend with a clear decision.</h1>
+        <p>Track requests, review the reason, preserve the decision.</p>
+    </div>
+    <form method="post" action="/account/logout">
+        @Html.AntiForgeryToken()
+        <span>@User.Identity?.Name</span>
+        <button class="secondary">Sign out</button>
+    </form>
+</header>
+
+<section class="stats">
+    <div>
+        <strong>@Model.Requests.Count(r => r.Status == "pending")</strong>
+        <span>Pending in this view</span>
+    </div>
+    <div>
+        <strong>€@((Model.Requests.Where(r => r.Status == "pending").Sum(r => r.AmountCents) / 100m).ToString("F2"))</strong>
+        <span>Awaiting a decision</span>
+    </div>
+</section>
+
+<div class="columns">
+    <section>
+        <h2>Requests</h2>
+        <form method="get" action="/" class="filters">
+            <input name="q" value="@Model.Query" placeholder="Search title or requester" aria-label="Search requests">
+            <select name="status" aria-label="Filter status">
+                <option value="">All statuses</option>
+                @foreach (var status in new[] { "pending", "approved", "rejected" })
+                {
+                    <option value="@status" selected="@(Model.Status == status)">@status</option>
+                }
+            </select>
+            <button>Filter</button>
+        </form>
+
+        @if (Model.Requests.Count == 0)
+        {
+            <p class="empty">No requests here yet. Submit a purchase request to begin.</p>
+        }
+        @foreach (var request in Model.Requests)
+        {
+            <article class="request">
+                <div>
+                    <a href="/requests/@request.Id">@request.Title</a>
+                    <p>@request.RequestedBy · Request #@request.Id</p>
+                </div>
+                <div>
+                    <strong>€@request.Amount</strong>
+                    <span class="badge">@request.Status</span>
+                </div>
+            </article>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>New request</h2>
+        <form method="post" action="/requests/create">
+            @Html.AntiForgeryToken()
+            <label>
+                What do you need?
+                <input name="title" maxlength="160" required placeholder="Team workshop materials">
+            </label>
+            <label>
+                Amount in EUR
+                <input name="amount" type="number" min="0.01" max="1000000" step="0.01" required placeholder="240.00">
+            </label>
+            <label>
+                Business reason
+                <textarea name="reason" maxlength="2000" rows="5" required placeholder="Explain the purpose and expected benefit."></textarea>
+            </label>
+            <button>Submit for approval</button>
+        </form>
+        <p class="muted">Requests are recorded under your signed-in identity. An approver must be a different person.</p>
+    </section>
+</div>

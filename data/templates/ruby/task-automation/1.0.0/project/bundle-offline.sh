@@ -23,7 +23,7 @@ case "$action" in
       fi
       export BUNDLE_BUILD__OPENSSL="--with-openssl-dir=$openssl" BUNDLE_BUILD__TRILOGY="--with-openssl-dir=$openssl"
     fi
-    exec "$ruby" -S bundle "_${bundler}_" install --local --jobs 4
+    exec "$ruby" -S bundle "_${bundler}_" install --local --jobs 2
     ;;
   exec) exec "$ruby" -S bundle "_${bundler}_" exec "$@" ;;
   *) echo 'Use bundle-offline.sh install or bundle-offline.sh exec COMMAND.' >&2; exit 2 ;;

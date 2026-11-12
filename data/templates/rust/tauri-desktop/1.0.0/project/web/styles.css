@@ -1,46 +1,258 @@
 :root {
-  color-scheme: light dark;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  --background: #f5f7fa;
-  --panel: #fff;
-  --ink: #1b2638;
-  --muted: #536278;
-  --line: #cdd6e2;
-  --accent: #2457a3;
-  --alert: #9b2c23;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color: #26342e;
+  background: #fafbf7;
+  font-synthesis: none;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #151c29;
-    --panel: #1e2838;
-    --ink: #ecf1f8;
-    --muted: #b0bed1;
-    --line: #49596f;
-    --accent: #a6c9ff;
-    --alert: #ffb4ab;
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: 100vh;
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+  border: 1px solid #c9d3c9;
+  border-radius: 7px;
+  background: #fff;
+  padding: 8px 13px;
+  color: inherit;
+}
+button:hover {
+  background: #e9efe6;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #78a88a;
+  outline-offset: 2px;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.primary {
+  background: #315b43;
+  color: white;
+  border-color: #315b43;
+}
+.primary:hover {
+  background: #234732;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.7px;
+  color: #697c6d;
+  font-weight: 700;
+}
+aside {
+  background: #eff2ea;
+  border-right: 1px solid #d7dfd1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+header {
+  padding: 28px 24px 20px;
+}
+h1 {
+  font-family: Georgia, serif;
+  font-size: 32px;
+  font-weight: 400;
+  margin: 8px 0 24px;
+}
+header button {
+  width: 100%;
+}
+.search-label {
+  font-size: 12px;
+  padding: 0 24px 8px;
+}
+#search {
+  margin: 0 20px 20px;
+  padding: 10px;
+  width: calc(100% - 40px);
+  border: 1px solid #d1d9cd;
+  background: #fafbf7;
+  border-radius: 7px;
+}
+nav {
+  overflow: auto;
+  flex: 1;
+}
+.note-row {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  text-align: left;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #dfe5d9;
+  border-radius: 0;
+  background: transparent;
+  padding: 18px 24px;
+}
+.note-row.selected {
+  background: #dde8d8;
+  border-left: 4px solid #315b43;
+  padding-left: 20px;
+}
+.note-row span {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #657463;
+  overflow-wrap: anywhere;
+}
+.note-row small {
+  font-size: 10px;
+  color: #587c58;
+}
+.note-row strong {
+  overflow-wrap: anywhere;
+}
+aside footer {
+  padding: 15px;
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid #d7dfd1;
+  align-items: center;
+}
+#count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #697c6d;
+}
+main {
+  padding: 28px 36px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+#empty {
+  margin: auto;
+  color: #4b624e;
+}
+#empty h2 {
+  font-family: Georgia, serif;
+  font-size: 44px;
+  font-weight: 400;
+  line-height: 1.2;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  font-size: 11px;
+  color: #697c6d;
+}
+.quiet {
+  font-size: 11px;
+  border: none;
+  background: none;
+}
+#editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin: 10px 0 7px;
+}
+label small {
+  font-weight: 400;
+  color: #7f8e7d;
+}
+input,
+textarea {
+  color: inherit;
+  border: 1px solid #d3dbce;
+  border-radius: 6px;
+  background: #fff;
+  padding: 10px;
+}
+#title {
+  font-family: Georgia, serif;
+  font-size: 25px;
+}
+#body {
+  resize: none;
+  flex: 1;
+  min-height: 120px;
+  line-height: 1.7;
+  padding: 18px;
+}
+.editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 15px;
+}
+#statistics,
+#status {
+  font-size: 12px;
+  color: #697c6d;
+}
+#status {
+  min-height: 16px;
+}
+dialog {
+  border: 1px solid #c9d3c9;
+  border-radius: 12px;
+  padding: 28px;
+  width: min(640px, 90vw);
+  box-shadow: 0 20px 80px #213e2830;
+}
+dialog::backdrop {
+  background: #18342455;
+}
+dialog textarea {
+  width: 100%;
+  height: 280px;
+  font: 12px monospace;
+  margin: 10px 0 16px;
+}
+dialog p {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.close {
+  float: right;
+  border: none;
+}
+.list-empty {
+  padding: 20px;
+  font-size: 13px;
+  color: #697c6d;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 760px) {
+  body {
+    grid-template-columns: 230px 1fr;
+  }
+  main {
+    padding: 20px;
+  }
+  header {
+    padding: 20px;
+  }
+  #empty h2 {
+    font-size: 32px;
   }
 }
-
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--background); color: var(--ink); }
-main { max-width: 760px; margin: auto; padding: clamp(24px, 5vw, 44px); }
-.eyebrow { color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .13em; }
-h1 { margin: 6px 0 0; font-size: clamp(26px, 5vw, 37px); letter-spacing: -.04em; }
-.intro { color: var(--muted); line-height: 1.5; margin: 8px 0 26px; }
-.editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-label { font-size: 14px; font-weight: 650; }
-.actions { display: flex; gap: 6px; }
-button, textarea, .stats > div { border: 1px solid var(--line); background: var(--panel); }
-button { color: var(--accent); border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 12px; }
-button:hover { border-color: var(--accent); }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-textarea { display: block; width: 100%; min-height: 110px; resize: vertical; padding: 12px; border-radius: 9px; color: var(--ink); font: 14px/1.5 ui-monospace, Menlo, monospace; }
-textarea::placeholder { color: var(--muted); }
-#status { min-height: 18px; margin: 5px 0; color: var(--alert); font-size: 12px; }
-.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
-.stats > div { padding: 12px; border-radius: 8px; }
-dt, .detail { color: var(--muted); font-size: 12px; line-height: 1.4; }
-dd { margin: 6px 0 0; font-size: clamp(17px, 3.4vw, 24px); font-weight: 650; font-variant-numeric: tabular-nums; }
-.detail { margin: 10px 0 0; }
-@media (max-width: 480px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

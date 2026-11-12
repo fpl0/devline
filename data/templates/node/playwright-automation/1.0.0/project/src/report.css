@@ -1,0 +1,48 @@
+body {
+  font-family: system-ui;
+  background: #f4f6f1;
+  color: #213b32;
+  max-width: 1050px;
+  margin: auto;
+  padding: 40px 24px;
+}
+h1 {
+  font: 40px Georgia;
+}
+article {
+  background: white;
+  border: 1px solid #d8e0d4;
+  padding: 24px;
+  border-radius: 12px;
+  margin: 22px 0;
+}
+img {
+  max-width: 100%;
+  border: 1px solid #d8e0d4;
+  border-radius: 6px;
+}
+.screens {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 20px;
+}
+.bad {
+  color: #ac4d3d;
+}
+.good {
+  color: #2b7750;
+}
+small {
+  color: #71836e;
+}
+li {
+  margin: 8px 0;
+}
+code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .screens {
+    grid-template-columns: 1fr;
+  }
+}

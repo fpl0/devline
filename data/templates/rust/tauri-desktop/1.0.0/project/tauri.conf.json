@@ -1,7 +1,7 @@
 {
-  "productName": "Local Text Inspector",
+  "productName": "Fieldnotes",
   "version": "0.1.0",
-  "identifier": "io.devline.text-inspector",
+  "identifier": "io.devline.fieldnotes",
   "build": {
     "frontendDist": "web"
   },
@@ -10,11 +10,11 @@
     "windows": [
       {
         "label": "main",
-        "title": "Local Text Inspector",
-        "width": 740,
-        "height": 610,
-        "minWidth": 420,
-        "minHeight": 440
+        "title": "Fieldnotes",
+        "width": 1050,
+        "height": 730,
+        "minWidth": 660,
+        "minHeight": 500
       }
     ],
     "security": {

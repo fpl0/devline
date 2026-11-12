@@ -1,16 +1,1 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-  <ItemGroup>
-    <Content Remove="nuget-packages/**" />
-    <None Remove="nuget-packages/**" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="[10.0.14]" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="[10.0.14]" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="[10.0.3]" />
-    <PackageReference Include="RabbitMQ.Client" Version="[7.2.2]" />
-    <PackageReference Include="StackExchange.Redis" Version="[2.13.23]" />
-  </ItemGroup>
-</Project>
+<Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup><ItemGroup><Content Remove="nuget-packages/**"/><None Remove="nuget-packages/**"/><PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="[10.0.14]" /></ItemGroup></Project>

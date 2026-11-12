@@ -1,86 +1,10 @@
 [
   {
-    "id": "go/chi-api",
-    "name": "Chi HTTP API",
-    "stack": "go",
-    "version": "1.0.0",
-    "description": "Go 1.27 and Chi 5.2.4 HTTP API with a health endpoint and vendored source dependencies.",
-    "app_type": "api",
-    "path": "templates/go/chi-api/1.0.0",
-    "toolchain": "go",
-    "minimum_version": "1.27.3",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "go",
-      "chi@5.2.4+devline.1"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1
-  },
-  {
-    "id": "go/chi-api",
-    "name": "Chi HTTP API",
-    "stack": "go",
-    "version": "1.1.0",
-    "description": "Go 1.27 and Chi 5.2.4 HTTP API with health and service-name endpoints.",
-    "app_type": "api",
-    "path": "templates/go/chi-api/1.1.0",
-    "toolchain": "go",
-    "minimum_version": "1.27.3",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "go",
-      "chi@5.2.4+devline.1"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1
-  },
-  {
-    "id": "python/fastapi-api",
-    "name": "FastAPI HTTP API",
-    "stack": "python",
-    "version": "1.0.0",
-    "description": "CPython 3.15 and FastAPI 0.162.0 with pinned Apple Silicon wheels and local Swagger UI.",
-    "app_type": "api",
-    "path": "templates/python/fastapi-api/1.0.0",
-    "toolchain": "python3",
-    "minimum_version": "3.15.2",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "python",
-      "fastapi"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1
-  },
-  {
-    "id": "rust/axum-api",
-    "name": "Axum Reading Queue",
-    "stack": "rust",
-    "version": "1.0.0",
-    "description": "An in-memory reading queue API with Axum, Tokio, JSON validation, and bundled dependencies.",
-    "app_type": "api",
-    "path": "templates/rust/axum-api/1.0.0",
-    "toolchain": "cargo",
-    "minimum_version": "1.99.1",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "rust",
-      "axum"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 2
-  },
-  {
     "id": "dotnet/json-cli",
-    "name": "C# JSON File Tool",
+    "name": "C# Invoice Reconciliation",
     "stack": "dotnet",
     "version": "1.0.0",
-    "description": "Inspect, format, and select JSON from a file or standard input using the .NET 10 standard library.",
+    "description": "Reconcile invoice and payment CSVs with exact decimal money, partial settlements, duplicate detection, unmatched payments and atomic reports.",
     "app_type": "cli",
     "path": "templates/dotnet/json-cli/1.0.0",
     "toolchain": "dotnet",
@@ -90,14 +14,15 @@
       "csharp"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 2
   },
   {
     "id": "dotnet/aspnet-api",
-    "name": "ASP.NET Core Task API",
+    "name": "ASP.NET Core Issue Desk",
     "stack": "dotnet",
     "version": "2.0.0",
-    "description": "A JSON REST API with task CRUD, request validation, SQLite persistence through EF Core, and offline tests.",
+    "description": "Persistent issue workflow API with EF Core SQLite, validated transitions, optimistic concurrency, search, pagination and transactional audit history.",
     "app_type": "api",
     "path": "templates/dotnet/aspnet-api/2.0.0",
     "toolchain": "dotnet",
@@ -108,14 +33,15 @@
       "aspnet"
     ],
     "verified": true,
-    "target": "darwin-arm64"
+    "target": "darwin-arm64",
+    "bundled_revision": 2
   },
   {
     "id": "dotnet/aspnet-mvc",
-    "name": "ASP.NET Core MVC Task Board",
+    "name": "ASP.NET Core Purchase Desk",
     "stack": "dotnet",
     "version": "1.0.0",
-    "description": "A Razor task board with Keycloak sign-in, PostgreSQL persistence, Redis list caching, and a RabbitMQ background consumer.",
+    "description": "A Razor purchase approval app with local demo identities, independent approval, immutable decisions, audit history and SQLite persistence.",
     "app_type": "web",
     "path": "templates/dotnet/aspnet-mvc/1.0.0",
     "toolchain": "dotnet",
@@ -123,107 +49,20 @@
     "test_command": "./test-offline.sh",
     "docs": [
       "csharp",
-      "aspnet",
-      "infrastructure"
+      "aspnet"
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "services": [
-      "postgres@18.6",
-      "redis@8.10.1",
-      "rabbitmq@4.3.7",
-      "keycloak@26.8.2"
-    ]
-  },
-  {
-    "id": "java/json-tool",
-    "name": "Java JSON File Tool",
-    "stack": "java",
-    "version": "2.0.0",
-    "description": "Inspect, format, and select JSON from a file or standard input with Picocli, Jackson, and an executable JAR.",
-    "app_type": "cli",
-    "path": "templates/java/json-tool/2.0.0",
-    "toolchain": "mvn",
-    "minimum_version": "3.10.0",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "java"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1
-  },
-  {
-    "id": "java/spring-api",
-    "name": "Spring Boot Task API",
-    "stack": "java",
-    "version": "2.0.0",
-    "description": "A Spring Boot 4.1 REST API with in-memory task CRUD, request validation, and HTTP problem responses.",
-    "app_type": "api",
-    "path": "templates/java/spring-api/2.0.0",
-    "toolchain": "mvn",
-    "minimum_version": "3.10.0",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "java",
-      "spring-boot"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1
-  },
-  {
-    "id": "java/spring-mvc",
-    "name": "Spring Boot MVC Task Board",
-    "stack": "java",
-    "version": "1.0.0",
-    "description": "A Thymeleaf task board with Spring Security and Keycloak sign-in, PostgreSQL persistence, Redis list caching, and a RabbitMQ consumer.",
-    "app_type": "web",
-    "path": "templates/java/spring-mvc/1.0.0",
-    "toolchain": "mvn",
-    "minimum_version": "3.10.0",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "java",
-      "spring-boot",
-      "infrastructure"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "services": [
-      "postgres@18.6",
-      "redis@8.10.1",
-      "rabbitmq@4.3.7",
-      "keycloak@26.8.2"
-    ],
-    "bundled_revision": 1
-  },
-  {
-    "id": "ruby/json-cli",
-    "name": "Ruby JSON CLI",
-    "stack": "ruby",
-    "version": "1.0.0",
-    "description": "A Ruby standard-library command-line starter for JSON input.",
-    "app_type": "cli",
-    "path": "templates/ruby/json-cli/1.0.0",
-    "toolchain": "ruby",
-    "minimum_version": "4.0.9",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "ruby"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1
+    "bundled_revision": 2
   },
   {
     "id": "elixir/phoenix-api",
-    "name": "Phoenix HTTP API",
+    "name": "Incident Room",
     "stack": "elixir",
-    "version": "1.0.0",
-    "description": "Phoenix 1.8.16 and Bandit with vendored source, Hex and Rebar.",
-    "app_type": "api",
-    "path": "templates/elixir/phoenix-api/1.0.0",
+    "version": "1.1.0",
+    "description": "A live Phoenix Channels incident workspace with ownership, severity, response timelines, validated transitions, revision checks and durable local state.",
+    "app_type": "web",
+    "path": "templates/elixir/phoenix-api/1.1.0",
     "toolchain": "elixir",
     "minimum_version": "1.20.5",
     "test_command": "./test-offline.sh",
@@ -233,14 +72,68 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
+    "bundled_revision": 2
+  },
+  {
+    "id": "elixir/otp-worker",
+    "name": "Report Queue",
+    "stack": "elixir",
+    "version": "1.0.0",
+    "description": "A durable supervised OTP report worker with bounded concurrency, idempotent enqueue, retries, failed-job recovery and atomic report output.",
+    "app_type": "worker",
+    "path": "templates/elixir/otp-worker/1.0.0",
+    "toolchain": "elixir",
+    "minimum_version": "1.20.5",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "elixir"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
+    "bundled_revision": 2
+  },
+  {
+    "id": "elixir/pulse-monitor",
+    "name": "Pulse Monitor",
+    "stack": "elixir",
+    "version": "1.0.0",
+    "description": "A concurrent HTTP monitoring CLI with bounded workers, timeouts, expected-status checks, persistent history and latency summaries.",
+    "app_type": "cli",
+    "path": "templates/elixir/pulse-monitor/1.0.0",
+    "toolchain": "elixir",
+    "minimum_version": "1.20.5",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "elixir"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
     "bundled_revision": 1
   },
   {
+    "id": "go/file-index",
+    "name": "File Vault",
+    "stack": "go",
+    "version": "1.0.0",
+    "description": "Concurrent file-integrity snapshots and verification with deterministic manifests, streaming SHA-256, and atomic output.",
+    "app_type": "cli",
+    "path": "templates/go/file-index/1.0.0",
+    "toolchain": "go",
+    "minimum_version": "1.27.3",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "go"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
+    "bundled_revision": 2
+  },
+  {
     "id": "go/chi-api",
-    "name": "Chi HTTP API",
+    "name": "Issue Desk \u00b7 Go",
     "stack": "go",
     "version": "1.2.0",
-    "description": "Go 1.27 and Chi 5.2.4 task CRUD API with JSON validation, configurable listen address and vendored source dependencies.",
+    "description": "A persistent issue-tracking API with Chi, workflow rules, optimistic concurrency, comments and audit history.",
     "app_type": "api",
     "path": "templates/go/chi-api/1.2.0",
     "toolchain": "go",
@@ -252,78 +145,88 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 1
+    "bundled_revision": 2
   },
   {
     "id": "go/chi-taskboard",
-    "name": "Chi Taskboard",
+    "name": "Watchtower",
     "stack": "go",
     "version": "1.0.0",
-    "description": "Server-rendered task board with PostgreSQL persistence, a Redis read-through cache, and vendored Go clients.",
+    "description": "A local HTTP uptime monitor with bounded polling, latency and availability history, a server-rendered dashboard, and JSON export.",
     "app_type": "web",
     "path": "templates/go/chi-taskboard/1.0.0",
     "toolchain": "go",
     "minimum_version": "1.27.3",
     "test_command": "./test-offline.sh",
     "docs": [
-      "go",
-      "chi@5.5.0+devline.1",
-      "infrastructure"
-    ],
-    "services": [
-      "postgres@18.6",
-      "redis@8.10.1"
+      "go"
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 1
+    "bundled_revision": 2
   },
   {
-    "id": "python/fastapi-api",
-    "name": "FastAPI HTTP API",
-    "stack": "python",
-    "version": "1.1.0",
-    "description": "FastAPI 0.162.0 task CRUD API with validated models, lifecycle tests, pinned Apple Silicon wheels and local Swagger UI.",
+    "id": "java/json-tool",
+    "name": "Java Invoice Reconciliation",
+    "stack": "java",
+    "version": "2.0.0",
+    "description": "A Picocli batch application that reconciles invoice and payment CSVs with exact BigDecimal money, exception reports and atomic output.",
+    "app_type": "cli",
+    "path": "templates/java/json-tool/2.0.0",
+    "toolchain": "mvn",
+    "minimum_version": "3.10.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "java"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
+    "bundled_revision": 2
+  },
+  {
+    "id": "java/spring-api",
+    "name": "Spring Boot Issue Desk",
+    "stack": "java",
+    "version": "2.0.0",
+    "description": "Persistent issue workflow API with Spring JDBC and H2, validated transitions, optimistic concurrency, search, pagination and transactional audit history.",
     "app_type": "api",
-    "path": "templates/python/fastapi-api/1.1.0",
-    "toolchain": "python3",
-    "minimum_version": "3.15.2",
+    "path": "templates/java/spring-api/2.0.0",
+    "toolchain": "mvn",
+    "minimum_version": "3.10.0",
     "test_command": "./test-offline.sh",
     "docs": [
-      "python",
-      "fastapi"
+      "java",
+      "spring-boot"
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 1
+    "bundled_revision": 2
   },
   {
-    "id": "node/playwright-automation",
-    "name": "Playwright Browser and API Automation",
-    "stack": "node",
+    "id": "java/spring-mvc",
+    "name": "Spring Boot Purchase Desk",
+    "stack": "java",
     "version": "1.0.0",
-    "description": "Playwright browser and API tests with bundled Apple Silicon WebKit.",
-    "app_type": "automation",
-    "path": "templates/node/playwright-automation/1.0.0",
-    "toolchain": "node",
-    "minimum_version": "26.0.0",
+    "description": "A Thymeleaf purchase approval app with Spring Security demo identities, independent approval, immutable decisions, audit history and H2 persistence.",
+    "app_type": "web",
+    "path": "templates/java/spring-mvc/1.0.0",
+    "toolchain": "mvn",
+    "minimum_version": "3.10.0",
     "test_command": "./test-offline.sh",
     "docs": [
-      "node@26.13.0+devline.1",
-      "typescript@7.0.2+devline.1",
-      "playwright@1.65.0+devline.1"
+      "java",
+      "spring-boot"
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "minimum_macos": "26.5",
-    "bundled_revision": 1
+    "bundled_revision": 2
   },
   {
     "id": "node/react-web",
-    "name": "React and TypeScript Web App",
+    "name": "Planboard",
     "stack": "node",
     "version": "1.0.0",
-    "description": "Vite frontend with React Router, TanStack Query, Zustand, Zod, and DOM tests. All build tools and npm dependencies are stored locally.",
+    "description": "A local-first React and TypeScript project planner with a task board, priorities, dates, search, validated backups and storage recovery.",
     "app_type": "web-app",
     "path": "templates/node/react-web/1.0.0",
     "toolchain": "node",
@@ -337,46 +240,92 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
+    "bundled_revision": 3
+  },
+  {
+    "id": "node/service-kit",
+    "name": "Issue Desk \u00b7 Node.js",
+    "stack": "node",
+    "version": "1.0.0",
+    "description": "A Fastify and SQLite issue tracker with a browser dashboard, transactional workflow, optimistic concurrency and durable live events.",
+    "app_type": "web",
+    "path": "templates/node/service-kit/1.0.0",
+    "toolchain": "node",
+    "minimum_version": "26.0.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "node@26.13.0+devline.1"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
     "bundled_revision": 2
   },
   {
-    "id": "python/service-kit",
-    "name": "FastAPI Support Desk",
-    "stack": "python",
+    "id": "node/playwright-automation",
+    "name": "Site Audit",
+    "stack": "node",
     "version": "1.0.0",
-    "description": "A support ticket API with PostgreSQL persistence, Redis caching, RabbitMQ and Mailpit notifications, NATS activity, Meilisearch, and S3 exports.",
+    "description": "A Playwright website auditor with bounded crawling, content and layout checks, desktop/mobile screenshots, and portable HTML/JSON reports.",
+    "app_type": "automation",
+    "path": "templates/node/playwright-automation/1.0.0",
+    "toolchain": "node",
+    "minimum_version": "26.0.0",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "node@26.13.0+devline.1",
+      "typescript@7.0.2+devline.1",
+      "playwright@1.65.0+devline.1"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
+    "minimum_macos": "26.5",
+    "bundled_revision": 2
+  },
+  {
+    "id": "python/fastapi-api",
+    "name": "Order Ledger",
+    "stack": "python",
+    "version": "1.1.0",
+    "description": "A transactional FastAPI inventory and order API with SQLite persistence, stock reservation, idempotent submissions, fulfillment, cancellations and sales reporting.",
     "app_type": "api",
-    "path": "templates/python/service-kit/1.0.0",
+    "path": "templates/python/fastapi-api/1.1.0",
     "toolchain": "python3",
     "minimum_version": "3.15.2",
     "test_command": "./test-offline.sh",
     "docs": [
       "python",
-      "fastapi",
-      "infrastructure",
-      "infrastructure"
+      "fastapi"
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 2,
-    "services": [
-      "postgres@18.6",
-      "redis@8.10.1",
-      "rabbitmq@4.3.7",
-      "nats@2.15.2",
-      "mailpit@1.33.0",
-      "meilisearch@1.56.1",
-      "seaweedfs@4.52"
-    ]
+    "bundled_revision": 2
   },
   {
     "id": "python/data-automation",
-    "name": "Python Data Automation",
+    "name": "Sales Observatory",
     "stack": "python",
     "version": "1.0.0",
-    "description": "DuckDB, HTTPX, and pytest for reproducible CSV and JSON processing.",
+    "description": "A DuckDB sales warehouse with validated CSV ingestion, duplicate detection, rejected-row reports, date filters and standalone HTML analytics.",
     "app_type": "cli",
     "path": "templates/python/data-automation/1.0.0",
+    "toolchain": "python3",
+    "minimum_version": "3.15.2",
+    "test_command": "./test-offline.sh",
+    "docs": [
+      "python"
+    ],
+    "verified": true,
+    "target": "darwin-arm64",
+    "bundled_revision": 2
+  },
+  {
+    "id": "python/document-search",
+    "name": "Field Notes Search",
+    "stack": "python",
+    "version": "1.0.0",
+    "description": "Incrementally index Markdown and text documents with SQLite FTS5, ranked search, snippets, deletion synchronization and a local command-line interface.",
+    "app_type": "cli",
+    "path": "templates/python/document-search/1.0.0",
     "toolchain": "python3",
     "minimum_version": "3.15.2",
     "test_command": "./test-offline.sh",
@@ -389,10 +338,10 @@
   },
   {
     "id": "ruby/rails-web",
-    "name": "Ruby on Rails Web App",
+    "name": "Workshop Desk",
     "stack": "ruby",
     "version": "1.0.0",
-    "description": "A server-rendered Rails 8.1 web app with SQLite, Puma, and a bundled gem cache for offline development.",
+    "description": "A Rails workshop application with intake, estimates, approvals, work tracking, collection, searchable jobs and a persistent audit history.",
     "app_type": "web",
     "path": "templates/ruby/rails-web/1.0.0",
     "toolchain": "ruby",
@@ -404,43 +353,32 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 1
+    "bundled_revision": 2
   },
   {
     "id": "ruby/service-kit",
-    "name": "Sinatra Support Desk",
+    "name": "Dispatch Inbox",
     "stack": "ruby",
     "version": "1.0.0",
-    "description": "A support ticket API with PostgreSQL persistence, Redis caching, RabbitMQ and Mailpit notifications, NATS activity, Meilisearch, and S3 exports.",
-    "app_type": "api",
+    "description": "A Sinatra webhook inbox with HMAC signatures, replay protection, durable idempotency, retry backoff, packing-slip processing and a local dashboard.",
+    "app_type": "web",
     "path": "templates/ruby/service-kit/1.0.0",
     "toolchain": "ruby",
     "minimum_version": "4.0.9",
     "test_command": "./test-offline.sh",
     "docs": [
-      "ruby",
-      "infrastructure",
-      "infrastructure"
+      "ruby"
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 2,
-    "services": [
-      "postgres@18.6",
-      "redis@8.10.1",
-      "rabbitmq@4.3.7",
-      "nats@2.15.2",
-      "mailpit@1.33.0",
-      "meilisearch@1.56.1",
-      "seaweedfs@4.52"
-    ]
+    "bundled_revision": 3
   },
   {
     "id": "ruby/task-automation",
-    "name": "Ruby Task Automation",
+    "name": "Snapshot Vault",
     "stack": "ruby",
     "version": "1.0.0",
-    "description": "Thor, Rake, CSV, WEBrick, and Minitest for local and HTTP fixture automation.",
+    "description": "A Thor command-line backup app with immutable manifests, content-addressed objects, integrity verification and explicit protected restore workflows.",
     "app_type": "cli",
     "path": "templates/ruby/task-automation/1.0.0",
     "toolchain": "ruby",
@@ -451,92 +389,14 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 1
-  },
-  {
-    "id": "go/service-kit",
-    "name": "Go Release Rehearsal",
-    "stack": "go",
-    "version": "1.0.0",
-    "description": "Exercise a release workflow with PostgreSQL, MySQL, Redis, RabbitMQ, NATS, Mailpit, Meilisearch, and SeaweedFS.",
-    "app_type": "api",
-    "path": "templates/go/service-kit/1.0.0",
-    "toolchain": "go",
-    "minimum_version": "1.27.3",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "go",
-      "chi@5.5.0+devline.1",
-      "infrastructure"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1,
-    "services": [
-      "postgres@18.6",
-      "mysql@8.4.11",
-      "redis@8.10.1",
-      "rabbitmq@4.3.7",
-      "nats@2.15.2",
-      "mailpit@1.33.0",
-      "meilisearch@1.56.1",
-      "seaweedfs@4.52"
-    ]
-  },
-  {
-    "id": "go/file-index",
-    "name": "Go File Index",
-    "stack": "go",
-    "version": "1.0.0",
-    "description": "Stream deterministic JSON Lines file inventories with relative paths, byte counts and SHA-256.",
-    "app_type": "cli",
-    "path": "templates/go/file-index/1.0.0",
-    "toolchain": "go",
-    "minimum_version": "1.27.3",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "go"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1
-  },
-  {
-    "id": "rust/service-kit",
-    "name": "Rust Release Rehearsal",
-    "stack": "rust",
-    "version": "1.0.0",
-    "description": "Exercise a release workflow with PostgreSQL, MySQL, Redis, RabbitMQ, NATS, Mailpit, Meilisearch, and SeaweedFS.",
-    "app_type": "api",
-    "path": "templates/rust/service-kit/1.0.0",
-    "toolchain": "cargo",
-    "minimum_version": "1.99.1",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "rust",
-      "axum",
-      "infrastructure"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1,
-    "services": [
-      "postgres@18.6",
-      "mysql@8.4.11",
-      "redis@8.10.1",
-      "rabbitmq@4.3.7",
-      "nats@2.15.2",
-      "mailpit@1.33.0",
-      "meilisearch@1.56.1",
-      "seaweedfs@4.52"
-    ]
+    "bundled_revision": 2
   },
   {
     "id": "rust/jsonl-report",
-    "name": "Rust JSONL Report",
+    "name": "Logbook",
     "stack": "rust",
     "version": "1.0.0",
-    "description": "Count scalar values in JSON Lines files or streams using a JSON Pointer.",
+    "description": "A bounded-memory request-log analyzer with route metrics, latency histograms, JSON reports and error-rate gates.",
     "app_type": "cli",
     "path": "templates/rust/jsonl-report/1.0.0",
     "toolchain": "cargo",
@@ -547,91 +407,33 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 1
+    "bundled_revision": 2
   },
   {
-    "id": "node/service-kit",
-    "name": "Fastify Release Desk",
-    "stack": "node",
+    "id": "rust/axum-api",
+    "name": "Issue Desk \u00b7 Rust",
+    "stack": "rust",
     "version": "1.0.0",
-    "description": "A Fastify release workflow with eight live services and an embedded SQLite mode.",
-    "app_type": "service-kit",
-    "path": "templates/node/service-kit/1.0.0",
-    "toolchain": "node",
-    "minimum_version": "26.0.0",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "node@26.13.0+devline.1",
-      "infrastructure@2026.11.07+devline.2",
-      "infrastructure"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1,
-    "services": [
-      "postgres@18.6",
-      "mysql@8.4.11",
-      "rabbitmq@4.3.7",
-      "redis@8.10.1",
-      "nats@2.15.2",
-      "mailpit@1.33.0",
-      "meilisearch@1.56.1",
-      "seaweedfs@4.52"
-    ]
-  },
-  {
-    "id": "elixir/phoenix-api",
-    "name": "Phoenix Release Desk",
-    "stack": "elixir",
-    "version": "1.1.0",
-    "description": "A Phoenix release workflow with PostgreSQL, MySQL, Redis, RabbitMQ, Mailpit, Meilisearch and S3 storage.",
+    "description": "A persistent Axum issue-tracking API with typed workflow rules, optimistic concurrency, comments and atomic snapshot storage.",
     "app_type": "api",
-    "path": "templates/elixir/phoenix-api/1.1.0",
-    "toolchain": "elixir",
-    "minimum_version": "1.20.5",
+    "path": "templates/rust/axum-api/1.0.0",
+    "toolchain": "cargo",
+    "minimum_version": "1.99.1",
     "test_command": "./test-offline.sh",
     "docs": [
-      "elixir",
-      "phoenix",
-      "infrastructure"
+      "rust",
+      "axum"
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 1,
-    "services": [
-      "postgres@18.6",
-      "mysql@8.4.11",
-      "rabbitmq@4.3.7",
-      "redis@8.10.1",
-      "mailpit@1.33.0",
-      "meilisearch@1.56.1",
-      "seaweedfs@4.52"
-    ]
-  },
-  {
-    "id": "elixir/otp-worker",
-    "name": "OTP Report Worker",
-    "stack": "elixir",
-    "version": "1.0.0",
-    "description": "A supervised OTP task queue with local file reports and ExUnit tests.",
-    "app_type": "worker",
-    "path": "templates/elixir/otp-worker/1.0.0",
-    "toolchain": "elixir",
-    "minimum_version": "1.20.5",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "elixir"
-    ],
-    "verified": true,
-    "target": "darwin-arm64",
-    "bundled_revision": 1
+    "bundled_revision": 3
   },
   {
     "id": "rust/tauri-desktop",
-    "name": "Tauri Desktop App",
+    "name": "Fieldnotes",
     "stack": "rust",
     "version": "1.0.0",
-    "description": "Tauri 2.12.5 text inspector with a Rust command, bundled web assets, and vendored Cargo dependencies.",
+    "description": "A Tauri desktop notebook with local persistence, tags, full-text filtering, writing statistics, and validated notebook import/export.",
     "app_type": "desktop",
     "path": "templates/rust/tauri-desktop/1.0.0",
     "toolchain": "cargo",
@@ -644,14 +446,14 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 1
+    "bundled_revision": 2
   },
   {
     "id": "swift/swiftui-app",
-    "name": "SwiftUI Idea Board",
+    "name": "Fieldnotes \u2014 Native Notes Workspace",
     "stack": "swift",
     "version": "1.0.0",
-    "description": "Native SwiftUI idea board with searchable notes, local JSON persistence, and offline tests. Requires Xcode 16 or later. Official SwiftUI API documentation is imported locally from the selected Xcode SDK.",
+    "description": "A native notes workspace with tags, pins, archive, full-text search, Markdown export, conflict-safe backup import and local persistence.",
     "app_type": "desktop",
     "path": "templates/swift/swiftui-app/1.0.0",
     "toolchain": "swift",
@@ -664,14 +466,14 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 2
+    "bundled_revision": 3
   },
   {
     "id": "swift/expense-summary",
-    "name": "Swift Expense Summary",
+    "name": "Expense Ledger",
     "stack": "swift",
     "version": "1.0.0",
-    "description": "A dependency-free Swift CLI that groups expenses by category and totals integer cents from a local JSON file.",
+    "description": "An exact-money expense journal with atomic idempotent imports, monthly budgets, reports, process-safe persistence and a tested CLI.",
     "app_type": "cli",
     "path": "templates/swift/expense-summary/1.0.0",
     "toolchain": "swift",
@@ -683,68 +485,26 @@
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "bundled_revision": 1
+    "bundled_revision": 2
   },
   {
-    "id": "swift/release-dispatch",
-    "name": "Swift Release Dispatch",
+    "id": "swift/focus-timer",
+    "name": "Focus Sessions",
     "stack": "swift",
     "version": "1.0.0",
-    "description": "Publish a release brief to SeaweedFS, cache it in Redis, hand it off through RabbitMQ and NATS, index it in Meilisearch, and send a Mailpit notification.",
-    "app_type": "cli",
-    "path": "templates/swift/release-dispatch/1.0.0",
+    "description": "A native menu-bar focus timer with pause/resume, breaks, persistent session history, daily totals and CSV export.",
+    "app_type": "desktop",
+    "path": "templates/swift/focus-timer/1.0.0",
     "toolchain": "swift",
     "minimum_version": "6.0",
     "minimum_macos": "14.0",
     "test_command": "./test-offline.sh",
     "docs": [
       "swift@6.4.0+devline.1",
-      "infrastructure"
+      "swiftui"
     ],
     "verified": true,
     "target": "darwin-arm64",
-    "services": [
-      "redis@8.10.1",
-      "rabbitmq@4.3.7",
-      "nats@2.15.2",
-      "mailpit@1.33.0",
-      "meilisearch@1.56.1",
-      "seaweedfs@4.52"
-    ],
     "bundled_revision": 1
-  },
-  {
-    "id": "node/file-summary",
-    "name": "Node.js File Summary CLI",
-    "stack": "node",
-    "version": "1.0.0",
-    "description": "Summarize a local text file from the command line with the standard library.",
-    "app_type": "cli",
-    "path": "templates/node/file-summary/1.0.0",
-    "toolchain": "node",
-    "minimum_version": "26.0.0",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "node@26.13.0+devline.1"
-    ],
-    "verified": true,
-    "target": "darwin-arm64"
-  },
-  {
-    "id": "elixir/file-summary",
-    "name": "Elixir File Summary CLI",
-    "stack": "elixir",
-    "version": "1.0.0",
-    "description": "Summarize a local text file from the command line with the standard library.",
-    "app_type": "cli",
-    "path": "templates/elixir/file-summary/1.0.0",
-    "toolchain": "elixir",
-    "minimum_version": "1.20.5",
-    "test_command": "./test-offline.sh",
-    "docs": [
-      "elixir"
-    ],
-    "verified": true,
-    "target": "darwin-arm64"
   }
 ]

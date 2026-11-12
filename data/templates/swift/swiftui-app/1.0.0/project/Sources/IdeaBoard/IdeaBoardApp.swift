@@ -1,17 +1,23 @@
+import AppKit
 import Foundation
 import IdeaBoardCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 @main
 struct IdeaBoardApp: App {
     private let file = BoardFile(
-        url: URL.applicationSupportDirectory
-            .appending(path: Bundle.main.bundleIdentifier ?? "local.devline.idea-board", directoryHint: .isDirectory)
-            .appending(path: "ideas.json")
+        url: (ProcessInfo.processInfo.environment["FIELDNOTES_DATA_DIR"].map {
+            URL(fileURLWithPath: $0, isDirectory: true)
+        }
+            ?? URL.applicationSupportDirectory.appending(
+                path: Bundle.main.bundleIdentifier ?? "local.devline.fieldnotes",
+                directoryHint: .isDirectory))
+            .appending(path: "workspace.json")
     )
 
     var body: some Scene {
-        Window("Idea Board", id: "board") {
+        Window("Fieldnotes", id: "board") {
             BoardView(file: file)
         }
         .defaultSize(width: 850, height: 550)
@@ -21,13 +27,17 @@ struct IdeaBoardApp: App {
 private struct IdeaDraft: Identifiable {
     let id = UUID()
     let original: Idea.ID?
+    let originalValue: Idea?
     var title: String
     var notes: String
+    var tags: String
 
     init(_ idea: Idea? = nil) {
         original = idea?.id
+        originalValue = idea
         title = idea?.title ?? ""
         notes = idea?.notes ?? ""
+        tags = idea?.tags.joined(separator: ", ") ?? ""
     }
 }
 
@@ -35,14 +45,16 @@ private struct BoardView: View {
     let file: BoardFile
     @State private var board: IdeaBoard?
     @State private var selection: Idea.ID?
-    @State private var filter = IdeaFilter.all
+    @State private var filter = IdeaFilter.open
     @State private var query = ""
+    @State private var selectedTag: String?
+    @State private var notice: String?
     @State private var draft: IdeaDraft?
     @State private var pendingDelete: Idea?
     @State private var failure: String?
 
     private var selectedIdea: Idea? {
-        board?.visibleIdeas(filter, matching: query).first { $0.id == selection }
+        board?.visibleIdeas(filter, matching: query, tag: selectedTag).first { $0.id == selection }
     }
 
     var body: some View {
@@ -51,32 +63,49 @@ private struct BoardView: View {
                 boardContent(board)
             } else {
                 ContentUnavailableView {
-                    Label("Your Ideas", systemImage: "lightbulb")
+                    Label("Fieldnotes", systemImage: "note.text")
                 } description: {
-                    Text("Load the idea board to continue.")
+                    Text("Load your local notes workspace to continue.")
                 } actions: {
-                    Button("Load Board", action: load)
+                    Button("Load Workspace", action: load)
                 }
             }
         }
-        .frame(minWidth: 620, minHeight: 400)
+        .safeAreaInset(edge: .bottom) {
+            HStack {
+                Text(
+                    notice
+                        ?? "\(board?.ideas.count ?? 0) \(board?.ideas.count == 1 ? "note" : "notes") · Saved on this Mac"
+                )
+                Spacer()
+            }.font(.caption).foregroundStyle(.secondary).padding(8).background(.bar)
+        }
+        .frame(minWidth: 760, minHeight: 480)
         .task { if board == nil { load() } }
         .sheet(item: $draft) { draft in
-            DraftView(draft: draft) { save($0) }
+            DraftView(draft: draft, failure: $failure, reload: load) { save($0) }
         }
         .confirmationDialog(
-            "Delete idea?",
-            isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
+            "Permanently delete note?",
+            isPresented: Binding(
+                get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
             presenting: pendingDelete
         ) { idea in
-            Button("Delete Idea", role: .destructive) { change { $0.remove(idea.id) } }
+            Button("Delete Note", role: .destructive) { change { $0.remove(idea.id) } }
         } message: { idea in
             Text(idea.title)
         }
-        .alert("Unable to Open or Save Board", isPresented: Binding(
-            get: { failure != nil }, set: { if !$0 { failure = nil } }
-        )) {
+        .alert(
+            "Workspace Needs Attention",
+            isPresented: Binding(
+                get: { failure != nil && draft == nil }, set: { if !$0 { failure = nil } }
+            )
+        ) {
             Button("OK") { failure = nil }
+            Button("Reload Workspace") {
+                failure = nil
+                load()
+            }
         } message: {
             Text(failure ?? "")
         }
@@ -85,16 +114,43 @@ private struct BoardView: View {
     private func boardContent(_ board: IdeaBoard) -> some View {
         NavigationSplitView {
             VStack(spacing: 0) {
-                Picker("Filter ideas", selection: $filter) {
+                Picker("Filter notes", selection: $filter) {
                     ForEach(IdeaFilter.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .padding(12)
 
-                List(board.visibleIdeas(filter, matching: query), selection: $selection) { idea in
-                    Label(idea.title, systemImage: idea.isDone ? "checkmark.circle.fill" : "circle")
-                        .tag(idea.id)
+                Picker("Tag", selection: $selectedTag) {
+                    Text("All tags").tag(Optional<String>.none)
+                    ForEach(board.allTags, id: \.self) { Text($0).tag(Optional($0)) }
+                }.padding(.horizontal, 12).padding(.bottom, 8)
+                List(
+                    board.visibleIdeas(filter, matching: query, tag: selectedTag),
+                    selection: $selection
+                ) { idea in
+                    VStack(alignment: .leading, spacing: 5) {
+                        Label(
+                            idea.title,
+                            systemImage: idea.isPinned
+                                ? "pin.fill" : (idea.isDone ? "archivebox" : "note.text")
+                        )
+                        .font(.headline).lineLimit(1)
+                        Text(idea.notes.replacingOccurrences(of: "\n", with: " "))
+                            .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        if !idea.tags.isEmpty {
+                            Text(idea.tags.map { "#" + $0 }.joined(separator: " "))
+                                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                    }.padding(.vertical, 5).tag(idea.id)
+                        .contextMenu {
+                            Button(idea.isPinned ? "Unpin" : "Pin") {
+                                change { $0.togglePinned(idea.id) }
+                            }
+                            Button(idea.isDone ? "Restore" : "Archive") {
+                                change { $0.toggleDone(idea.id) }
+                            }
+                        }
                 }
                 .listStyle(.sidebar)
             }
@@ -104,27 +160,34 @@ private struct BoardView: View {
                 ideaDetail(idea)
             } else if board.ideas.isEmpty {
                 ContentUnavailableView {
-                    Label("Make room for an idea", systemImage: "lightbulb")
+                    Label("A place for your thinking", systemImage: "lightbulb")
                 } description: {
-                    Text("Keep experiments and small projects here as you think of them.")
+                    Text("Capture notes, add tags, and pin the ideas you want to return to.")
                 } actions: {
-                    Button("New Idea") { draft = IdeaDraft() }
+                    Button("New Note") { draft = IdeaDraft() }
                 }
-            } else if board.visibleIdeas(filter, matching: query).isEmpty {
-                ContentUnavailableView("No Matching Ideas", systemImage: "magnifyingglass")
+            } else if board.visibleIdeas(filter, matching: query, tag: selectedTag).isEmpty {
+                ContentUnavailableView("No Matching Notes", systemImage: "magnifyingglass")
             } else {
-                ContentUnavailableView("Select an Idea", systemImage: "lightbulb")
+                ContentUnavailableView("Select a Note", systemImage: "lightbulb")
             }
         }
-        .searchable(text: $query, placement: .sidebar, prompt: "Search titles and notes")
+        .searchable(text: $query, placement: .sidebar, prompt: "Search notes and tags")
         .toolbar {
             Button {
                 draft = IdeaDraft()
             } label: {
-                Label("New Idea", systemImage: "plus")
+                Label("New Note", systemImage: "plus")
             }
             .keyboardShortcut("n", modifiers: .command)
-            .help("Create an idea")
+            .help("Create a note")
+            Menu {
+                Button("Import Workspace…", action: importWorkspace)
+                Button("Export Workspace…", action: exportWorkspace)
+                Button("Reload Workspace", action: load)
+            } label: {
+                Label("Workspace", systemImage: "ellipsis.circle")
+            }
         }
     }
 
@@ -133,11 +196,20 @@ private struct BoardView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text(idea.title).font(.largeTitle.weight(.semibold)).textSelection(.enabled)
                 HStack {
-                    Button(idea.isDone ? "Reopen" : "Mark Done") { change { $0.toggleDone(idea.id) } }
-                        .buttonStyle(.borderedProminent)
+                    Button(idea.isDone ? "Restore" : "Archive") {
+                        change { $0.toggleDone(idea.id) }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button(idea.isPinned ? "Unpin" : "Pin") { change { $0.togglePinned(idea.id) } }
+                    Button("Export Markdown…") { exportNote(idea) }
                     Button("Edit") { draft = IdeaDraft(idea) }
                     Button("Delete…", role: .destructive) { pendingDelete = idea }
                 }
+                HStack {
+                    Text(idea.tags.map { "#" + $0 }.joined(separator: "  "))
+                    Spacer()
+                    Text(idea.updatedAt, format: .dateTime.day().month().year())
+                }.font(.caption).foregroundStyle(.secondary)
                 Divider()
                 Text(idea.notes.isEmpty ? "No notes yet." : idea.notes)
                     .foregroundStyle(idea.notes.isEmpty ? .secondary : .primary)
@@ -148,19 +220,70 @@ private struct BoardView: View {
         }
     }
 
+    private func importWorkspace() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url, var next = board else { return }
+        do {
+            let incoming = try JSONDecoder().decode(IdeaBoard.self, from: Data(contentsOf: url))
+            let count = try next.merge(incoming)
+            guard change({ $0 = next }) else { return }
+            notice = "Imported \(count) notes."
+        } catch { failure = error.localizedDescription }
+    }
+
+    private func exportWorkspace() {
+        guard let board else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "fieldnotes-backup.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do { try BoardFile.encode(board).write(to: url, options: .atomic) } catch {
+            failure = error.localizedDescription
+        }
+    }
+
+    private func exportNote(_ idea: Idea) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "note.md"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do { try idea.markdown.write(to: url, atomically: true, encoding: .utf8) } catch {
+            failure = error.localizedDescription
+        }
+    }
+
     private func load() {
-        do { board = try file.load() }
-        catch { failure = error.localizedDescription }
+        do {
+            board = try file.load()
+            failure = nil
+        } catch { failure = error.localizedDescription }
     }
 
     private func save(_ draft: IdeaDraft) -> Bool {
         if let id = draft.original {
-            return change { $0.edit(id, title: draft.title, notes: draft.notes) }
+            guard board?.ideas.first(where: { $0.id == id }) == draft.originalValue else {
+                failure =
+                    "This note changed or was removed while you were editing. Your draft is intact. Reload the workspace, then use Save as New to preserve both versions."
+                return false
+            }
+            guard var next = board,
+                next.edit(id, title: draft.title, notes: draft.notes, tags: draft.tags)
+            else {
+                failure =
+                    "This note no longer exists, or the draft exceeds the limits. Copy your draft before closing it and create a new note."
+                return false
+            }
+            return change { $0 = next }
         }
         var added: Idea?
-        guard change({ added = $0.add(title: draft.title, notes: draft.notes) }), let added else { return false }
+        guard change({ added = $0.add(title: draft.title, notes: draft.notes, tags: draft.tags) }),
+            let added
+        else { return false }
         filter = .all
         query = ""
+        selectedTag = nil
         selection = added.id
         return true
     }
@@ -170,8 +293,9 @@ private struct BoardView: View {
         guard var next = board else { return false }
         update(&next)
         do {
-            try file.save(next)
+            try file.save(next, expecting: board)
             board = next
+            failure = nil
             return true
         } catch {
             failure = error.localizedDescription
@@ -184,26 +308,55 @@ private struct DraftView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var titleFocused: Bool
     @State var draft: IdeaDraft
+    @Binding var failure: String?
+    let reload: () -> Void
     let save: (IdeaDraft) -> Bool
+
+    private var validDraft: Bool {
+        var board = IdeaBoard()
+        return board.add(title: draft.title, notes: draft.notes, tags: draft.tags) != nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(draft.original == nil ? "New Idea" : "Edit Idea").font(.title2.weight(.semibold))
+            Text(draft.original == nil ? "New Note" : "Edit Note").font(.title2.weight(.semibold))
             TextField("Title", text: $draft.title)
                 .textFieldStyle(.roundedBorder)
                 .focused($titleFocused)
+            TextField("Tags, separated by commas", text: $draft.tags).textFieldStyle(.roundedBorder)
             Text("Notes").font(.headline)
             TextEditor(text: $draft.notes)
                 .font(.body)
                 .frame(minHeight: 130)
                 .accessibilityLabel("Notes")
                 .border(.quaternary)
+            if let failure {
+                Text(failure).foregroundStyle(.red).font(.callout).textSelection(.enabled)
+                Button("Reload Saved Workspace", action: reload)
+            }
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Cancel") {
+                    failure = nil
+                    dismiss()
+                }.keyboardShortcut(.cancelAction)
+                if draft.original != nil {
+                    Button("Save as New") {
+                        var copy = IdeaDraft()
+                        copy.title = draft.title
+                        copy.notes = draft.notes
+                        copy.tags = draft.tags
+                        if save(copy) { dismiss() }
+                    }.disabled(!validDraft)
+                }
                 Button("Save") { if save(draft) { dismiss() } }
                     .keyboardShortcut(.defaultAction)
-                    .disabled(draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!validDraft)
+            }
+            if !validDraft {
+                Text(
+                    "Use a title up to 200 characters, at most 12 tags of 40 characters each, and notes up to 200,000 characters."
+                ).font(.caption).foregroundStyle(.secondary)
             }
         }
         .padding(24)

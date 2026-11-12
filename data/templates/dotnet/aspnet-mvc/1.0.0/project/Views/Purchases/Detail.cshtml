@@ -1,0 +1,58 @@
+@model DetailModel
+
+<a href="/">← All requests</a>
+<header>
+    <div>
+        <p class="eyebrow">REQUEST #@Model.Request.Id</p>
+        <h1>@Model.Request.Title</h1>
+        <p>Submitted by @Model.Request.RequestedBy</p>
+    </div>
+    <div>
+        <strong class="amount">€@Model.Request.Amount</strong>
+        <span class="badge">@Model.Request.Status</span>
+    </div>
+</header>
+
+<div class="columns">
+    <section>
+        <h2>Business reason</h2>
+        <p class="prose">@Model.Request.Reason</p>
+        <h2>History</h2>
+        @foreach (var item in Model.Events)
+        {
+            <article class="event">
+                <strong>@item.Action · @item.Actor</strong>
+                <p>@item.Note</p>
+                <small>@item.HappenedAt</small>
+            </article>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>Decision</h2>
+        @if (Model.Request.Status == "pending" && User.IsInRole("Approver") && Model.Request.RequestedBy != User.Identity?.Name)
+        {
+            <form method="post" action="/requests/@Model.Request.Id/decision">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="version" value="@Model.Request.Version">
+                <label>
+                    Decision note
+                    <textarea name="note" maxlength="500" rows="5" required placeholder="Explain your decision."></textarea>
+                </label>
+                <div class="actions">
+                    <button name="decision" value="approved">Approve</button>
+                    <button class="danger" name="decision" value="rejected">Reject</button>
+                </div>
+            </form>
+        }
+        else if (Model.Request.Status == "pending")
+        {
+            <p>Waiting for an independent approver. You cannot decide your own request.</p>
+        }
+        else
+        {
+            <p>@Model.Request.DecisionNote</p>
+            <p class="muted">Decision recorded by @Model.Request.DecidedBy. This request is closed.</p>
+        }
+    </section>
+</div>

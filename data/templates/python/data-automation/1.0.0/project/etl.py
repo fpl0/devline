@@ -1,57 +1,53 @@
+"""CLI for the Sales Observatory warehouse."""
+
 import argparse
+import csv
 import json
 from pathlib import Path
-from tempfile import TemporaryDirectory
+import sys
 
 import duckdb
-import httpx
+from observatory import connect, ingest, render_html, report
 
 
-def summarize(source: Path) -> list[dict]:
-    source = source.resolve(strict=True)
-    readers = {
-        ".csv": "read_csv(?, header = true, columns = {'category': 'VARCHAR', 'amount_cents': 'BIGINT'})",
-        ".json": "read_json(?, columns = {'category': 'VARCHAR', 'amount_cents': 'BIGINT'})",
-    }
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Import validated sales and publish reproducible reports"
+    )
+    parser.add_argument("--database", type=Path, default=Path("data/sales.duckdb"))
+    commands = parser.add_subparsers(dest="command", required=True)
+    load = commands.add_parser(
+        "ingest", help="Import CSV; invalid rows are reported, valid rows are committed"
+    )
+    load.add_argument("source", type=Path)
+    load.add_argument("--rejects", type=Path)
+    summary = commands.add_parser(
+        "report", help="Query the warehouse and emit JSON or a standalone HTML report"
+    )
+    summary.add_argument("--since")
+    summary.add_argument("--until")
+    summary.add_argument("--html", type=Path)
+    args = parser.parse_args(argv)
     try:
-        reader = readers[source.suffix.lower()]
-    except KeyError:
-        raise ValueError("Input must be a CSV or JSON file") from None
-    with duckdb.connect(config={"autoinstall_known_extensions": "false", "autoload_known_extensions": "false"}) as database:
-        rows = database.execute(
-            f"""SELECT category, count(*) AS rows, sum(amount_cents)::BIGINT AS total_cents
-                FROM {reader} GROUP BY category ORDER BY category""",
-            [str(source)],
-        ).fetchall()
-    return [{"category": category, "rows": count, "total_cents": total} for category, count, total in rows]
-
-
-def download_json(client: httpx.Client, url: str, destination: Path):
-    response = client.get(url)
-    response.raise_for_status()
-    destination.write_text(json.dumps(response.json()), encoding="utf-8")
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Summarize integer cents by category")
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--input", type=Path, help="Local CSV or JSON path")
-    source.add_argument("--url", help="Optional HTTP JSON source")
-    parser.add_argument("--output", type=Path)
-    args = parser.parse_args()
-    if args.input:
-        summary = summarize(args.input)
-    else:
-        with TemporaryDirectory() as scratch, httpx.Client(timeout=10) as client:
-            path = Path(scratch) / "source.json"
-            download_json(client, args.url, path)
-            summary = summarize(path)
-    result = json.dumps(summary, indent=2) + "\n"
-    if args.output:
-        args.output.write_text(result, encoding="utf-8")
-    else:
-        print(result, end="")
+        with connect(args.database) as database:
+            if args.command == "ingest":
+                result = ingest(database, args.source)
+                if args.rejects:
+                    args.rejects.parent.mkdir(parents=True, exist_ok=True)
+                    args.rejects.write_text(
+                        json.dumps(result["errors"], indent=2) + "\n"
+                    )
+            else:
+                result = report(database, args.since, args.until)
+                if args.html:
+                    args.html.parent.mkdir(parents=True, exist_ok=True)
+                    args.html.write_text(render_html(result), encoding="utf-8")
+            print(json.dumps(result, indent=2))
+            return 2 if result.get("rejected") else 0
+    except (OSError, ValueError, csv.Error, duckdb.Error) as error:
+        print(f"sales: {error}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

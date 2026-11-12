@@ -1,5 +1,5 @@
 {
-  "name": "devkit-app",
+  "name": "issue-desk",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -11,21 +11,8 @@
     "start": "node src/server.mjs"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "3.1164.0",
-    "@fastify/cors": "11.4.1",
     "@fastify/helmet": "13.2.0",
-    "@nats-io/transport-node": "3.4.0",
-    "@types/node": "26.6.6",
-    "amqplib": "2.2.1",
-    "dotenv": "18.0.9",
     "fastify": "5.12.8",
-    "jose": "6.2.15",
-    "mysql2": "3.24.6",
-    "pg": "8.23.1",
-    "pino": "10.4.0",
-    "redis": "6.3.1",
-    "typescript": "7.0.2",
-    "undici": "8.12.4",
     "zod": "4.6.7"
   }
 }

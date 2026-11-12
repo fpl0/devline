@@ -1,0 +1,187 @@
+{
+  "source": "VoidZero and Vite contributors, from the v8.3.6 documentation source tree. https://github.com/vitejs/vite/tree/v8.3.6/docs",
+  "source_count": 39,
+  "document_count": 39,
+  "documents": [
+    {
+      "source_path": "docs/changes/hotupdate-hook.md",
+      "document_id": "changes/hotupdate-hook"
+    },
+    {
+      "source_path": "docs/changes/index.md",
+      "document_id": "changes/index"
+    },
+    {
+      "source_path": "docs/changes/per-environment-apis.md",
+      "document_id": "changes/per-environment-apis"
+    },
+    {
+      "source_path": "docs/changes/shared-plugins-during-build.md",
+      "document_id": "changes/shared-plugins-during-build"
+    },
+    {
+      "source_path": "docs/changes/ssr-using-modulerunner.md",
+      "document_id": "changes/ssr-using-modulerunner"
+    },
+    {
+      "source_path": "docs/changes/this-environment-in-hooks.md",
+      "document_id": "changes/this-environment-in-hooks"
+    },
+    {
+      "source_path": "docs/config/build-options.md",
+      "document_id": "config/build-options"
+    },
+    {
+      "source_path": "docs/config/dep-optimization-options.md",
+      "document_id": "config/dep-optimization-options"
+    },
+    {
+      "source_path": "docs/config/index.md",
+      "document_id": "config/index"
+    },
+    {
+      "source_path": "docs/config/preview-options.md",
+      "document_id": "config/preview-options"
+    },
+    {
+      "source_path": "docs/config/server-options.md",
+      "document_id": "config/server-options"
+    },
+    {
+      "source_path": "docs/config/shared-options.md",
+      "document_id": "config/shared-options"
+    },
+    {
+      "source_path": "docs/config/ssr-options.md",
+      "document_id": "config/ssr-options"
+    },
+    {
+      "source_path": "docs/config/worker-options.md",
+      "document_id": "config/worker-options"
+    },
+    {
+      "source_path": "docs/guide/api-environment-frameworks.md",
+      "document_id": "guide/api-environment-frameworks"
+    },
+    {
+      "source_path": "docs/guide/api-environment-instances.md",
+      "document_id": "guide/api-environment-instances"
+    },
+    {
+      "source_path": "docs/guide/api-environment-plugins.md",
+      "document_id": "guide/api-environment-plugins"
+    },
+    {
+      "source_path": "docs/guide/api-environment-runtimes.md",
+      "document_id": "guide/api-environment-runtimes"
+    },
+    {
+      "source_path": "docs/guide/api-environment.md",
+      "document_id": "guide/api-environment"
+    },
+    {
+      "source_path": "docs/guide/api-hmr.md",
+      "document_id": "guide/api-hmr"
+    },
+    {
+      "source_path": "docs/guide/api-javascript.md",
+      "document_id": "guide/api-javascript"
+    },
+    {
+      "source_path": "docs/guide/api-plugin.md",
+      "document_id": "guide/api-plugin"
+    },
+    {
+      "source_path": "docs/guide/assets.md",
+      "document_id": "guide/assets"
+    },
+    {
+      "source_path": "docs/guide/backend-integration.md",
+      "document_id": "guide/backend-integration"
+    },
+    {
+      "source_path": "docs/guide/build.md",
+      "document_id": "guide/build"
+    },
+    {
+      "source_path": "docs/guide/cli.md",
+      "document_id": "guide/cli"
+    },
+    {
+      "source_path": "docs/guide/dep-pre-bundling.md",
+      "document_id": "guide/dep-pre-bundling"
+    },
+    {
+      "source_path": "docs/guide/env-and-mode.md",
+      "document_id": "guide/env-and-mode"
+    },
+    {
+      "source_path": "docs/guide/features.md",
+      "document_id": "guide/features"
+    },
+    {
+      "source_path": "docs/guide/index.md",
+      "document_id": "guide/index"
+    },
+    {
+      "source_path": "docs/guide/migration.md",
+      "document_id": "guide/migration"
+    },
+    {
+      "source_path": "docs/guide/performance.md",
+      "document_id": "guide/performance"
+    },
+    {
+      "source_path": "docs/guide/philosophy.md",
+      "document_id": "guide/philosophy"
+    },
+    {
+      "source_path": "docs/guide/ssr.md",
+      "document_id": "guide/ssr"
+    },
+    {
+      "source_path": "docs/guide/static-deploy.md",
+      "document_id": "guide/static-deploy"
+    },
+    {
+      "source_path": "docs/guide/troubleshooting.md",
+      "document_id": "guide/troubleshooting"
+    },
+    {
+      "source_path": "docs/guide/using-plugins.md",
+      "document_id": "guide/using-plugins"
+    },
+    {
+      "source_path": "docs/guide/why.md",
+      "document_id": "guide/why"
+    },
+    {
+      "source_path": "docs/plugins/index.md",
+      "document_id": "plugins/index"
+    }
+  ],
+  "excluded_sources": [
+    "docs/acknowledgements.md",
+    "docs/blog.md",
+    "docs/blog/announcing-vite2.md",
+    "docs/blog/announcing-vite3.md",
+    "docs/blog/announcing-vite4-3.md",
+    "docs/blog/announcing-vite4.md",
+    "docs/blog/announcing-vite5-1.md",
+    "docs/blog/announcing-vite5.md",
+    "docs/blog/announcing-vite6.md",
+    "docs/blog/announcing-vite7.md",
+    "docs/blog/announcing-vite8-1.md",
+    "docs/blog/announcing-vite8-beta.md",
+    "docs/blog/announcing-vite8.md",
+    "docs/blog/cloudflare-supports-vite.md",
+    "docs/index.md",
+    "docs/live.md",
+    "docs/releases.md",
+    "docs/team.md"
+  ],
+  "exclusions": [
+    "Blog, team, homepage, release-policy, and event pages are outside the guide/configuration/migration/plugin reference scope.",
+    "Framework plugin projects and hosted interactive lessons are separate publications."
+  ]
+}

@@ -5,7 +5,7 @@ defmodule DevlineWorker.Application do
   def start(_type, _args) do
     Supervisor.start_link(
       [{Task.Supervisor, name: DevlineWorker.Tasks}, DevlineWorker.Queue],
-      strategy: :one_for_one,
+      strategy: :one_for_all,
       name: DevlineWorker.Supervisor
     )
   end

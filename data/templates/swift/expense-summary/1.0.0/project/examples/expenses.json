@@ -1,6 +1,5 @@
 [
-  {"category": "Food", "cents": 475},
-  {"category": "Travel", "cents": 1450},
-  {"category": "Food", "cents": 825},
-  {"category": "Travel", "cents": 325}
+  {"reference":"nov-coffee","date":"2026-11-02","category":"Food","description":"Coffee with the project team","amount":"4.50"},
+  {"reference":"nov-lunch","date":"2026-11-03","category":"Food","description":"Lunch","amount":"8.50"},
+  {"reference":"nov-train","date":"2026-11-04","category":"Travel","description":"Return train ticket","amount":"17.75"}
 ]

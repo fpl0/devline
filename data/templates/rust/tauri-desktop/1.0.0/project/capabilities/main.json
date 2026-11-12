@@ -1,6 +1,10 @@
 {
   "identifier": "main",
-  "description": "The bundled inspector window can analyze text using the Rust backend.",
-  "windows": ["main"],
-  "permissions": ["allow-inspect-text"]
+  "description": "Only the bundled main window can manage the local notebook.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "allow-notebook"
+  ]
 }

@@ -1,0 +1,4 @@
+[
+  {"name":"Local web app","url":"http://127.0.0.1:4000/healthz","expected_status":200},
+  {"name":"Order Ledger","url":"http://127.0.0.1:7441/healthz","expected_status":200}
+]

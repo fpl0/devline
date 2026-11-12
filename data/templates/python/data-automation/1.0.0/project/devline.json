@@ -2,10 +2,8 @@
   "schema_version": 1,
   "run": {
     "command": [
-      "python3",
-      "etl.py",
-      "--input",
-      "fixtures/sales.csv"
+      "/bin/sh",
+      "./run.sh"
     ]
   }
 }

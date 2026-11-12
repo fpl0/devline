@@ -1,5 +1,5 @@
 {
-  "name": "devkit-app",
+  "name": "site-audit",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -7,9 +7,13 @@
     "node": ">=26"
   },
   "scripts": {
-    "test": "./test-offline.sh"
+    "test": "./test-offline.sh",
+    "start": "sh scripts/with-browser.sh src/cli.mjs"
   },
   "dependencies": {
+    "playwright": "1.65.0"
+  },
+  "devDependencies": {
     "@playwright/test": "1.65.0",
     "@types/node": "26.6.6",
     "typescript": "7.0.2"

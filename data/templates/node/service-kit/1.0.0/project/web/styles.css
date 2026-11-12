@@ -1,0 +1,156 @@
+:root {
+  font-family: system-ui, sans-serif;
+  background: #f4f6f1;
+  color: #233d35;
+}
+body {
+  max-width: 1100px;
+  margin: auto;
+  padding: 40px 24px;
+}
+h1 {
+  font:
+    42px Georgia,
+    serif;
+  margin: 8px 0;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+header small {
+  letter-spacing: 2px;
+  font-size: 10px;
+}
+#connection {
+  font-size: 12px;
+  color: #688b6c;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  border: 1px solid #cbd8ca;
+  border-radius: 6px;
+  padding: 9px;
+  background: white;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:hover {
+  background: #dfeadb;
+}
+input,
+textarea {
+  box-sizing: border-box;
+}
+label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  margin: 15px 0;
+}
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  align-items: start;
+  gap: 30px;
+  margin-top: 30px;
+}
+.panel {
+  background: white;
+  border: 1px solid #dae2d6;
+  border-radius: 12px;
+  padding: 24px;
+}
+.filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.filters input {
+  flex: 1;
+  min-width: 0;
+}
+.issue {
+  padding: 18px 0;
+  border-bottom: 1px solid #e4e9df;
+}
+.issue button {
+  font-size: 17px;
+  border: 0;
+  padding: 0;
+  background: none;
+  text-align: left;
+}
+.issue p,
+small {
+  color: #76896f;
+  font-size: 12px;
+}
+.badges {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.primary {
+  background: #315b43;
+  color: white;
+}
+.primary:hover {
+  background: #234c35;
+}
+#message {
+  color: #476e50;
+  font-size: 13px;
+  min-height: 20px;
+}
+#detail h2 {
+  font:
+    25px Georgia,
+    serif;
+}
+#history {
+  font-size: 12px;
+  line-height: 1.8;
+  padding-left: 18px;
+}
+#history li {
+  margin-bottom: 10px;
+  overflow-wrap: anywhere;
+}
+nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 20px;
+  font-size: 12px;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 800px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .filters {
+    flex-wrap: wrap;
+  }
+}
+
+#message.error {
+  color: #ab513e;
+}
+aside .panel + .panel {
+  margin-top: 16px;
+}

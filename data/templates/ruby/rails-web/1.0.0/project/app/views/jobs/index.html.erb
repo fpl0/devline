@@ -1,0 +1,40 @@
+<header>
+  <p class="eyebrow">A small workshop, organised</p>
+  <h1>Workshop Desk</h1>
+  <p>From intake and estimate to collection. Every handoff stays in the job history.</p>
+</header>
+<nav aria-label="Filter jobs">
+  <%= link_to "All jobs", jobs_path, class: ("selected" unless @status) %>
+  <% Job::TRANSITIONS.each_key do |status| %>
+    <%= link_to "#{status.humanize} (#{@counts.fetch(status, 0)})", jobs_path(status: status), class: ("selected" if @status == status) %>
+  <% end %>
+</nav>
+<%= form_with url: jobs_path, method: :get, class: "search" do |form| %>
+  <%= form.label :q, "Search jobs and customers" %>
+  <%= form.search_field :q, value: @query %>
+  <%= form.hidden_field :status, value: @status %>
+  <%= form.submit "Search" %>
+<% end %>
+<div class="workspace">
+  <section>
+    <h2>Current work</h2>
+    <% if @jobs.empty? %>
+      <p class="empty">No jobs match this view. Receive a job to begin.</p>
+    <% end %>
+    <% @jobs.each do |job| %>
+      <article class="job">
+        <span class="badge"><%= job.status.humanize %></span>
+        <h3><%= link_to job.title, job %></h3>
+        <p><%= job.customer %> · <%= number_to_currency(job.estimate_cents / 100.0, unit: "€") %></p>
+        <small>Received <%= job.created_at.strftime("%d %b %Y") %></small>
+      </article>
+    <% end %>
+    <% if @jobs.size == 100 %>
+      <p>Showing the newest 100 jobs. Narrow the search to find older work.</p>
+    <% end %>
+  </section>
+  <aside>
+    <h2>Receive a job</h2>
+    <%= render "form", job: @job %>
+  </aside>
+</div>

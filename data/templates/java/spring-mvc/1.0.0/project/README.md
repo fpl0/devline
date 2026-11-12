@@ -1,28 +1,17 @@
-# __PROJECT_NAME__
+# Purchase Desk
 
-A Spring Boot MVC task board with Thymeleaf views and Spring Security sign-in. Spring Data JDBC stores each user's tasks in PostgreSQL. Redis caches each user's list for 30 seconds. RabbitMQ delivers completion events to a listener that records the result in PostgreSQL.
-
-Use JDK 26, Maven 3.10 or later, and a running Docker engine. Devline configures the four services for generated projects. If an image is missing from your offline library, import an archive or prepare it while connected.
+A complete local purchase approval workflow: submit a request with an exact EUR amount and business reason, review the queue, approve or reject with a note, and inspect the permanent history. Requests and decisions survive app restarts.
 
 ```sh
-devline infra prepare postgres@18.6
-devline infra prepare redis@8.10.1
-devline infra prepare rabbitmq@4.3.7
-devline infra prepare keycloak@26.8.2
+./run.sh
+./build-app.sh
+./test-offline.sh
 ```
 
-Run the app from the generated project. Devline starts the services from their local images, passes their connection settings, and builds the app with the bundled Maven repository. The app configures the local `devline-java` Keycloak realm on first run and preserves its users on subsequent launches.
+Open the address printed by the server (Java: http://127.0.0.1:8081; .NET: http://127.0.0.1:5081). Sign in as **alice** with password **devline-local**. Submit “Workshop materials”, EUR 240.50, with a business reason. Sign out and sign in as **bob**, using the same password. Open the request and approve it with a note. Filter the queue to Approved and inspect the history.
 
-```sh
-./devline.sh run
-```
+Alice is a requester; Bob is an approver and can also submit requests. Nobody may decide their own request. Decisions are final, submitted amounts cannot be edited, and stale forms return a conflict instead of overwriting a decision. Both the state change and audit event are committed in one transaction. Form submissions use CSRF protection; user text is HTML-escaped.
 
-Open [the task board](http://127.0.0.1:8081). Sign in with `demo` / `demo-password`, then try the following.
+These are fixed local demonstration identities, not a user-management system. The app binds to loopback and requires no external services. Replace the demo identity provider before exposing it to a network. Data is stored in `data/`; stop the app before backing it up. EUR values are stored as integer cents, with limits of 0.01–1,000,000.00.
 
-1. Add a task and refresh twice. The footer shows whether the list came from PostgreSQL or Redis. Writes invalidate the cached list.
-2. Complete the task. The completion is queued, then the listener marks it **Recorded**. Refresh after a few seconds to see the update.
-3. Sign out and sign in with `reader` / `reader-password`. This account has its own task list. Sign back in as `demo` and delete the task.
-
-`./devline.sh test` builds the app offline without starting the services. The browser walkthrough exercises the live integrations. Use `./devline.sh services down` after stopping the app to stop the containers and keep their data. To change the app port, edit `run.url` in `.devline/config.json` and restart. Open the loopback URL shown there so it matches the registered Keycloak callback.
-
-The realm and credentials are for local development. Spring Security uses authorization code flow with PKCE and CSRF protected forms. The completion publisher retries unconfirmed events from PostgreSQL, and its listener can handle repeated deliveries. See [Spring Security OIDC login](https://docs.spring.io/spring-security/reference/servlet/oauth2/login/core.html), [Spring AMQP publisher confirms](https://docs.spring.io/spring-amqp/reference/amqp/template.html), and the [Keycloak Admin REST API](https://www.keycloak.org/docs-api/latest/rest-api/index.html).
+The test launches the real server against a temporary database, submits rendered forms, verifies permissions and self-approval rules, checks invalid money and CSRF, confirms that decisions cannot change, and restarts the process to verify persistence. Java additionally tests the transactional domain service directly. Dependencies are bundled for offline builds.

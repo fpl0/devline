@@ -4,9 +4,7 @@ ruby "~> 4.0.0"
 
 gem "thor"
 gem "rake"
-gem "csv"
 gem "json"
-gem "webrick"
 
 group :test do
   gem "minitest"

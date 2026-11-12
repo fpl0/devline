@@ -1,156 +1,105 @@
-use clap::Parser;
-use serde::Serialize;
-use serde_json::Value;
-use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, Read, Write};
-use std::path::PathBuf;
-
-const MAX_LINE: u64 = 1024 * 1024;
-
+use clap::{Parser, ValueEnum};
+use jsonl_report::analyze;
+use std::{
+    fs::File,
+    io::{self, BufRead, BufReader, Write},
+    path::PathBuf,
+};
+#[derive(Clone, ValueEnum)]
+enum Format {
+    Text,
+    Json,
+}
 #[derive(Parser)]
-#[command(
-    version,
-    about = "Count scalar JSON values at a field across a JSON Lines stream"
-)]
+#[command(version, about = "Logbook: bounded-memory HTTP request-log analysis")]
 struct Args {
-    /// JSON Pointer, for example /event/name.
-    #[arg(long, value_parser = pointer)]
-    field: String,
-    /// File to read, or - for standard input.
-    #[arg(default_value = "-", value_hint = clap::ValueHint::FilePath)]
+    /// JSON Lines request log, or - for standard input.
+    #[arg(default_value = "-")]
     input: PathBuf,
+    #[arg(long, value_enum, default_value = "text")]
+    format: Format,
+    /// Skip malformed records, count them, and include the first five errors.
+    #[arg(long)]
+    skip_invalid: bool,
+    /// Maximum distinct method/route pairs.
+    #[arg(long, default_value = "1000")]
+    max_routes: usize,
+    /// Exit 2 if the observed HTTP 5xx percentage exceeds this threshold.
+    #[arg(long)]
+    fail_error_rate: Option<f64>,
 }
-
-fn pointer(value: &str) -> Result<String, String> {
-    if value.is_empty()
-        || value.starts_with('/')
-            && value
-                .split('~')
-                .skip(1)
-                .all(|suffix| suffix.starts_with(['0', '1']))
+fn run(args: Args) -> Result<i32, Box<dyn std::error::Error>> {
+    if args
+        .fail_error_rate
+        .is_some_and(|n| !n.is_finite() || !(0.0..=100.0).contains(&n))
     {
-        Ok(value.into())
-    } else {
-        Err("Use a JSON Pointer such as /event/name (escape ~ as ~0 and / as ~1)".into())
+        return Err("--fail-error-rate must be 0–100".into());
     }
-}
-
-#[derive(Serialize)]
-struct Report {
-    records: u64,
-    missing_or_compound: u64,
-    counts: Vec<Count>,
-}
-
-#[derive(Serialize)]
-struct Count {
-    value: Value,
-    count: u64,
-}
-
-fn summarize(mut input: impl BufRead, field: &str) -> Result<Report, Box<dyn std::error::Error>> {
-    let mut line = Vec::new();
-    let mut line_number = 0;
-    let mut records = 0;
-    let mut missing_or_compound = 0;
-    let mut counts = BTreeMap::<String, Count>::new();
-    loop {
-        line.clear();
-        let read = input
-            .by_ref()
-            .take(MAX_LINE + 1)
-            .read_until(b'\n', &mut line)?;
-        if read == 0 {
-            break;
-        }
-        line_number += 1;
-        if read as u64 > MAX_LINE {
-            return Err(format!("line {line_number} exceeds 1 MiB").into());
-        }
-        if line.iter().all(u8::is_ascii_whitespace) {
-            continue;
-        }
-        let item: Value = serde_json::from_slice(&line)
-            .map_err(|error| format!("line {line_number}: {error}"))?;
-        records += 1;
-        if let Some(value) = item
-            .pointer(field)
-            .filter(|value| !value.is_array() && !value.is_object())
-        {
-            let key = serde_json::to_string(value)?;
-            counts
-                .entry(key)
-                .and_modify(|entry| entry.count += 1)
-                .or_insert_with(|| Count {
-                    value: value.clone(),
-                    count: 1,
-                });
-        } else {
-            missing_or_compound += 1;
-        }
-    }
-    let mut counts: Vec<_> = counts.into_values().collect();
-    counts.sort_by_key(|entry| std::cmp::Reverse(entry.count));
-    Ok(Report {
-        records,
-        missing_or_compound,
-        counts,
-    })
-}
-
-fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let input: Box<dyn BufRead> = if args.input.as_os_str() == "-" {
         Box::new(io::stdin().lock())
     } else {
-        Box::new(BufReader::new(File::open(&args.input)?))
+        Box::new(BufReader::new(File::open(args.input)?))
     };
-    let report = summarize(input, &args.field)?;
-    let mut output = io::stdout().lock();
-    serde_json::to_writer(&mut output, &report)?;
-    writeln!(output)?;
-    Ok(())
+    let report = analyze(input, args.skip_invalid, args.max_routes)?;
+    let mut out = io::stdout().lock();
+    match args.format {
+        Format::Json => {
+            serde_json::to_writer_pretty(&mut out, &report)?;
+            writeln!(out)?;
+        }
+        Format::Text => {
+            writeln!(
+                out,
+                "LOGBOOK · REQUEST HEALTH\n{} requests · {} server errors ({:.2}%) · {} client errors · {} skipped",
+                report.summary.requests,
+                report.summary.server_errors,
+                report.summary.error_rate_percent,
+                report.summary.client_errors,
+                report.skipped_records
+            )?;
+            writeln!(
+                out,
+                "\n{:7} {:7} {:10} {:10} ROUTE",
+                "COUNT", "5XX", "MEAN MS", "P95 ≤ MS"
+            )?;
+            for row in &report.routes {
+                writeln!(
+                    out,
+                    "{:7} {:7} {:10.2} {:10.0} {} {}",
+                    row.metrics.requests,
+                    row.metrics.server_errors,
+                    row.metrics.mean_ms.unwrap_or(0.),
+                    row.metrics.p95_upper_ms.unwrap_or(0.),
+                    row.method,
+                    row.route
+                )?;
+            }
+            for warning in &report.warnings {
+                writeln!(out, "Warning: {warning}")?;
+            }
+            writeln!(
+                out,
+                "\nPercentiles are histogram upper bounds, not exact measurements."
+            )?;
+        }
+    }
+    Ok(
+        if args
+            .fail_error_rate
+            .is_some_and(|n| report.summary.error_rate_percent > n)
+        {
+            2
+        } else {
+            0
+        },
+    )
 }
-
 fn main() {
-    if let Err(error) = run(Args::parse()) {
-        eprintln!("jsonl-report: {error}");
-        std::process::exit(1);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn counts_stable_order_and_keeps_scalar_types_distinct() {
-        let input =
-            b"{\"status\":\"200\"}\n{\"status\":200}\n{}\n{\"status\":200}\n{\"status\":[]}\n\n";
-        let result = summarize(&input[..], "/status").unwrap();
-        assert_eq!(result.records, 5);
-        assert_eq!(result.missing_or_compound, 2);
-        assert_eq!(result.counts[0].value, 200);
-        assert_eq!(result.counts[0].count, 2);
-        assert_eq!(result.counts[1].value, "200");
-    }
-
-    #[test]
-    fn malformed_and_oversize_records_identify_the_line() {
-        assert!(
-            summarize(&b"{}\n!\n"[..], "")
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("line 2")
-        );
-        let huge = vec![b'x'; MAX_LINE as usize + 1];
-        assert!(
-            summarize(&huge[..], "")
-                .err()
-                .unwrap()
-                .to_string()
-                .contains("line 1 exceeds")
-        );
+    match run(Args::parse()) {
+        Ok(code) => std::process::exit(code),
+        Err(error) => {
+            eprintln!("logbook: {error}");
+            std::process::exit(1)
+        }
     }
 }

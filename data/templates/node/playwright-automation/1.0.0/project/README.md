@@ -1,11 +1,28 @@
-# Playwright automation
+# Site Audit
 
-Run `./devline.sh run`, `./devline.sh test`, or `npm test`. The suite starts a local fixture server, fills a form using accessible locators, saves a screenshot, and checks a JSON API. It runs with the included npm packages and WebKit browser.
+A Playwright application that crawls a small website, checks content and browser behaviour, captures desktop/mobile screenshots, and writes a portable HTML/JSON report. It runs a complete local example without a network connection.
 
-This release requires Node.js 26 and an Apple Silicon Mac with macOS 26.5 or later. The browser archive is checked and unpacked into a temporary directory for each test run. `BROWSER.json` records the exact Playwright release, browser build, and archive checksum. The browser files, source revision, patch, and licenses ship together.
+```sh
+./devline.sh test
+./devline.sh run
+open reports/latest/index.html
+```
 
-Edit `tests/automation.spec.ts` to point at your own local app. Screenshots and failure traces go to `test-results`. Use `./test-offline.sh --headed` to see the browser in a window.
+The built-in workshop site includes a healthy page, an intentionally broken page, and a 404. The report shows findings and screenshots for all three. These deliberate findings are expected; they make the audit workflow visible.
 
-Use Devline's Build New Release action while connected to refresh the npm packages and matching WebKit browser. The refresh collects the new browser's source and licenses, and Devline runs the offline suite before installing the release.
+## Audit your project
 
-[Playwright browsers](https://playwright.dev/docs/browsers) · [API testing](https://playwright.dev/docs/api-testing) · [Bundled browser source and licenses](browser-archive/SOURCES.md)
+```sh
+./devline.sh run --url http://127.0.0.1:3000 --output reports/my-app --max-pages 10
+./devline.sh run --url http://127.0.0.1:3000 --fail-on-findings
+```
+
+The crawler follows same-origin links, excludes common downloadable/media paths, and stops at 10 pages by default (maximum 50). Third-party resources and service workers are blocked for a reproducible, bounded audit. Use `--timeout-ms` for slower pages. Exit **0** means a report was written, **1** means setup/input failed, and **2** means findings were present with `--fail-on-findings`. `report.truncated` records whether the page limit left links unvisited.
+
+Checks cover HTTP failures, missing page titles/language/h1, missing image alt attributes, apparently unlabelled controls/buttons, duplicate IDs, uncaught JavaScript errors, and horizontal overflow at 1280/390 px. These are transparent heuristics, **not a complete accessibility or security assessment**. Screenshots may contain private page content: inspect reports before sharing.
+
+## Structure and offline browser
+
+`src/audit.mjs` owns the bounded crawl and report; `fixture.mjs` owns the demonstration website; `cli.mjs` owns options and exit policy. Tests drive the real bundled WebKit browser, check a form workflow, and assert the audit findings and generated artifacts. The browser archive is checksummed and extracted to a temporary directory for each command, then removed. Node dependencies and the Apple Silicon browser are included. This pinned WebKit requires macOS 26.5 or newer.
+
+Use the same output directory to replace its current report; older screenshots from larger previous runs may remain but are not linked by the new report. Use a new output folder to retain separate audits. The HTML report references only local screenshots and opens directly from disk.

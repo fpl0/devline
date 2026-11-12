@@ -135,23 +135,22 @@ Devline also reads `devline.json` in older projects. For projects without a laun
 
 ## Build a desktop app
 
-The **Tauri Desktop App** starter is a text inspector with a Rust command and a small HTML/CSS/JavaScript interface. Its Cargo dependencies and web assets are included. It needs Rust/Cargo and Apple’s native build tools; no Node.js installation or frontend server is required.
+The **Fieldnotes** apps provide the same useful notes-workspace domain through two different desktop stacks: Rust with Tauri and native SwiftUI. They include editing, search, local persistence, backup/import, and tests. Tauri uses its bundled web assets and Cargo dependencies; SwiftUI uses the compiler, macOS SDK, and Swift Testing from Xcode 16 or later. No frontend development server is needed for the Tauri app.
 
-The **SwiftUI Idea Board** starter is a native Mac app with notes, search, local JSON persistence, and model tests. It uses the Swift compiler, macOS SDK, and Swift Testing from a locally installed Xcode 16 or later. Select Xcode in **Settings → Locations → Command Line Tools**, or set `DEVELOPER_DIR`. Devline discovers those tools with `xcrun`; it does not download or manage them.
+**Focus Sessions** is a second Swift app: a native dashboard and menu-bar timer with pause/resume, breaks, session history, and CSV export. Its timer recovers across sleep and restarts.
 
 ```sh
-devline prepare rust/tauri-desktop
-devline prepare swift/swiftui-app
-devline --offline new rust/tauri-desktop ./text-inspector
-devline --offline new swift/swiftui-app ./idea-board
-./idea-board/devline.sh run
-./idea-board/devline.sh build
-devline --offline docs search 'tauri:commands'
+devline --offline new rust/tauri-desktop ./rust-notes
+devline --offline new swift/swiftui-app ./swift-notes
+devline --offline new swift/focus-timer ./focus-sessions
+./swift-notes/devline.sh run
+./swift-notes/devline.sh build
+./focus-sessions/devline.sh test
 ```
 
-Both projects support `./devline.sh run`, `./devline.sh build`, and `./devline.sh test`. Build output stays under `target/` for Tauri and `.build/` for SwiftUI. The generated `.app` is signed locally for development. Tauri’s recipe refreshes compatible 2.x dependencies, vendors them, and verifies the result. The SwiftUI recipe rebuilds against the selected local SDK.
+The desktop projects provide `./devline.sh run`, `./devline.sh build`, and `./devline.sh test`. Build output stays under `target/` for Tauri and `.build/` for Swift. Generated `.app` bundles are signed locally for development. Select Xcode in **Settings → Locations → Command Line Tools**, or set `DEVELOPER_DIR`. Devline discovers these tools with `xcrun`; it does not install them.
 
-The desktop documentation includes an official Tauri snapshot and **The Swift Programming Language**.
+The desktop documentation includes an official Tauri snapshot and **The Swift Programming Language**. SwiftUI's API reference is prepared from the selected local SDK.
 
 ### Prepare the SwiftUI SDK reference
 
@@ -238,23 +237,33 @@ devline templates verify go/chi-api@1.2.0 --background
 
 Source files, manifests, lockfiles, and convention-based directories such as Go's `vendor/` and Node's `node_modules/` stay in their standard locations. Older projects retain their existing layout.
 
-### Starter inventory
+### Representative application catalog
 
-Each starter includes its local dependencies and an offline test. Use `devline templates inspect STARTER@VERSION` for its packages, platform, and service pins. The generated README walks through the app and its sample workflow.
+The catalog contains three complete applications for each of the nine runtime families. Choose an app by the workflow you want to explore. Shared domains expose the differences between ecosystems, while each runtime also has applications that suit its particular strengths. Existing starter IDs stay stable where the replacement evolves the same project slot; the display names describe the new apps.
 
-- **Go** starts with the file-index CLI and Chi API. The Chi Taskboard uses PostgreSQL and Redis. The Go Release Rehearsal (`go/service-kit`) exercises eight services in a release workflow.
-- **Rust** starts with the JSONL report CLI and Axum Reading Queue. The Rust Release Rehearsal (`rust/service-kit`) exercises eight services. A native Tauri desktop starter is also available.
-- **Python** starts with a data automation CLI and FastAPI. The FastAPI Support Desk (`python/service-kit`) uses seven services to store, search, notify, and export support tickets.
-- **Ruby** starts with a JSON CLI and a Rails app with SQLite and Puma. The Sinatra Support Desk (`ruby/service-kit`) uses seven services. Ruby also has a Thor and Rake task automation starter. Rails uses Apple Command Line Tools for native gems. Sinatra also requires OpenSSL 3 development files.
-- **C# and .NET** ship a JSON file CLI (`dotnet/json-cli`), a SQLite task REST API (`dotnet/aspnet-api`), and an MVC task board with Razor and Keycloak (`dotnet/aspnet-mvc`).
-- **Java** ships a JSON file CLI (`java/json-tool`), an in-memory Spring Boot task REST API (`java/spring-api`), and a Spring MVC task board with Thymeleaf and Keycloak (`java/spring-mvc`).
-- **Elixir** starts with a file summary CLI and an OTP report worker. The Phoenix Release Desk (`elixir/phoenix-api@1.1.0`) exercises seven services.
-- **Node.js and TypeScript** start with a file summary CLI and a React and Vite web app. The Fastify Release Desk (`node/service-kit`) exercises eight services. The Playwright automation starter includes WebKit for Apple Silicon on macOS 26.5 or later.
-- **Swift** starts with an expense summary CLI and a native SwiftUI idea board. Release Dispatch (`swift/release-dispatch`) publishes a release brief through six services.
+| Runtime | Applications and workflows |
+| --- | --- |
+| **Go** | **File Vault** (`go/file-index`): concurrent integrity snapshots and change verification. **Issue Desk** (`go/chi-api`): persistent API with workflow, history, and version conflicts. **Watchtower** (`go/chi-taskboard`): HTTP availability monitoring with a server-rendered dashboard. |
+| **Rust** | **Logbook** (`rust/jsonl-report`): streaming request-log analytics. **Issue Desk** (`rust/axum-api`): typed HTTP API with durable state and workflow rules. **Fieldnotes** (`rust/tauri-desktop`): a persistent desktop notes workspace. |
+| **Python** | **Order Ledger** (`python/fastapi-api`): transactional order and stock API with idempotency. **Sales Observatory** (`python/data-automation`): validated DuckDB ingestion, data-quality checks, and reports. **Field Notes Search** (`python/document-search`): local document indexing and SQLite full-text search. |
+| **Ruby** | **Workshop Desk** (`ruby/rails-web`): a Rails service-job and estimate workflow. **Dispatch Inbox** (`ruby/service-kit`): signed, idempotent webhook receipt and retry processing. **Snapshot Vault** (`ruby/task-automation`): backup, verification, and explicit restoration through Thor and Rake. |
+| **C# / .NET** | **Reconciliation** (`dotnet/json-cli`): match invoices and payments with exact arithmetic and actionable reports. **Issue Desk** (`dotnet/aspnet-api`): EF Core/SQLite API with audit history and optimistic concurrency. **Purchase Desk** (`dotnet/aspnet-mvc`): authenticated Razor workflow with roles, decisions, and audit history. |
+| **Java** | **Reconciliation** (`java/json-tool`): invoice/payment matching and a packaged CLI. **Issue Desk** (`java/spring-api`): Spring MVC/JDBC API with transactional persistence and version conflicts. **Purchase Desk** (`java/spring-mvc`): Spring Security and Thymeleaf workflow with persisted decisions and audit history. |
+| **Elixir** | **Incident Room** (`elixir/phoenix-api`): real-time incident coordination through Phoenix Channels. **Report Queue** (`elixir/otp-worker`): supervised durable jobs with retry handling. **Pulse Monitor** (`elixir/pulse-monitor`): bounded concurrent HTTP checks and retained history. |
+| **Node.js / TypeScript** | **Planboard** (`node/react-web`): an offline-first React planning app with backup/import. **Issue Desk** (`node/service-kit`): persistent Fastify/SQLite API and event history. **Site Audit** (`node/playwright-automation`): browser-based checks, screenshots, and an inspectable report. |
+| **Swift** | **Fieldnotes** (`swift/swiftui-app`): native notes with tags, pins, archive, and backup/import. **Expense Ledger** (`swift/expense-summary`): an exact-money journal with atomic imports and monthly budgets. **Focus Sessions** (`swift/focus-timer`): native menu-bar timer and persistent session history. |
 
-Choose **Run** on the project’s page or use `./devline.sh start` in the generated project. Finite demos run the bundled example and show the result in the output panel. For local web apps, choose **Open App** once the health check passes. For desktop starters, Devline launches the app window.
+Each README gives a complete example workflow, explains storage and failure behavior, and points to the idiomatic language and framework patterns in the code. Every project includes a runnable default, local dependencies, and meaningful offline tests. The apps use local persistence and do not require a stack of containers just to try the primary workflow. Local-service images and client packages remain available separately when extending an app.
 
-The infrastructure starters pin their required services. Devline prepares the images when creating a project while connected and starts them from the local vault when you run it offline. The generated README lists any service-specific steps for trying the workflow.
+Use `devline templates inspect STARTER@VERSION` to inspect an exact payload. Creating a project tests a staged copy with isolated caches and external networking denied before publishing it. In a generated project, `./devline.sh test` repeats the app's verification; `./devline.sh run` starts its default workflow, and `./devline.sh run ARGUMENTS` passes arguments to the app. Web apps expose **Open App** after their health check succeeds. Native apps open a window, and finite command-line demos print a result. The Playwright application includes an Apple Silicon WebKit browser requiring macOS 26.5 or later.
+
+```sh
+devline --offline new python/data-automation ./sales-observatory
+./sales-observatory/devline.sh run
+./sales-observatory/devline.sh test
+```
+
+The repository's full generated-project check is `python3 scripts/test-representative-apps.py`. It exercises all 27 apps through the CLI, verifies the outbound network denial, validates the generated verification receipt, and checks launch behavior. Use `--stack swift` or `--id go/file-index` for a focused run. Results and generated projects are retained under `.build/representative-apps/`; desktop interaction is reviewed separately from build tests.
 
 ### Transfer a library
 
@@ -279,15 +288,7 @@ Service networks disable outbound NAT and use local DNS settings by default whil
 
 A service image runs the server. A client library lets your code talk to that server. The service picker shows client suggestions for the project's runtime, including package versions, offline availability, and anything already included. Optional libraries start unchecked: select **Add … to project** only when you want Devline to add that dependency. Selecting an image alone does not change your code dependencies. Built-in capabilities and unsupported combinations are identified without offering an unsuitable package.
 
-The Java and C# MVC task boards require PostgreSQL, Redis, RabbitMQ, and Keycloak. Devline adds those four services automatically. Archive their images once while connected, or import them from a Devline vault bundle. Then you can create, build, test, and run either board offline. The app creates a local Keycloak realm for the demo. Sign in using an account from the generated README, then add a task to see it persisted in PostgreSQL and read through Redis. Follow the README to see the RabbitMQ consumer process a task event. The CLI and REST API starters need no containers.
-
-```sh
-devline --offline new dotnet/aspnet-mvc@1.0.0 ./dotnet-board
-./dotnet-board/devline.sh start
-
-devline --offline new java/spring-mvc@1.0.0 ./java-board
-./java-board/devline.sh start
-```
+The representative applications start with local storage. Add a service when extending an app's architecture, then use its runtime's selected client library in the application. Selecting infrastructure prepares and launches the service; it does not rewrite the app's repository or workflow to use that service.
 
 For a starter that does not already declare a supported client, add an explicit selection such as `--client dotnet:postgres` to `devline new`. New client choices modify the project's dependency declarations and prepare their offline closure. Leave the flag out to keep the starter's dependencies unchanged.
 
@@ -308,14 +309,14 @@ Add `--background` to `infra add` for a cancellable job. The app's **Add & Prepa
 devline infra catalog
 devline infra prepare postgres@18.6
 devline infra prepare redis@8.10.1
-devline prepare go/chi-taskboard@1.0.0
-devline --offline new go/chi-taskboard@1.0.0 ./taskboard
-./taskboard/devline.sh services up
-./taskboard/devline.sh check
-./taskboard/devline.sh services down
+devline --offline new go/chi-api ./issue-desk
+devline infra add ./issue-desk --service postgres@18.6 --client go:postgres
+./issue-desk/devline.sh services up
+./issue-desk/devline.sh check
+./issue-desk/devline.sh services down
 ```
 
-The Taskboard starter uses PostgreSQL for persistence and Redis for caching. Its generated README includes the local app launch and test commands. Use `devline infra credentials ./taskboard` in a private terminal when you need the connection strings. For an existing project, readiness checks the selected local resources and reports whether its own dependencies were verified. Use `devline toolbox check --library-only --image postgres@18.6` to check an archive independently of a project.
+Each generated project's README describes its actual storage. For a project you extend with services, readiness checks the selected local resources and reports whether its dependencies were verified. Use `devline toolbox check --library-only --image postgres@18.6` to check an archive independently of a project.
 
 ### Transfer images
 
@@ -412,7 +413,7 @@ python3 scripts/check-packages.py
 
 Use the ignored `.build/` directory for local verification outputs. For example, `python3 scripts/test-service-client-journeys.py --output .build/service-client-journeys` keeps the fixtures, logs, and results outside the tracked source tree.
 
-To exercise the six Java and C# starters through the CLI, run `cargo build --release --locked --manifest-path core/Cargo.toml` and `python3 scripts/test-java-dotnet-templates.py`. The full run needs the two toolchains, a running Docker engine, and the four MVC images archived in your Devline library. Use `--kind cli` or `--kind api` to run without Docker.
+To exercise the six Java and C# starters through the CLI, run `cargo build --release --locked --manifest-path core/Cargo.toml` and `python3 scripts/test-java-dotnet-templates.py`. The run needs the two toolchains and uses self-contained local databases. Use `--kind cli`, `--kind api`, or `--kind mvc` for a focused run.
 
 The build uses checked-in catalog snapshots and may download locked Rust dependencies and Sparkle. The app uses `~/Library/Application Support/Devline` for new libraries and can reopen a library from an earlier installation. Use `DEVLINE_HOME` or `--home` to isolate the library and `DEVLINE_CATALOG` or `--catalog` to select another catalog. [Storage and catalog](CONTRACT.md#storage-and-catalog)
 

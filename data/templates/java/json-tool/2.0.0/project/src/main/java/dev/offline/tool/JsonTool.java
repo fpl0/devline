@@ -1,153 +1,203 @@
 package dev.offline.tool;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Locale;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.*;
 import java.util.concurrent.Callable;
-import java.util.function.Consumer;
-
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
-import picocli.CommandLine.Spec;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-@Command(name = "json-tool", mixinStandardHelpOptions = true, version = "2.0.0",
-        description = "Inspect, format, or select a value from a JSON document.",
-        subcommands = {JsonTool.Inspect.class, JsonTool.Format.class, JsonTool.Select.class})
-public final class JsonTool implements Runnable {
-    private static final int MAX_BYTES = 8 * 1024 * 1024;
-    private static final JsonMapper JSON = JsonMapper.builder()
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-            .build();
+@Command(
+    name = "reconcile",
+    mixinStandardHelpOptions = true,
+    description = "Reconcile invoice balances against payments.")
+public final class JsonTool implements Callable<Integer> {
+  @Option(names = "--invoices", required = true)
+  Path invoices;
 
-    @Spec
-    private CommandSpec command;
+  @Option(names = "--payments", required = true)
+  Path payments;
 
-    @Override
-    public void run() {
-        command.commandLine().usage(command.commandLine().getOut());
+  @Option(names = "--output", required = true)
+  Path output;
+
+  public record Invoice(String reference, String currency, BigDecimal amount) {}
+
+  public record Payment(String id, String reference, String currency, BigDecimal amount) {}
+
+  public record Balance(
+      String reference,
+      String currency,
+      BigDecimal invoiced,
+      BigDecimal paid,
+      BigDecimal balance,
+      String status) {}
+
+  public record Unmatched(Payment payment, String reason) {}
+
+  public record Totals(BigDecimal invoiced, BigDecimal received) {}
+
+  public record Report(
+      List<Balance> invoices, List<Unmatched> unmatched, Map<String, Totals> totals) {}
+
+  public static void main(String[] args) {
+    System.exit(new CommandLine(new JsonTool()).execute(args));
+  }
+
+  @Override
+  public Integer call() {
+    try {
+      var report = reconcile(readInvoices(invoices), readPayments(payments));
+      Path destination = output.toAbsolutePath();
+      Files.createDirectories(destination.getParent());
+      Path temporary = Files.createTempFile(destination.getParent(), ".reconcile-", ".json");
+      try {
+        Files.writeString(
+            temporary,
+            JsonMapper.builder().build().writerWithDefaultPrettyPrinter().writeValueAsString(report)
+                + "\n");
+        Files.move(
+            temporary,
+            destination,
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING);
+      } finally {
+        Files.deleteIfExists(temporary);
+      }
+      System.out.printf(
+          "Reconciled %d invoices; %d unmatched payments. Report: %s%n",
+          report.invoices.size(), report.unmatched.size(), output);
+      return 0;
+    } catch (Exception error) {
+      System.err.println("reconcile: " + error.getMessage());
+      return 2;
     }
+  }
 
-    abstract static class InputCommand implements Callable<Integer> {
-        @Spec
-        CommandSpec command;
-
-        int withDocument(String input, Consumer<JsonNode> action) {
-            try {
-                JsonNode document = JSON.readTree(read(input));
-                if (document.isMissingNode()) {
-                    return fail("The input is empty.");
-                }
-                action.accept(document);
-                return 0;
-            } catch (JacksonException error) {
-                return fail("Invalid JSON: " + error.getOriginalMessage());
-            } catch (IOException | IllegalArgumentException error) {
-                return fail(error.getMessage());
-            }
-        }
-
-        private int fail(String message) {
-            command.commandLine().getErr().println(message);
-            return 2;
-        }
-
-        void print(String value) {
-            command.commandLine().getOut().println(value);
-        }
+  public static Report reconcile(List<Invoice> invoices, List<Payment> payments) {
+    var byReference = new LinkedHashMap<String, Invoice>();
+    var paid = new HashMap<String, BigDecimal>();
+    var totals = new TreeMap<String, Totals>();
+    for (var invoice : invoices) {
+      if (byReference.putIfAbsent(invoice.reference, invoice) != null)
+        throw new IllegalArgumentException("Duplicate invoice reference: " + invoice.reference);
+      var old = totals.getOrDefault(invoice.currency, new Totals(BigDecimal.ZERO, BigDecimal.ZERO));
+      totals.put(invoice.currency, new Totals(old.invoiced.add(invoice.amount), old.received));
     }
-
-    @Command(name = "inspect", mixinStandardHelpOptions = true,
-            description = "Print the top-level type and entry count.")
-    static final class Inspect extends InputCommand {
-        @Parameters(defaultValue = "-", paramLabel = "FILE", description = "JSON file or - for stdin.")
-        private String input;
-
-        @Override
-        public Integer call() {
-            return withDocument(input, document -> {
-                var summary = JSON.createObjectNode();
-                summary.put("type", document.getNodeType().name().toLowerCase(Locale.ROOT));
-                if (document.isArray() || document.isObject()) {
-                    summary.put("entries", document.size());
-                }
-                print(summary.toString());
-            });
-        }
+    var ids = new HashSet<String>();
+    var unmatched = new ArrayList<Unmatched>();
+    for (var payment : payments) {
+      if (!ids.add(payment.id))
+        throw new IllegalArgumentException("Duplicate payment id: " + payment.id);
+      var old = totals.getOrDefault(payment.currency, new Totals(BigDecimal.ZERO, BigDecimal.ZERO));
+      totals.put(payment.currency, new Totals(old.invoiced, old.received.add(payment.amount)));
+      var invoice = byReference.get(payment.reference);
+      if (invoice == null) unmatched.add(new Unmatched(payment, "unknown_reference"));
+      else if (!invoice.currency.equals(payment.currency))
+        unmatched.add(new Unmatched(payment, "currency_mismatch"));
+      else paid.merge(invoice.reference, payment.amount, BigDecimal::add);
     }
+    var balances =
+        invoices.stream()
+            .map(i -> {
+              var received = paid.getOrDefault(i.reference, BigDecimal.ZERO.setScale(2));
+              var balance = i.amount.subtract(received);
+              String status =
+                  received.signum() == 0
+                      ? "unpaid"
+                      : balance.signum() > 0
+                          ? "partial"
+                          : balance.signum() < 0 ? "overpaid" : "paid";
+              return new Balance(i.reference, i.currency, i.amount, received, balance, status);
+            })
+            .toList();
+    return new Report(balances, List.copyOf(unmatched), Collections.unmodifiableMap(totals));
+  }
 
-    @Command(name = "format", mixinStandardHelpOptions = true,
-            description = "Print the document as JSON.")
-    static final class Format extends InputCommand {
-        @Parameters(defaultValue = "-", paramLabel = "FILE", description = "JSON file or - for stdin.")
-        private String input;
+  static List<Invoice> readInvoices(Path path) throws Exception {
+    return rows(path, List.of("reference", "currency", "amount")).stream()
+        .map(r -> new Invoice(identifier(r.get(0)), currency(r.get(1)), money(r.get(2))))
+        .toList();
+  }
 
-        @Option(names = "--compact", description = "Print on one line.")
-        private boolean compact;
+  static List<Payment> readPayments(Path path) throws Exception {
+    return rows(path, List.of("id", "reference", "currency", "amount")).stream()
+        .map(r ->
+            new Payment(
+                identifier(r.get(0)), identifier(r.get(1)), currency(r.get(2)), money(r.get(3))))
+        .toList();
+  }
 
-        @Override
-        public Integer call() {
-            return withDocument(input, document -> print(compact
-                    ? JSON.writeValueAsString(document)
-                    : JSON.writerWithDefaultPrettyPrinter().writeValueAsString(document)));
-        }
+  static String identifier(String value) {
+    if (value.isBlank() || value.length() > 100)
+      throw new IllegalArgumentException("Identifiers must contain 1–100 characters");
+    return value;
+  }
+
+  static String currency(String value) {
+    if (!value.matches("[A-Z]{3}"))
+      throw new IllegalArgumentException("Currency must contain three uppercase letters: " + value);
+    return value;
+  }
+
+  static BigDecimal money(String value) {
+    if (!value.matches("[0-9]+(\\.[0-9]{1,2})?"))
+      throw new IllegalArgumentException("Invalid positive two-decimal amount: " + value);
+    var amount = new BigDecimal(value).setScale(2);
+    if (amount.signum() <= 0) throw new IllegalArgumentException("Amount must be positive");
+    return amount;
+  }
+
+  static List<List<String>> rows(Path path, List<String> header) throws Exception {
+    var lines = Files.readAllLines(path, StandardCharsets.UTF_8);
+    if (lines.isEmpty() || !csv(lines.getFirst()).equals(header))
+      throw new IllegalArgumentException(path + ": expected header " + String.join(",", header));
+    var result = new ArrayList<List<String>>();
+    for (int n = 1; n < lines.size(); n++) {
+      if (lines.get(n).isBlank()) continue;
+      try {
+        var row = csv(lines.get(n));
+        if (row.size() != header.size())
+          throw new IllegalArgumentException("Wrong number of columns");
+        result.add(row);
+      } catch (IllegalArgumentException e) {
+        throw new IllegalArgumentException(path + ":" + (n + 1) + ": " + e.getMessage());
+      }
     }
+    return result;
+  }
 
-    @Command(name = "select", mixinStandardHelpOptions = true,
-            description = "Print the JSON value at an RFC 6901 JSON Pointer.")
-    static final class Select extends InputCommand {
-        @Parameters(index = "0", paramLabel = "POINTER", description = "For example /items/0.")
-        private String pointer;
-
-        @Parameters(index = "1", defaultValue = "-", paramLabel = "FILE",
-                description = "JSON file or - for stdin.")
-        private String input;
-
-        @Override
-        public Integer call() {
-            return withDocument(input, document -> {
-                if (!pointer.isEmpty() && !pointer.startsWith("/")) {
-                    throw new IllegalArgumentException("A JSON Pointer must be empty or start with /.");
-                }
-                JsonNode value = document.at(pointer);
-                if (value.isMissingNode()) {
-                    throw new IllegalArgumentException("No JSON value at " + pointer);
-                }
-                print(JSON.writeValueAsString(value));
-            });
-        }
+  static List<String> csv(String line) {
+    var fields = new ArrayList<String>();
+    var value = new StringBuilder();
+    boolean quoted = false, closed = false;
+    for (int i = 0; i < line.length(); i++) {
+      char c = line.charAt(i);
+      if (quoted) {
+        if (c == '"') {
+          if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
+            value.append('"');
+            i++;
+          } else {
+            quoted = false;
+            closed = true;
+          }
+        } else value.append(c);
+      } else if (c == ',') {
+        fields.add(value.toString().strip());
+        value.setLength(0);
+        closed = false;
+      } else if (c == '"' && value.isEmpty() && !closed) quoted = true;
+      else if (c == '"' || closed && !Character.isWhitespace(c))
+        throw new IllegalArgumentException("Malformed CSV quoting");
+      else if (!closed) value.append(c);
     }
-
-    private static byte[] read(String input) throws IOException {
-        if ("-".equals(input)) {
-            return readBounded(System.in);
-        }
-        Path file = Path.of(input);
-        if (!Files.isRegularFile(file)) {
-            throw new IOException("Choose a regular JSON file or - for stdin.");
-        }
-        try (InputStream stream = Files.newInputStream(file)) {
-            return readBounded(stream);
-        }
-    }
-
-    private static byte[] readBounded(InputStream stream) throws IOException {
-        byte[] bytes = stream.readNBytes(MAX_BYTES + 1);
-        if (bytes.length > MAX_BYTES) {
-            throw new IOException("The input exceeds 8 MiB.");
-        }
-        return bytes;
-    }
-
-    public static void main(String[] arguments) {
-        System.exit(new CommandLine(new JsonTool()).execute(arguments));
-    }
+    if (quoted)
+      throw new IllegalArgumentException("Unclosed CSV quote; multiline fields are not supported");
+    fields.add(value.toString().strip());
+    return fields;
+  }
 }

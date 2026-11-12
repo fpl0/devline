@@ -1,95 +1,104 @@
-require "aws-sdk-s3"
-require "bunny"
-require "faraday"
-require "jwt"
+ENV["RACK_ENV"] = "test"
 require "minitest/autorun"
-require "nats/io/client"
-require "pg"
 require "rack/test"
-require "redis"
-require "sequel"
-require "sqlite3"
-require "trilogy"
 require "tmpdir"
 require_relative "app"
 
-class ServiceKitTest < Minitest::Test
+class InboxTest < Minitest::Test
   include Rack::Test::Methods
+  SECRET = "a" * 64
 
   def app
-    ServiceKit
+    DispatchInbox
   end
 
-  def test_rack_route_and_config
+  def setup
+    @directory = Dir.mktmpdir
+    @now = Time.now.to_i
+    @inbox = Inbox.new(File.join(@directory, "inbox.db"), output: File.join(@directory, "slips"), clock: -> { @now })
+    DispatchInbox.set :inbox, @inbox
+    DispatchInbox.set :signing_secret, SECRET
     header "Host", "localhost"
-    get "/health"
+    @body = JSON.generate(id: "evt-1", type: "order.paid", data: { order_id: "ORDER-1", customer: "Alex", total_cents: 1299 })
+  end
+
+  def teardown
+    @inbox.close
+    FileUtils.remove_entry(@directory)
+  end
+
+  def deliver(body = @body, timestamp = Time.now.to_i.to_s)
+    header "Content-Type", "application/json"
+    header "X-Event-Timestamp", timestamp
+    header "X-Event-Signature", Signature.sign(SECRET, timestamp, body)
+    post "/webhooks/orders", body
+  end
+
+  def test_signature_replay_and_idempotency
+    deliver
+    assert_equal 202, last_response.status
+    deliver
     assert_equal 200, last_response.status
-    assert_equal "ok", JSON.parse(last_response.body).fetch("status")
-    assert_equal "local", Dotenv.parse(".env.example").fetch("APP_ENVIRONMENT")
+    deliver(@body.sub("1299", "1399"))
+    assert_equal 409, last_response.status
+    deliver(@body, (Time.now.to_i - 301).to_s)
+    assert_equal 401, last_response.status
+    header "X-Event-Signature", "0" * 64
+    post "/webhooks/orders", @body
+    assert_equal 401, last_response.status
+    assert_equal 1, @inbox.list.size
   end
 
-  def test_database_adapters_and_sqlite_query
-    assert_operator PG.library_version, :>, 0
-    assert_includes Trilogy.public_instance_methods, :query
-    database = Sequel.sqlite
-    database.create_table(:items) { String :name }
-    database[:items].insert(name: "offline")
-    assert_equal "offline", database[:items].first.fetch(:name)
-  ensure
-    database&.disconnect
-  end
-
-  def test_messaging_and_cache_clients
-    broker = Bunny.new(host: "127.0.0.1", vhost: "devline")
-    refute broker.open?
-    assert_instance_of NATS::Client, NATS::Client.new
-    cache = Redis.new(host: "127.0.0.1", port: 6379)
-    assert_instance_of Redis, cache
-  ensure
-    cache&.close
-  end
-
-  def test_s3_http_and_jwt
-    s3 = Aws::S3::Client.new(region: "us-east-1", stub_responses: true)
-    s3.stub_responses(:list_buckets, buckets: [{name: "devline"}])
-    assert_equal "devline", s3.list_buckets.buckets.first.name
-
-    stubs = Faraday::Adapter::Test::Stubs.new do |stub|
-      stub.get("/health") { [200, {"Content-Type" => "application/json"}, '{"status":"ok"}'] }
+  def test_processing_failure_backoff_retry_and_restart
+    @inbox.accept(@body)
+    failure = ->(_) { raise IOError, "disk unavailable" }
+    3.times do
+      @inbox.process_one(deliver: failure)
+      @now += 10
     end
-    http = Faraday.new("http://127.0.0.1") { |builder| builder.adapter :test, stubs }
-    assert_equal "ok", JSON.parse(http.get("/health").body).fetch("status")
-
-    key = OpenSSL::PKey::RSA.generate(2048)
-    token = JWT.encode({sub: "local-user"}, key, "RS256")
-    assert_equal "local-user", JWT.decode(token, key.public_key, true, algorithm: "RS256").first.fetch("sub")
+    assert_equal "failed", @inbox.list.first[:status]
+    @inbox.retry_event("evt-1")
+    result = @inbox.process_one
+    assert_equal "processed", result[:status]
+    slip = JSON.parse(File.read(File.join(@directory, "slips", "evt-1.json")))
+    assert_equal "ORDER-1", slip.fetch("order").fetch("order_id")
+    @inbox.close
+    @inbox = Inbox.new(File.join(@directory, "inbox.db"), output: File.join(@directory, "slips"))
+    assert_equal "processed", @inbox.list.first[:status]
+    assert_nil @inbox.process_one
   end
 
-  def test_ticket_workflow_with_sqlite
-    keys = %w[DEVLINE_POSTGRES_URL DEVLINE_REDIS_URL DEVLINE_MEILISEARCH_URL SUPPORT_SQLITE_PATH]
-    previous = keys.to_h { |key| [key, ENV.delete(key)] }
-    Dir.mktmpdir("support-test") do |directory|
-      ENV["SUPPORT_SQLITE_PATH"] = File.join(directory, "support.sqlite3")
-      header "Host", "localhost"
-      header "Content-Type", "application/json"
-      post "/tickets"
-      assert_equal 422, last_response.status
-      post "/tickets", JSON.generate(title: " ", details: "Something broke")
-      assert_equal 422, last_response.status
-      post "/tickets", JSON.generate(title: " Printer ", details: "Paper jam")
-      assert_equal 201, last_response.status
-      ticket = JSON.parse(last_response.body)
-      assert_equal "Printer", ticket.fetch("title")
-      get "/tickets"
-      assert_equal [ticket], JSON.parse(last_response.body)
-      get "/tickets/#{ticket.fetch('id')}"
-      assert_equal ticket, JSON.parse(last_response.body)
-      get "/tickets/#{"0" * 32}"
-      assert_equal 404, last_response.status
-      get "/search?q=Printer"
-      assert_equal 503, last_response.status
+  def test_failed_attempt_is_not_immediately_reclaimed
+    @inbox.accept(@body)
+    @inbox.process_one(deliver: ->(_) { raise IOError, "temporary" })
+    assert_nil @inbox.process_one
+    @now += 3
+    assert_equal "processed", @inbox.process_one[:status]
+  end
+
+  def test_expired_worker_cannot_overwrite_a_newer_success
+    @inbox.accept(@body)
+    stale_delivery = lambda do |_|
+      @now += 61
+      newer = Inbox.new(File.join(@directory, "inbox.db"), output: File.join(@directory, "slips"), clock: -> { @now })
+      begin
+        assert_equal "processed", newer.process_one[:status]
+      ensure
+        newer.close
+      end
+      raise IOError, "old attempt failed late"
     end
-  ensure
-    ENV.update(previous)
+    assert_equal "processed", @inbox.process_one(deliver: stale_delivery)[:status]
+    assert_equal 2, @inbox.list.first[:attempts]
+    assert_nil @inbox.list.first[:error]
+  end
+
+  def test_validation_and_dashboard
+    deliver("{}"); assert_equal 422, last_response.status
+    deliver(@body.sub("evt-1", "../escape")); assert_equal 422, last_response.status
+    get "/"; assert_equal 200, last_response.status
+    assert_includes last_response.body, "Dispatch Inbox"
+    header "Content-Type", "text/plain"
+    post "/process", "{}"; assert_equal 415, last_response.status
   end
 end

@@ -1,4 +1,1 @@
-{
-  "schema_version": 1,
-  "run": { "command": ["elixir", "-S", "mix", "run", "demo.exs"] }
-}
+{"schema_version":1,"run":{"command":["/bin/sh","./run.sh"]}}

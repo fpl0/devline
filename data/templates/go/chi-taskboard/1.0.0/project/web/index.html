@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta http-equiv="refresh" content="{{.Interval}}" />
+    <title>Watchtower</title>
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        color: #1d302e;
+        background: #edf2ef;
+      }
+      body {
+        max-width: 1100px;
+        margin: auto;
+        padding: 48px 24px;
+      }
+      h1 {
+        font-size: 40px;
+        letter-spacing: -2px;
+        margin: 8px 0;
+      }
+      header {
+        margin-bottom: 36px;
+      }
+      small,
+      p {
+        color: #526b65;
+      }
+      main {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+        gap: 20px;
+      }
+      article {
+        background: white;
+        border: 1px solid #cfdcd5;
+        border-radius: 14px;
+        padding: 24px;
+      }
+      .state {
+        font-size: 13px;
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: 1px;
+      }
+      .up {
+        color: #087a50;
+      }
+      .down {
+        color: #b42e32;
+      }
+      h2 {
+        font-size: 22px;
+      }
+      a {
+        color: #205849;
+        overflow-wrap: anywhere;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 26px 0;
+      }
+      dt {
+        font-size: 12px;
+        color: #526b65;
+      }
+      dd {
+        font-size: 24px;
+        margin: 5px 0;
+      }
+      .timeline {
+        display: flex;
+        gap: 2px;
+        height: 22px;
+        margin: 18px 0;
+      }
+      .bar {
+        flex: 1;
+        background: #149569;
+      }
+      .bar.bad {
+        background: #cc565b;
+      }
+      .error {
+        padding: 10px;
+        background: #fff2f0;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+      }
+      footer {
+        margin-top: 32px;
+        font-size: 13px;
+      }
+      summary {
+        cursor: pointer;
+      }
+      ol {
+        padding-left: 20px;
+        font-size: 13px;
+      }
+      li {
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <small>LOCAL SERVICE OBSERVATORY</small>
+      <h1>Watchtower</h1>
+      <p>
+        Checks every {{.Interval}} seconds · last 100 results retained per
+        service
+      </p>
+    </header>
+    <main>
+      {{range .Records}}
+      <article>
+        <div
+          class="state {{if .Latest}}{{if .Latest.OK}}up{{else}}down{{end}}{{end}}"
+        >
+          {{if .Latest}}{{if .Latest.OK}}● Healthy{{else}}● Attention
+          needed{{end}}{{else}}Waiting for first check{{end}}
+        </div>
+        <h2>{{.Target.Name}}</h2>
+        <a href="{{.Target.URL}}">{{.Target.URL}}</a>
+        <dl>
+          <div>
+            <dt>OBSERVED AVAILABILITY</dt>
+            <dd>{{.Availability}}</dd>
+          </div>
+          <div>
+            <dt>LAST RESPONSE</dt>
+            <dd>{{if .Latest}}{{.Latest.Milliseconds}} ms{{else}}—{{end}}</dd>
+          </div>
+        </dl>
+        <div class="timeline" aria-label="Recent check results">
+          {{range .Checks}}<span
+            class="bar {{if not .OK}}bad{{end}}"
+            title="{{.At}} · HTTP {{.Status}} · {{.Milliseconds}} ms"
+          ></span
+          >{{end}}
+        </div>
+        {{if .Latest}}{{if .Latest.Error}}
+        <p class="error">{{.Latest.Error}}</p>
+        {{end}}<small>Last checked: {{.Latest.At.Format "15:04:05 UTC"}}</small
+        >{{end}}
+        <details>
+          <summary>Check history</summary>
+          <ol>
+            {{range .Checks}}
+            <li>
+              {{.At.Format "15:04:05"}} · HTTP {{.Status}} · {{.Milliseconds}}
+              ms · {{if .OK}}healthy{{else}}{{.Error}}{{end}}
+            </li>
+            {{end}}
+          </ol>
+        </details>
+      </article>
+      {{end}}
+    </main>
+    <footer>
+      <a href="/api/monitors">Export current results as JSON</a> · Availability
+      describes this sampled window, not an SLA.
+    </footer>
+  </body>
+</html>

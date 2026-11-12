@@ -1,39 +1,156 @@
 :root {
-  color-scheme: light dark;
-  font: 1rem/1.5 system-ui, sans-serif;
+  font:
+    16px/1.5 system-ui,
+    sans-serif;
+  color: #20332e;
+  background: #f3f6f2;
 }
-
+* {
+  box-sizing: border-box;
+}
 main {
-  max-width: 40rem;
+  max-width: 1120px;
   margin: 3rem auto;
-  padding: 0 1rem;
+  padding: 0 1.5rem;
 }
-
+h1 {
+  font-size: 2.8rem;
+  letter-spacing: -0.05em;
+  margin: 0.3rem 0;
+}
+h2 {
+  font-size: 1.2rem;
+}
+h3 {
+  margin: 0.4rem 0;
+}
+a {
+  color: #176249;
+}
+header {
+  margin: 2rem 0;
+}
+.eyebrow,
+small {
+  color: #577366;
+}
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.8rem;
+}
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+nav a,
+.badge {
+  border: 1px solid #cbd9ce;
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.4rem;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+.selected {
+  background: #d9e8db;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+aside,
+.job {
+  background: white;
+  border: 1px solid #d4ded4;
+  border-radius: 0.7rem;
+  padding: 1.25rem;
+}
+.job {
+  margin-bottom: 0.7rem;
+}
+.badge {
+  float: right;
+}
+.job p {
+  margin: 0.3rem 0;
+}
 form {
   display: grid;
   gap: 0.5rem;
-  justify-items: start;
 }
-
+input,
 textarea,
-input {
+button {
   font: inherit;
-}
-
-textarea {
-  box-sizing: border-box;
+  padding: 0.6rem;
+  border: 1px solid #abbcaf;
+  border-radius: 0.3rem;
   width: 100%;
-  padding: 0.5rem;
 }
-
-.notes {
-  padding: 0;
-  list-style: none;
+input[type="submit"] {
+  background: #245c44;
+  color: white;
+  cursor: pointer;
+  border: none;
+  margin-top: 0.5rem;
 }
-
-.notes li {
+.secondary {
+  background: #58665f !important;
+}
+.search {
+  grid-template-columns: 1fr 2fr auto;
+  align-items: center;
+  margin: 1.5rem 0;
+}
+.search input[type="submit"] {
+  margin: 0;
+}
+.action {
+  padding: 1rem 0;
+  border-top: 1px solid #d4ded4;
+}
+.history {
+  padding-left: 1.3rem;
+}
+.history li {
   padding: 0.75rem 0;
-  border-top: 1px solid GrayText;
+  border-bottom: 1px solid #d4ded4;
+}
+.notes {
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+}
+.flash {
+  padding: 1rem;
+  background: #dfece0;
+  border-radius: 0.5rem;
+}
+.alert {
+  background: #f8e2d7;
+}
+.empty,
+footer {
+  color: #577366;
+}
+footer {
+  margin-top: 3rem;
+  border-top: 1px solid #cbd9ce;
+  padding-top: 1rem;
+  font-size: 0.8rem;
+}
+@media (max-width: 720px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+  .search {
+    grid-template-columns: 1fr;
+  }
+  .badge {
+    float: none;
+  }
+  main {
+    margin: 1rem auto;
+  }
 }

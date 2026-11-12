@@ -8,7 +8,8 @@ usage() {
 Usage: ./devline.sh COMMAND [ARGUMENTS]
 
   test                     Run the starter's offline tests
-  run | start | stop       Run or manage the app
+  run [ARGUMENTS]          Run the app; optional arguments go to its run helper
+  start | stop             Manage the app in the background
   status | logs            Inspect the managed app
   prepare [--offline]      Prepare dependencies, documentation and services
   check                    Check offline readiness
@@ -71,7 +72,21 @@ case "$action" in
             exit 2
         fi
         exec python3 "$script" "$@" ;;
-    run | start | stop | logs)
+    run)
+        if [ "$#" -gt 0 ]; then
+            # Preserve argument boundaries, including spaces and literal shell
+            # metacharacters. `exec` remains the arbitrary-command entry point.
+            if [ "$1" = -- ]; then shift; fi
+            script=.devline/scripts/run.sh
+            if [ ! -f "$script" ]; then script=./run.sh; fi
+            if [ ! -f "$script" ]; then
+                printf '%s\n' 'This project has no run helper for app arguments. Use ./devline.sh exec COMMAND [ARGUMENTS].' >&2
+                exit 2
+            fi
+            with_devline --offline project --path "$project" run -- /bin/sh "$script" "$@"
+        fi
+        with_devline --offline project --path "$project" run ;;
+    start | stop | logs)
         with_devline --offline project --path "$project" "$action" "$@" ;;
     status) with_devline --offline project --path "$project" app-status "$@" ;;
     prepare) with_devline project --path "$project" prepare "$@" ;;

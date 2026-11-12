@@ -1,68 +1,14 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    amq-protocol (2.10.0)
-    aws-eventstream (1.4.1)
-    aws-partitions (1.1303.0)
-    aws-sdk-core (3.265.0)
-      aws-eventstream (~> 1, >= 1.4.1)
-      aws-partitions (~> 1, >= 1.992.0)
-      aws-sigv4 (~> 1.9)
-      base64
-      bigdecimal
-      jmespath (~> 1, >= 1.6.1)
-      logger
-      rexml (~> 3.4, >= 3.4.2)
-    aws-sdk-kms (1.140.0)
-      aws-sdk-core (~> 3, >= 3.265.0)
-      aws-sigv4 (~> 1.5)
-    aws-sdk-s3 (1.239.0)
-      aws-sdk-core (~> 3, >= 3.265.0)
-      aws-sdk-kms (~> 1)
-      aws-sigv4 (~> 1.5)
-    aws-sigv4 (1.12.1)
-      aws-eventstream (~> 1, >= 1.0.2)
     base64 (0.3.0)
     bigdecimal (4.1.3)
-    bunny (3.5.0)
-      amq-protocol (~> 2.9)
-      logger (~> 1, >= 1.7)
-      openssl (>= 3.3)
-      sorted_set (~> 1, >= 1.0.2)
-    concurrent-ruby (1.3.8)
-    connection_pool (3.0.2)
-    dotenv (3.2.0)
     drb (2.2.3)
-    faraday (2.15.1)
-      faraday-net_http (>= 2.0, < 3.6)
-      json
-      logger
-    faraday-net_http (3.5.0)
-      net-http (~> 0.5)
-    jmespath (1.6.2)
-    json (3.1.0)
-    jwt (3.3.0)
-      base64
     logger (1.7.0)
     minitest (6.1.0)
       drb (~> 2.0)
       prism (>= 1.5, < 3)
     mustermann (3.1.1)
-    nats-pure (2.7.0)
-      base64
-      concurrent-ruby (~> 1.0)
-      json
-      securerandom
-      uri
-    net-http (0.10.0)
-      net-protocol (>= 0.3.0)
-      uri (>= 0.11.1)
-    net-protocol (0.4.0)
-      timeout
-    net-smtp (0.5.1)
-      net-protocol
-    openssl (4.0.2)
-    pg (1.7.0-arm64-darwin)
     prism (2.1.0-arm64-darwin)
     rack (3.2.8)
     rack-protection (4.2.1)
@@ -76,13 +22,6 @@ GEM
       rack (>= 1.3)
     rackup (2.3.1)
       rack (>= 3)
-    rbtree (0.4.7)
-    redis (6.0.0)
-      redis-client (= 0.30.1)
-    redis-client (0.30.1)
-      connection_pool
-    rexml (3.4.4)
-    securerandom (0.4.1)
     sequel (5.110.0)
       bigdecimal
     sinatra (4.2.1)
@@ -92,87 +31,40 @@ GEM
       rack-protection (= 4.2.1)
       rack-session (>= 2.0.0, < 3)
       tilt (~> 2.0)
-    sorted_set (1.1.0)
-      rbtree
     sqlite3 (2.10.2-arm64-darwin)
     tilt (2.9.0)
-    timeout (0.6.1)
-    trilogy (2.13.3)
-      bigdecimal
-    uri (1.1.2)
     webrick (1.9.2)
 
 PLATFORMS
   arm64-darwin
 
 DEPENDENCIES
-  aws-sdk-s3
-  bunny
-  dotenv
-  faraday
-  jwt
   logger
   minitest
-  nats-pure
-  net-smtp (= 0.5.1)
-  pg
   rack-test
   rackup
-  redis
   sequel
   sinatra
   sqlite3
-  trilogy
   webrick
 
 CHECKSUMS
-  amq-protocol (2.10.0) sha256=98b3fe83837401cd0a7ff008faf4a454a56dc0e8c569c12db65c9225b63fd60e
-  aws-eventstream (1.4.1) sha256=ceb6a99c61df4bb00344e54aed0351574beca24f87a0d1487d1d2ed80929ce96
-  aws-partitions (1.1303.0) sha256=4debb9488e514ab87ee68cf55184cb8db9bd0256668883c3fe6e8bb76f32929c
-  aws-sdk-core (3.265.0) sha256=6e2910a8d9d4ff155351e5bed6b19f97edf7d01fcd7bf5bc524bd36695fdbc1a
-  aws-sdk-kms (1.140.0) sha256=1ba7cf795e5680fe5041a10d636aca01f1d2b6fa18e7b5d60ec6197319bce1c9
-  aws-sdk-s3 (1.239.0) sha256=f6c1a952066e0103863b25a35ba391b3a8c08443a604c777e549eaa553621ad0
-  aws-sigv4 (1.12.1) sha256=6973ff95cb0fd0dc58ba26e90e9510a2219525d07620c8babeb70ef831826c00
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   bigdecimal (4.1.3) sha256=61ebe1e5e559bdc3cc6f2c0ee7f427321fc838f59611c294356eb04d6e21cf66
-  bunny (3.5.0) sha256=34e3322fdc556ec2ab44e64413f0c2d412eac029207995d57fc5b26adc92cd5c
-  concurrent-ruby (1.3.8) sha256=b2f1be836e968ccc78ccfce277ea79c72a88633f22306782c16ff23fb415d1e1
-  connection_pool (3.0.2) sha256=33fff5ba71a12d2aa26cb72b1db8bba2a1a01823559fb01d29eb74c286e62e0a
-  dotenv (3.2.0) sha256=e375b83121ea7ca4ce20f214740076129ab8514cd81378161f11c03853fe619d
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
-  faraday (2.15.1) sha256=8708154deda739c5e86cc42b74960e23e8491fce0eba9e11639a6a34b1ac288f
-  faraday-net_http (3.5.0) sha256=2e7094c34e38754ee048cc3df47376f8657005d9375f8473bce1c3b526a22e36
-  jmespath (1.6.2) sha256=238d774a58723d6c090494c8879b5e9918c19485f7e840f2c1c7532cf84ebcb1
-  json (3.1.0) sha256=3ce7ccf8fde58960177a3a756c31f292a4c1e1dedee884547096a5b0604e3bd8
-  jwt (3.3.0) sha256=44cc34fbc341c148233cf66641522b4bce0dfb1ce55e8073f05c56f44f4ee546
   logger (1.7.0) sha256=196edec7cc44b66cfb40f9755ce11b392f21f7967696af15d274dde7edff0203
   minitest (6.1.0) sha256=ff373595aa8888631e8a5463986a76b3845346ae6d7fa46e139c1633d418076e
   mustermann (3.1.1) sha256=4c6170c7234d5499c345562ba7c7dfe73e1754286dcc1abb053064d66a127198
-  nats-pure (2.7.0) sha256=4ed79ce4a369c5bd27b6b9165f3830caf30b8565eb4fc3575e36fd1c7994c974
-  net-http (0.10.0) sha256=1a2ff6e37a05724973c43f2bf7bf105f59c36a4cd0a7e9b1c021a0a566987c27
-  net-protocol (0.4.0) sha256=f9f90c8c6f64794a45160bf422177a336db12809de3beeeaa26b88fcd2e8c853
-  net-smtp (0.5.1) sha256=ed96a0af63c524fceb4b29b0d352195c30d82dd916a42f03c62a3a70e5b70736
-  openssl (4.0.2) sha256=1037ad2868ae58df9ad917891c0c0f9815a1172f6846d4bcdd508e4c2ee747c2
-  pg (1.7.0-arm64-darwin) sha256=9fa895bbe28bdd579b83ccc80464c01d1015ea7549a7919134c9f8f10c060e4b
   prism (2.1.0-arm64-darwin) sha256=2d0c2e3e011cfd89c041940907d3ff3def379d7b0f2ba158d1d42238e8ad8afc
   rack (3.2.8) sha256=1fecc85e463ebc7a2a945fff829ffcd549babeb1556384796fad946c28dc4ec7
   rack-protection (4.2.1) sha256=cf6e2842df8c55f5e4d1a4be015e603e19e9bc3a7178bae58949ccbb58558bac
   rack-session (2.1.2) sha256=595434f8c0c3473ae7d7ac56ecda6cc6dfd9d37c0b2b5255330aa1576967ffe8
   rack-test (2.3.0) sha256=b118d177cc002c572fc1b6fd8d19c9ed5881a36e8d6f689f9e618f9f861241e8
   rackup (2.3.1) sha256=6c79c26753778e90983761d677a48937ee3192b3ffef6bc963c0950f94688868
-  rbtree (0.4.7) sha256=1efabbcb3fd5f12249c9c8a610a765074868164eed0c50c9db2531c00ed161cb
-  redis (6.0.0) sha256=de71c10edd106986b759ec7ecdd08b63b9c0ee7414a0d0c1da73d31ba2bccda6
-  redis-client (0.30.1) sha256=5151bc5c7bbfe48623732cdae3b900d8a22dc691cc7cdfacfb351ac55116522d
-  rexml (3.4.4) sha256=19e0a2c3425dfbf2d4fc1189747bdb2f849b6c5e74180401b15734bc97b5d142
-  securerandom (0.4.1) sha256=cc5193d414a4341b6e225f0cb4446aceca8e50d5e1888743fac16987638ea0b1
   sequel (5.110.0) sha256=c316335b352adb4109bb02ade237b1a6dbd493493def34542ce05893f62138ae
   sinatra (4.2.1) sha256=b7aeb9b11d046b552972ade834f1f9be98b185fa8444480688e3627625377080
-  sorted_set (1.1.0) sha256=bac01eb16b6bcfcdb7d732a28e87422be8b5c9fdcfeadbe9072682407524ee83
   sqlite3 (2.10.2-arm64-darwin) sha256=5b0d235ea037e6dcd1b8387a19d73be571917db9f93044d35741cf933a21a37d
   tilt (2.9.0) sha256=da5735d0280bba96e9a91041bb14aee435ccad5c17b0fa519249ae543d9aa3a5
-  timeout (0.6.1) sha256=78f57368a7e7bbadec56971f78a3f5ecbcfb59b7fcbb0a3ed6ddc08a5094accb
-  trilogy (2.13.3) sha256=02a2cfc1506b14dd8cf2d9956c157dcc534e157537baf384607a68f60fb10b7d
-  uri (1.1.2) sha256=89292e98eabbef6248b0a0ed5e7e398e152f83f17560023a6d94a7f492b169fb
   webrick (1.9.2) sha256=beb4a15fc474defed24a3bda4ffd88a490d517c9e4e6118c3edce59e45864131
 
 RUBY VERSION

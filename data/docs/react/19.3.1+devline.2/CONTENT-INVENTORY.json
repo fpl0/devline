@@ -1,0 +1,800 @@
+{
+  "source": "React documentation contributors, React 19 site snapshot at 2e6dca162985d438d7a834b339d89177cf0a92b9. https://github.com/reactjs/react.dev/tree/2e6dca162985d438d7a834b339d89177cf0a92b9/src/content",
+  "source_count": 187,
+  "document_count": 187,
+  "documents": [
+    {
+      "source_path": "src/content/learn/add-react-to-an-existing-project.md",
+      "document_id": "learn/add-react-to-an-existing-project"
+    },
+    {
+      "source_path": "src/content/learn/adding-interactivity.md",
+      "document_id": "learn/adding-interactivity"
+    },
+    {
+      "source_path": "src/content/learn/build-a-react-app-from-scratch.md",
+      "document_id": "learn/build-a-react-app-from-scratch"
+    },
+    {
+      "source_path": "src/content/learn/choosing-the-state-structure.md",
+      "document_id": "learn/choosing-the-state-structure"
+    },
+    {
+      "source_path": "src/content/learn/conditional-rendering.md",
+      "document_id": "learn/conditional-rendering"
+    },
+    {
+      "source_path": "src/content/learn/creating-a-react-app.md",
+      "document_id": "learn/creating-a-react-app"
+    },
+    {
+      "source_path": "src/content/learn/describing-the-ui.md",
+      "document_id": "learn/describing-the-ui"
+    },
+    {
+      "source_path": "src/content/learn/editor-setup.md",
+      "document_id": "learn/editor-setup"
+    },
+    {
+      "source_path": "src/content/learn/escape-hatches.md",
+      "document_id": "learn/escape-hatches"
+    },
+    {
+      "source_path": "src/content/learn/extracting-state-logic-into-a-reducer.md",
+      "document_id": "learn/extracting-state-logic-into-a-reducer"
+    },
+    {
+      "source_path": "src/content/learn/importing-and-exporting-components.md",
+      "document_id": "learn/importing-and-exporting-components"
+    },
+    {
+      "source_path": "src/content/learn/index.md",
+      "document_id": "learn/index"
+    },
+    {
+      "source_path": "src/content/learn/installation.md",
+      "document_id": "learn/installation"
+    },
+    {
+      "source_path": "src/content/learn/javascript-in-jsx-with-curly-braces.md",
+      "document_id": "learn/javascript-in-jsx-with-curly-braces"
+    },
+    {
+      "source_path": "src/content/learn/keeping-components-pure.md",
+      "document_id": "learn/keeping-components-pure"
+    },
+    {
+      "source_path": "src/content/learn/lifecycle-of-reactive-effects.md",
+      "document_id": "learn/lifecycle-of-reactive-effects"
+    },
+    {
+      "source_path": "src/content/learn/managing-state.md",
+      "document_id": "learn/managing-state"
+    },
+    {
+      "source_path": "src/content/learn/manipulating-the-dom-with-refs.md",
+      "document_id": "learn/manipulating-the-dom-with-refs"
+    },
+    {
+      "source_path": "src/content/learn/passing-data-deeply-with-context.md",
+      "document_id": "learn/passing-data-deeply-with-context"
+    },
+    {
+      "source_path": "src/content/learn/passing-props-to-a-component.md",
+      "document_id": "learn/passing-props-to-a-component"
+    },
+    {
+      "source_path": "src/content/learn/preserving-and-resetting-state.md",
+      "document_id": "learn/preserving-and-resetting-state"
+    },
+    {
+      "source_path": "src/content/learn/queueing-a-series-of-state-updates.md",
+      "document_id": "learn/queueing-a-series-of-state-updates"
+    },
+    {
+      "source_path": "src/content/learn/react-compiler/debugging.md",
+      "document_id": "learn/react-compiler/debugging"
+    },
+    {
+      "source_path": "src/content/learn/react-compiler/incremental-adoption.md",
+      "document_id": "learn/react-compiler/incremental-adoption"
+    },
+    {
+      "source_path": "src/content/learn/react-compiler/index.md",
+      "document_id": "learn/react-compiler/index"
+    },
+    {
+      "source_path": "src/content/learn/react-compiler/installation.md",
+      "document_id": "learn/react-compiler/installation"
+    },
+    {
+      "source_path": "src/content/learn/react-compiler/introduction.md",
+      "document_id": "learn/react-compiler/introduction"
+    },
+    {
+      "source_path": "src/content/learn/react-developer-tools.md",
+      "document_id": "learn/react-developer-tools"
+    },
+    {
+      "source_path": "src/content/learn/reacting-to-input-with-state.md",
+      "document_id": "learn/reacting-to-input-with-state"
+    },
+    {
+      "source_path": "src/content/learn/referencing-values-with-refs.md",
+      "document_id": "learn/referencing-values-with-refs"
+    },
+    {
+      "source_path": "src/content/learn/removing-effect-dependencies.md",
+      "document_id": "learn/removing-effect-dependencies"
+    },
+    {
+      "source_path": "src/content/learn/render-and-commit.md",
+      "document_id": "learn/render-and-commit"
+    },
+    {
+      "source_path": "src/content/learn/rendering-lists.md",
+      "document_id": "learn/rendering-lists"
+    },
+    {
+      "source_path": "src/content/learn/responding-to-events.md",
+      "document_id": "learn/responding-to-events"
+    },
+    {
+      "source_path": "src/content/learn/reusing-logic-with-custom-hooks.md",
+      "document_id": "learn/reusing-logic-with-custom-hooks"
+    },
+    {
+      "source_path": "src/content/learn/rsc-sandbox-test.md",
+      "document_id": "learn/rsc-sandbox-test"
+    },
+    {
+      "source_path": "src/content/learn/scaling-up-with-reducer-and-context.md",
+      "document_id": "learn/scaling-up-with-reducer-and-context"
+    },
+    {
+      "source_path": "src/content/learn/separating-events-from-effects.md",
+      "document_id": "learn/separating-events-from-effects"
+    },
+    {
+      "source_path": "src/content/learn/setup.md",
+      "document_id": "learn/setup"
+    },
+    {
+      "source_path": "src/content/learn/sharing-state-between-components.md",
+      "document_id": "learn/sharing-state-between-components"
+    },
+    {
+      "source_path": "src/content/learn/state-a-components-memory.md",
+      "document_id": "learn/state-a-components-memory"
+    },
+    {
+      "source_path": "src/content/learn/state-as-a-snapshot.md",
+      "document_id": "learn/state-as-a-snapshot"
+    },
+    {
+      "source_path": "src/content/learn/synchronizing-with-effects.md",
+      "document_id": "learn/synchronizing-with-effects"
+    },
+    {
+      "source_path": "src/content/learn/thinking-in-react.md",
+      "document_id": "learn/thinking-in-react"
+    },
+    {
+      "source_path": "src/content/learn/tutorial-tic-tac-toe.md",
+      "document_id": "learn/tutorial-tic-tac-toe"
+    },
+    {
+      "source_path": "src/content/learn/typescript.md",
+      "document_id": "learn/typescript"
+    },
+    {
+      "source_path": "src/content/learn/understanding-your-ui-as-a-tree.md",
+      "document_id": "learn/understanding-your-ui-as-a-tree"
+    },
+    {
+      "source_path": "src/content/learn/updating-arrays-in-state.md",
+      "document_id": "learn/updating-arrays-in-state"
+    },
+    {
+      "source_path": "src/content/learn/updating-objects-in-state.md",
+      "document_id": "learn/updating-objects-in-state"
+    },
+    {
+      "source_path": "src/content/learn/writing-markup-with-jsx.md",
+      "document_id": "learn/writing-markup-with-jsx"
+    },
+    {
+      "source_path": "src/content/learn/you-might-not-need-an-effect.md",
+      "document_id": "learn/you-might-not-need-an-effect"
+    },
+    {
+      "source_path": "src/content/learn/your-first-component.md",
+      "document_id": "learn/your-first-component"
+    },
+    {
+      "source_path": "src/content/reference/dev-tools/react-devtools-cdt-mcp.md",
+      "document_id": "reference/dev-tools/react-devtools-cdt-mcp"
+    },
+    {
+      "source_path": "src/content/reference/dev-tools/react-performance-tracks.md",
+      "document_id": "reference/dev-tools/react-performance-tracks"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/index.md",
+      "document_id": "reference/eslint-plugin-react-hooks/index"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/component-hook-factories.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/component-hook-factories"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/config.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/config"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/error-boundaries.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/error-boundaries"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/exhaustive-deps.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/exhaustive-deps"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/gating.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/gating"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/globals.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/globals"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/immutability.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/immutability"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/incompatible-library.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/incompatible-library"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/preserve-manual-memoization.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/preserve-manual-memoization"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/purity.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/purity"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/refs.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/refs"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/rules-of-hooks.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/rules-of-hooks"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/set-state-in-effect.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/set-state-in-effect"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/set-state-in-render.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/set-state-in-render"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/static-components.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/static-components"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/unsupported-syntax.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/unsupported-syntax"
+    },
+    {
+      "source_path": "src/content/reference/eslint-plugin-react-hooks/lints/use-memo.md",
+      "document_id": "reference/eslint-plugin-react-hooks/lints/use-memo"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/compilationMode.md",
+      "document_id": "reference/react-compiler/compilationMode"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/compiling-libraries.md",
+      "document_id": "reference/react-compiler/compiling-libraries"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/configuration.md",
+      "document_id": "reference/react-compiler/configuration"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/directives.md",
+      "document_id": "reference/react-compiler/directives"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/directives/use-memo.md",
+      "document_id": "reference/react-compiler/directives/use-memo"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/directives/use-no-memo.md",
+      "document_id": "reference/react-compiler/directives/use-no-memo"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/gating.md",
+      "document_id": "reference/react-compiler/gating"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/logger.md",
+      "document_id": "reference/react-compiler/logger"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/panicThreshold.md",
+      "document_id": "reference/react-compiler/panicThreshold"
+    },
+    {
+      "source_path": "src/content/reference/react-compiler/target.md",
+      "document_id": "reference/react-compiler/target"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/browser.md",
+      "document_id": "reference/react-dom/browser"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/client/createRoot.md",
+      "document_id": "reference/react-dom/client/createRoot"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/client/hydrateRoot.md",
+      "document_id": "reference/react-dom/client/hydrateRoot"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/client/index.md",
+      "document_id": "reference/react-dom/client/index"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/common.md",
+      "document_id": "reference/react-dom/components/common"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/form.md",
+      "document_id": "reference/react-dom/components/form"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/img.md",
+      "document_id": "reference/react-dom/components/img"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/index.md",
+      "document_id": "reference/react-dom/components/index"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/input.md",
+      "document_id": "reference/react-dom/components/input"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/link.md",
+      "document_id": "reference/react-dom/components/link"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/meta.md",
+      "document_id": "reference/react-dom/components/meta"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/option.md",
+      "document_id": "reference/react-dom/components/option"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/progress.md",
+      "document_id": "reference/react-dom/components/progress"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/script.md",
+      "document_id": "reference/react-dom/components/script"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/select.md",
+      "document_id": "reference/react-dom/components/select"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/style.md",
+      "document_id": "reference/react-dom/components/style"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/textarea.md",
+      "document_id": "reference/react-dom/components/textarea"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/components/title.md",
+      "document_id": "reference/react-dom/components/title"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/createPortal.md",
+      "document_id": "reference/react-dom/createPortal"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/flushSync.md",
+      "document_id": "reference/react-dom/flushSync"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/hooks/index.md",
+      "document_id": "reference/react-dom/hooks/index"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/hooks/useFormStatus.md",
+      "document_id": "reference/react-dom/hooks/useFormStatus"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/index.md",
+      "document_id": "reference/react-dom/index"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/preconnect.md",
+      "document_id": "reference/react-dom/preconnect"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/prefetchDNS.md",
+      "document_id": "reference/react-dom/prefetchDNS"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/preinit.md",
+      "document_id": "reference/react-dom/preinit"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/preinitModule.md",
+      "document_id": "reference/react-dom/preinitModule"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/preload.md",
+      "document_id": "reference/react-dom/preload"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/preloadModule.md",
+      "document_id": "reference/react-dom/preloadModule"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/server/index.md",
+      "document_id": "reference/react-dom/server/index"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/server/renderToPipeableStream.md",
+      "document_id": "reference/react-dom/server/renderToPipeableStream"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/server/renderToReadableStream.md",
+      "document_id": "reference/react-dom/server/renderToReadableStream"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/server/renderToStaticMarkup.md",
+      "document_id": "reference/react-dom/server/renderToStaticMarkup"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/server/renderToString.md",
+      "document_id": "reference/react-dom/server/renderToString"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/server/resume.md",
+      "document_id": "reference/react-dom/server/resume"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/server/resumeToPipeableStream.md",
+      "document_id": "reference/react-dom/server/resumeToPipeableStream"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/static/index.md",
+      "document_id": "reference/react-dom/static/index"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/static/prerender.md",
+      "document_id": "reference/react-dom/static/prerender"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/static/prerenderToNodeStream.md",
+      "document_id": "reference/react-dom/static/prerenderToNodeStream"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/static/resumeAndPrerender.md",
+      "document_id": "reference/react-dom/static/resumeAndPrerender"
+    },
+    {
+      "source_path": "src/content/reference/react-dom/static/resumeAndPrerenderToNodeStream.md",
+      "document_id": "reference/react-dom/static/resumeAndPrerenderToNodeStream"
+    },
+    {
+      "source_path": "src/content/reference/react/Activity.md",
+      "document_id": "reference/react/Activity"
+    },
+    {
+      "source_path": "src/content/reference/react/Children.md",
+      "document_id": "reference/react/Children"
+    },
+    {
+      "source_path": "src/content/reference/react/Component.md",
+      "document_id": "reference/react/Component"
+    },
+    {
+      "source_path": "src/content/reference/react/Fragment.md",
+      "document_id": "reference/react/Fragment"
+    },
+    {
+      "source_path": "src/content/reference/react/Profiler.md",
+      "document_id": "reference/react/Profiler"
+    },
+    {
+      "source_path": "src/content/reference/react/PureComponent.md",
+      "document_id": "reference/react/PureComponent"
+    },
+    {
+      "source_path": "src/content/reference/react/StrictMode.md",
+      "document_id": "reference/react/StrictMode"
+    },
+    {
+      "source_path": "src/content/reference/react/Suspense.md",
+      "document_id": "reference/react/Suspense"
+    },
+    {
+      "source_path": "src/content/reference/react/ViewTransition.md",
+      "document_id": "reference/react/ViewTransition"
+    },
+    {
+      "source_path": "src/content/reference/react/act.md",
+      "document_id": "reference/react/act"
+    },
+    {
+      "source_path": "src/content/reference/react/addTransitionType.md",
+      "document_id": "reference/react/addTransitionType"
+    },
+    {
+      "source_path": "src/content/reference/react/apis.md",
+      "document_id": "reference/react/apis"
+    },
+    {
+      "source_path": "src/content/reference/react/cache.md",
+      "document_id": "reference/react/cache"
+    },
+    {
+      "source_path": "src/content/reference/react/cacheSignal.md",
+      "document_id": "reference/react/cacheSignal"
+    },
+    {
+      "source_path": "src/content/reference/react/captureOwnerStack.md",
+      "document_id": "reference/react/captureOwnerStack"
+    },
+    {
+      "source_path": "src/content/reference/react/cloneElement.md",
+      "document_id": "reference/react/cloneElement"
+    },
+    {
+      "source_path": "src/content/reference/react/components.md",
+      "document_id": "reference/react/components"
+    },
+    {
+      "source_path": "src/content/reference/react/createContext.md",
+      "document_id": "reference/react/createContext"
+    },
+    {
+      "source_path": "src/content/reference/react/createElement.md",
+      "document_id": "reference/react/createElement"
+    },
+    {
+      "source_path": "src/content/reference/react/createRef.md",
+      "document_id": "reference/react/createRef"
+    },
+    {
+      "source_path": "src/content/reference/react/experimental_taintObjectReference.md",
+      "document_id": "reference/react/experimental_taintObjectReference"
+    },
+    {
+      "source_path": "src/content/reference/react/experimental_taintUniqueValue.md",
+      "document_id": "reference/react/experimental_taintUniqueValue"
+    },
+    {
+      "source_path": "src/content/reference/react/forwardRef.md",
+      "document_id": "reference/react/forwardRef"
+    },
+    {
+      "source_path": "src/content/reference/react/hooks.md",
+      "document_id": "reference/react/hooks"
+    },
+    {
+      "source_path": "src/content/reference/react/index.md",
+      "document_id": "reference/react/index"
+    },
+    {
+      "source_path": "src/content/reference/react/isValidElement.md",
+      "document_id": "reference/react/isValidElement"
+    },
+    {
+      "source_path": "src/content/reference/react/lazy.md",
+      "document_id": "reference/react/lazy"
+    },
+    {
+      "source_path": "src/content/reference/react/legacy.md",
+      "document_id": "reference/react/legacy"
+    },
+    {
+      "source_path": "src/content/reference/react/memo.md",
+      "document_id": "reference/react/memo"
+    },
+    {
+      "source_path": "src/content/reference/react/startTransition.md",
+      "document_id": "reference/react/startTransition"
+    },
+    {
+      "source_path": "src/content/reference/react/use.md",
+      "document_id": "reference/react/use"
+    },
+    {
+      "source_path": "src/content/reference/react/useActionState.md",
+      "document_id": "reference/react/useActionState"
+    },
+    {
+      "source_path": "src/content/reference/react/useCallback.md",
+      "document_id": "reference/react/useCallback"
+    },
+    {
+      "source_path": "src/content/reference/react/useContext.md",
+      "document_id": "reference/react/useContext"
+    },
+    {
+      "source_path": "src/content/reference/react/useDebugValue.md",
+      "document_id": "reference/react/useDebugValue"
+    },
+    {
+      "source_path": "src/content/reference/react/useDeferredValue.md",
+      "document_id": "reference/react/useDeferredValue"
+    },
+    {
+      "source_path": "src/content/reference/react/useEffect.md",
+      "document_id": "reference/react/useEffect"
+    },
+    {
+      "source_path": "src/content/reference/react/useEffectEvent.md",
+      "document_id": "reference/react/useEffectEvent"
+    },
+    {
+      "source_path": "src/content/reference/react/useId.md",
+      "document_id": "reference/react/useId"
+    },
+    {
+      "source_path": "src/content/reference/react/useImperativeHandle.md",
+      "document_id": "reference/react/useImperativeHandle"
+    },
+    {
+      "source_path": "src/content/reference/react/useInsertionEffect.md",
+      "document_id": "reference/react/useInsertionEffect"
+    },
+    {
+      "source_path": "src/content/reference/react/useLayoutEffect.md",
+      "document_id": "reference/react/useLayoutEffect"
+    },
+    {
+      "source_path": "src/content/reference/react/useMemo.md",
+      "document_id": "reference/react/useMemo"
+    },
+    {
+      "source_path": "src/content/reference/react/useOptimistic.md",
+      "document_id": "reference/react/useOptimistic"
+    },
+    {
+      "source_path": "src/content/reference/react/useReducer.md",
+      "document_id": "reference/react/useReducer"
+    },
+    {
+      "source_path": "src/content/reference/react/useRef.md",
+      "document_id": "reference/react/useRef"
+    },
+    {
+      "source_path": "src/content/reference/react/useState.md",
+      "document_id": "reference/react/useState"
+    },
+    {
+      "source_path": "src/content/reference/react/useSyncExternalStore.md",
+      "document_id": "reference/react/useSyncExternalStore"
+    },
+    {
+      "source_path": "src/content/reference/react/useTransition.md",
+      "document_id": "reference/react/useTransition"
+    },
+    {
+      "source_path": "src/content/reference/rsc/directives.md",
+      "document_id": "reference/rsc/directives"
+    },
+    {
+      "source_path": "src/content/reference/rsc/server-components.md",
+      "document_id": "reference/rsc/server-components"
+    },
+    {
+      "source_path": "src/content/reference/rsc/server-functions.md",
+      "document_id": "reference/rsc/server-functions"
+    },
+    {
+      "source_path": "src/content/reference/rsc/use-client.md",
+      "document_id": "reference/rsc/use-client"
+    },
+    {
+      "source_path": "src/content/reference/rsc/use-server.md",
+      "document_id": "reference/rsc/use-server"
+    },
+    {
+      "source_path": "src/content/reference/rules/components-and-hooks-must-be-pure.md",
+      "document_id": "reference/rules/components-and-hooks-must-be-pure"
+    },
+    {
+      "source_path": "src/content/reference/rules/index.md",
+      "document_id": "reference/rules/index"
+    },
+    {
+      "source_path": "src/content/reference/rules/react-calls-components-and-hooks.md",
+      "document_id": "reference/rules/react-calls-components-and-hooks"
+    },
+    {
+      "source_path": "src/content/reference/rules/rules-of-hooks.md",
+      "document_id": "reference/rules/rules-of-hooks"
+    },
+    {
+      "source_path": "src/content/warnings/invalid-aria-prop.md",
+      "document_id": "warnings/invalid-aria-prop"
+    },
+    {
+      "source_path": "src/content/warnings/invalid-hook-call-warning.md",
+      "document_id": "warnings/invalid-hook-call-warning"
+    },
+    {
+      "source_path": "src/content/warnings/react-dom-test-utils.md",
+      "document_id": "warnings/react-dom-test-utils"
+    },
+    {
+      "source_path": "src/content/warnings/react-test-renderer.md",
+      "document_id": "warnings/react-test-renderer"
+    },
+    {
+      "source_path": "src/content/warnings/special-props.md",
+      "document_id": "warnings/special-props"
+    },
+    {
+      "source_path": "src/content/warnings/unknown-prop.md",
+      "document_id": "warnings/unknown-prop"
+    }
+  ],
+  "excluded_sources": [
+    "src/content/blog/2020/12/21/data-fetching-with-react-server-components.md",
+    "src/content/blog/2021/06/08/the-plan-for-react-18.md",
+    "src/content/blog/2021/12/17/react-conf-2021-recap.md",
+    "src/content/blog/2022/03/08/react-18-upgrade-guide.md",
+    "src/content/blog/2022/03/29/react-v18.md",
+    "src/content/blog/2022/06/15/react-labs-what-we-have-been-working-on-june-2022.md",
+    "src/content/blog/2023/03/16/introducing-react-dev.md",
+    "src/content/blog/2023/03/22/react-labs-what-we-have-been-working-on-march-2023.md",
+    "src/content/blog/2023/05/03/react-canaries.md",
+    "src/content/blog/2024/02/15/react-labs-what-we-have-been-working-on-february-2024.md",
+    "src/content/blog/2024/04/25/react-19-upgrade-guide.md",
+    "src/content/blog/2024/05/22/react-conf-2024-recap.md",
+    "src/content/blog/2024/10/21/react-compiler-beta-release.md",
+    "src/content/blog/2024/12/05/react-19.md",
+    "src/content/blog/2025/02/14/sunsetting-create-react-app.md",
+    "src/content/blog/2025/04/23/react-labs-view-transitions-activity-and-more.md",
+    "src/content/blog/2025/10/01/react-19-2.md",
+    "src/content/blog/2025/10/07/introducing-the-react-foundation.md",
+    "src/content/blog/2025/10/07/react-compiler-1.md",
+    "src/content/blog/2025/10/16/react-conf-2025-recap.md",
+    "src/content/blog/2025/12/03/critical-security-vulnerability-in-react-server-components.md",
+    "src/content/blog/2025/12/11/denial-of-service-and-source-code-exposure-in-react-server-components.md",
+    "src/content/blog/2026/02/24/the-react-foundation.md",
+    "src/content/blog/2026/09/09/react-19-3.md",
+    "src/content/blog/index.md",
+    "src/content/community/acknowledgements.md",
+    "src/content/community/conferences.md",
+    "src/content/community/docs-contributors.md",
+    "src/content/community/index.md",
+    "src/content/community/meetups.md",
+    "src/content/community/team.md",
+    "src/content/community/translations.md",
+    "src/content/community/versioning-policy.md",
+    "src/content/community/videos.md",
+    "src/content/errors/377.md",
+    "src/content/errors/generic.md",
+    "src/content/errors/index.md",
+    "src/content/index.md",
+    "src/content/versions.md"
+  ],
+  "exclusions": [
+    "Blog, community, home/version directories, and generated error pages are outside the Learn/Reference/warnings scope.",
+    "All sandbox source code is retained; interactive execution and hosted media are not available offline."
+  ]
+}

@@ -1,76 +1,95 @@
 package dev.offline.board;
 
-import java.util.Map;
-
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
+import java.math.BigDecimal;
+import java.security.Principal;
+import java.util.Map;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import org.springframework.web.servlet.view.RedirectView;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @Controller
 class BoardController {
-    private final TaskBoard board;
+  private final PurchaseStore store;
 
-    BoardController(TaskBoard board) {
-        this.board = board;
-    }
+  BoardController(PurchaseStore store) {
+    this.store = store;
+  }
 
-    @GetMapping("/")
-    String home() {
-        return "home";
-    }
+  @GetMapping("/health")
+  @ResponseBody
+  Map<String, String> health() {
+    store.list("", "");
+    return Map.of("status", "ready");
+  }
 
-    @GetMapping("/health")
-    @ResponseBody
-    Map<String, String> health() {
-        return Map.of("status", "up");
-    }
+  @GetMapping("/")
+  String index(
+      @RequestParam(defaultValue = "") String status,
+      @RequestParam(defaultValue = "") String q,
+      Principal principal,
+      Model model) {
+    var requests = store.list(status, q);
+    model.addAttribute("requests", requests);
+    model.addAttribute("status", status);
+    model.addAttribute("q", q);
+    model.addAttribute("user", principal.getName());
+    model.addAttribute(
+        "pending", requests.stream().filter(r -> r.status().equals("pending")).count());
+    model.addAttribute(
+        "pendingAmount",
+        BigDecimal.valueOf(
+            requests.stream()
+                .filter(r -> r.status().equals("pending"))
+                .mapToLong(PurchaseStore.Purchase::amountCents)
+                .sum(),
+            2));
+    return "index";
+  }
 
-    @GetMapping("/tasks")
-    String tasks(@AuthenticationPrincipal OidcUser user, Model model, HttpServletResponse response) {
-        var snapshot = board.list(user.getSubject());
-        model.addAttribute("username", user.getPreferredUsername());
-        model.addAttribute("tasks", snapshot.tasks());
-        model.addAttribute("source", snapshot.source());
-        response.setHeader("X-Task-Source", snapshot.source());
-        return "board";
-    }
+  @PostMapping("/requests/create")
+  String create(
+      Principal principal,
+      @RequestParam String title,
+      @RequestParam String reason,
+      @RequestParam String amount) {
+    return "redirect:/requests/" + store.create(principal.getName(), title, reason, amount).id();
+  }
 
-    @PostMapping("/tasks")
-    RedirectView add(@AuthenticationPrincipal OidcUser user, @RequestParam String title,
-                     RedirectAttributes feedback) {
-        try {
-            board.add(user.getSubject(), title);
-        } catch (IllegalArgumentException error) {
-            feedback.addFlashAttribute("error", error.getMessage());
-        }
-        return backToBoard();
-    }
+  @GetMapping("/requests/{id}")
+  String detail(@PathVariable long id, Authentication auth, Model model) {
+    model.addAttribute("request", store.get(id));
+    model.addAttribute("events", store.events(id));
+    model.addAttribute("user", auth.getName());
+    model.addAttribute(
+        "approver",
+        auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_APPROVER")));
+    return "detail";
+  }
 
-    @PostMapping("/tasks/{id}/complete")
-    RedirectView complete(@AuthenticationPrincipal OidcUser user, @PathVariable long id) {
-        board.complete(user.getSubject(), id);
-        return backToBoard();
-    }
+  @PostMapping("/requests/{id}/decision")
+  String decide(
+      @PathVariable long id,
+      Authentication auth,
+      @RequestParam long version,
+      @RequestParam String decision,
+      @RequestParam String note) {
+    store.decide(
+        id,
+        auth.getName(),
+        auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_APPROVER")),
+        version,
+        decision,
+        note);
+    return "redirect:/requests/" + id;
+  }
 
-    @PostMapping("/tasks/{id}/delete")
-    RedirectView delete(@AuthenticationPrincipal OidcUser user, @PathVariable long id) {
-        board.delete(user.getSubject(), id);
-        return backToBoard();
-    }
-
-    private static RedirectView backToBoard() {
-        var redirect = new RedirectView("/tasks", true);
-        redirect.setStatusCode(HttpStatus.SEE_OTHER);
-        return redirect;
-    }
+  @ExceptionHandler(ResponseStatusException.class)
+  String error(ResponseStatusException error, Model model, HttpServletResponse response) {
+    response.setStatus(error.getStatusCode().value());
+    model.addAttribute("message", error.getReason());
+    return "error";
+  }
 }

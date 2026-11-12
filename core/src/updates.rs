@@ -896,7 +896,7 @@ fn docs_updates(ctx: &Context, prefs: &Settings, probe_sdk: bool) -> Result<Vec<
 
 fn starter_feed(id: &str) -> Option<Feed> {
     match id {
-        "go/chi-api" | "go/chi-taskboard" | "go/service-kit" => Some(Feed::Chi),
+        "go/chi-api" | "go/service-kit" => Some(Feed::Chi),
         "python/fastapi-api" | "python/service-kit" => Some(Feed::FastApi),
         "rust/axum-api" | "rust/service-kit" => Some(Feed::Axum),
         "rust/tauri-desktop" => Some(Feed::Tauri),
@@ -1037,7 +1037,7 @@ fn template_updates(ctx: &Context, prefs: &Settings) -> Result<Vec<UpdateItem>> 
                 (Some(pinned), None) => append_detail(&mut item, &format!("Bundled {} {pinned}. Check for a newer upstream release.", feed.name())),
                 (None, _) => append_detail(&mut item, &format!("Could not identify the installed {} pin. Rebuild can refresh and verify dependencies.", feed.name())),
             }
-        } else if id == "swift/swiftui-app" {
+        } else if matches!(id, "swift/swiftui-app" | "swift/focus-timer") {
             item.state = "current";
             append_detail(&mut item, "This starter uses SwiftUI from your local macOS SDK. Devline can rebuild the starter; update Xcode or Command Line Tools separately.");
         } else if id == "ruby/json-cli" {

@@ -1,0 +1,1 @@
+{"interval_seconds":10,"timeout_ms":2000,"targets":[{"name":"Example service","url":"http://127.0.0.1:8080/demo-service","expected_status":200},{"name":"Example outage","url":"http://127.0.0.1:8080/demo-failing","expected_status":200}]}

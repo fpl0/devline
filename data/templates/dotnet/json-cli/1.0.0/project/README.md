@@ -1,15 +1,16 @@
-# C# JSON CLI
+# Invoice Reconciliation
 
-Format JSON and extract a value with a JSON Pointer. The example catalog and the .NET 10 SDK are enough to run it.
+Reconcile invoice balances against bank payments in a reproducible batch. Multiple payments settle an invoice together; partial, missing and excess payments remain visible. Unknown references and currency mismatches are reported separately. Amounts use exact decimal arithmetic; no floating point or currency conversion is involved.
 
 ```sh
-./devline.sh test
-./devline.sh run
-dotnet run -- format examples/catalog.json
-dotnet run -- get /books/0/title examples/catalog.json
-printf '%s' '{"a/b":{"ready":true}}' | dotnet run -- get /a~1b/ready -
+./run.sh
+dotnet bin/Debug/net10.0/json-cli.dll --invoices fixtures/invoices.csv --payments fixtures/payments.csv --output reports/reconciliation.json
+./build-app.sh
+./test-offline.sh
 ```
 
-Use `-` to read standard input. The empty pointer selects the whole document. Use `~1` for a slash and `~0` for a tilde in a key. Results go to standard output. Invalid JSON, unreadable files, and missing paths print an error to standard error and return exit code 1. Invalid command syntax returns 2.
+The sample produces one paid, one partial, one unpaid and one overpaid invoice, plus an unmatched payment. The JSON report includes the input totals by currency, all invoice balances and unmatched payments. Run again after correcting the source CSVs. Output is replaced atomically, so an interrupted run does not leave a partial report.
 
-Run `dotnet publish -c Release -o out` to build a framework-dependent executable at `out/json-cli`. It uses the locally installed .NET 10 runtime.
+Both files use UTF-8 CSV with a header. Invoices require `reference,currency,amount`; payments require `id,reference,currency,amount`. Quoted fields and embedded commas are supported; multiline fields are rejected with a line number. Identifiers must be unique in each input, amounts must be positive with at most two decimal places, and currency must be three uppercase letters. The supported precision is two decimal places; do not supply currencies requiring a different scale. Invalid input aborts before writing a report. Exit 0 means a report was produced; exit 2 means invalid arguments or data. Reconciliation exceptions are business results, not process failures.
+
+This is a local batch tool. Reports and source files remain on your machine. No service or account is required. Maven/.NET dependencies are bundled for offline builds.

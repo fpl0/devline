@@ -1,47 +1,39 @@
-# __PROJECT_NAME__
+# Dispatch Inbox
 
-A Sinatra API for triaging support tickets. Add and read tickets with PostgreSQL, then index them for search, mark them reviewed, export a copy, and send a notification through the local services configured by Devline.
+A Sinatra application for receiving payment webhooks and producing local packing slips. It demonstrates a complete integration boundary: signature verification, replay protection, durable idempotency, asynchronous processing, retry backoff, failure inspection, and manual retry.
 
-Requires Ruby 4.0 on Apple Silicon macOS, the Bundler version in `Gemfile.lock`, and Xcode Command Line Tools and OpenSSL 3 development files for native extensions. If needed, install OpenSSL with `brew install openssl@3` and set `DEVLINE_OPENSSL_DIR` for a custom prefix.
+## Run and send an event
 
 ```sh
+./test-offline.sh
 ./run.sh
 ```
 
-For background mode, use `./devline.sh start`. Devline starts the pinned services, passes their generated connection settings to the app, and blocks internet access. The API listens on http://127.0.0.1:7461.
-
-## Triage a ticket
-
-These commands use `jq` to extract IDs from responses. You can also copy them from the returned JSON. WEBrick requires a `Content-Length` header on every POST, so the requests without a JSON body send an empty one with `-d ''`.
+Open `http://127.0.0.1:7461`. In another terminal, from a generated project:
 
 ```sh
-base=http://127.0.0.1:7461
-id=$(curl -fsS "$base/tickets" -H 'Content-Type: application/json' \
-  -d '{"title":"Printer jam","details":"Paper is stuck in the rear tray."}' | jq -r .id)
-ticket="$base/tickets/$id"
-
-curl -fsS "$base/tickets"          # List up to 100 saved PostgreSQL tickets
-curl -fsS "$ticket"                # Read the record and populate the Redis cache
-curl -fsS "$ticket"                # Read the same immutable ticket from Redis
-curl -fsS -X POST -d '' "$ticket/index"  # Send the record to Meilisearch
+./devline.sh exec ruby send-event.rb
+./devline.sh exec ruby send-event.rb examples/order-paid.json
 ```
 
-Copy the returned `task` number and check `GET /search/tasks/<task>`. When its status is `succeeded`, continue with the search and the other triage actions.
+The sender signs the exact bytes of the example event. The first delivery is accepted with HTTP 202; sending it again returns the existing event with HTTP 200. Reusing its `id` for different bytes returns 409.
 
-```sh
-curl -fsS "$base/search?q=printer"                 # Search the Meilisearch index
-curl -fsS -X POST -d '' "$ticket/activity"         # Publish a review event to NATS JetStream
-curl -fsS "$ticket/activity"                       # Read the latest review event
-curl -fsS -X POST -d '' "$ticket/export"           # Save a JSON snapshot in SeaweedFS S3
-curl -fsS "$ticket/export"                         # Download the saved snapshot
-curl -fsS -X POST -d '' "$ticket/notify"           # Confirm a durable RabbitMQ job
-curl -fsS -X POST -d '' "$base/notifications/next" # Process one job and send it to Mailpit
+Choose **Process due events** in the dashboard. The resulting JSON packing slip is saved in `data/packing-slips/evt-order-1042.json`. For a dedicated worker, run `./devline.sh exec ruby worker.rb --watch`. Without `--watch`, the worker handles one due event and exits. It is safe to run the dashboard and worker together: SQLite claims and generation-specific leases coordinate attempts.
+
+## Webhook contract
+
+`POST /webhooks/orders` requires `Content-Type: application/json`, `X-Event-Timestamp` (Unix seconds), and `X-Event-Signature` (lowercase HMAC-SHA256 hex over `timestamp.body`). Timestamps must be within five minutes. Bodies are limited to 64 KiB.
+
+```json
+{"id":"evt-order-1042","type":"order.paid","data":{"order_id":"ORDER-1042","customer":"Alex","total_cents":4890}}
 ```
 
-Open Mailpit from Services → This Project in Devline to read the test email. The notification step acknowledges the RabbitMQ job after SMTP accepts it. A failure before acknowledgement can redeliver the job.
+The local signing key is created with private file permissions at `data/signing-key`. Set `DISPATCH_SECRET` to a shared secret of at least 32 bytes when using another sender. `DISPATCH_DATA` selects a different data directory; `DISPATCH_URL` changes the sender's destination. Never put the signing key in version control.
 
-## Offline tests and storage
+Failed delivery uses exponential backoff and stops after three attempts. The dashboard shows the error and offers **Retry event** once the underlying problem is fixed. Interrupted workers can be reclaimed after a 60-second lease. A stale worker cannot overwrite the state of a newer claim. Delivery is at least once; deterministic packing-slip filenames make this particular side effect idempotent.
 
-Run `./test-offline.sh` to install the pinned dependencies from the bundled gem cache and test the API and client setup without containers. When no PostgreSQL service is configured, the core ticket routes use `storage/support.sqlite3` locally. The live integration routes require their respective Devline services and report HTTP 503 if a service is unavailable.
+## Design and tests
 
-Use `./devline.sh stop` to stop the background app while preserving its service data. Use `./devline.sh services down` to stop its services.
+`lib/inbox.rb` owns Sequel transactions and processing. `lib/signature.rb` owns signing. `app.rb` is the HTTP boundary, and `public/index.html` is a small local dashboard that renders text safely. `send-event.rb` is an example integration client; `worker.rb` is a separate consumer process.
+
+Tests cover valid signatures, expired and forged signatures, identical and conflicting duplicates, validation, retry backoff, exhausted/manual retries, restart persistence, and late completion of an expired lease. The app binds to loopback and does not implement an internet-facing administration/authentication layer. Use `./bundle-offline.sh exec ruby send-event.rb` when working directly in the source bundle.

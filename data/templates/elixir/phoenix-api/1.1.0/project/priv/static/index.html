@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Incident Room</title>
+    <link rel="stylesheet" href="/assets/style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">A shared place to respond</p>
+        <h1>Incident Room</h1>
+        <p>
+          Open an incident, name an owner, and keep the response timeline
+          together.
+        </p>
+        <span id="connection" role="status">Connecting…</span>
+      </header>
+      <label for="actor">Your name</label
+      ><input id="actor" maxlength="60" value="Operator" required />
+      <p id="message" role="alert"></p>
+      <div class="workspace">
+        <section>
+          <div class="heading">
+            <h2>Incidents</h2>
+            <label
+              ><input type="checkbox" id="closed" /> Include resolved</label
+            >
+          </div>
+          <div id="incidents"></div>
+        </section>
+        <aside>
+          <h2>Open an incident</h2>
+          <form id="create">
+            <label for="title">What is happening?</label
+            ><input
+              id="title"
+              maxlength="120"
+              required
+              placeholder="Checkout requests are timing out"
+            /><label for="severity">Severity</label
+            ><select id="severity">
+              <option>medium</option>
+              <option>high</option>
+              <option>low</option></select
+            ><button>Open incident</button>
+          </form>
+          <p class="hint">
+            Open a second browser window to see updates arrive immediately.
+            Changes are saved locally before they are shared.
+          </p>
+        </aside>
+      </div>
+    </main>
+    <script type="module" src="/assets/app.js"></script>
+  </body>
+</html>

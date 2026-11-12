@@ -1,0 +1,41 @@
+<%= link_to "← Workshop", root_path %>
+<header>
+  <p class="eyebrow">Job #<%= @job.id %> · <%= @job.status.humanize %></p>
+  <h1><%= @job.title %></h1>
+  <p><%= @job.customer %> · Estimate <strong><%= number_to_currency(@job.estimate_cents / 100.0, unit: "€") %></strong></p>
+</header>
+<div class="workspace">
+  <section>
+    <h2>Intake notes</h2>
+    <div class="notes"><%= simple_format(@job.description.presence || "No intake notes.") %></div>
+    <h2>History</h2>
+    <ol class="history">
+      <% @job.job_events.each do |event| %>
+        <li>
+          <strong><%= event.action.humanize %></strong> → <%= event.status.humanize %><br>
+          <small><%= event.created_at.strftime("%d %b %Y %H:%M") %></small>
+          <%= simple_format(event.note) %>
+        </li>
+      <% end %>
+    </ol>
+  </section>
+  <aside>
+    <h2>Next steps</h2>
+    <% if @job.actions.empty? %>
+      <p>This job is closed. Its history remains available.</p>
+    <% end %>
+    <% @job.actions.each do |event| %>
+      <%= form_with url: transition_job_path(@job), class: "action" do |form| %>
+        <%= form.hidden_field :event, value: event %>
+        <%= form.hidden_field :version, value: @job.lock_version %>
+        <% if event == "quote" %>
+          <%= form.label :estimate_cents, "Estimate in cents (1299 = €12.99)", for: "#{event}_estimate" %>
+          <%= form.number_field :estimate_cents, value: @job.estimate_cents.positive? ? @job.estimate_cents : nil, required: true, min: 1, max: 100000000, id: "#{event}_estimate" %>
+        <% end %>
+        <%= form.label :note, "Note for this step", for: "#{event}_note" %>
+        <%= form.text_field :note, maxlength: 1000, id: "#{event}_note" %>
+        <%= form.submit event.humanize, class: ("secondary" if event == "cancel") %>
+      <% end %>
+    <% end %>
+  </aside>
+</div>

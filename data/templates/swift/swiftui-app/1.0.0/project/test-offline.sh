@@ -16,4 +16,4 @@ app=$(./build-app.sh)
 executable=$(/usr/bin/plutil -extract CFBundleExecutable raw "$app/Contents/Info.plist")
 test -x "$app/Contents/MacOS/$executable"
 /usr/bin/codesign --verify --strict "$app"
-printf '%s\n' 'Idea Board tests passed and the local macOS app bundle verified.'
+printf '%s\n' 'Fieldnotes tests passed and the local macOS app bundle verified.'

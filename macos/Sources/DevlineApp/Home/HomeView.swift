@@ -281,7 +281,7 @@ struct HomeView: View {
                         busy: true, action: "Stop") { model.stopDownloads(.packages) }
         }
         return Step(id: "Packages", state: .todo,
-                    detail: "The 100 most used per runtime, to add offline. \(relevant.count - missing.count) of \(relevant.count) downloaded.",
+                    detail: "100 popular packages per runtime, to add offline. \(relevant.count - missing.count) of \(relevant.count) downloaded.",
                     action: "Download All", enabled: online) { model.download(.packages, missing) }
     }
 

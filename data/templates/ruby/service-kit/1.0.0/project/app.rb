@@ -1,137 +1,65 @@
-require "dotenv"
-require "logger"
 require "sinatra/base"
-require_relative "support"
+require "json"
+require_relative "lib/inbox"
+require_relative "lib/signature"
 
-class ServiceKit < Sinatra::Base
-  set :logger, Logger.new($stdout)
+class DispatchInbox < Sinatra::Base
+  set :bind, "127.0.0.1"
   set :show_exceptions, false
   set :raise_errors, false
-
-  before { content_type :json }
-
-  error Support::ServiceUnavailable, Sequel::Error, Bunny::Exception,
-    Aws::S3::Errors::ServiceError, Seahorse::Client::NetworkingError, NATS::Error,
-    Net::SMTPError, SystemCallError, IOError, Timeout::Error do
-    # Service URLs and exception messages can contain generated credentials.
-    settings.logger.warn("support_service_unavailable type=#{env.fetch('sinatra.error').class}")
-    status 503
-    JSON.generate(detail: "Local service unavailable. Check Devline services.")
-  end
-
-  not_found { JSON.generate(detail: "Not found") }
+  set :host_authorization, { permitted_hosts: ["localhost", "127.0.0.1", "::1"] }
+  set :public_folder, File.expand_path("public", __dir__)
+  set(:inbox) { @inbox ||= Inbox.new(File.join(ENV.fetch("DISPATCH_DATA", "data"), "inbox.sqlite3"), output: File.join(ENV.fetch("DISPATCH_DATA", "data"), "packing-slips")) }
+  set(:signing_secret) { Signature.secret }
 
   helpers do
-    def fail_request(code, message)
-      halt code, JSON.generate(detail: message)
+    def output(value, status_code = 200)
+      content_type :json
+      status status_code
+      JSON.generate(value)
     end
 
-    def ticket_id
-      id = params.fetch("id")
-      fail_request(422, "Expected a ticket ID") unless id.match?(/\A[a-f0-9]{32}\z/)
-      id
-    end
-
-    def ticket
-      Support.read_ticket(ticket_id) || fail_request(404, "Ticket not found")
-    end
-
-    def ticket_input
-      body = request.body.read(64_001).to_s
-      fail_request(413, "Ticket body is too large") if body.bytesize > 64_000
-      input = JSON.parse(body)
-      unless input.is_a?(Hash) && input.keys.sort == %w[details title]
-        fail_request(422, "Send a title and details")
-      end
-      title = input.fetch("title")
-      details = input.fetch("details")
-      unless title.is_a?(String) && details.is_a?(String)
-        fail_request(422, "Title and details must be strings")
-      end
-      title = title.strip
-      details = details.strip
-      unless title.length.between?(1, 120) && details.length.between?(1, 4000) &&
-          !title.match?(/[\r\n\x00]/) && !details.include?("\0")
-        fail_request(422, "Use a single-line title and nonempty details within the length limits")
-      end
-      [title, details]
-    rescue JSON::ParserError
-      fail_request(422, "Expected a JSON object")
+    def json_only!
+      halt 415, output({ error: "Use application/json" }, 415) unless request.media_type == "application/json"
     end
   end
 
-  get "/" do
-    JSON.generate(app: "Support Desk", create: "POST /tickets with title and details", list: "GET /tickets")
+  get("/") { send_file File.join(settings.public_folder, "index.html") }
+  get("/health") { output({ status: "ok" }) }
+  get("/events") { output(settings.inbox.list) }
+
+  post "/webhooks/orders" do
+    json_only!
+    body = request.body.read(65_537)
+    halt 413, output({ error: "Payload exceeds 64 KiB" }, 413) if body.bytesize > 65_536
+    unless Signature.valid?(settings.signing_secret, request.env["HTTP_X_EVENT_TIMESTAMP"], body, request.env["HTTP_X_EVENT_SIGNATURE"])
+      halt 401, output({ error: "Signature is invalid or older than five minutes" }, 401)
+    end
+    event, created = settings.inbox.accept(body)
+    output(event, created ? 202 : 200)
   end
 
-  get "/health" do
-    environment = ENV.fetch("APP_ENVIRONMENT", "local")
-    settings.logger.info("health_checked environment=#{environment}")
-    JSON.generate(status: "ok", environment:)
+  post "/process" do
+    json_only!
+    results = []
+    20.times do
+      event = settings.inbox.process_one
+      break unless event
+      results << event
+    end
+    output(results)
   end
 
-  post "/tickets" do
-    record = Support.create_ticket(*ticket_input)
-    status 201
-    JSON.generate(record)
+  post "/events/:id/retry" do
+    json_only!
+    output(settings.inbox.retry_event(params.fetch("id")))
   end
 
-  get "/tickets" do
-    JSON.generate(Support.list_tickets)
+  error Inbox::InvalidEvent do
+    output({ error: env["sinatra.error"].message }, 422)
   end
 
-  get "/tickets/:id" do
-    JSON.generate(ticket)
-  end
-
-  post "/tickets/:id/notify" do
-    Support.enqueue_notification(ticket)
-    status 202
-    JSON.generate(id: ticket_id, status: "queued")
-  end
-
-  post "/notifications/next" do
-    record = Support.deliver_notification
-    JSON.generate(record ? {id: record.fetch(:id), status: "sent"} : {status: "empty"})
-  end
-
-  post "/tickets/:id/index" do
-    task = Support.index_ticket(ticket)
-    status 202
-    JSON.generate(task:)
-  end
-
-  get "/search/tasks/:task" do
-    task = params.fetch("task")
-    fail_request(422, "Expected a task number") unless task.match?(/\A[0-9]+\z/)
-    JSON.generate(status: Support.index_status(task))
-  end
-
-  get "/search" do
-    query = params.fetch("q", "")
-    fail_request(422, "Provide a search query of up to 120 characters") unless query.length.between?(1, 120)
-    JSON.generate(Support.search_tickets(query))
-  end
-
-  post "/tickets/:id/export" do
-    Support.export_ticket(ticket)
-    status 201
-    JSON.generate(id: ticket_id, status: "exported")
-  end
-
-  get "/tickets/:id/export" do
-    record = Support.read_export(ticket_id) || fail_request(404, "Export not found")
-    JSON.generate(record)
-  end
-
-  post "/tickets/:id/activity" do
-    event = Support.activity(ticket_id, ticket)
-    status 201
-    JSON.generate(event)
-  end
-
-  get "/tickets/:id/activity" do
-    event = Support.activity(ticket_id) || fail_request(404, "Activity not found")
-    JSON.generate(event)
+  error Inbox::Conflict do
+    output({ error: env["sinatra.error"].message }, 409)
   end
 end

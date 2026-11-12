@@ -125,5 +125,54 @@
   },
   "https://learn.microsoft.com/en-us/dotnet/standard/datetime/system-text-json-support": {
     "-and-": "#systembufferstextutf8parser-and-systembufferstextutf8formatter"
+  },
+  "https://react.dev/reference/react-dom/components/common": {
+    "clipboardevent-handler": "#clipboadevent-handler"
+  },
+  "https://react.dev/reference/react-dom/components/textarea": {
+    "reading-the-textarea-value-when-submitting-a-form": "#reading-the-text-area-value-when-submitting-a-form"
+  },
+  "https://react.dev/reference/react/Component": {
+    "context-instance-field": "#context"
+  },
+  "https://react.dev/reference/react/ViewTransition": {
+    "view-transition-events": "#view-transition-event"
+  },
+  "https://react.dev/reference/react/legacy": {
+    "static-contexttype": "Component#static-contexttype"
+  },
+  "https://react.dev/reference/rsc/use-client": {
+    "passing-props-from-server-to-client-components": "#serializable-types"
+  },
+  "https://www.typescriptlang.org/docs/handbook/compiler-options.html": {
+    "module-resolution": "/docs/handbook/modules/reference.html#the-moduleresolution-compiler-option"
+  },
+  "https://www.typescriptlang.org/docs/handbook/modules/guides/choosing-compiler-options.html": {
+    "im-compiling-and-running-the-outputs-in-node": "#im-compiling-and-running-the-outputs-in-nodejs"
+  },
+  "https://www.typescriptlang.org/docs/handbook/modules/reference.html": {
+    "esModuleInterop": "/tsconfig/#esModuleInterop",
+    "node16-nodenext-1": "#node16-nodenext"
+  },
+  "https://www.typescriptlang.org/docs/handbook/modules/theory.html": {
+    "extension-searching-and-directory-index-files": "reference.html#extensionless-relative-paths",
+    "module-specifiers-are-not-transformed": "#module-specifiers-are-not-transformed-by-default"
+  },
+  "https://www.typescriptlang.org/docs/handbook/project-references.html": {
+    "handbook-content": "#project-references"
+  },
+  "https://www.typescriptlang.org/docs/handbook/release-notes/typescript-4-5.html": {
+    "type-on-import-names": "#type-modifiers-on-import-names"
+  },
+  "https://www.typescriptlang.org/docs/handbook/type-checking-javascript-files.html": {
+    "supported-jsdoc": "jsdoc-supported-types.html#jsdoc-reference"
+  },
+  "https://www.typescriptlang.org/tsconfig": {
+    "sourcemap": "https://www.typescriptlang.org/tsconfig/#sourceMap",
+    "stableTypeOrdering": "/docs/handbook/compiler-options.html#stableTypeOrdering"
+  },
+  "https://www.typescriptlang.org/tsconfig/": {
+    "sourcemap": "https://www.typescriptlang.org/tsconfig/#sourceMap",
+    "stableTypeOrdering": "/docs/handbook/compiler-options.html#stableTypeOrdering"
   }
 }

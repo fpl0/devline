@@ -27,7 +27,7 @@ case "$action" in
       tools="$developer/Toolchains/XcodeDefault.xctoolchain/usr/bin:$tools"
     fi
     export SDKROOT="${SDKROOT:-$sdk}" PATH="$tools:$PATH"
-    exec "$ruby" -S bundle "_${bundler}_" install --local --jobs 4
+    exec "$ruby" -S bundle "_${bundler}_" install --local --jobs 2
     ;;
   exec) exec "$ruby" -S bundle "_${bundler}_" exec "$@" ;;
   *) echo 'Use bundle-offline.sh install or bundle-offline.sh exec COMMAND.' >&2; exit 2 ;;

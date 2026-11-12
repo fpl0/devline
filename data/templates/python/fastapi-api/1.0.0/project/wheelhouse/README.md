@@ -1,1 +1,0 @@
-These wheels were repacked from locally cached upstream wheel entries after checking each entry against the original wheel RECORD. Archive hashes are the hashes of these local bundles. Wheel metadata includes upstream licenses.

@@ -1,3 +1,4 @@
 .bundle-gems/
 .bundler/
-.env
+.bundle/
+data/

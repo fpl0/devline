@@ -18,18 +18,7 @@ defmodule DevlinePhoenix.MixProject do
       [
         {:phoenix, "~> 1.8.16"},
         {:bandit, "~> 1.14"},
-        {:jason, "~> 1.4"},
-        {:ecto_sql, "~> 3.14"},
-        {:postgrex, "~> 0.22"},
-        {:myxql, "~> 0.9"},
-        {:ecto_sqlite3, "~> 0.26"},
-        {:redix, "~> 1.10"},
-        {:amqp, "~> 4.3"},
-        {:ex_aws, "~> 2.7"},
-        {:ex_aws_s3, "~> 2.5"},
-        {:sweet_xml, "~> 0.7"},
-        {:req, "~> 0.7"},
-        {:joken, "~> 2.7"}
+        {:jason, "~> 1.4"}
       ]
     end
   end

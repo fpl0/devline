@@ -1,0 +1,27 @@
+<p class="eyebrow">PURCHASE DESK</p>
+<h1>Spend with a clear decision.</h1>
+<p>Sign in to request a purchase or review the team's requests.</p>
+
+<section class="panel login">
+    <h2>Local demo sign-in</h2>
+    @if (ViewBag.Error is not null)
+    {
+        <p role="alert">@ViewBag.Error</p>
+    }
+    <form method="post" action="/account/login">
+        @Html.AntiForgeryToken()
+        <label>
+            Identity
+            <select name="username">
+                <option value="alice">Alice · requester</option>
+                <option value="bob">Bob · approver</option>
+            </select>
+        </label>
+        <label>
+            Password
+            <input name="password" type="password" required value="devline-local">
+        </label>
+        <button>Sign in</button>
+    </form>
+    <p class="muted">These fixed identities demonstrate workflow permissions on this Mac. They are not production accounts.</p>
+</section>

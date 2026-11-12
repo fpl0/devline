@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width"
+  /><title>Dispatch Inbox</title>
+  <style>
+    body {
+      font: 16px/1.5 system-ui;
+      color: #20334a;
+      background: #f3f6fa;
+      max-width: 960px;
+      margin: 3rem auto;
+      padding: 0 1rem;
+    }
+    h1 {
+      font-size: 2.8rem;
+      letter-spacing: -0.05em;
+    }
+    button {
+      font: inherit;
+      padding: 0.6rem 1rem;
+      background: #275d8d;
+      border: 0;
+      border-radius: 0.4rem;
+      color: white;
+      cursor: pointer;
+    }
+    article {
+      background: white;
+      border: 1px solid #ccd8e5;
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 0.6rem;
+    }
+    code {
+      background: #e3ebf3;
+      padding: 0.2rem;
+    }
+    .status {
+      float: right;
+    }
+    #message {
+      min-height: 1.5rem;
+      color: #8b3a2b;
+    }
+    small {
+      color: #5e6f80;
+    }
+  </style>
+  <h1>Dispatch Inbox</h1>
+  <p>
+    Receive signed payment events, inspect delivery attempts, and produce
+    packing slips. Incoming events survive restarts and duplicate deliveries.
+  </p>
+  <p>
+    Send the included event:
+    <code>./devline.sh exec ruby send-event.rb</code>
+  </p>
+  <button id="process">Process due events</button>
+  <button id="refresh">Refresh</button>
+  <p id="message" role="status"></p>
+  <section id="events" aria-label="Received events"></section>
+  <script>
+    const events = document.querySelector("#events"),
+      message = document.querySelector("#message");
+    async function request(path, method = "GET") {
+      const response = await fetch(path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        ...(method === "POST" ? { body: "{}" } : {}),
+      });
+      const data = await response.json();
+      if (!response.ok) throw Error(data.error || "Request failed");
+      return data;
+    }
+    async function refresh() {
+      try {
+        const rows = await request("/events");
+        events.replaceChildren();
+        if (!rows.length)
+          events.textContent =
+            "No events yet. Send the example event to begin.";
+        for (const row of rows) {
+          const article = document.createElement("article");
+          const heading = document.createElement("h2");
+          heading.textContent = row.data.order_id + " · " + row.data.customer;
+          const state = document.createElement("strong");
+          state.className = "status";
+          state.textContent = row.status;
+          const detail = document.createElement("p");
+          detail.textContent = `Event ${row.id} · ${row.attempts} attempts · €${(row.data.total_cents / 100).toFixed(2)}`;
+          article.append(state, heading, detail);
+          if (row.error) {
+            const error = document.createElement("p");
+            error.textContent = row.error;
+            article.append(error);
+          }
+          if (row.status === "failed") {
+            const retry = document.createElement("button");
+            retry.textContent = "Retry event";
+            retry.onclick = () =>
+              act("/events/" + encodeURIComponent(row.id) + "/retry");
+            article.append(retry);
+          }
+          events.append(article);
+        }
+      } catch (error) {
+        message.textContent = error.message;
+      }
+    }
+    async function act(path) {
+      try {
+        await request(path, "POST");
+        message.textContent =
+          "Updated. Processed packing slips are in data/packing-slips/.";
+        await refresh();
+      } catch (error) {
+        message.textContent = error.message;
+      }
+    }
+    document.querySelector("#process").onclick = () => act("/process");
+    document.querySelector("#refresh").onclick = refresh;
+    refresh();
+  </script>
+</html>

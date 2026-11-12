@@ -1,0 +1,6 @@
+order_id,date,category,quantity,unit_price_cents
+S-200,2026-11-10,Books,2,1299
+S-201,not-a-date,Books,1,100
+S-202,2026-11-10,Prints,-3,2400
+S-200,2026-11-10,Books,2,1299
+S-200,2026-11-10,Books,5,1299

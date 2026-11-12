@@ -1,4 +1,2 @@
-node_modules/
-.devline-offline/
+.data/
 .env
-data/*.sqlite*

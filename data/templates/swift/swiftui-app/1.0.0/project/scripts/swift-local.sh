@@ -16,5 +16,5 @@ mkdir -p "$scratch"
 # Devline supplies the outer sandbox during verification. This package uses only local targets.
 exec "$swift" "$command" --disable-sandbox --disable-automatic-resolution \
     --disable-dependency-cache --manifest-cache local --build-system native \
-    --scratch-path "$scratch/build" --cache-path "$scratch/cache" \
+    --jobs "${SWIFT_BUILD_JOBS:-2}" --scratch-path "$scratch/build" --cache-path "$scratch/cache" \
     --config-path "$scratch/config" --security-path "$scratch/security" "$@"

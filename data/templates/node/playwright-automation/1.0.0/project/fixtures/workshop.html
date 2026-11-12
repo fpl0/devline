@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Workshop booking</title>
+    <style>
+      body {
+        max-width: 700px;
+        margin: 40px auto;
+        padding: 20px;
+        font: 17px system-ui;
+        color: #254334;
+        background: #eff5eb;
+      }
+      button,
+      input {
+        font: inherit;
+        padding: 10px;
+        margin: 10px 0;
+      }
+      a {
+        display: block;
+        margin: 20px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Build something useful.</h1>
+      <p>A small local workshop site for practicing browser audits.</p>
+      <form>
+        <label for="name">Your name</label><br /><input
+          id="name"
+          required
+        /><br /><button>Reserve a place</button>
+      </form>
+      <p role="status" id="confirmation"></p>
+      <a href="/broken">Inspect a deliberately broken page</a
+      ><a href="/missing">Inspect a missing page</a>
+    </main>
+    <script>
+      document.querySelector("form").onsubmit = (event) => {
+        event.preventDefault();
+        document.querySelector("#confirmation").textContent =
+          "Reserved for " + document.querySelector("#name").value;
+      };
+    </script>
+  </body>
+</html>

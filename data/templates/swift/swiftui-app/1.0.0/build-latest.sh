@@ -7,4 +7,4 @@ trap 'rm -rf "$scratch"' EXIT
 trap 'exit 130' HUP INT TERM
 export DEVLINE_SWIFT_SCRATCH="$scratch"
 ./scripts/swift-local.sh package dump-package >/dev/null
-printf '%s\n' 'Idea Board uses the selected macOS SDK and local Swift targets.'
+printf '%s\n' 'Fieldnotes uses the selected macOS SDK and local Swift targets.'

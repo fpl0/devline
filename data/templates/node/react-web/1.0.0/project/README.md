@@ -1,7 +1,22 @@
-# React web app
+# Planboard
 
-Run `./devkit-test.sh` to type-check, execute DOM behavior tests, and build production assets with the vendored packages. Run `./devline.sh run` for the local development server at http://127.0.0.1:7480. No npm install is required.
+A local-first project planner built with React, TypeScript, and Vite. Organise projects, capture tasks with notes/priorities/due dates, move work through a three-column board, search and filter, and export/import backups.
 
-Includes React, React Router, TanStack Query, Zustand state, Zod validation, TypeScript, Vite, Vitest, Testing Library, and Happy DOM. The task form is a runnable example; replace it with your own application. Production output is `dist/`.
+```sh
+./devline.sh test
+./devline.sh run
+```
 
-The project targets macOS arm64 and Node.js 26+. Native build-tool packages are pinned for this platform; Devline detects your Node installation and does not install or upgrade it. Every package keeps its upstream license; exact transitive versions are in package-lock.json. Refresh packages using Devline's template update workflow while online, which verifies the result offline before publication.
+Open the URL printed by Vite. Explore the example workshop and learning projects, create a project, add a task, move its status, then reload: changes remain in this browser. Task titles open the editor. Project settings let you rename or delete a project and its tasks. Export a backup before importing, clearing browser storage, or deleting substantial work.
+
+## Persistence and recovery
+
+The entire validated board is saved under `planboard.v1` in localStorage before React publishes an edit. A failed quota/write leaves the existing state unchanged and shows an error. A revision check rejects edits from a stale tab. Corrupt stored data blocks changes and offers a raw export before an explicit reset; it is never silently replaced.
+
+Exports are versioned JSON, validated on import. Imports replace the board after confirmation. Limits: 100 projects, 5000 tasks, 8000 characters per note, 5 MiB per serialized UTF-8 backup (enforced before saving, exporting, and importing). Browser storage limits may be smaller. Data belongs to this browser and origin (including the port); there is no remote account or sync. Keep the local Vite server running to serve the app; all its assets and dependencies are bundled for disconnected use.
+
+## Code and verification
+
+`src/model.ts` contains the Zod schema, pure domain operations, search and transactional browser-storage boundary. `App.tsx` presents the board and edit/import flows. No backend or external network is used. React renders user text safely and controls are labelled for keyboard and assistive technology.
+
+Tests cover create/edit/move/reload through the UI, project creation, search, malformed backups, orphan/duplicate IDs, calendar-date validation, stale tabs, storage failure, and corruption recovery. `test-offline.sh` also typechecks and produces a production build with local dependencies.

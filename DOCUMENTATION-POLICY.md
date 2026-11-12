@@ -50,7 +50,44 @@ A service client package and an official reference pack are different content ty
 
 Client package archives, source code, license notices, and Devline’s integration instructions do not fill a service’s missing official documentation coverage. The reference-pack requirements above continue to apply unchanged. Offline client tests prove the recorded package/build/API checks; successful live service integration requires a separate test that actually connects to that service.
 
-## Current audit — 7 November 2026
+## Content-depth audit — 12 November 2026
+
+Official provenance alone does not establish completeness. The earlier importers
+sampled several manuals and discarded some generated API documentation. The
+following new immutable revisions use the same pinned publisher versions and
+expand their content:
+
+| Reference | Previous articles | New articles | Scope restored |
+| --- | ---: | ---: | --- |
+| Go | 95 | 328 | All 180 public standard-library packages for darwin/arm64, 145 verbatim publisher example files, and three language references |
+| Node.js | 33 | 69 | Every page listed in the pinned official API contents, including the contents page |
+| React | 34 | 187 | Learning, React and React DOM references, compiler documentation, warnings, publisher examples and available illustrations |
+| TypeScript | 19 | 132 | English handbook, reference, modules, declarations and tutorials; all 137 TSConfig options |
+| Vite | 15 | 39 | All guide and configuration articles, including environment APIs and plugin development |
+| Playwright | 29 | 148 | JavaScript guides and all five API source directories, including test-runner and reporter APIs |
+| FastAPI | 151 | 150 | Constructor parameters, `Annotated` publisher descriptions, methods, attributes and inherited Starlette declarations previously lost during extraction |
+
+Each expanded pack includes `CONTENT-INVENTORY.json` with its selected publisher
+sources and exclusions. The final pack audit compares that inventory with emitted
+articles, so a short page or a failed conversion cannot silently disappear.
+Importer tests also cover source examples, shared API parameter documentation,
+inherited members, illustrations and anchors. Explicitly selected FastAPI members
+must resolve against the pinned sources or the build fails. FastAPI excludes its
+dynamically populated People community page and the home page’s sponsor-card
+block; its educational content, official sponsor link, and instructional Jinja
+examples are retained. Unresolved site templates in imported prose fail the build.
+
+These are coverage improvements, not claims that every ecosystem is complete.
+Go's declarations follow the selected platform; external dependencies have their
+own manuals. Interactive playgrounds are retained as static publisher examples.
+Known broken publisher links remain listed separately from import regressions.
+The full .NET API catalog, ASP.NET MVC/Razor Pages/Blazor/SignalR/gRPC guides,
+Rails API catalog, unselected Java/Ruby/Rust APIs, Ecto SQL, Phoenix LiveView,
+and the separate Spring Framework reference remain gaps. Apple's website tutorials
+are still outside the local SwiftUI SDK extraction. MySQL and MongoDB's full
+manuals retain the redistribution restrictions recorded in their source manifests.
+
+## Provenance audit — 7 November 2026
 
 The current catalog records official upstream sources for all 23 bundled reference families. This is a provenance audit, not a blanket legal clearance or a byte-for-byte comparison of every transformed article.
 

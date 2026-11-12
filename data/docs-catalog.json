@@ -166,6 +166,28 @@
     "id": "fastapi",
     "name": "FastAPI",
     "stack": "python",
+    "version": "0.162.0+devline.3",
+    "description": "Official FastAPI tutorial, advanced user guide and deployment guides.",
+    "source_url": "https://fastapi.tiangolo.com/",
+    "license": "MIT; Starlette BSD-3-Clause",
+    "path": "docs/fastapi/0.162.0+devline.3",
+    "markdown": [],
+    "upstream_version": "0.162.0",
+    "snapshot_date": "2026-11-12",
+    "coverage": [
+      "Tutorial, advanced patterns, deployment, and API reference with constructor parameters, publisher parameter descriptions, attributes, methods, and inherited Starlette members"
+    ],
+    "omissions": [
+      "Translated guides, upstream release history, and APIs inherited from external dependencies other than the pinned Starlette source are omitted",
+      "The dynamically populated FastAPI People community page and home-page sponsor cards are outside the reference snapshot",
+      "Two publisher API links target the absent response_model_exclude_none heading in the response-model tutorial"
+    ],
+    "entry_id": "index.md"
+  },
+  {
+    "id": "fastapi",
+    "name": "FastAPI",
+    "stack": "python",
     "version": "0.162.0+devline.1",
     "description": "Official FastAPI tutorial, advanced user guide and deployment guides.",
     "source_url": "https://fastapi.tiangolo.com/",
@@ -181,6 +203,25 @@
       "Translated guides and upstream release history are omitted"
     ],
     "entry_id": "index.md"
+  },
+  {
+    "id": "go",
+    "name": "Go",
+    "stack": "go",
+    "version": "1.27.3+devline.4",
+    "description": "Official language specification, public standard-library APIs, and example sources.",
+    "source_url": "https://go.dev/",
+    "license": "BSD-3-Clause",
+    "path": "docs/go/1.27.3+devline.4",
+    "markdown": [],
+    "upstream_version": "1.27.3",
+    "snapshot_date": "2026-11-12",
+    "coverage": [
+      "Language specification, memory model, assembler, all public standard library packages available for the source toolchain target, and publisher example source files"
+    ],
+    "omissions": [
+      "Other operating-system and architecture variants, internal packages, command manuals, and third-party modules are outside this snapshot"
+    ]
   },
   {
     "id": "go",
@@ -340,6 +381,26 @@
     "id": "node",
     "name": "Node.js",
     "stack": "node",
+    "version": "26.13.0+devline.2",
+    "description": "Official Node.js core API reference.",
+    "source_url": "https://nodejs.org/dist/v26.13.0/docs/api/",
+    "license": "MIT; bundled upstream notices",
+    "path": "docs/node/26.13.0+devline.2",
+    "markdown": [],
+    "upstream_version": "26.13.0",
+    "snapshot_date": "2026-11-12",
+    "coverage": [
+      "Every article in the pinned official Node.js API index, including errors, globals, modules, native APIs, diagnostics, security, and web APIs"
+    ],
+    "omissions": [
+      "Other Node.js releases, npm packages, and material outside the official API manual are outside this snapshot"
+    ],
+    "entry_id": "index.html"
+  },
+  {
+    "id": "node",
+    "name": "Node.js",
+    "stack": "node",
     "version": "26.13.0+devline.1",
     "description": "Official Node.js core API reference.",
     "source_url": "https://nodejs.org/dist/v26.13.0/docs/api/",
@@ -352,7 +413,8 @@
       "Official Node.js APIs for file I/O, HTTP, streams, SQLite, tests, modules, workers, and related core libraries"
     ],
     "omissions": [
-      "Unselected Node APIs, release history, and npm packages are outside this snapshot"
+      "Unselected Node APIs, release history, and npm packages are outside this snapshot",
+      "The retained revision contains one stale publisher link to the Error class; the expanded revision repairs it"
     ]
   },
   {
@@ -374,6 +436,26 @@
       "External Phoenix packages have separate documentation"
     ],
     "entry_id": "overview.html"
+  },
+  {
+    "id": "playwright",
+    "name": "Playwright",
+    "stack": "node",
+    "version": "1.65.0+devline.2",
+    "description": "Official Playwright testing guides and complete JavaScript API families.",
+    "source_url": "https://playwright.dev/docs/",
+    "license": "Apache-2.0",
+    "path": "docs/playwright/1.65.0+devline.2",
+    "markdown": [],
+    "upstream_version": "1.65.0",
+    "snapshot_date": "2026-11-12",
+    "coverage": [
+      "All JavaScript and TypeScript guides and applicable browser, test runner, reporter, Electron, and Android API source pages in the pinned release"
+    ],
+    "omissions": [
+      "Other language editions, hosted videos, interactive tools, and images absent from the publisher source archive are omitted"
+    ],
+    "entry_id": "intro-js.md"
   },
   {
     "id": "playwright",
@@ -476,6 +558,27 @@
       "The full Rails API class catalog is omitted",
       "Eight links target headings absent from this snapshot"
     ]
+  },
+  {
+    "id": "react",
+    "name": "React",
+    "stack": "node",
+    "version": "19.3.1+devline.2",
+    "description": "Official React learning guides and complete React, React DOM, Compiler, and lint references.",
+    "source_url": "https://react.dev/",
+    "license": "CC-BY-4.0",
+    "path": "docs/react/19.3.1+devline.2",
+    "markdown": [],
+    "upstream_version": "19.3.1",
+    "snapshot_date": "2026-11-12",
+    "coverage": [
+      "Every official Learn and Reference article, including React DOM, Compiler, lint rules, server APIs, and warnings, with sandbox source examples and local illustrations"
+    ],
+    "omissions": [
+      "Sandboxes are readable code rather than executable demos; blog, community, generated error pages, and hosted media are outside this snapshot",
+      "14 publisher links target sections absent from the pinned React articles"
+    ],
+    "entry_id": "learn/index"
   },
   {
     "id": "react",
@@ -608,6 +711,26 @@
     "id": "typescript",
     "name": "TypeScript",
     "stack": "node",
+    "version": "7.0.2+devline.2",
+    "description": "Official TypeScript Handbook, language and module references, tutorials, and complete TSConfig options.",
+    "source_url": "https://www.typescriptlang.org/",
+    "license": "CC-BY-4.0",
+    "path": "docs/typescript/7.0.2+devline.2",
+    "markdown": [],
+    "upstream_version": "7.0.2",
+    "snapshot_date": "2026-11-12",
+    "coverage": [
+      "All permalink English Handbook, reference, module, declaration-file, JavaScript, tutorial, project configuration, and release-note articles, plus every published TSConfig option"
+    ],
+    "omissions": [
+      "Interactive compiler playgrounds, localized pages, and the compiler API are outside this snapshot; diagram authoring sources without page routes are excluded",
+      "Two publisher links target a retired handbook section or a generated TSConfig website category"
+    ]
+  },
+  {
+    "id": "typescript",
+    "name": "TypeScript",
+    "stack": "node",
     "version": "7.0.2+devline.1",
     "description": "Official TypeScript Handbook and selected TSConfig options.",
     "source_url": "https://www.typescriptlang.org/",
@@ -623,6 +746,26 @@
       "Interactive compiler playgrounds, localized pages, and the full compiler API are omitted"
     ],
     "entry_id": "docs/handbook/intro.html"
+  },
+  {
+    "id": "vite",
+    "name": "Vite",
+    "stack": "node",
+    "version": "8.3.6+devline.2",
+    "description": "Official Vite guides, complete configuration, plugin and Environment APIs, and migration references.",
+    "source_url": "https://v8.vite.dev/",
+    "license": "MIT",
+    "path": "docs/vite/8.3.6+devline.2",
+    "markdown": [],
+    "upstream_version": "8.3.6",
+    "snapshot_date": "2026-11-12",
+    "coverage": [
+      "Every official guide and configuration page, migration changes, and plugin overview, including SSR, plugin, HMR, and Environment APIs"
+    ],
+    "omissions": [
+      "Separately published framework plugin manuals, blog articles, hosted interactive lessons, and media are outside this snapshot"
+    ],
+    "entry_id": "guide/index"
   },
   {
     "id": "vite",

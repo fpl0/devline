@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Purchase Desk</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">PURCHASE DESK</p>
+          <h1>Spend with a clear decision.</h1>
+          <p>Track requests, review the reason, preserve the decision.</p>
+        </div>
+        <form method="post" th:action="@{/logout}">
+          <span th:text="${user}"></span>
+          <button class="secondary">Sign out</button>
+        </form>
+      </header>
+      <section class="stats">
+        <div>
+          <strong th:text="${pending}"></strong
+          ><span>Pending in this view</span>
+        </div>
+        <div>
+          <strong th:text="'€' + ${pendingAmount}"></strong
+          ><span>Awaiting a decision</span>
+        </div>
+      </section>
+      <div class="columns">
+        <section>
+          <h2>Requests</h2>
+          <form method="get" action="/" class="filters">
+            <input
+              name="q"
+              th:value="${q}"
+              placeholder="Search title or requester"
+              aria-label="Search requests"
+            /><select name="status" aria-label="Filter status">
+              <option value="">All statuses</option>
+              <option
+                th:each="s:${ {'pending','approved','rejected'} }"
+                th:value="${s}"
+                th:text="${s}"
+                th:selected="${status==s}"
+              ></option></select
+            ><button>Filter</button>
+          </form>
+          <p class="empty" th:if="${requests.isEmpty()}">
+            No requests here yet. Submit a purchase request to begin.
+          </p>
+          <article class="request" th:each="r:${requests}">
+            <div>
+              <a
+                th:href="@{/requests/{id}(id=${r.id})}"
+                th:text="${r.title}"
+              ></a>
+              <p th:text="${r.requestedBy} + ' · Request #' + ${r.id}"></p>
+            </div>
+            <div>
+              <strong th:text="'€' + ${r.amount()}"></strong
+              ><span class="badge" th:text="${r.status}"></span>
+            </div>
+          </article>
+        </section>
+        <section class="panel">
+          <h2>New request</h2>
+          <form method="post" th:action="@{/requests/create}">
+            <label
+              >What do you need?<input
+                name="title"
+                maxlength="160"
+                required
+                placeholder="Team workshop materials" /></label
+            ><label
+              >Amount in EUR<input
+                name="amount"
+                type="number"
+                min="0.01"
+                max="1000000"
+                step="0.01"
+                required
+                placeholder="240.00" /></label
+            ><label
+              >Business reason<textarea
+                name="reason"
+                maxlength="2000"
+                rows="5"
+                required
+                placeholder="Explain the purpose and expected benefit."
+              ></textarea></label
+            ><button>Submit for approval</button>
+          </form>
+          <p class="muted">
+            Requests are recorded under your signed-in identity. An approver
+            must be a different person.
+          </p>
+        </section>
+      </div>
+      <footer>
+        Local demonstration · alice requests, bob reviews · password:
+        devline-local
+      </footer>
+    </main>
+  </body>
+</html>

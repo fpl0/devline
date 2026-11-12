@@ -1,113 +1,112 @@
-use serde::Serialize;
-
-const MAX_TEXT_BYTES: usize = 1_048_576;
-
-#[derive(Debug, PartialEq, Serialize)]
-#[cfg_attr(test, derive(serde::Deserialize))]
-#[serde(rename_all = "camelCase")]
-struct TextStats {
-    words: usize,
-    lines: usize,
-    unicode_scalars: usize,
-    utf8_bytes: usize,
-}
-
+mod notebook;
+use notebook::{Note, Store};
+use std::sync::Mutex;
+use tauri::{Manager, State};
+type NotebookState = Mutex<Store>;
 #[tauri::command]
-fn inspect_text(text: &str) -> Result<TextStats, &'static str> {
-    if text.len() > MAX_TEXT_BYTES {
-        return Err("Text is limited to 1 MiB.");
-    }
-
-    Ok(TextStats {
-        words: text.split_whitespace().count(),
-        lines: text.lines().count(),
-        unicode_scalars: text.chars().count(),
-        utf8_bytes: text.len(),
-    })
+fn list_notes(store: State<'_, NotebookState>) -> Result<Vec<Note>, String> {
+    Ok(store
+        .lock()
+        .map_err(|_| "Notebook lock unavailable")?
+        .list())
 }
-
-fn register_commands<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
-    builder.invoke_handler(tauri::generate_handler![inspect_text])
+#[tauri::command]
+fn save_note(
+    store: State<'_, NotebookState>,
+    id: Option<u64>,
+    title: String,
+    body: String,
+    tags: Vec<String>,
+    version: u64,
+) -> Result<Note, String> {
+    store
+        .lock()
+        .map_err(|_| "Notebook lock unavailable")?
+        .save(id, title, body, tags, version)
 }
-
+#[tauri::command]
+fn delete_note(store: State<'_, NotebookState>, id: u64, version: u64) -> Result<(), String> {
+    store
+        .lock()
+        .map_err(|_| "Notebook lock unavailable")?
+        .delete(id, version)
+}
+#[tauri::command]
+fn export_notebook(store: State<'_, NotebookState>) -> Result<String, String> {
+    store
+        .lock()
+        .map_err(|_| "Notebook lock unavailable")?
+        .export()
+}
+#[tauri::command]
+fn import_notebook(store: State<'_, NotebookState>, text: String) -> Result<usize, String> {
+    store
+        .lock()
+        .map_err(|_| "Notebook lock unavailable")?
+        .import(&text)
+}
+fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    builder.invoke_handler(tauri::generate_handler![
+        list_notes,
+        save_note,
+        delete_note,
+        export_notebook,
+        import_notebook
+    ])
+}
 fn main() {
-    register_commands(tauri::Builder::default())
+    register(tauri::Builder::default())
+        .setup(|app| {
+            let directory = match std::env::var_os("FIELDNOTES_DATA_DIR") {
+                Some(path) => std::path::PathBuf::from(path),
+                None => app.path().app_data_dir()?,
+            };
+            let store = Store::open(&directory).map_err(std::io::Error::other)?;
+            app.manage(Mutex::new(store));
+            Ok(())
+        })
         .run(tauri::generate_context!())
-        .expect("could not start the text inspector");
+        .expect("could not start Fieldnotes");
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
-    fn serves_embedded_assets_and_invokes_rust_from_the_main_window() {
-        let app = register_commands(tauri::test::mock_builder())
+    fn embedded_ui_and_scoped_ipc() {
+        let dir = std::env::temp_dir().join(format!("fieldnotes-ipc-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let app = register(tauri::test::mock_builder())
+            .manage(Mutex::new(Store::open(&dir).unwrap()))
             .build(tauri::generate_context!())
             .unwrap();
         for asset in ["index.html", "styles.css", "inspector.js"] {
-            assert!(app.asset_resolver().get(asset.into()).is_some(), "{asset}");
+            assert!(app.asset_resolver().get(asset.into()).is_some())
         }
-
-        let webview = tauri::WebviewWindowBuilder::from_config(&app, &app.config().app.windows[0])
+        let window = tauri::WebviewWindowBuilder::from_config(&app, &app.config().app.windows[0])
             .unwrap()
             .build()
             .unwrap();
         let request = || tauri::webview::InvokeRequest {
-            cmd: "inspect_text".into(),
+            cmd: "list_notes".into(),
             callback: tauri::ipc::CallbackFn(0),
             error: tauri::ipc::CallbackFn(1),
             url: "tauri://localhost".parse().unwrap(),
-            body: tauri::ipc::InvokeBody::Json(r#"{"text":"A word"}"#.parse().unwrap()),
+            body: tauri::ipc::InvokeBody::Json("{}".parse().unwrap()),
             headers: Default::default(),
             invoke_key: tauri::test::INVOKE_KEY.to_owned(),
         };
-        let response = tauri::test::get_ipc_response(&webview, request())
+        let notes = tauri::test::get_ipc_response(&window, request())
             .unwrap()
-            .deserialize::<TextStats>()
+            .deserialize::<Vec<Note>>()
             .unwrap();
-        assert_eq!(response, inspect_text("A word").unwrap());
-
+        assert!(notes.is_empty());
         let other = tauri::WebviewWindowBuilder::new(&app, "other", Default::default())
             .build()
             .unwrap();
         assert!(tauri::test::get_ipc_response(&other, request()).is_err());
-    }
-
-    #[test]
-    fn counts_unicode_and_mixed_line_endings() {
-        assert_eq!(
-            inspect_text("café\t👩‍💻\r\n次\n").unwrap(),
-            TextStats {
-                words: 3,
-                lines: 2,
-                unicode_scalars: 12,
-                utf8_bytes: 23,
-            }
-        );
-    }
-
-    #[test]
-    fn handles_empty_input_and_blank_lines() {
-        assert_eq!(
-            inspect_text("").unwrap(),
-            TextStats {
-                words: 0,
-                lines: 0,
-                unicode_scalars: 0,
-                utf8_bytes: 0,
-            }
-        );
-        assert_eq!(inspect_text("\n\n").unwrap().lines, 2);
-    }
-
-    #[test]
-    fn limits_bytes_before_processing() {
-        let text = "é".repeat(MAX_TEXT_BYTES / 2);
-        assert_eq!(inspect_text(&text).unwrap().utf8_bytes, MAX_TEXT_BYTES);
-        assert_eq!(
-            inspect_text(&(text + "!")),
-            Err("Text is limited to 1 MiB.")
-        );
+        drop(other);
+        drop(window);
+        drop(app);
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

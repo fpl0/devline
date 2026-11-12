@@ -1,72 +1,41 @@
-using System.Globalization;
 using System.Text.Json;
-
-if (args.Length == 0 || args is ["--help"] or ["-h"])
-{
-    Console.WriteLine("""
-        json-cli format <file|->
-        json-cli get <JSON pointer> <file|->
-
-        Use - to read standard input. Example pointer: /books/0/title.
-        """);
-    return 0;
-}
-
-if (args is not ["format", _] and not ["get", _, _])
-{
-    Console.Error.WriteLine("Expected format <file|-> or get <JSON pointer> <file|->. Try --help.");
-    return 2;
-}
+using InvoiceReconciliation;
 
 try
 {
-    using var input = args[^1] == "-" ? Console.OpenStandardInput() : File.OpenRead(args[^1]);
-    using var document = JsonDocument.Parse(input);
-    var value = args[0] == "get" ? ResolvePointer(document.RootElement, args[1]) : document.RootElement;
-    Console.WriteLine(JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true }));
+    if (args.Length == 1 && args[0] == "--self-test")
+    {
+        ReconciliationTests.Run();
+        return 0;
+    }
+    if (args.Length == 1 && args[0] is "--help" or "-h")
+    {
+        Console.WriteLine("reconcile --invoices FILE --payments FILE --output FILE");
+        return 0;
+    }
+    if (args.Length != 6)
+        throw new ArgumentException("Use --invoices FILE --payments FILE --output FILE");
+    var options = new Dictionary<string, string>();
+    for (var i = 0; i < args.Length; i += 2)
+    if (!options.TryAdd(args[i], args[i + 1]))
+        throw new ArgumentException("Duplicate option");
+    if (options.Keys.Any(k => k is not ("--invoices" or "--payments" or "--output")))
+        throw new ArgumentException("Unknown option");
+    var report = Reconciler.Reconcile(Csv.Invoices(options["--invoices"]), Csv.Payments(options["--payments"]));
+    var destination = Path.GetFullPath(options["--output"]);
+    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+    var temporary = destination + "." + Guid.NewGuid() + ".tmp";
+    try
+    {
+        File.WriteAllText(temporary, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) + "\n");
+        File.Move(temporary, destination, true);
+    }
+    finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    Console.WriteLine($"Reconciled {report.Invoices.Count} invoices; {report.Unmatched.Count} unmatched payments. Report: {destination}");
     return 0;
 }
-catch (Exception error) when (error is JsonException or IOException or UnauthorizedAccessException or FormatException)
+catch (Exception error) when (error is ArgumentException or IOException or FormatException or OverflowException or KeyNotFoundException)
 {
-    Console.Error.WriteLine($"json-cli: {error.Message}");
-    return 1;
-}
-
-static JsonElement ResolvePointer(JsonElement value, string pointer)
-{
-    if (pointer.Length == 0)
-        return value;
-    if (!pointer.StartsWith('/'))
-        throw new FormatException("A JSON pointer must be empty or start with /.");
-
-    foreach (var token in pointer[1..].Split('/'))
-    {
-        var key = DecodeToken(token);
-        value = value.ValueKind switch
-        {
-            JsonValueKind.Object when value.TryGetProperty(key, out var property) => property,
-            JsonValueKind.Array when TryArrayIndex(key, value.GetArrayLength(), out var index) => value[index],
-            _ => throw new FormatException($"Pointer segment '{key}' was not found.")
-        };
-    }
-
-    return value;
-}
-
-static string DecodeToken(string token)
-{
-    for (var i = 0; i < token.Length; i++)
-    {
-        if (token[i] == '~' && (++i == token.Length || token[i] is not ('0' or '1')))
-            throw new FormatException("A JSON pointer uses ~0 for ~ and ~1 for /.");
-    }
-
-    return token.Replace("~1", "/").Replace("~0", "~");
-}
-
-static bool TryArrayIndex(string key, int length, out int index)
-{
-    return int.TryParse(key, NumberStyles.None, CultureInfo.InvariantCulture, out index)
-        && (key.Length == 1 || key[0] != '0')
-        && index >= 0 && index < length;
+    Console.Error.WriteLine($"reconcile: {error.Message}");
+    return 2;
 }

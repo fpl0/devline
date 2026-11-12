@@ -1,49 +1,103 @@
+import concurrent.futures
+from pathlib import Path
+import tempfile
 import unittest
 
-from httpx import ASGITransport, AsyncClient
-
+from fastapi.testclient import TestClient
 from app import create_app
 
 
-class ApiTests(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
-        self.client = AsyncClient(transport=ASGITransport(app=create_app()), base_url="http://testserver")
-        self.addAsyncCleanup(self.client.aclose)
+class OrderWorkflowTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.path = Path(self.temp.name) / "orders.db"
+        self.client = TestClient(create_app(self.path))
+        self.client.post(
+            "/products",
+            json={
+                "sku": "BOOK",
+                "name": "Field Notes",
+                "price_cents": 1299,
+                "stock": 5,
+            },
+        )
+        self.request = {"customer": "Alex", "lines": [{"sku": "BOOK", "quantity": 2}]}
 
-    async def test_task_lifecycle(self):
-        self.assertEqual((await self.client.get("/healthz")).json(), {"status": "ok"})
-        created = await self.client.post("/tasks", json={"title": "  Write a test "})
+    def tearDown(self):
+        self.client.close()
+        self.temp.cleanup()
+
+    def place(self, key="first"):
+        return self.client.post(
+            "/orders", json=self.request, headers={"Idempotency-Key": key}
+        )
+
+    def test_full_order_workflow_and_restart(self):
+        created = self.place()
         self.assertEqual(created.status_code, 201)
-        self.assertEqual(created.headers["location"], "/tasks/1")
-        original = {"id": 1, "title": "Write a test", "completed": False}
-        self.assertEqual(created.json(), original)
-        self.assertEqual((await self.client.get("/tasks")).json(), [original])
-        self.assertEqual((await self.client.get("/tasks/1")).json(), original)
-        replacement = await self.client.put("/tasks/1", json={"title": "Finish it", "completed": True})
-        self.assertEqual(replacement.status_code, 200)
-        self.assertEqual(replacement.json(), {"id": 1, "title": "Finish it", "completed": True})
-        self.assertEqual((await self.client.delete("/tasks/1")).status_code, 204)
-        missing = await self.client.get("/tasks/1")
-        self.assertEqual(missing.status_code, 404)
-        self.assertEqual(missing.json()["error"]["code"], "task_not_found")
+        order = created.json()
+        self.assertEqual(order["total_cents"], 2598)
+        self.assertEqual(self.client.get("/products").json()[0]["stock"], 3)
+        result = self.client.patch(
+            f"/orders/{order['id']}", json={"status": "fulfilled"}
+        )
+        self.assertEqual(result.json()["status"], "fulfilled")
+        with TestClient(create_app(self.path)) as restarted:
+            self.assertEqual(
+                len(restarted.get(f"/orders/{order['id']}").json()["history"]), 2
+            )
+            self.assertEqual(
+                restarted.get("/reports/sales").json()["by_status"][0]["total_cents"],
+                2598,
+            )
+        self.assertEqual(
+            self.client.patch(
+                f"/orders/{order['id']}", json={"status": "cancelled"}
+            ).status_code,
+            409,
+        )
 
-    async def test_validation(self):
-        for payload in ({"title": " "}, {"title": "x" * 121}, {"title": "Valid", "unknown": 1}):
-            response = await self.client.post("/tasks", json=payload)
-            self.assertEqual(response.status_code, 422)
-            self.assertEqual(response.json()["error"]["code"], "invalid_input")
-        self.assertEqual((await self.client.get("/tasks/0")).status_code, 422)
+    def test_idempotency_and_cancel_restore_stock_once(self):
+        order = self.place().json()
+        self.assertEqual(self.place().status_code, 200)
+        self.request["customer"] = "Different"
+        self.assertEqual(self.place().status_code, 409)
+        for _ in range(2):
+            self.assertEqual(
+                self.client.patch(
+                    f"/orders/{order['id']}", json={"status": "cancelled"}
+                ).status_code,
+                200,
+            )
+        self.assertEqual(self.client.get("/products").json()[0]["stock"], 5)
 
-    async def test_local_api_docs(self):
-        docs = await self.client.get("/docs")
-        self.assertEqual(docs.status_code, 200)
-        for asset in ("swagger-ui-bundle.js", "swagger-ui.css", "favicon-32x32.png"):
-            route = f"/swagger/{asset}"
-            self.assertIn(route, docs.text)
-            self.assertEqual((await self.client.get(route)).status_code, 200)
-        schema = await self.client.get("/openapi.json")
-        self.assertEqual(schema.status_code, 200)
-        self.assertIn("/tasks/{task_id}", schema.json()["paths"])
+    def test_failed_order_is_atomic(self):
+        self.request["lines"].append({"sku": "MISSING", "quantity": 1})
+        self.assertEqual(self.place().status_code, 422)
+        self.assertEqual(self.client.get("/products").json()[0]["stock"], 5)
+        self.assertEqual(self.client.get("/orders").json(), [])
+
+    def test_concurrent_orders_cannot_oversell(self):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+            codes = list(
+                pool.map(lambda key: self.place(str(key)).status_code, range(3))
+            )
+        self.assertEqual(sorted(codes), [201, 201, 409])
+        self.assertEqual(self.client.get("/products").json()[0]["stock"], 1)
+
+    def test_validation_unknown_order_and_offline_docs(self):
+        self.assertEqual(self.client.get("/orders/missing").status_code, 404)
+        self.assertEqual(
+            self.client.post(
+                "/products",
+                json={"sku": "BAD", "name": " ", "price_cents": 1.5, "stock": -1},
+            ).status_code,
+            422,
+        )
+        self.assertEqual(self.client.get("/orders?limit=0").status_code, 422)
+        self.request["lines"] *= 2
+        self.assertEqual(self.place().status_code, 422)
+        self.assertIn("/swagger/swagger-ui-bundle.js", self.client.get("/docs").text)
 
 
 if __name__ == "__main__":

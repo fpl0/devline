@@ -1,0 +1,1 @@
+Next: add a simple publishing workflow, then take another snapshot.

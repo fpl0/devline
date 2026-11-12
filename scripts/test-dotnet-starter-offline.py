@@ -18,7 +18,7 @@ if not tool:
     raise SystemExit('Install a local .NET 10 SDK first; Devline does not manage runtimes.')
 policy = '(version 1)(allow default)(deny network-outbound)(allow network-outbound (remote ip "localhost:*"))'
 ignore_build_outputs = shutil.ignore_patterns(
-    'bin', 'obj', 'TestResults', 'notes.db*', 'tasks.db*', '.devline-infra', '.devline-offline')
+    'bin', 'obj', 'TestResults', 'notes.db*', 'tasks.db*', 'storage', 'reports', '.devline-infra', '.devline-offline')
 
 
 def verify(source):

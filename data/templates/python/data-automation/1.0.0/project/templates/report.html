@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Sales Observatory</title>
+    <style>
+      body {
+        font: 17px/1.5 system-ui;
+        max-width: 900px;
+        margin: 4rem auto;
+        padding: 0 1rem;
+        color: #18302a;
+        background: #f7faf8;
+      }
+      h1 {
+        font-size: 2.6rem;
+        letter-spacing: -0.04em;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        background: white;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 1rem;
+        border-bottom: 1px solid #d6e1db;
+      }
+      caption {
+        text-align: left;
+        margin-bottom: 0.8rem;
+        font-weight: 600;
+      }
+      .total {
+        font-size: 2rem;
+        color: #176649;
+      }
+      .table-scroll {
+        overflow-x: auto;
+      }
+      footer {
+        color: #5a7168;
+        margin-top: 3rem;
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Sales Observatory</h1>
+      <p>$since to $until</p>
+      <p class="total">$total in sales</p>
+      <div class="table-scroll">
+        <table>
+          <caption>
+            Category performance
+          </caption>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Orders</th>
+              <th>Units</th>
+              <th>Revenue</th>
+            </tr>
+          </thead>
+          <tbody>
+            $rows
+          </tbody>
+        </table>
+      </div>
+      <h2>Monthly revenue</h2>
+      <ul>
+        $months
+      </ul>
+    </main>
+    <footer>
+      $imports source files in this warehouse. Money uses integer cents
+      throughout.
+    </footer>
+  </body>
+</html>

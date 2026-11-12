@@ -1,22 +1,16 @@
-# __PROJECT_NAME__
+# Invoice Reconciliation
 
-A Java CLI for inspecting, formatting, and querying JSON. Picocli handles commands and help. Jackson parses one JSON document at a time from a file or a pipe. Commands print results to stdout and report invalid input on stderr with exit code 2.
-
-Run the included example or build and test the executable JAR with the bundled Maven packages. You need JDK 26 and Maven 3.10 or later.
+Reconcile invoice balances against bank payments in a reproducible batch. Multiple payments settle an invoice together; partial, missing and excess payments remain visible. Unknown references and currency mismatches are reported separately. Amounts use exact decimal arithmetic; no floating point or currency conversion is involved.
 
 ```sh
-./devline.sh run
-./devline.sh test
+./run.sh
+java -jar target/json-tool.jar --invoices fixtures/invoices.csv --payments fixtures/payments.csv --output reports/reconciliation.json
+./build-app.sh
+./test-offline.sh
 ```
 
-Try each command using the JAR built by either command above.
+The sample produces one paid, one partial, one unpaid and one overpaid invoice, plus an unmatched payment. The JSON report includes the input totals by currency, all invoice balances and unmatched payments. Run again after correcting the source CSVs. Output is replaced atomically, so an interrupted run does not leave a partial report.
 
-```sh
-java -jar target/json-tool.jar --help
-java -jar target/json-tool.jar inspect fixtures/example.json
-java -jar target/json-tool.jar format fixtures/example.json
-java -jar target/json-tool.jar select /items/0/title fixtures/example.json
-printf '%s\n' '{"ready": true}' | java -jar target/json-tool.jar format --compact -
-```
+Both files use UTF-8 CSV with a header. Invoices require `reference,currency,amount`; payments require `id,reference,currency,amount`. Quoted fields and embedded commas are supported; multiline fields are rejected with a line number. Identifiers must be unique in each input, amounts must be positive with at most two decimal places, and currency must be three uppercase letters. The supported precision is two decimal places; do not supply currencies requiring a different scale. Invalid input aborts before writing a report. Exit 0 means a report was produced; exit 2 means invalid arguments or data. Reconciliation exceptions are business results, not process failures.
 
-Each command accepts up to 8 MiB of input. Use `-` for stdin. `select` uses JSON Pointer paths, with `~1` for a slash and `~0` for a tilde inside a property name.
+This is a local batch tool. Reports and source files remain on your machine. No service or account is required. Maven/.NET dependencies are bundled for offline builds.

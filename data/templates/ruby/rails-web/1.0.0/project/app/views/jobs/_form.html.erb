@@ -1,0 +1,12 @@
+<%= form_with model: job do |form| %>
+  <% if job.errors.any? %>
+    <div role="alert"><%= job.errors.full_messages.to_sentence %></div>
+  <% end %>
+  <%= form.label :title, "What needs work?" %>
+  <%= form.text_field :title, required: true, maxlength: 120, placeholder: "Bicycle brake service" %>
+  <%= form.label :customer %>
+  <%= form.text_field :customer, required: true, maxlength: 120, placeholder: "Customer name" %>
+  <%= form.label :description, "Intake notes" %>
+  <%= form.text_area :description, maxlength: 5000, rows: 3 %>
+  <%= form.submit "Receive job" %>
+<% end %>

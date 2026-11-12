@@ -1,56 +1,63 @@
 package dev.offline.spring;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-@SpringBootTest
+@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:issue-tests;DB_CLOSE_DELAY=-1")
 @AutoConfigureMockMvc
 class OfflineSpringApplicationTests {
-    @Autowired
-    MockMvc http;
+  @Autowired MockMvc http;
 
-    @Test
-    void createsReadsReplacesAndDeletesATask() throws Exception {
-        var response = http.perform(post("/api/tasks")
-                        .contentType("application/json").content("""
-                                {"title":"  Read a chapter  "}
-                                """))
-                .andExpect(status().isCreated())
-                .andExpect(header().exists("Location"))
-                .andExpect(jsonPath("$.title").value("Read a chapter"))
-                .andExpect(jsonPath("$.completed").value(false))
-                .andReturn().getResponse();
-        String task = response.getHeader("Location");
+  @Test
+  void enforcesWorkflowAndOptimisticConcurrency() throws Exception {
+    var response =
+        http.perform(
+                post("/api/issues")
+                    .contentType("application/json")
+                    .content(
+                        "{\"title\":\" Offline indexing \",\"description\":\"Reproduce on a fresh"
+                            + " cache\",\"priority\":\"high\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.title").value("Offline indexing"))
+            .andExpect(jsonPath("$.version").value(1))
+            .andReturn()
+            .getResponse();
+    String url = response.getHeader("Location");
+    http.perform(
+            put(url)
+                .contentType("application/json")
+                .content(
+                    "{\"title\":\"Offline"
+                        + " indexing\",\"priority\":\"high\",\"status\":\"resolved\",\"version\":1}"))
+        .andExpect(status().isConflict());
+    String update =
+        "{\"title\":\"Offline"
+            + " indexing\",\"priority\":\"high\",\"status\":\"in_progress\",\"version\":1}";
+    http.perform(put(url).contentType("application/json").content(update))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.version").value(2));
+    http.perform(put(url).contentType("application/json").content(update))
+        .andExpect(status().isConflict());
+    http.perform(get(url + "/events")).andExpect(jsonPath("$.length()").value(2));
+    http.perform(get("/api/issues?q=indexing&status=in_progress"))
+        .andExpect(jsonPath("$[0].title").value("Offline indexing"));
+  }
 
-        http.perform(get(task)).andExpect(status().isOk());
-        http.perform(put(task).contentType("application/json").content("""
-                        {"title":"Read two chapters","completed":true}
-                        """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.title").value("Read two chapters"))
-                .andExpect(jsonPath("$.completed").value(true));
-        http.perform(get("/api/tasks")).andExpect(jsonPath("$[0].title").value("Read two chapters"));
-        http.perform(delete(task)).andExpect(status().isNoContent());
-        http.perform(get(task)).andExpect(status().isNotFound());
-    }
-
-    @Test
-    void returnsAProblemForAnInvalidTitle() throws Exception {
-        http.perform(post("/api/tasks").contentType("application/json").content("""
-                        {"title":"  "}
-                        """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("title must be 1–120 characters"));
-    }
+  @Test
+  void rejectsInvalidInputAndMissingResources() throws Exception {
+    http.perform(
+            post("/api/issues")
+                .contentType("application/json")
+                .content("{\"title\":\" \",\"priority\":\"high\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.detail").exists());
+    http.perform(get("/api/issues?limit=1000")).andExpect(status().isBadRequest());
+    http.perform(get("/api/issues/9999999")).andExpect(status().isNotFound());
+  }
 }

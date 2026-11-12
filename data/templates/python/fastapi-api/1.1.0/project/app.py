@@ -1,133 +1,126 @@
+"""Order Ledger: a local inventory and order API with transactional SQLite storage."""
+
+import os
 from pathlib import Path
-from threading import Lock
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import FastAPI, Path as PathParameter, Request, Response
-from fastapi.exceptions import RequestValidationError
+from fastapi import FastAPI, Header, Query, Request, Response
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+
+from ledger import Ledger, LedgerError
+
+Name = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)
+]
+Sku = Annotated[str, StringConstraints(pattern=r"^[A-Z0-9][A-Z0-9_-]{0,39}$")]
 
 
-class TaskInput(BaseModel):
+class Input(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
-    completed: bool = False
 
 
-class Task(TaskInput):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    id: int
+class Product(Input):
+    sku: Sku
+    name: Name
+    price_cents: int = Field(ge=1, le=100_000_000, strict=True)
+    stock: int = Field(ge=0, le=1_000_000, strict=True)
 
 
-class TaskNotFound(Exception):
-    pass
+class Line(Input):
+    sku: Sku
+    quantity: int = Field(ge=1, le=10_000, strict=True)
 
 
-class TaskStore:
-    def __init__(self):
-        self._lock = Lock()
-        self._tasks: dict[int, Task] = {}
-        self._next_id = 1
-
-    def list(self) -> list[Task]:
-        with self._lock:
-            return list(self._tasks.values())
-
-    def add(self, data: TaskInput) -> Task:
-        with self._lock:
-            task = Task(id=self._next_id, **data.model_dump())
-            self._tasks[task.id] = task
-            self._next_id += 1
-            return task
-
-    def get(self, task_id: int) -> Task:
-        with self._lock:
-            task = self._tasks.get(task_id)
-            if task is None:
-                raise TaskNotFound
-            return task
-
-    def replace(self, task_id: int, data: TaskInput) -> Task:
-        with self._lock:
-            if task_id not in self._tasks:
-                raise TaskNotFound
-            task = Task(id=task_id, **data.model_dump())
-            self._tasks[task_id] = task
-            return task
-
-    def delete(self, task_id: int) -> None:
-        with self._lock:
-            if self._tasks.pop(task_id, None) is None:
-                raise TaskNotFound
+class Order(Input):
+    customer: Name
+    lines: list[Line] = Field(min_length=1, max_length=100)
 
 
-TaskId = Annotated[int, PathParameter(gt=0)]
-SWAGGER_DIR = Path(__file__).parent / "swagger"
+class Transition(Input):
+    status: Literal["fulfilled", "cancelled"]
 
 
-def create_app() -> FastAPI:
-    api = FastAPI(title="__PROJECT_NAME__", docs_url=None, redoc_url=None)
-    api.mount("/swagger", StaticFiles(directory=SWAGGER_DIR), name="swagger")
-    tasks = TaskStore()
+class Restock(Input):
+    quantity: int = Field(ge=1, le=1_000_000, strict=True)
 
-    @api.exception_handler(TaskNotFound)
-    async def task_not_found(_: Request, _error: TaskNotFound) -> JSONResponse:
+
+def create_app(database: str | Path | None = None) -> FastAPI:
+    store = Ledger(database or os.getenv("LEDGER_DATABASE", "data/ledger.sqlite3"))
+    api = FastAPI(title="Order Ledger", version="1.0.0", docs_url=None, redoc_url=None)
+    api.state.ledger = store
+    api.mount(
+        "/swagger",
+        StaticFiles(directory=Path(__file__).parent / "swagger"),
+        name="swagger",
+    )
+
+    @api.exception_handler(LedgerError)
+    async def domain_error(_request: Request, error: LedgerError):
         return JSONResponse(
-            status_code=404,
-            content={"error": {"code": "task_not_found", "message": "That task does not exist."}},
+            status_code=error.status,
+            content={"error": error.code, "detail": str(error)},
         )
 
-    @api.exception_handler(RequestValidationError)
-    async def validation_error(_: Request, error: RequestValidationError) -> JSONResponse:
-        details = [
-            {"location": item["loc"], "message": item["msg"]}
-            for item in error.errors()
-        ]
-        return JSONResponse(
-            status_code=422,
-            content={
-                "error": {
-                    "code": "invalid_input",
-                    "message": "Check the request fields.",
-                    "details": details,
-                }
-            },
-        )
+    @api.get("/", include_in_schema=False)
+    def index():
+        return RedirectResponse("/docs")
 
     @api.get("/healthz")
-    def health() -> dict[str, str]:
+    def health():
+        store.products()
         return {"status": "ok"}
 
-    @api.get("/tasks")
-    def list_tasks() -> list[Task]:
-        return tasks.list()
+    @api.get("/products")
+    def products():
+        return store.products()
 
-    @api.post("/tasks", status_code=201)
-    def add_task(data: TaskInput, response: Response) -> Task:
-        task = tasks.add(data)
-        response.headers["Location"] = f"/tasks/{task.id}"
-        return task
+    @api.post("/products", status_code=201)
+    def product(data: Product):
+        return store.add_product(data.model_dump())
 
-    @api.get("/tasks/{task_id}")
-    def show_task(task_id: TaskId) -> Task:
-        return tasks.get(task_id)
+    @api.post("/products/{sku}/stock")
+    def restock(sku: str, data: Restock):
+        return store.restock(sku, data.quantity)
 
-    @api.put("/tasks/{task_id}")
-    def replace_task(task_id: TaskId, data: TaskInput) -> Task:
-        return tasks.replace(task_id, data)
+    @api.post("/orders", status_code=201)
+    def order(
+        data: Order,
+        response: Response,
+        idempotency_key: Annotated[str, Header(min_length=1, max_length=100)],
+    ):
+        result, created = store.place(data.model_dump(), idempotency_key)
+        response.status_code = 201 if created else 200
+        response.headers["Location"] = f"/orders/{result['id']}"
+        return result
 
-    @api.delete("/tasks/{task_id}", status_code=204)
-    def delete_task(task_id: TaskId) -> Response:
-        tasks.delete(task_id)
-        return Response(status_code=204)
+    @api.get("/orders")
+    def orders(
+        status: Literal["placed", "fulfilled", "cancelled"] | None = None,
+        limit: int = Query(50, ge=1, le=200),
+        offset: int = Query(0, ge=0),
+    ):
+        return store.orders(status, limit, offset)
+
+    @api.get("/orders/{order_id}")
+    def show(order_id: str):
+        return store.order(order_id)
+
+    @api.patch("/orders/{order_id}")
+    def transition(order_id: str, data: Transition):
+        return store.transition(order_id, data.status)
+
+    @api.get("/reports/sales")
+    def report():
+        return store.report()
 
     @api.get("/docs", include_in_schema=False)
     def docs():
         return get_swagger_ui_html(
             openapi_url="/openapi.json",
-            title=f"{api.title} · Swagger UI",
+            title="Order Ledger · API",
             swagger_js_url="/swagger/swagger-ui-bundle.js",
             swagger_css_url="/swagger/swagger-ui.css",
             swagger_favicon_url="/swagger/favicon-32x32.png",

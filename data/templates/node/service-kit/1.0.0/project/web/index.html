@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Issue Desk</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <header>
+      <div>
+        <small>A LOCAL WORKSPACE</small>
+        <h1>Issue Desk</h1>
+        <p>Capture work. Follow it through.</p>
+      </div>
+      <span id="connection">Connecting to live updates…</span>
+    </header>
+    <p id="message" role="status" aria-live="polite"></p>
+    <div class="layout">
+      <section class="panel">
+        <div class="filters">
+          <input
+            id="query"
+            type="search"
+            placeholder="Search issues"
+            aria-label="Search issues"
+          /><select id="filter" aria-label="Filter status">
+            <option value="">All states</option>
+            <option>open</option>
+            <option>doing</option>
+            <option>done</option></select
+          ><button id="search">Search</button>
+        </div>
+        <div id="list"></div>
+        <nav>
+          <button id="previous">Previous</button><span id="page"></span
+          ><button id="next">Next</button>
+        </nav>
+      </section>
+      <aside>
+        <section class="panel">
+          <h2>Capture an issue</h2>
+          <form id="create">
+            <label>Title<input name="title" required maxlength="160" /></label
+            ><label
+              >Description<textarea
+                name="description"
+                rows="3"
+                maxlength="8000"
+              ></textarea></label
+            ><label
+              >Priority<select name="priority">
+                <option>normal</option>
+                <option>high</option>
+                <option>low</option>
+              </select></label
+            ><button class="primary">Create issue</button>
+          </form>
+        </section>
+        <section id="detail" class="panel" hidden>
+          <h2 id="detail-title"></h2>
+          <form id="edit">
+            <label
+              >Title<input id="edit-title" required maxlength="160" /></label
+            ><label
+              >Description<textarea
+                id="edit-description"
+                maxlength="8000"
+                rows="4"
+              ></textarea></label
+            ><label
+              >Priority<select id="edit-priority">
+                <option>low</option>
+                <option>normal</option>
+                <option>high</option>
+              </select></label
+            ><label
+              >Status<select id="edit-status">
+                <option>open</option>
+                <option>doing</option>
+                <option>done</option>
+              </select></label
+            ><button class="primary">Save changes</button
+            ><button type="button" id="reload">Reload issue</button>
+          </form>
+          <p><small>Workflow: open → doing → done → open</small></p>
+          <h3>History</h3>
+          <ol id="history"></ol>
+          <form id="comment">
+            <label
+              >Comment<textarea
+                id="comment-body"
+                required
+                maxlength="2000"
+                rows="3"
+              ></textarea></label
+            ><button>Add comment</button>
+          </form>
+        </section>
+      </aside>
+    </div>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>

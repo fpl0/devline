@@ -35,7 +35,7 @@ case "$action" in
       ruby_abi=$("$ruby" -rrbconfig -e 'print RbConfig::CONFIG.fetch("ruby_version")')
       export C_INCLUDE_PATH="$BUNDLE_PATH/ruby/$ruby_abi/gems/trilogy-$trilogy/ext/trilogy-ruby/inc${C_INCLUDE_PATH:+:$C_INCLUDE_PATH}"
     fi
-    exec "$ruby" -S bundle "_${bundler}_" install --local --jobs 4
+    exec "$ruby" -S bundle "_${bundler}_" install --local --jobs 2
     ;;
   exec) exec "$ruby" -S bundle "_${bundler}_" exec "$@" ;;
   *) echo 'Use bundle-offline.sh install or bundle-offline.sh exec COMMAND.' >&2; exit 2 ;;

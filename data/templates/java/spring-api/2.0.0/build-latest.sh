@@ -1,7 +1,8 @@
 #!/bin/sh
 set -eu
+export MAVEN_OPTS="${MAVEN_OPTS:-} -XX:ActiveProcessorCount=2"
 project=${1:?project folder}
-tool=${DEVKIT_TOOLCHAIN:-mvn}
+tool=${DEVLINE_TOOLCHAIN:-${DEVKIT_TOOLCHAIN:-mvn}}
 scratch=$(mktemp -d)
 trap 'rm -r "$scratch"' EXIT
 trap 'exit 130' HUP INT TERM

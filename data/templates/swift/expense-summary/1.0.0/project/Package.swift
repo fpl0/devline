@@ -4,5 +4,10 @@ import PackageDescription
 let package = Package(
     name: "ExpenseSummary",
     platforms: [.macOS(.v14)],
-    targets: [.executableTarget(name: "ExpenseSummary")]
+    products: [.executable(name: "ExpenseSummary", targets: ["ExpenseSummary"])],
+    targets: [
+        .target(name: "ExpenseLedger"),
+        .executableTarget(name: "ExpenseSummary", dependencies: ["ExpenseLedger"]),
+        .testTarget(name: "ExpenseLedgerTests", dependencies: ["ExpenseLedger"]),
+    ]
 )

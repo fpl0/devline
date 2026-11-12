@@ -1,44 +1,51 @@
-defmodule DevlinePhoenix.Health do
-  use Phoenix.Controller, formats: [:json]
-
-  def show(conn, _params), do: json(conn, %{status: "ok"})
-end
-
 defmodule DevlinePhoenix.Router do
-  use Phoenix.Router
+  use Plug.Router
+  plug(:match)
+  plug(:dispatch)
 
-  pipeline :release_json do
-    plug(Plug.Parsers, parsers: [:json], json_decoder: Jason, length: 128_000)
+  get "/healthz" do
+    conn |> put_resp_content_type("application/json") |> send_resp(200, "{\"status\":\"ok\"}")
   end
 
-  get("/healthz", DevlinePhoenix.Health, :show)
+  get "/" do
+    conn
+    |> put_resp_content_type("text/html")
+    |> send_file(200, Application.app_dir(:devline_phoenix, "priv/static/index.html"))
+  end
 
-  scope "/" do
-    pipe_through(:release_json)
+  get "/incidents" do
+    conn
+    |> put_resp_content_type("application/json")
+    |> send_resp(200, Jason.encode!(IncidentRoom.Room.snapshot()))
+  end
 
-    get("/", ReleaseDesk.Controller, :index)
-    post("/releases", ReleaseDesk.Controller, :submit)
-    get("/releases/:id", ReleaseDesk.Controller, :show)
-    get("/releases/:id/audit", ReleaseDesk.Controller, :audit)
-    get("/releases/:id/artifact", ReleaseDesk.Controller, :artifact)
-    get("/search", ReleaseDesk.Controller, :search)
+  match _ do
+    send_resp(conn, 404, "Not found")
   end
 end
 
 defmodule DevlinePhoenix.Endpoint do
   use Phoenix.Endpoint, otp_app: :devline_phoenix
+  socket("/socket", IncidentRoom.Socket, websocket: [max_frame_size: 32_768], longpoll: false)
+
+  plug(Plug.Static,
+    at: "/assets",
+    from: {:devline_phoenix, "priv/static"},
+    only: ~w(app.js style.css phoenix.mjs)
+  )
+
   plug(DevlinePhoenix.Router)
 end
 
 defmodule DevlinePhoenix.Application do
   use Application
-
+  @impl true
   def start(_type, _args) do
-    desk = if System.get_env("DEVLINE_RELEASE_DESK") == "1", do: ReleaseDesk.Store.children(), else: []
-
     Supervisor.start_link(
-      desk ++ [{Phoenix.PubSub, name: DevlinePhoenix.PubSub}, DevlinePhoenix.Endpoint],
-      strategy: :one_for_one
-    )
+      [
+        {Phoenix.PubSub, name: DevlinePhoenix.PubSub},
+        IncidentRoom.Room,
+        DevlinePhoenix.Endpoint
+      ], strategy: :one_for_one, name: DevlinePhoenix.Supervisor)
   end
 end

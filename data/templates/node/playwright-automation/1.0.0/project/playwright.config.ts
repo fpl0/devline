@@ -1,9 +1,14 @@
-import { defineConfig } from '@playwright/test';
+import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: "./tests",
   workers: 1,
-  reporter: 'list',
-  outputDir: 'test-results',
-  use: { browserName: 'webkit', headless: true, trace: 'retain-on-failure', screenshot: 'only-on-failure' },
+  reporter: "list",
+  outputDir: "test-results",
+  use: {
+    browserName: "webkit",
+    headless: true,
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+  },
 });

@@ -60,6 +60,33 @@ PILOT_PATHLIB = (PYTHON_REFERENCE, "library/pathlib.html")
 # _images/pathlib-inheritance.png in the pinned Python 3.15.2 HTML archive.
 PATHLIB_IMAGE_SHA256 = "4bd5db0b21f178fd8b16f7d999d0da20a00ca8d271cd556cfb1d26dea91aac88"
 
+# These revisions replace sampled imports with source inventories. Require the
+# inventory even if a packaging change accidentally drops the manifest itself.
+INVENTORIED_RELEASES = {
+    "fastapi@0.162.0+devline.2", "fastapi@0.162.0+devline.3", "go@1.27.3+devline.4", "node@26.13.0+devline.2",
+    "react@19.3.1+devline.2", "typescript@7.0.2+devline.2", "vite@8.3.6+devline.2",
+    "playwright@1.65.0+devline.2",
+}
+
+
+def check_inventory(directory, release, ids):
+    path = directory / "CONTENT-INVENTORY.json"
+    if not path.is_file():
+        return [f"{release}: missing publisher content inventory"] if release in INVENTORIED_RELEASES else []
+    try:
+        inventory = json.loads(path.read_text())
+        entries = next(inventory[key] for key in ("imported_documents", "included_articles", "included_pages", "documents")
+                       if key in inventory)
+        expected = {entry if isinstance(entry, str) else entry["document_id"] for entry in entries}
+    except (ValueError, KeyError, TypeError, StopIteration):
+        return [f"{release}: invalid publisher content inventory"]
+    errors = []
+    for missing in sorted(expected - ids):
+        errors.append(f"{release}:{missing}: publisher article omitted during import")
+    for extra in sorted(ids - expected):
+        errors.append(f"{release}:{extra}: article missing from publisher content inventory")
+    return errors
+
 
 def source_key(url):
     parsed = urlsplit(url)
@@ -273,6 +300,7 @@ def audit(data, *, require_examples=True):
                         expected.discard(probe)
         if pack.get("entry_id") and pack["entry_id"] not in ids:
             errors.append(f"{release}: missing publisher contents article {pack['entry_id']}")
+        errors.extend(check_inventory(data / pack["path"], release, ids))
         counts.update(totals)
     missing = []
     for release, name, source, target, fragment in sorted(pending):

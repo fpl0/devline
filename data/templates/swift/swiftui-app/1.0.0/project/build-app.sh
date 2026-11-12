@@ -3,7 +3,7 @@ set -eu
 cd "$(dirname "$0")"
 name='__PROJECT_NAME__'
 case "$name" in
-    ''|*[!a-z0-9-]*) name=idea-board ;;
+    ''|*[!a-z0-9-]*) name=fieldnotes ;;
 esac
 app_dir=${DEVLINE_SWIFT_APP_DIR:-"$PWD/.build/apps"}
 mkdir -p "$app_dir"
@@ -22,7 +22,7 @@ plist="$bundle/Contents/Info.plist"
 /usr/bin/plutil -create xml1 "$plist"
 /usr/bin/plutil -insert CFBundleIdentifier -string "local.devline.$name" "$plist"
 /usr/bin/plutil -insert CFBundleName -string "$name" "$plist"
-/usr/bin/plutil -insert CFBundleDisplayName -string "Idea Board" "$plist"
+/usr/bin/plutil -insert CFBundleDisplayName -string "Fieldnotes" "$plist"
 /usr/bin/plutil -insert CFBundleExecutable -string "IdeaBoard" "$plist"
 /usr/bin/plutil -insert CFBundlePackageType -string APPL "$plist"
 /usr/bin/plutil -insert CFBundleShortVersionString -string "1.0.0" "$plist"
