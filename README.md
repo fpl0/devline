@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="press/icon.png" width="88" alt="">
+
 # Devline
 
 **A macOS app and CLI for trying frameworks and building prototypes offline.**<br>
@@ -283,7 +285,7 @@ macos/         SwiftUI app, C bridge, native tests and the Icon Composer app ico
 data/          bundled catalogue: docsets, starters, package shelves, service clients, help
 integrations/  VS Code and Neovim lookup adapters
 scripts/       packaging, release, documentation ingestion and verification
-press/         README screenshots
+press/         README icon and screenshots
 third-party/   redistribution notices and inputs for the release build
 .github/       CI workflow
 ```
