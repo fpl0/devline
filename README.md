@@ -56,14 +56,14 @@ Devline has two parts: the **app**, which includes the `devline` command and the
 ### Requirements
 
 - An Apple silicon Mac running macOS 14 or later
-- About 1.5 GB for the download, plus space for the package shelves and service images you choose
+- About 1.4 GB for the download, plus space for the package shelves and service images you choose
 - The toolchains for the runtimes you want to use. Devline finds them and never changes them; starter baselines are Python 3.15.2, Go 1.27.3, Rust 1.99.1, Node.js 26, Ruby 4.0.9, Elixir 1.20.5, .NET SDK 10.0.400, Maven 3.10.0 and Swift 6.0 (Xcode 16 or later for the Swift starters)
 - For local services only: a Docker engine with Compose, such as Docker Desktop or OrbStack
 - For building from source: Xcode and its command-line tools, Rust/Cargo and Python 3
 
 ### 1. Get the app
 
-**Download** `Devline-macos-arm64.dmg` from the [latest release](https://github.com/fpl0/devline/releases/latest) (v0.7.0, 1.5 GB; a `.zip` and `SHA256SUMS` are attached too). Open it and drag **Devline** into **Applications**.
+**Download** `Devline-macos-arm64.dmg` from the [latest release](https://github.com/fpl0/devline/releases/latest) (v0.8.0, 1.4 GB; a `.zip` and `SHA256SUMS` are attached too). Open it and drag **Devline** into **Applications**.
 
 The app is ad hoc signed and not notarised by Apple, so macOS blocks the first launch. Open **System Settings → Privacy & Security** and choose **Open Anyway** (see [Apple's guidance](https://support.apple.com/en-us/102445)), or run `xattr -dr com.apple.quarantine /Applications/Devline.app`. The DMG's **Read Me** has the same instructions.
 
